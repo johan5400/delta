@@ -1,0 +1,943 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>DELTA — FOC 2026</title>
+<script>var FIREBASE_DB_URL='https://foc-2026-default-rtdb.europe-west1.firebasedatabase.app';</script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --bg:#0A0F1E;--panel:#111827;--panel2:#1F2937;--border:#2D3748;
+  --z1:#3B82F6;--z2:#10B981;--red:#EF4444;--orange:#F59E0B;
+  --green:#10B981;--text:#F9FAFB;--muted:#6B7280;--gold:#F59E0B;
+  --accent:#6366F1;
+  --ff:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+}
+
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;}
+#hdr{height:46px;background:#050810;border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 14px;gap:10px;flex-shrink:0;}
+#hdr-k{width:28px;height:28px;background:#C62828;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:900;color:#fff}
+#hdr-title{font-size:12px;font-weight:900;color:#fff}
+#conn-dot{width:6px;height:6px;border-radius:50%;background:var(--muted);margin-left:6px;flex-shrink:0}
+#conn-dot.ok{background:var(--green);box-shadow:0 0 5px #10B98199}
+#conn-dot.err{background:var(--red)}
+#conn-lbl{font-size:9px;color:var(--muted)}
+#hdr-clock{font-size:20px;font-weight:900;color:#fff;letter-spacing:2px;margin-left:auto;font-variant-numeric:tabular-nums}
+#body{height:calc(100vh - 46px);display:grid;grid-template-columns:1fr 320px 1fr;grid-template-rows:1fr 52px;}
+.zpanel{display:flex;flex-direction:column;overflow:hidden;border:1px solid transparent}
+.zpanel.z1{border-color:#3B82F633}.zpanel.z2{border-color:#10B98133}
+.zband{height:3px;flex-shrink:0}
+.z1 .zband{background:linear-gradient(90deg,#3B82F6,#1565C0)}
+.z2 .zband{background:linear-gradient(90deg,#10B981,#14532D)}
+.zhdr{padding:7px 12px;display:flex;align-items:center;gap:7px;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--panel)}
+.zlbl{font-size:10px;font-weight:900;letter-spacing:2px;text-transform:uppercase;padding:2px 8px;border-radius:20px}
+.z1 .zlbl{background:#3B82F622;color:#3B82F6;border:1px solid #3B82F644}
+.z2 .zlbl{background:#10B98122;color:#10B981;border:1px solid #10B98144}
+.zcat{font-size:12px;font-weight:800;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.zheat-lbl{font-size:9px;color:var(--muted);font-weight:700;white-space:nowrap}
+.wbar{padding:5px 12px;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--panel2);display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-height:30px}
+.wnom{font-size:11px;font-weight:800;color:#fff}
+.wtype{font-size:8px;padding:1px 6px;border-radius:8px;font-weight:800}
+.wcap{font-size:10px;font-weight:800;color:var(--orange)}
+.wnxt{font-size:8px;color:var(--muted);margin-left:auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:130px}
+.cwrap{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:6px;gap:5px;min-height:0}
+.chrono{font-size:clamp(52px,10vw,110px);font-weight:900;letter-spacing:2px;line-height:1;text-align:center;font-variant-numeric:tabular-nums;transition:color .3s}
+.chrono.idle{color:var(--muted)}.chrono.pre{color:var(--gold)}
+.chrono.live{color:var(--green)}.chrono.overtime,.chrono.tc{color:var(--orange);animation:blk .7s infinite alternate}
+.chrono.done{color:var(--red)}
+@keyframes blk{from{opacity:.55}to{opacity:1}}
+.cstate{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:2px;color:var(--muted);text-align:center}
+.progwrap{width:80%;max-width:240px;height:4px;background:var(--border);border-radius:2px;overflow:hidden;flex-shrink:0}
+.progfill{height:100%;border-radius:2px;transition:width .5s linear,background .5s}
+.scores-table{width:100%;flex-shrink:0;border-top:1px solid var(--border);overflow-y:auto;max-height:36%}
+.st-row{display:grid;grid-template-columns:22px 1fr auto auto auto;align-items:center;gap:5px;padding:4px 10px;border-bottom:1px solid #2D374808}
+.st-row.ok-row{background:#22C55510;border-left:2px solid var(--green)}
+.st-row.live-row{background:#22C55506}
+.st-ln{font-size:9px;font-weight:900;color:var(--muted);text-align:center}
+.st-team{font-size:11px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.st-reps{font-size:14px;font-weight:900;text-align:right;font-variant-numeric:tabular-nums}
+.st-ok{font-size:10px;text-align:center}
+.st-bar-wrap{grid-column:2/-1;height:2px;background:var(--border);border-radius:1px;margin-top:-2px;margin-bottom:1px}
+.st-bar-fill{height:100%;border-radius:1px;transition:width .4s}
+.zctrl{padding:6px 8px;border-top:1px solid var(--border);display:flex;gap:4px;align-items:center;flex-shrink:0;background:var(--panel2)}
+.cbtn{padding:4px 9px;border-radius:7px;border:none;font-size:9px;font-weight:800;cursor:pointer;font-family:inherit;transition:all .15s;white-space:nowrap}
+.cbtn:hover{filter:brightness(1.2);transform:translateY(-1px)}.cbtn:active{transform:scale(.96)}
+.cbtn:disabled{opacity:.25;cursor:not-allowed;transform:none!important;filter:none!important}
+.cbtn-pre{background:#FFD60A22;color:#FFD60A;border:1px solid #FFD60A44}
+.cbtn-go{background:linear-gradient(135deg,#14532D,#10B981);color:#000;font-weight:900}
+.cbtn-tc{background:#F59E0B22;color:#F59E0B;border:1px solid #F59E0B44}
+.cbtn-done{background:#EF444422;color:#EF4444;border:1px solid #EF444444}
+.cbtn-nxt{background:var(--panel);color:var(--muted);border:1px solid var(--border)}
+.csp{flex:1}
+.kbd{font-size:8px;color:#2D3748;line-height:1.9;padding:0 2px;white-space:nowrap}
+#center{border-left:1px solid var(--border);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;background:var(--panel)}
+#center-tabs{display:flex;border-bottom:1px solid var(--border);flex-shrink:0}
+.ctab{flex:1;padding:8px 4px;font-size:10px;font-weight:800;text-align:center;cursor:pointer;color:var(--muted);border:none;background:none;font-family:inherit;border-bottom:2px solid transparent;transition:all .15s}
+.ctab.active{color:#fff;border-bottom-color:#fff}
+#tab-live,#tab-cls{flex:1;overflow-y:auto;padding:6px}
+#tab-cls{display:none}
+.ls-cat-hdr{font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:1px;padding:4px 8px;border-radius:5px;margin:5px 0 3px;display:flex;align-items:center;gap:5px}
+.ls-row{display:grid;grid-template-columns:18px 1fr 56px 22px;align-items:center;gap:5px;padding:5px 8px;border-radius:7px;margin-bottom:2px;background:var(--panel2);border:1px solid var(--border);transition:all .2s}
+.ls-row.row-live{border-color:#22C55544;background:#22C55508}
+.ls-row.row-ok{border-color:var(--green);background:#22C55512}
+.ls-row.row-wait{opacity:.45}
+.ls-ln{font-size:9px;color:var(--muted);font-weight:700;text-align:center}
+.ls-team{font-size:11px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ls-score{font-size:14px;font-weight:900;text-align:right;font-variant-numeric:tabular-nums;color:var(--green)}
+.ls-score.wait{font-size:9px;color:var(--muted);font-weight:500}
+.ls-chk{font-size:11px;text-align:center}
+.ls-repbar{height:2px;background:var(--border);border-radius:1px;margin-top:2px;grid-column:1/-1}
+.ls-repfill{height:100%;border-radius:1px;background:var(--green);transition:width .4s}
+.cls-cat-hdr{font-size:10px;font-weight:900;padding:5px 8px 3px;color:#fff;display:flex;align-items:center;gap:5px;border-left:3px solid transparent;margin-bottom:3px}
+.cls-row{display:grid;grid-template-columns:20px 1fr auto;align-items:center;gap:5px;padding:5px 8px;border-radius:6px;margin-bottom:2px;background:var(--panel2);border:1px solid var(--border)}
+.cls-row.r1{background:#FFD60A12;border-color:#FFD60A33}
+.cls-row.r2{background:#94A3B810;border-color:#94A3B833}
+.cls-row.r3{background:#CD7F3210;border-color:#CD7F3233}
+.cls-rank{font-size:11px;font-weight:900;text-align:center;color:var(--muted)}
+.cls-rank.g{color:#FFD60A}.cls-rank.s{color:#94A3B8}.cls-rank.b{color:#CD7F32}
+.cls-team{font-size:11px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cls-detail{font-size:8px;color:var(--muted);grid-column:2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cls-pts{font-size:13px;font-weight:900;color:var(--orange);text-align:right}
+#launch-bar{grid-column:1/4;background:#040710;border-top:1px solid var(--border);padding:8px 16px;display:flex;align-items:center;gap:12px}
+#btn-launch{padding:10px 26px;border-radius:10px;border:none;background:linear-gradient(135deg,#1565C0,#10B981);color:#fff;font-size:14px;font-weight:900;cursor:pointer;font-family:inherit;box-shadow:0 3px 16px rgba(21,101,192,.4);transition:all .2s;white-space:nowrap}
+#btn-launch:hover{transform:translateY(-1px);filter:brightness(1.1)}
+#btn-launch.running{background:linear-gradient(135deg,#7F1D1D,#EF4444);box-shadow:0 3px 16px rgba(239,68,68,.35)}
+#auto-status{font-size:10px;color:var(--muted);flex:1;line-height:1.7}
+#auto-status b{color:var(--text)}
+#btn-urgence{padding:7px 14px;border-radius:7px;border:1.5px solid #EF444455;background:transparent;color:#EF4444;font-size:10px;font-weight:800;cursor:pointer;font-family:inherit;transition:all .2s}
+#btn-urgence:hover{background:#EF4444;color:#fff}
+#cd-overlay{display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.92);align-items:center;justify-content:center;flex-direction:column;gap:10px;backdrop-filter:blur(12px)}
+#cd-overlay.show{display:flex}
+#cd-zone{font-size:13px;font-weight:900;letter-spacing:4px;text-transform:uppercase}
+#cd-num{font-size:clamp(110px,20vw,190px);font-weight:900;line-height:1;animation:cdpop .5s ease-out}
+#cd-num.go{color:#10B981;font-size:clamp(70px,13vw,120px)}
+@keyframes cdpop{from{transform:scale(1.5);opacity:0}to{transform:scale(1);opacity:1}}
+#cd-wod{font-size:11px;color:var(--muted);letter-spacing:1px}
+#coup-overlay{display:none;position:fixed;inset:0;z-index:180;background:rgba(7,9,15,.96);align-items:center;justify-content:center;flex-direction:column;gap:14px}
+#coup-overlay.show{display:flex}
+#coup-timer{font-size:clamp(55px,9vw,100px);font-weight:900;color:#F59E0B;letter-spacing:2px;font-variant-numeric:tabular-nums}
+#coup-lbl{font-size:12px;color:var(--muted);letter-spacing:2px;text-transform:uppercase}
+#coup-txt{font-size:15px;font-weight:800;color:#fff}
+#coup-skip{margin-top:12px;padding:9px 22px;border-radius:9px;border:1.5px solid var(--border);background:transparent;color:var(--muted);font-size:10px;font-weight:800;cursor:pointer;font-family:inherit}
+#coup-skip:hover{border-color:#F59E0B;color:#F59E0B}
+#tk-toast{position:fixed;bottom:62px;left:50%;transform:translateX(-50%) translateY(70px);background:#1E3A6E;color:#fff;padding:7px 16px;border-radius:7px;font-size:10px;font-weight:700;z-index:300;transition:all .3s;opacity:0;white-space:nowrap}
+#tk-toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+::-webkit-scrollbar{width:3px;height:3px}::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+
+/* ═══ ETA TK ═══ */
+.eta-tk {
+  font-size: 9px;
+  font-weight: 800;
+  padding: 1px 6px;
+  border-radius: 8px;
+  background: rgba(245,158,11,.15);
+  color: #F59E0B;
+  border: 1px solid rgba(245,158,11,.3);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.eta-tk.fast { background: rgba(34,197,94,.15); color: #10B981; border-color: rgba(34,197,94,.3); }
+.eta-tk.slow { background: rgba(239,68,68,.15);  color: #EF4444;  border-color: rgba(239,68,68,.3);  }
+
+</style>
+</head>
+<body>
+<div id="hdr">
+  <div id="hdr-k">K</div>
+  <div id="hdr-title">⏱ TIME KEEPER · FOC 2026</div>
+  <div id="conn-dot"></div><span id="conn-lbl">…</span>
+  <div id="hdr-clock">--:--:--</div>
+</div>
+<div id="body">
+  <div class="zpanel z1">
+    <div class="zband"></div>
+    <div class="zhdr"><span class="zlbl">Zone 1</span><span class="zcat" id="z1-cat">En attente…</span><span class="zheat-lbl" id="z1-heat">—</span></div>
+    <div class="wbar"><span class="wnom" id="z1-wnom">—</span><span class="wtype" id="z1-wtype"></span><span class="wcap" id="z1-wcap"></span><span class="wnxt" id="z1-wnxt"></span></div>
+    <div class="cwrap">
+      <div class="chrono idle" id="z1-chrono">--:--</div>
+      <div class="cstate" id="z1-state">En attente</div>
+      <div class="progwrap"><div class="progfill" id="z1-prog" style="width:0%;background:#3B82F6"></div></div>
+    </div>
+    <div class="scores-table" id="z1-scores"></div>
+    <div class="zctrl">
+      <button class="cbtn cbtn-pre" id="z1-btn-pre" onclick="manualAction('z1','pre')">🟡 PRÉ</button>
+      <button class="cbtn cbtn-go"  id="z1-btn-go"  onclick="manualGo('z1')">▶ GO</button>
+      <button class="cbtn cbtn-tc"  id="z1-btn-tc"  onclick="manualAction('z1','timecap')">⏱ TC</button>
+      <button class="cbtn cbtn-done" id="z1-btn-done" onclick="manualAction('z1','done')">■ FIN</button>
+      <span class="csp"></span>
+      <button class="cbtn cbtn-nxt" onclick="manualNext('z1')">Suiv.▶</button>
+      <div class="kbd">Q·W·E·R·T</div>
+    </div>
+  </div>
+  <div id="center">
+    <div id="center-tabs">
+      <button class="ctab active" onclick="showTab('live')" id="ctab-live">📊 SCORES LIVE</button>
+      <button class="ctab" onclick="showTab('cls')" id="ctab-cls">🏆 CLASSEMENT</button>
+    </div>
+    <div style="flex:1;overflow:hidden;display:flex;flex-direction:column">
+      <div id="tab-live"></div>
+      <div id="tab-cls"></div>
+    </div>
+  </div>
+  <div class="zpanel z2">
+    <div class="zband"></div>
+    <div class="zhdr"><span class="zlbl">Zone 2</span><span class="zcat" id="z2-cat">En attente…</span><span class="zheat-lbl" id="z2-heat">—</span></div>
+    <div class="wbar"><span class="wnom" id="z2-wnom">—</span><span class="wtype" id="z2-wtype"></span><span class="wcap" id="z2-wcap"></span><span class="wnxt" id="z2-wnxt"></span></div>
+    <div class="cwrap">
+      <div class="chrono idle" id="z2-chrono">--:--</div>
+      <div class="cstate" id="z2-state">En attente</div>
+      <div class="progwrap"><div class="progfill" id="z2-prog" style="width:0%;background:#10B981"></div></div>
+    </div>
+    <div class="scores-table" id="z2-scores"></div>
+    <div class="zctrl">
+      <button class="cbtn cbtn-pre" id="z2-btn-pre" onclick="manualAction('z2','pre')">🟡 PRÉ</button>
+      <button class="cbtn cbtn-go"  id="z2-btn-go"  onclick="manualGo('z2')">▶ GO</button>
+      <button class="cbtn cbtn-tc"  id="z2-btn-tc"  onclick="manualAction('z2','timecap')">⏱ TC</button>
+      <button class="cbtn cbtn-done" id="z2-btn-done" onclick="manualAction('z2','done')">■ FIN</button>
+      <span class="csp"></span>
+      <button class="cbtn cbtn-nxt" onclick="manualNext('z2')">Suiv.▶</button>
+      <div class="kbd">A·S·D·F·G</div>
+    </div>
+  </div>
+  <div id="launch-bar">
+    <button id="btn-launch" onclick="tkLancerJournee()">🚀 LANCER LA JOURNÉE</button>
+    <button onclick="forceSyncFromFirebase()" style="padding:6px 14px;border-radius:8px;border:1px solid #1E2840;background:#111827;color:#94A3B8;font-size:10px;font-weight:800;cursor:pointer;font-family:inherit;margin-left:6px" title="Re-charger depuis Firebase">🔄 SYNC</button>
+    <button onclick="openTKSettings()" style="padding:6px 10px;border-radius:8px;border:1px solid #1E2840;background:#111827;color:#636366;font-size:14px;cursor:pointer;margin-left:4px" title="Paramètres">⚙️</button>
+    <div id="auto-status">Appuie sur <b>🚀 LANCER LA JOURNÉE</b> pour démarrer le pilote automatique. Z1 et Z2 s'enchaînent seuls.</div>
+    <button id="btn-urgence" onclick="urgence()">🚨 URGENCE</button>
+  </div>
+</div>
+<div id="cd-overlay"><div id="cd-zone"></div><div id="cd-num">3</div><div id="cd-wod"></div></div>
+<div id="coup-overlay"><div id="coup-lbl">COUPURE</div><div id="coup-txt"></div><div id="coup-timer">--:--</div><button id="coup-skip" onclick="skipCoupure()">Passer maintenant →</button></div>
+<div id="tk-toast"></div>
+<script>
+'use strict';
+var DB=null,ALL_HEATS={},ALL_SCORES={},ALL_STATUSES={};
+var AUTO_MODE=false,AUTO_PAUSED=false;
+var SEQ_Z1=[],SEQ_Z2=[],SEQ_IDX={z1:0,z2:0};
+var ZS={z1:{heatId:null,wodId:null,capSec:600,startTs:null,tcTs:null,interval:null},z2:{heatId:null,wodId:null,capSec:600,startTs:null,tcTs:null,interval:null}};
+var COUPURE={active:false,endTs:null,timer:null};
+var _autoInt=null,_cdTimer=null,_tab='live';
+
+(function(){
+  try{ firebase.initializeApp({databaseURL:FIREBASE_DB_URL}); DB=firebase.database(); }
+  catch(e){ setConn(false); return; }
+  DB.ref('.info/connected').on('value',function(s){setConn(!!s.val());});
+  DB.ref('heats').on('value',function(s){ ALL_HEATS=s.val()||{}; onUpdate(); });
+  DB.ref('scores').on('value',function(s){ ALL_SCORES=s.val()||{}; renderZone('z1'); renderZone('z2'); renderCenter(); });
+  DB.ref('statuses').on('value',function(s){ ALL_STATUSES=s.val()||{}; onUpdate(); });
+  // Listen for admin launch signal
+  initBroadcastListener();
+  DB.ref('meta/launchSignal').on('value', function(s) {
+    var sig = s.val();
+    if (!sig || !sig.autoMode) return;
+    // Auto-start TK if signal is recent (< 30s) and we're not already running
+    if (Date.now() - (sig.ts||0) < 30000 && !AUTO_MODE) {
+      setTimeout(function() {
+        buildSeq();
+        if (SEQ_Z1.length + SEQ_Z2.length > 0) {
+          startAuto();
+          tkToast('🚀 Démarrage auto depuis admin !', '#10B981');
+        }
+      }, 500);
+    }
+  });
+})();
+
+function onUpdate(){ buildSeq(); renderZone('z1'); renderZone('z2'); renderCenter(); if(AUTO_MODE) autoTick(); }
+
+function buildSeq(){
+  SEQ_Z1=[]; SEQ_Z2=[];
+  var ids=Object.keys(ALL_HEATS).map(Number).sort(function(a,b){return a-b;});
+  var steps=[];
+
+  ids.forEach(function(hid){
+    var h=ALL_HEATS[hid];
+    if(!h||!h.lanes||!Object.keys(h.lanes).length) return;
+
+    // Utiliser wodsList si disponible (nouveau format) sinon fallback sur horaires
+    if(h.wodsList && h.wodsList.length){
+      h.wodsList.forEach(function(ws){
+        if(ws.debut===undefined) return;
+        var cap = ws.capSec || (ws.wodInfo ? (ws.wodInfo.capMinutes||10)*60+(ws.wodInfo.capSeconds||0) : 600);
+        var wi  = ws.wodInfo || h.wodInfo || {};
+        steps.push({
+          zone:         ws.zone || (h.wodZones&&h.wodZones[ws.wodId]!==undefined?h.wodZones[ws.wodId]:(h.catZone||1)),
+          heatId:       hid,
+          wodId:        ws.wodId,
+          debut:        ws.debut,
+          fin:          ws.fin,
+          capSec:       cap,
+          catName:      h.catName||h.catNom||'—',
+          catColor:     h.catColor||h.catCouleur||'#888',
+          catJour:      h.catJour||1,
+          catOrdre:     h.catOrdre||99,
+          catHeatNum:   h.catHeatNum||1,
+          nbHeatsTotal: h.nbHeatsTotal||1,
+          wodNom:       (wi.nom||ws.wodNom||'WOD'),
+          wodInfo:      wi
+        });
+      });
+    } else if(h.horaires){
+      // Fallback : ancien format
+      Object.keys(h.horaires).forEach(function(wk){
+        var hor=h.horaires[wk]; if(!hor||hor.debut===undefined) return;
+        var wid=parseInt(wk)||wk;
+        var zone=(h.wodZones&&h.wodZones[wid]!==undefined)?h.wodZones[wid]:(h.catZone||1);
+        var capSec=hor.capSec||(h.wodInfo?((h.wodInfo.capMinutes||10)*60+(h.wodInfo.capSeconds||0)):600);
+        steps.push({
+          zone:zone,heatId:hid,wodId:wid,debut:hor.debut,fin:hor.fin,capSec:capSec,
+          catName:h.catName||h.catNom||'—',catColor:h.catColor||h.catCouleur||'#888',
+          catJour:h.catJour||1,catOrdre:h.catOrdre||99,
+          catHeatNum:h.catHeatNum||1,nbHeatsTotal:h.nbHeatsTotal||1,
+          wodNom:hor.wodNom||(h.wodInfo?h.wodInfo.nom:'WOD')||'WOD',
+          wodInfo:h.wodInfo||{}
+        });
+      });
+    }
+  });
+
+  // Trier : d'abord par heure de début, puis par zone, puis par ordre catégorie
+  steps.sort(function(a,b){
+    if(a.debut!==b.debut) return a.debut-b.debut;
+    if(a.catOrdre!==b.catOrdre) return a.catOrdre-b.catOrdre;
+    return a.catHeatNum-b.catHeatNum;
+  });
+
+  steps.forEach(function(s){if(s.zone===1)SEQ_Z1.push(s);else SEQ_Z2.push(s);});
+}
+
+function toggleAuto(){AUTO_MODE?stopAuto():startAuto();}
+function startAuto(){
+  if(!Object.keys(ALL_HEATS).length){tkToast('❌ Aucun heat Firebase','#EF4444');return;}
+  buildSeq();
+  if(!SEQ_Z1.length&&!SEQ_Z2.length){tkToast('❌ Aucun horaire — cliquez GÉNÉRER','#EF4444');return;}
+  AUTO_MODE=true;
+  SEQ_IDX.z1=findResume('z1'); SEQ_IDX.z2=findResume('z2');
+  var b=document.getElementById('btn-launch');
+  b.textContent='⏹ ARRÊTER L\'AUTO'; b.className='running';
+  tkToast('🚀 Auto activé — '+(SEQ_Z1.length+SEQ_Z2.length)+' étapes','#10B981');
+  autoTick();
+}
+function stopAuto(){
+  AUTO_MODE=false; AUTO_PAUSED=false;
+  if(_autoInt){clearInterval(_autoInt);_autoInt=null;}
+  var b=document.getElementById('btn-launch');
+  b.textContent='🚀 LANCER LA JOURNÉE'; b.className='';
+  setAutoSt('Auto arrêté — contrôle manuel');
+}
+function findResume(zk){
+  var seq=zk==='z1'?SEQ_Z1:SEQ_Z2;
+  for(var i=0;i<seq.length;i++){
+    var st=ALL_STATUSES[seq[i].heatId]||(ALL_HEATS[seq[i].heatId]&&ALL_HEATS[seq[i].heatId].status)||'pending';
+    if(st!=='done') return i;
+  }
+  return seq.length;
+}
+function autoTick(){
+  if(_autoInt) clearInterval(_autoInt);
+  if(!AUTO_MODE) return;
+  _autoInt=setInterval(function(){
+    if(!AUTO_MODE){clearInterval(_autoInt);return;}
+    if(!AUTO_PAUSED){procZone('z1');procZone('z2');}
+    updAutoSt();
+  },1000);
+  if(!AUTO_PAUSED){procZone('z1');procZone('z2');}
+  updAutoSt();
+}
+function procZone(zk){
+  var seq=zk==='z1'?SEQ_Z1:SEQ_Z2, idx=SEQ_IDX[zk];
+  if(idx>=seq.length) return;
+  var step=seq[idx], zs=ZS[zk];
+  var st=ALL_STATUSES[step.heatId]||(ALL_HEATS[step.heatId]&&ALL_HEATS[step.heatId].status)||'pending';
+  var now=nowMin();
+  if(st==='pending'){
+    if(now>=step.debut-.5){
+      fbSet(step.heatId,'pre');
+      zs.heatId=step.heatId; zs.wodId=step.wodId;
+      zs.capSec=step.capSec||600;
+      renderZone(zk);
+    }
+    return;
+  }
+  if(st==='pre'){
+    if(now>=step.debut){
+      doCD(zk,step,function(){
+        fbSet(step.heatId,'live');
+        zs.startTs=Date.now();
+        zs.capSec=step.capSec||600;
+        startChrono(zk); renderZone(zk);
+      });
+    }
+    return;
+  }
+  if(st==='live'){
+    if(!zs.startTs) zs.startTs=Date.now();
+    var cap=zs.capSec||step.capSec||600;
+    if((Date.now()-zs.startTs)/1000>=cap+30){fbSet(step.heatId,'done'); zs.startTs=null; renderZone(zk);}
+    return;
+  }
+  if(st==='timecap'){
+    if(!zs.tcTs) zs.tcTs=Date.now();
+    if((Date.now()-zs.tcTs)/1000>=30){fbSet(step.heatId,'done'); zs.tcTs=null; renderZone(zk);}
+    return;
+  }
+  if(st==='done'){
+    zs.tcTs=null;
+    var ni=idx+1;
+    if(ni<seq.length&&seq[ni].debut-step.fin>=10&&!COUPURE.active) startCoupure((seq[ni].debut-step.fin)*60,'Pause entre blocs');
+    SEQ_IDX[zk]=ni;
+    if(ni<seq.length){var ns=seq[ni]; zs.heatId=ns.heatId; zs.wodId=ns.wodId; zs.capSec=ns.capSec; zs.startTs=null; zs.tcTs=null;}
+    renderZone(zk);
+  }
+}
+
+function startChrono(zk){
+  var zs=ZS[zk]; if(zs.interval) clearInterval(zs.interval);
+  zs.interval=setInterval(function(){tickChrono(zk); if(ALL_HEATS[zs.heatId]) renderZScores(zk, zs.heatId, ALL_HEATS[zs.heatId]);},1000);
+}
+function tickChrono(zk){
+  var zs=ZS[zk];
+  var el=document.getElementById(zk+'-chrono'), sub=document.getElementById(zk+'-state'), prg=document.getElementById(zk+'-prog');
+  var zc=zk==='z1'?'#3B82F6':'#10B981';
+  var hid=zs.heatId;
+  var st=hid?(ALL_STATUSES[hid]||(ALL_HEATS[hid]&&ALL_HEATS[hid].status)||'pending'):'idle';
+  if(st==='live'&&zs.startTs){
+    var el2=(Date.now()-zs.startTs)/1000, cap=zs.capSec||600, rem=cap-el2, over=rem<0;
+    el.textContent=s2t(over?-rem:rem); el.className='chrono '+(over?'overtime':'live');
+    sub.textContent=over?'+'+s2t(-rem)+' après TC':s2t(rem)+' restant';
+    var pct=Math.min(100,el2/cap*100);
+    prg.style.width=pct+'%'; prg.style.background=pct<70?zc:pct<90?'#F59E0B':'#EF4444';
+  } else if(st==='timecap'){el.textContent='TC';el.className='chrono tc';sub.textContent='TIMECAP';prg.style.width='100%';prg.style.background='#F59E0B';
+  } else if(st==='done'){el.textContent='✓';el.className='chrono done';sub.textContent='TERMINÉ';prg.style.width='100%';prg.style.background='#EF4444';
+  } else if(st==='pre'){el.textContent='PRÉ';el.className='chrono pre';sub.textContent='En position';prg.style.width='0%';prg.style.background=zc;
+  } else {el.textContent='--:--';el.className='chrono idle';sub.textContent=hid?'En attente':'—';prg.style.width='0%';prg.style.background=zc;}
+}
+
+function renderZone(zk){
+  var zs=ZS[zk];
+  if(!zs.heatId){var seq=zk==='z1'?SEQ_Z1:SEQ_Z2,idx=SEQ_IDX[zk]; if(idx<seq.length){var s=seq[idx]; zs.heatId=s.heatId; zs.wodId=s.wodId; zs.capSec=s.capSec;}}
+  var hid=zs.heatId, h=hid?ALL_HEATS[hid]:null;
+  var st=hid?(ALL_STATUSES[hid]||(h&&h.status)||'pending'):'idle';
+  document.getElementById(zk+'-cat').textContent=h?(h.catName||h.catNom||'—'):(zk==='z1'?'Zone 1':'Zone 2');
+  document.getElementById(zk+'-heat').textContent=h?('Heat #'+hid+' · '+(h.catHeatNum||1)+'/'+(h.nbHeatsTotal||1)):'—';
+
+  // Utiliser le wodInfo du step courant (WOD actif pour ce heat dans cette zone)
+  var seq=zk==='z1'?SEQ_Z1:SEQ_Z2;
+  var curStep=seq[SEQ_IDX[zk]];
+  var wi=(curStep&&curStep.wodInfo)?curStep.wodInfo:(h&&h.wodInfo?h.wodInfo:{});
+
+  document.getElementById(zk+'-wnom').textContent=wi.nom||(curStep?curStep.wodNom:'—')||'—';
+  var tmap={amrap:'AMRAP',fortime:'FOR TIME',rounds:'ROUNDS',emom:'EMOM',tabata:'TABATA',maxload:'MAX LOAD'};
+  var tlbl=tmap[wi.wodFormat||wi.type||'']||''; var twt=document.getElementById(zk+'-wtype'); twt.textContent=tlbl;
+  var tc={AMRAP:'background:#3B82F622;color:#60A5FA','FOR TIME':'background:#22C55522;color:#4ADE80',ROUNDS:'background:#7C3AED22;color:#A78BFA','MAX LOAD':'background:#F9731622;color:#FB923C'};
+  twt.style.cssText=(tc[tlbl]||'background:#ffffff10;color:#94A3B8')+';padding:1px 6px;border-radius:8px;font-weight:800;font-size:8px';
+
+  // Cap : prendre du step courant en priorité, puis wodInfo, puis fallback
+  var cap=curStep?curStep.capSec:((wi.capMinutes||0)*60+(wi.capSeconds||0));
+  zs.capSec=cap||zs.capSec||600;
+  document.getElementById(zk+'-wcap').textContent=zs.capSec?'⏱ '+s2t(zs.capSec):'';
+
+  // Zone du step courant
+  var curZoneColor = (curStep&&curStep.zone===2)?'var(--z2)':'var(--z1)';
+  var progEl=document.getElementById(zk+'-prog'); if(progEl) progEl.style.background=curZoneColor;
+
+  // Prochain heat
+  var ni=SEQ_IDX[zk]+1;
+  document.getElementById(zk+'-wnxt').textContent=ni<seq.length
+    ?'→ '+seq[ni].catName+' · '+(seq[ni].wodNom||'')+ ' ('+m2t(seq[ni].debut)+')'
+    :'';
+  tickChrono(zk);
+  if(st==='live'&&!zs.interval) startChrono(zk);
+  renderZScores(zk,hid,h);
+  var has=!!hid;
+  function db(id,dis){var e=document.getElementById(zk+'-btn-'+id);if(e)e.disabled=dis;}
+  db('pre',!has||st==='live'||st==='timecap'||st==='done');
+  db('go',!has||st==='live'||st==='done');
+  db('tc',!has||st!=='live');
+  db('done',!has||st==='done');
+}
+
+function renderZScores(zk,hid,h){
+  var el=document.getElementById(zk+'-scores'); if(!el) return;
+  if(!h||!h.lanes||!hid){el.innerHTML='';return;}
+  var wi=h.wodInfo||{}, zc=zk==='z1'?'#3B82F6':'#10B981';
+  var lanes=Object.keys(h.lanes).sort(function(a,b){return parseInt(a)-parseInt(b);});
+  var maxR=0; lanes.forEach(function(ln){var sc=ALL_SCORES[hid+'_'+ln];if(sc){var v=sc.value||sc.reps||0;if(v>maxR)maxR=v;}});
+  el.innerHTML=lanes.map(function(ln){
+    var lane=h.lanes[ln]||{}, sc=ALL_SCORES[hid+'_'+ln];
+    var isOk=sc&&sc.judgeOk, val=sc?fmtSc(sc,wi):null, reps=sc?(sc.value||sc.reps||0):0;
+    var pct=maxR>0?Math.min(100,reps/maxR*100):0;
+    var cls=isOk?' ok-row':sc?' live-row':'';
+    return '<div class="st-row'+cls+'">'
+      +'<span class="st-ln">L'+ln+'</span>'
+      +'<span class="st-team">'+(lane.teamName||'—')+'</span>'
+      +(function(){var zs2=ZS[zk]||{};var etaTK2=computeTKETA(sc,wi,zs2);return etaTK2?'<span class="eta-tk '+etaTK2.cls+'">⏱'+s2t(etaTK2.sec)+'</span>':'';})()
+      +(val?'<span class="st-reps" style="color:'+(isOk?'#10B981':zc)+'">'+val+'</span>':'<span class="st-reps" style="font-size:9px;color:var(--muted)">—</span>')
+      +'<span class="st-ok">'+(isOk?'✅':sc?'⏳':'')+'</span>'
+      +(reps>0?'<div class="st-bar-wrap"><div class="st-bar-fill" style="width:'+pct+'%;background:'+zc+'"></div></div>':'');
+  }).join('');
+}
+
+function showTab(t){
+  _tab=t;
+  ['live','cls'].forEach(function(id){
+    var el=document.getElementById('tab-'+id); if(el) el.style.display=id===t?'':'none';
+    var bt=document.getElementById('ctab-'+id); if(bt) bt.classList.toggle('active',id===t);
+  });
+  renderCenter();
+}
+function renderCenter(){if(_tab==='live')renderLive();else renderCls();}
+
+function renderLive(){
+  var el=document.getElementById('tab-live'); if(!el) return;
+  var liveH=[];
+  Object.keys(ALL_HEATS).forEach(function(hid){
+    var h=ALL_HEATS[hid], st=ALL_STATUSES[hid]||(h&&h.status)||'pending';
+    if(st==='live'||st==='pre'||st==='timecap') liveH.push({hid:parseInt(hid),h:h,st:st});
+  });
+  liveH.sort(function(a,b){return a.hid-b.hid;});
+  if(!liveH.length){el.innerHTML='<div style="text-align:center;padding:32px;color:var(--muted);font-size:11px">Aucun heat en cours</div>';return;}
+  var html='';
+  liveH.forEach(function(item){
+    var hid=item.hid,h=item.h,st=item.st,wi=h.wodInfo||{};
+    var cc=h.catColor||h.catCouleur||'#888', zone=h.catZone||1, zc=zone===1?'#3B82F6':'#10B981';
+    var icons={live:'🔴',pre:'🟡',timecap:'⏱'};
+    html+='<div class="ls-cat-hdr" style="background:'+cc+'22;color:'+cc+';border:1px solid '+cc+'44">'
+      +'<span>'+(icons[st]||'')+' '+(h.catName||h.catNom||'—')+'</span>'
+      +'<span style="font-size:9px;background:'+zc+'22;color:'+zc+';border-radius:4px;padding:1px 6px">Z'+zone+'</span>'
+      +'<span style="margin-left:auto;font-size:9px;color:var(--muted)">#'+hid+'</span>'
+      +'<span style="font-size:9px;color:#F59E0B">'+s2t((wi.capMinutes||10)*60)+'</span>'
+      +'</div>';
+    if(!h.lanes){html+='<div style="padding:3px 8px;font-size:9px;color:var(--muted)">Pas de lanes</div>';return;}
+    var lanes=Object.keys(h.lanes).sort(function(a,b){return parseInt(a)-parseInt(b);});
+    var maxR=0; lanes.forEach(function(ln){var sc=ALL_SCORES[hid+'_'+ln];if(sc){var v=sc.value||sc.reps||0;if(v>maxR)maxR=v;}});
+    lanes.forEach(function(ln){
+      var lane=h.lanes[ln]||{}, sc=ALL_SCORES[hid+'_'+ln];
+      var isOk=sc&&sc.judgeOk, val=sc?fmtSc(sc,wi):null, reps=sc?(sc.value||sc.reps||0):0;
+      var pct=maxR>0?Math.min(100,reps/maxR*100):0;
+      var rc=isOk?' row-ok':sc?' row-live':' row-wait';
+      html+='<div class="ls-row'+rc+'">'
+        +'<span class="ls-ln">L'+ln+'</span>'
+        +'<span class="ls-team">'+(lane.teamName||'—')+'</span>'
+        +(val?'<span class="ls-score"'+(isOk?' style="color:#10B981"':'')+'>'+val+'</span>':'<span class="ls-score wait">—</span>')
+        +'<span class="ls-chk">'+(isOk?'✅':sc?'⏳':'')+'</span>'
+        +(reps>0?'<div class="ls-repbar"><div class="ls-repfill" style="width:'+pct+'%;background:'+zc+'"></div></div>':'')
+        +'</div>';
+    });
+  });
+  el.innerHTML=html;
+}
+
+function renderCls(){
+  var el=document.getElementById('tab-cls'); if(!el) return;
+  var cats={};
+  Object.keys(ALL_HEATS).forEach(function(hid){
+    var h=ALL_HEATS[hid]; if(!h) return;
+    var cid=h.catId||h.catNom;
+    if(!cats[cid]) cats[cid]={nom:h.catName||h.catNom||'—',color:h.catColor||h.catCouleur||'#888',heats:[]};
+    cats[cid].heats.push(parseInt(hid));
+  });
+  var html='';
+  Object.keys(cats).forEach(function(cid){
+    var cat=cats[cid], teams={};
+    cat.heats.forEach(function(hid){
+      var h=ALL_HEATS[hid]; if(!h||!h.lanes) return;
+      var wi=h.wodInfo||{}, isTime=wi.scoreType==='time';
+      var hsc=[];
+      Object.keys(h.lanes).forEach(function(ln){
+        var sc=ALL_SCORES[hid+'_'+ln]; if(!sc) return;
+        var v=sc.value||sc.reps||0; if(!v) return;
+        hsc.push({team:h.lanes[ln].teamName||'?',val:v,disp:fmtSc(sc,wi)});
+      });
+      if(!hsc.length) return;
+      hsc.sort(function(a,b){return isTime?a.val-b.val:b.val-a.val;});
+      hsc.forEach(function(s,i){
+        if(!teams[s.team]) teams[s.team]={pts:0,wods:[]};
+        teams[s.team].pts+=Math.max(hsc.length-i,1);
+        teams[s.team].wods.push('#'+(i+1)+' '+s.disp);
+      });
+    });
+    var arr=Object.entries(teams).sort(function(a,b){return b[1].pts-a[1].pts;});
+    if(!arr.length) return;
+    html+='<div class="cls-cat-hdr" style="background:'+cat.color+'18;border-left-color:'+cat.color+'">'
+      +'<div style="width:7px;height:7px;border-radius:2px;background:'+cat.color+'"></div>'
+      +cat.nom+'</div>';
+    arr.forEach(function(e,i){
+      var rc=i===0?'r1':i===1?'r2':i===2?'r3':'';
+      var rbg=i===0?'#FFD60A12':i===1?'#94A3B810':i===2?'#CD7F3210':'var(--panel2)';
+      var rbd=i===0?'#FFD60A33':i===1?'#94A3B833':i===2?'#CD7F3233':'var(--border)';
+      var rk=i===0?'g':i===1?'s':i===2?'b':'';
+      html+='<div class="cls-row'+(rc?' '+rc:'')+'" style="background:'+rbg+';border-color:'+rbd+'">'
+        +'<span class="cls-rank'+(rk?' '+rk:'')+'">'+(i+1)+'</span>'
+        +'<div><div class="cls-team">'+e[0]+'</div><div class="cls-detail">'+e[1].wods.slice(0,3).join(' · ')+'</div></div>'
+        +'<span class="cls-pts">'+e[1].pts+'<span style="font-size:8px;color:var(--muted)"> pts</span></span>'
+        +'</div>';
+    });
+    html+='<div style="height:6px"></div>';
+  });
+  el.innerHTML=html||'<div style="text-align:center;padding:32px;color:var(--muted);font-size:11px">Aucun score enregistré</div>';
+}
+
+function manualAction(zk,action){
+  var zs=ZS[zk]; if(!zs.heatId){tkToast('Aucun heat','#F59E0B');return;}
+  if(action==='live'){zs.startTs=Date.now();zs.tcTs=null;startChrono(zk);}
+  if(action==='timecap') zs.tcTs=Date.now();
+  fbSet(zs.heatId,action); renderZone(zk);
+}
+function manualGo(zk){
+  var zs=ZS[zk]; if(!zs.heatId){tkToast('Aucun heat','#F59E0B');return;}
+  var seq=zk==='z1'?SEQ_Z1:SEQ_Z2, step=seq[SEQ_IDX[zk]]||{catName:'',debut:0};
+  doCD(zk,step,function(){manualAction(zk,'live');});
+}
+function manualNext(zk){
+  var seq=zk==='z1'?SEQ_Z1:SEQ_Z2;
+  SEQ_IDX[zk]=Math.min(SEQ_IDX[zk]+1,seq.length-1);
+  var s=seq[SEQ_IDX[zk]];
+  if(s){var zs=ZS[zk];zs.heatId=s.heatId;zs.wodId=s.wodId;zs.capSec=s.capSec;zs.startTs=null;zs.tcTs=null;}
+  renderZone(zk); tkToast('→ Heat #'+(s?s.heatId:'?'));
+}
+function urgence(){
+  if(!confirm('🚨 ARRÊT URGENCE ?')) return;
+  stopAuto();
+  // Forcer la fermeture de l'overlay coupure
+  if(COUPURE.timer){ clearInterval(COUPURE.timer); COUPURE.timer=null; }
+  COUPURE={active:false,endTs:null,timer:null}; AUTO_PAUSED=false;
+  var ov=document.getElementById('coup-overlay');
+  if(ov){ ov.classList.remove('show'); ov.style.display='none'; }
+  // Stopper les chronos
+  ['z1','z2'].forEach(function(zk){
+    var zs=ZS[zk]; if(zs.interval){clearInterval(zs.interval);zs.interval=null;} zs.startTs=null;
+    var st=zs.heatId?ALL_STATUSES[zs.heatId]:null;
+    if(st==='live'||st==='pre') fbSet(zs.heatId,'pending');
+    renderZone(zk);
+  });
+  if(DB) DB.ref('urgence').set({active:true,ts:Date.now()}).catch(function(){});
+  tkToast('🚨 URGENCE — Tout suspendu','#EF4444');
+}
+function startCoupure(dur,txt){
+  if(COUPURE.active) return;
+  COUPURE={active:true,endTs:Date.now()+dur*1000,timer:null};
+  AUTO_PAUSED=true;
+  document.getElementById('coup-txt').textContent=txt||'';
+  document.getElementById('coup-overlay').classList.add('show');
+  COUPURE.timer=setInterval(function(){
+    var r=(COUPURE.endTs-Date.now())/1000;
+    document.getElementById('coup-timer').textContent=s2t(Math.max(0,r));
+    if(r<=0) skipCoupure();
+  },500);
+}
+function skipCoupure(){
+  if(COUPURE.timer){ clearInterval(COUPURE.timer); COUPURE.timer=null; }
+  COUPURE={active:false,endTs:null,timer:null};
+  AUTO_PAUSED=false;
+  var ov=document.getElementById('coup-overlay');
+  if(ov){ ov.classList.remove('show'); ov.style.display='none'; }
+  tkToast('▶ Reprise');
+}
+
+// Réinitialise l'overlay coupure au démarrage (au cas où il serait resté affiché)
+(function resetCoupureOnLoad(){
+  var ov=document.getElementById('coup-overlay');
+  if(ov){ ov.classList.remove('show'); ov.style.display='none'; }
+})();
+function doCD(zk,step,cb){
+  if(document.getElementById('cd-overlay').classList.contains('show')){cb();return;}
+  var zc=zk==='z1'?'#3B82F6':'#10B981', ov=document.getElementById('cd-overlay');
+  var numEl=document.getElementById('cd-num');
+  document.getElementById('cd-zone').textContent='ZONE '+(zk==='z1'?'1':'2');
+  document.getElementById('cd-zone').style.color=zc;
+  var h=step.heatId?ALL_HEATS[step.heatId]:null;
+  document.getElementById('cd-wod').textContent=step.catName+(h&&h.wodInfo?' · '+h.wodInfo.nom:'');
+  ov.classList.add('show'); var c=3; numEl.className=''; numEl.style.color='#fff'; numEl.textContent=c;
+  if(_cdTimer) clearInterval(_cdTimer);
+  _cdTimer=setInterval(function(){
+    c--;
+    if(c>0){numEl.textContent=c;numEl.style.animation='none';void numEl.offsetWidth;numEl.style.animation='cdpop .5s ease-out';}
+    else if(c===0){numEl.textContent='GO !';numEl.className='go';numEl.style.animation='none';void numEl.offsetWidth;numEl.style.animation='cdpop .4s ease-out';cb();}
+    else{clearInterval(_cdTimer);ov.classList.remove('show');}
+  },1000);
+}
+function updAutoSt(){
+  if(!AUTO_MODE) return;
+  var p=[];
+  ['z1','z2'].forEach(function(zk){
+    var seq=zk==='z1'?SEQ_Z1:SEQ_Z2,idx=SEQ_IDX[zk];
+    if(idx>=seq.length){p.push('Z'+(zk==='z1'?'1':'2')+' : <b style="color:#10B981">Terminée ✓</b>');}
+    else{var s=seq[idx],st=ALL_STATUSES[s.heatId]||'pending',ic={pending:'⏳',pre:'🟡',live:'🔴',timecap:'⏱',done:'✅'};
+      p.push('Z'+(zk==='z1'?'1':'2')+' : <b>'+s.catName+'</b> #'+s.heatId+' · '+ic[st]+' '+m2t(s.debut));}
+  });
+  setAutoSt(p.join(' &nbsp;·&nbsp; '));
+}
+function setAutoSt(h){var e=document.getElementById('auto-status');if(e)e.innerHTML=h;}
+function fbSet(hid,st){if(!DB||!hid)return;ALL_STATUSES[hid]=st;if(ALL_HEATS[hid])ALL_HEATS[hid].status=st;DB.ref('statuses/'+hid).set(st).catch(function(){});DB.ref('heats/'+hid+'/status').set(st).catch(function(){});}
+function setConn(ok){var d=document.getElementById('conn-dot'),l=document.getElementById('conn-lbl');if(d)d.className=ok?'ok':'err';if(l){l.textContent=ok?'Firebase OK':'Déconnecté';l.style.color=ok?'#10B981':'#EF4444';}}
+function nowMin(){var d=new Date();return d.getHours()*60+d.getMinutes()+d.getSeconds()/60;}
+function s2t(s){s=Math.max(0,Math.round(s||0));var m=Math.floor(s/60),ss=s%60;return(m<10?'0':'')+m+':'+(ss<10?'0':'')+ss;}
+function m2t(m){var h=Math.floor(m/60)%24,mn=Math.round(m%60);return(h<10?'0':'')+h+'h'+(mn<10?'0':'')+mn;}
+function fmtSc(sc,wi){if(!sc)return null;var v=sc.value||sc.reps||0;if(!v&&v!==0)return null;var t=(wi&&wi.scoreType)||sc.type||'reps';if(t==='time'&&sc.finalTime>0){var m2=Math.floor(sc.finalTime/60),s2=Math.round(sc.finalTime%60);return m2+':'+String(s2).padStart(2,'0');}if(t==='load')return v+'kg';if(t==='dist')return v+'m';return String(Math.round(v));}
+function tkToast(msg,col){var e=document.getElementById('tk-toast');if(!e)return;e.textContent=msg;e.style.background=col||'#1E3A6E';e.classList.add('show');clearTimeout(tkToast._t);tkToast._t=setTimeout(function(){e.classList.remove('show');},2800);}
+setInterval(function(){var d=new Date(),p=function(n){return n<10?'0'+n:String(n);};var e=document.getElementById('hdr-clock');if(e)e.textContent=p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds());},500);
+setInterval(function(){if(_tab==='cls')renderCls();else renderLive();},3000);
+document.addEventListener('keydown',function(e){
+  if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA') return;
+  var map={'q':function(){manualAction('z1','pre');},'w':function(){manualGo('z1');},'e':function(){manualAction('z1','timecap');},'r':function(){manualAction('z1','done');},'t':function(){manualNext('z1');},'a':function(){manualAction('z2','pre');},'s':function(){manualGo('z2');},'d':function(){manualAction('z2','timecap');},'f':function(){manualAction('z2','done');},'g':function(){manualNext('z2');},' ':function(){e.preventDefault();toggleAuto();}};
+  var fn=map[e.key.toLowerCase()]; if(fn){e.preventDefault();fn();}
+});
+
+// ═══ SYNC forcée depuis Firebase ═══
+function forceSyncFromFirebase() {
+  if (!DB) { tkToast('❌ Firebase non connecté', '#EF4444'); return; }
+  tkToast('🔄 Re-sync depuis Firebase…', '#F59E0B');
+  DB.ref('heats').once('value').then(function(s) {
+    ALL_HEATS = s.val() || {};
+    return DB.ref('statuses').once('value');
+  }).then(function(s) {
+    ALL_STATUSES = s.val() || {};
+    return DB.ref('scores').once('value');
+  }).then(function(s) {
+    ALL_SCORES = s.val() || {};
+    buildSeq();
+    renderZone('z1'); renderZone('z2'); renderCenter();
+    var nb = Object.keys(ALL_HEATS).length;
+    tkToast('✅ Sync OK — ' + nb + ' heats chargés', '#10B981');
+  }).catch(function(e) {
+    tkToast('❌ Erreur sync: ' + e.message, '#EF4444');
+  });
+}
+
+// ═══ Settings modal ═══
+function openTKSettings() {
+  var old = document.getElementById('_tk-settings-modal');
+  if (old) { old.remove(); return; }
+
+  var m = document.createElement('div');
+  m.id = '_tk-settings-modal';
+  m.style.cssText = 'position:fixed;top:54px;right:14px;z-index:999;background:#111827;border:1px solid #1E2840;border-radius:12px;padding:16px;width:260px;box-shadow:0 8px 30px rgba(0,0,0,.6)';
+
+  // Title
+  var title = document.createElement('div');
+  title.style.cssText = 'font-size:11px;font-weight:900;color:#636366;letter-spacing:2px;text-transform:uppercase;margin-bottom:12px';
+  title.textContent = '⚙️ PARAMÈTRES TK';
+  m.appendChild(title);
+
+  // Sound checkbox
+  var lbl1 = document.createElement('label');
+  lbl1.style.cssText = 'display:flex;align-items:center;gap:10px;margin-bottom:10px;cursor:pointer;font-size:12px;color:#F9FAFB';
+  var cb1 = document.createElement('input');
+  cb1.type = 'checkbox'; cb1.id = 'tk-sound';
+  cb1.style.cssText = 'width:16px;height:16px;accent-color:#10B981';
+  cb1.checked = !!TK_SOUND;
+  cb1.onchange = function() { TK_SOUND = this.checked; };
+  lbl1.appendChild(cb1);
+  lbl1.appendChild(document.createTextNode('Son (beep countdown)'));
+  m.appendChild(lbl1);
+
+  // Auto countdown checkbox
+  var lbl2 = document.createElement('label');
+  lbl2.style.cssText = 'display:flex;align-items:center;gap:10px;margin-bottom:10px;cursor:pointer;font-size:12px;color:#F9FAFB';
+  var cb2 = document.createElement('input');
+  cb2.type = 'checkbox'; cb2.id = 'tk-autostart';
+  cb2.style.cssText = 'width:16px;height:16px;accent-color:#10B981';
+  cb2.checked = !!AUTO_COUNTDOWN;
+  cb2.onchange = function() { AUTO_COUNTDOWN = this.checked; };
+  lbl2.appendChild(cb2);
+  lbl2.appendChild(document.createTextNode('Countdown auto 3-2-1'));
+  m.appendChild(lbl2);
+
+  // Inter-heat section
+  var sep = document.createElement('div');
+  sep.style.cssText = 'border-top:1px solid #1E2840;padding-top:10px;margin-top:4px';
+  var lbl3 = document.createElement('div');
+  lbl3.style.cssText = 'font-size:10px;color:#636366;margin-bottom:6px';
+  lbl3.textContent = 'Inter-heat par défaut';
+  sep.appendChild(lbl3);
+  var row = document.createElement('div');
+  row.style.cssText = 'display:flex;gap:6px';
+  [[60,'1 min'],[120,'2 min'],[300,'5 min']].forEach(function(pair) {
+    var btn = document.createElement('button');
+    btn.textContent = pair[1];
+    btn.style.cssText = 'flex:1;padding:6px;border:1px solid #1E2840;border-radius:6px;background:#1A2035;color:#F9FAFB;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit';
+    btn.onclick = function() {
+      TK_INTER_DEFAULT = pair[0];
+      tkToast('⏱ Inter = ' + pair[1], '#10B981');
+    };
+    row.appendChild(btn);
+  });
+  sep.appendChild(row);
+  m.appendChild(sep);
+
+  document.body.appendChild(m);
+  setTimeout(function() {
+    document.addEventListener('click', function handler(e) {
+      if (!m.contains(e.target)) {
+        m.remove();
+        document.removeEventListener('click', handler);
+      }
+    });
+  }, 100);
+}
+
+var TK_SOUND = false;
+var AUTO_COUNTDOWN = true;
+var TK_INTER_DEFAULT = 300;
+
+
+// ═══════════════════════════════════════════════════════════
+// ⏱ ETA — estimation fin "For Time" par équipe
+// ═══════════════════════════════════════════════════════════
+function computeTKETA(sc, wi, zs) {
+  if (!zs.startTs) return null;
+  var elapsed = Math.floor((Date.now() - zs.startTs) / 1000);
+  if (elapsed < 5) return null;
+  var type = wi.wodFormat || wi.type || 'amrap';
+  if (type !== 'fortime') return null;
+  if (sc && sc.judgeOk) return null;  // already done
+
+  var reps = sc ? (sc.value || sc.reps || 0) : 0;
+  if (reps <= 0) return null;
+
+  // Total target reps
+  var totalReps = 0;
+  if (wi.mouvements && wi.mouvements.length) {
+    wi.mouvements.forEach(function(m) { totalReps += (parseInt(m.qty) || 0); });
+    totalReps *= (wi.rounds || 1);
+  }
+  if (totalReps <= 0) return null;
+
+  var rate = reps / elapsed;
+  if (rate <= 0) return null;
+
+  var remaining = Math.max(0, totalReps - reps);
+  var etaSec    = Math.round(remaining / rate);
+  var totalSec  = elapsed + etaSec;
+
+  var cap = zs.capSec || 600;
+  if (totalSec > cap * 1.3) return null;  // unrealistic
+
+  var cls = '';
+  if (totalSec < cap * 0.75) cls = 'fast';
+  else if (totalSec > cap)    cls = 'slow';
+
+  return { sec: totalSec, cls: cls };
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+// 🚀 LANCER LA JOURNÉE — TK Master
+// ═══════════════════════════════════════════════════════════════
+function tkLancerJournee() {
+  var nbHeats = Object.keys(ALL_HEATS).length;
+  if (!nbHeats) {
+    tkToast('Aucun heat — lancez GENERER depuis l admin', '#EF4444');
+    return;
+  }
+  buildSeq();
+  var nZ1 = SEQ_Z1.length, nZ2 = SEQ_Z2.length;
+
+  var old = document.getElementById('_tk-lancer-modal');
+  if (old) { old.remove(); return; }
+
+  var overlay = document.createElement('div');
+  overlay.id = '_tk-lancer-modal';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.9);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(6px)';
+
+  var box = document.createElement('div');
+  box.style.cssText = 'background:#111827;border:1.5px solid #1E2840;border-radius:20px;padding:28px;width:90%;max-width:480px;text-align:center';
+
+  box.innerHTML = '<div style="font-size:52px;margin-bottom:10px">🏁</div>'
+    + '<div style="font-size:22px;font-weight:900;color:#fff;margin-bottom:6px">Lancer la journ\u00e9e ?</div>'
+    + '<div style="font-size:11px;color:#636366;margin-bottom:20px;line-height:1.8">'
+    + nbHeats + ' heats \u00b7 ' + nZ1 + ' \u00e9tapes Z1 \u00b7 ' + nZ2 + ' \u00e9tapes Z2<br>'
+    + '<span style="color:#F59E0B">Tout s\u2019encha\u00eene automatiquement</span></div>'
+    + '<div style="background:#0A0C0F;border:1px solid #1E2840;border-radius:12px;padding:14px;margin-bottom:20px;text-align:left">'
+    + '<div style="font-size:10px;font-weight:800;color:#636366;margin-bottom:8px;letter-spacing:1px">AUTOMATIQUEMENT :</div>'
+    + '<div style="font-size:11px;color:#F9FAFB;line-height:2.2">'
+    + '🔥 Push Firebase \u2014 tous les heats synchronis\u00e9s<br>'
+    + '📺 Ouverture \u00e9cran public live<br>'
+    + '🏆 Ouverture classement live<br>'
+    + '🤖 Pilote auto Z1 + Z2 d\u00e9marr\u00e9<br>'
+    + '📡 Signal broadcast \u00e0 tous les \u00e9crans</div></div>'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
+    + '<button id="_tk-cancel" style="padding:14px;border-radius:12px;border:1.5px solid #252A34;background:#1C2028;color:#636366;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit">Annuler</button>'
+    + '<button id="_tk-go" style="padding:14px;border-radius:12px;border:none;background:linear-gradient(135deg,#166534,#10B981);color:#fff;font-weight:900;font-size:15px;cursor:pointer;font-family:inherit;box-shadow:0 4px 20px rgba(34,197,94,.35)">🚀 GO !</button>'
+    + '</div>';
+
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+
+  document.getElementById('_tk-cancel').onclick = function() { overlay.remove(); };
+  document.getElementById('_tk-go').onclick = function() { overlay.remove(); tkExecuteLaunch(); };
+  overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+}
+
+
+function tkExecuteLaunch() {
+  tkToast('🚀 Lancement en cours…', '#10B981');
+  var base = window.location.href.split('/').slice(0, -1).join('/') + '/';
+
+  // Step 1: Pre-set all heats to 'pre' on Firebase
+  if (DB) {
+    var updates = {};
+    Object.keys(ALL_HEATS).forEach(function(hid) {
+      var cur = ALL_STATUSES[hid] || 'pending';
+      if (cur === 'pending') {
+        updates['statuses/' + hid] = 'pre';
+        updates['heats/' + hid + '/status'] = 'pre';
+      }
+    });
+    // Broadcast launch signal to all screens
+    updates['meta/launchSignal'] = { ts: Date.now(), autoMode: true, source: 'timekeeper' };
+    updates['meta/broadcastCmd'] = { cmd: 'launch', ts: Date.now() };
+    DB.ref().update(updates).then(function() {
+      tkToast('✅ Firebase synchronisé — ' + Object.keys(ALL_HEATS).length + ' heats', '#10B981');
+    }).catch(function(e){ tkToast('⚠️ Firebase: ' + e.message, '#F59E0B'); });
+  }
+
+  // Step 2: Open public screen
+  setTimeout(function(){ window.open(base + 'public.html', '_blank'); }, 200);
+
+  // Step 3: Open classement
+  setTimeout(function(){ window.open(base + 'classement.html', '_blank'); }, 600);
+
+  // Step 4: Start auto pilot
+  setTimeout(function(){
+    buildSeq();
+    if (SEQ_Z1.length + SEQ_Z2.length > 0) {
+      startAuto();
+    } else {
+      tkToast('⚠️ Aucune séquence — vérifie les horaires dans Programme', '#F59E0B');
+    }
+  }, 1000);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 📡 BROADCAST SYNC — tous les écrans se synchronisent
+// ═══════════════════════════════════════════════════════════════
+// Écoute les commandes broadcast depuis Firebase
+function initBroadcastSync() { initBroadcastListener(); }
+function initBroadcastListener() {
+  if (!DB) return;
+  DB.ref('meta/broadcastCmd').on('value', function(s) {
+    var cmd = s.val();
+    if (!cmd || !cmd.ts) return;
+    // Ignorer les commandes vieilles de + 10s (évite replay au reload)
+    if (Date.now() - cmd.ts > 10000) return;
+    if (cmd.cmd === 'refresh') {
+      forceSyncFromFirebase();
+    }
+  });
+}
+
+
+// ─── Auto-refresh center panel every 3s ──────────────────────────────────────
+setInterval(function() {
+  if (typeof renderCenter === 'function') renderCenter();
+}, 3000);
+
+</script>
+</body>
+</html>

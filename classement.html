@@ -1,0 +1,935 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>DELTA — FOC 2026</title>
+<script>var FIREBASE_DB_URL='https://foc-2026-default-rtdb.europe-west1.firebasedatabase.app';</script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+:root{
+  --bg:#0A0F1E;
+  --s1:#0F172A;--s2:#111827;
+  --brd:#1F2937;
+  --accent:#3B82F6;--accent2:#6366F1;
+  --gold:#F59E0B;--grn:#10B981;--red:#EF4444;
+  --text:#F9FAFB;--muted:#6B7280;--sub:#9CA3AF;
+  --ff:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+  --fm:'SF Mono','Fira Code',monospace;
+  --fb:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+}
+
+
+
+html,body{
+  min-height:100%;background:var(--bg);color:var(--text);
+  font-family:var(--fb);
+}
+
+
+/* ── FOND TEXTURE ── */
+body::before{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:
+    radial-gradient(ellipse 80% 50% at 20% 0%, rgba(255,107,0,.08) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 40% at 80% 100%, rgba(255,170,0,.06) 0%, transparent 60%);
+}
+
+
+/* ── TOPBAR ── */
+.top{
+  position:sticky;top:0;z-index:100;
+  background:rgba(12,10,8,.92);backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--brd);
+  padding:0 20px;height:52px;
+  display:flex;align-items:center;gap:14px;
+}
+.top-logo{
+  font-family:var(--fb);font-size:22px;letter-spacing:3px;
+  color:var(--accent);line-height:1;
+}
+.top-title{font-size:10px;letter-spacing:4px;color:var(--muted);flex:1;text-transform:uppercase;}
+.top-live{
+  display:flex;align-items:center;gap:6px;
+  font-size:9px;letter-spacing:2px;color:var(--grn);
+  background:rgba(61,219,120,.1);border:1px solid rgba(61,219,120,.2);
+  border-radius:4px;padding:3px 10px;
+}
+.top-live::before{
+  content:'';width:6px;height:6px;border-radius:50%;
+  background:var(--grn);animation:blink 1.4s ease-in-out infinite;
+}
+@keyframes blink{0%,100%{opacity:1;}50%{opacity:.3;}}
+
+
+/* ── NAV CATÉGORIES ── */
+.cat-nav{
+  position:sticky;top:52px;z-index:99;
+  background:rgba(12,10,8,.88);backdrop-filter:blur(8px);
+  border-bottom:1px solid var(--brd);
+  display:flex;overflow-x:auto;gap:0;
+  scrollbar-width:none;
+}
+.cat-nav::-webkit-scrollbar{display:none;}
+.cat-tab{
+  padding:12px 20px;cursor:pointer;white-space:nowrap;
+  font-size:10px;letter-spacing:3px;color:var(--muted);
+  border-bottom:2px solid transparent;
+  transition:color .15s,border-color .15s;
+  text-transform:uppercase;font-weight:600;
+  flex-shrink:0;
+}
+.cat-tab:hover{color:var(--text);}
+.cat-tab.active{color:var(--gold);border-bottom-color:var(--gold);}
+
+
+/* ── MAIN ── */
+.main{position:relative;z-index:1;padding:20px 16px 60px;max-width:960px;margin:0 auto;}
+
+
+/* ── HEADER CATÉGORIE ── */
+.cat-header{
+  margin-bottom:20px;padding-bottom:14px;
+  border-bottom:1px solid var(--brd);
+  display:flex;align-items:flex-end;gap:16px;
+}
+.cat-header-name{
+  font-family:var(--fb);font-size:44px;letter-spacing:3px;
+  color:var(--text);line-height:.9;
+}
+.cat-header-sub{font-size:10px;letter-spacing:3px;color:var(--muted);}
+.cat-header-badge{
+  margin-left:auto;
+  background:var(--s1);border:1px solid var(--brd);
+  border-radius:6px;padding:6px 14px;
+  font-size:9px;letter-spacing:2px;color:var(--muted);
+  text-align:center;
+}
+.cat-header-badge strong{display:block;font-family:var(--fb);font-size:22px;color:var(--gold);letter-spacing:2px;}
+
+
+/* ── WOD TABS ── */
+.wod-tabs{display:flex;gap:6px;margin-bottom:16px;overflow-x:auto;scrollbar-width:none;flex-wrap:wrap;}
+.wod-tab{
+  padding:6px 14px;border-radius:5px;cursor:pointer;
+  font-size:9px;letter-spacing:2px;font-weight:600;
+  border:1px solid var(--brd);background:var(--s1);color:var(--muted);
+  transition:.12s;white-space:nowrap;flex-shrink:0;
+}
+.wod-tab:hover{border-color:var(--muted);color:var(--text);}
+.wod-tab.active{background:rgba(255,170,0,.12);border-color:rgba(255,170,0,.4);color:var(--gold);}
+.wod-tab.tot{background:rgba(255,107,0,.12);border-color:rgba(255,107,0,.4);color:var(--accent);}
+.wod-tab.tot.active{background:rgba(255,107,0,.2);border-color:var(--accent);color:var(--accent);}
+
+
+/* ── TABLEAU CLASSEMENT ── */
+.ranking-table{width:100%;}
+
+
+/* Ligne header */
+.rank-head{
+  display:grid;
+  grid-template-columns:44px 1fr repeat(var(--ncols,3),64px) 72px;
+  gap:0;
+  padding:6px 12px;
+  font-size:8px;letter-spacing:3px;color:var(--muted);
+  text-transform:uppercase;margin-bottom:4px;
+}
+.rh-score{text-align:right;}
+
+
+/* Ligne équipe */
+.rank-row{
+  display:grid;
+  grid-template-columns:44px 1fr repeat(var(--ncols,3),64px) 72px;
+  gap:0;
+  padding:12px 12px;
+  border-radius:8px;
+  margin-bottom:4px;
+  border:1px solid var(--brd);
+  background:var(--s1);
+  transition:border-color .15s;
+  align-items:center;
+  position:relative;
+  overflow:hidden;
+}
+.rank-row:hover{border-color:#3A2A10;}
+
+
+/* Top 3 */
+.rank-row.p1{background:linear-gradient(105deg,#1E1400 0%,#2A1C00 100%);border-color:#5A3A00;}
+.rank-row.p2{background:linear-gradient(105deg,#161616 0%,#1E1C16 100%);border-color:#3A3020;}
+.rank-row.p3{background:linear-gradient(105deg,#100E08 0%,#18150A 100%);border-color:#2E2010;}
+
+
+/* Barre de fond position */
+.rank-row::before{
+  content:'';position:absolute;left:0;top:0;bottom:0;width:3px;
+  background:transparent;border-radius:8px 0 0 8px;
+}
+.rank-row.p1::before{background:var(--gold);}
+.rank-row.p2::before{background:#C0C0C0;}
+.rank-row.p3::before{background:#CD7F32;}
+
+
+/* Rang */
+.rank-pos{
+  font-family:var(--fb);font-size:22px;color:var(--muted);
+  padding-left:4px;
+}
+.rank-row.p1 .rank-pos{color:var(--gold);}
+.rank-row.p2 .rank-pos{color:#C0C0C0;}
+.rank-row.p3 .rank-pos{color:#CD7F32;}
+
+
+/* Médaille emoji */
+.rank-medal{font-size:16px;margin-right:4px;}
+
+
+/* Nom équipe */
+.rank-team{font-weight:700;font-size:14px;color:var(--text);}
+.rank-row.p1 .rank-team{color:var(--text);font-size:15px;}
+.rank-detail{font-size:9px;color:var(--muted);margin-top:2px;letter-spacing:1px;}
+
+
+/* Points par WOD */
+.rank-wod-pts{
+  text-align:right;
+  font-family:var(--fm);font-size:13px;color:var(--muted);
+}
+.rank-wod-pts.best{color:var(--grn);}   /* 0 pt = 1er = vert */
+.rank-wod-pts.second{color:var(--gold);}
+.rank-wod-pts.dnf{color:var(--brd);font-size:11px;}
+
+
+/* Total points */
+.rank-total{
+  text-align:right;
+  font-family:var(--fb);font-size:24px;
+  color:var(--gold);letter-spacing:1px;
+}
+.rank-row.p1 .rank-total{color:var(--gold);font-size:28px;}
+
+
+/* ── ÉTAT DE CHARGEMENT ── */
+.loading-state{
+  padding:60px 20px;text-align:center;
+  font-size:10px;letter-spacing:4px;color:var(--muted);
+}
+.loading-spinner{
+  width:32px;height:32px;border:2px solid var(--brd);
+  border-top-color:var(--accent);border-radius:50%;
+  animation:spin .8s linear infinite;margin:0 auto 16px;
+}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+
+.empty-wod{
+  padding:40px;text-align:center;
+  font-size:10px;letter-spacing:3px;color:var(--muted);
+  background:var(--s1);border:1px dashed var(--brd);border-radius:8px;
+}
+.empty-wod span{display:block;font-size:28px;margin-bottom:10px;opacity:.3;}
+
+
+/* ── LÉGENDE POINTS ── */
+.legend{
+  margin-top:12px;padding:10px 14px;
+  background:var(--s1);border:1px solid var(--brd);border-radius:6px;
+  display:flex;gap:16px;align-items:center;flex-wrap:wrap;
+}
+.legend-item{font-size:9px;letter-spacing:1px;color:var(--muted);display:flex;align-items:center;gap:5px;}
+.legend-dot{width:8px;height:8px;border-radius:50%;}
+
+
+/* ── DERNIÈRE MAJ ── */
+.last-update{
+  text-align:right;font-size:9px;letter-spacing:2px;color:var(--brd);
+  margin-top:8px;
+}
+
+
+/* ── RESPONSIVE ── */
+@media(max-width:600px){
+  .rank-head,.rank-row{grid-template-columns:36px 1fr repeat(var(--ncols,3),50px) 58px;}
+  .rank-wod-pts{font-size:11px;}
+  .rank-total{font-size:18px;}
+  .cat-header-name{font-size:32px;}
+}
+</style>
+</head>
+<body>
+<div id="splash" style="position:fixed;inset:0;z-index:9999;background:#0C0A08;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;font-family:'DM Sans',Arial,sans-serif;">
+  <div style="font-size:38px">🏆</div>
+  <div style="font-size:18px;font-weight:800;color:#FCD34D;letter-spacing:2px">CLASSEMENT LIVE</div>
+  <div style="font-size:12px;color:#64748B;font-weight:600">Connexion en cours…</div>
+  <div style="width:40px;height:40px;border:3px solid #111827;border-top-color:#FCD34D;border-radius:50%;animation:spin .8s linear infinite"></div>
+</div>
+<style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+
+
+<div class="top">
+  <div class="top-logo">FOC<span style="color:var(--gold)">·</span>26</div>
+  <div class="top-title">Classement Général</div>
+  <div class="top-live" id="live-badge">LIVE</div>
+</div>
+
+
+<div class="cat-nav" id="cat-nav"></div>
+
+
+<div class="main" id="main-content">
+  <div class="loading-state">
+    <div class="loading-spinner"></div>
+    CONNEXION FIREBASE…
+  </div>
+</div>
+
+
+<script>
+firebase.initializeApp({databaseURL:FIREBASE_DB_URL});
+var db = firebase.database();
+var _splash=document.getElementById('splash');
+if(_splash) _splash.style.display='none';
+
+
+// ── STATE ──
+var ALL_HEATS = {};   // {hid: heatObject}
+var ALL_SCORES = {};  // {hid_ln: scoreObject}
+var SEL_CAT = null;   // catName sélectionné
+var SEL_WOD = null;   // wodNom sélectionné ('__total__' pour général)
+var lastUpdate = null;
+
+
+// ── UTILS ──
+function fmt(s){ s=Math.max(0,s); return Math.floor(s/60)+':'+(s%60<10?'0':'')+Math.floor(s%60); }
+
+
+function scoreVal(sc, wod){
+  if(!sc||!sc.judgeOk) return null; // non validé = null
+  var jm = wod.judgeMode||'reps';
+  var type = wod.wodFormat||wod.type||'amrap';
+  if(jm==='maxload'||wod.scoreFinale==='load') return parseFloat(sc.load)||0;
+  if(jm==='ergo') return parseFloat(sc.ergoVal)||0;
+  if(wod.scoreFinale==='dist') return parseFloat(sc.dist||sc.distance)||0;
+  if(wod.scoreFinale==='time'||type==='fortime'){
+    // ForTime : moins c'est mieux → on retourne négatif pour le tri
+    return sc.finalTime>0 ? -sc.finalTime : null;
+  }
+  return parseInt(sc.reps)||0;
+}
+
+
+function scoreDisplay(sc, wod){
+  if(!sc||!sc.judgeOk) return '—';
+  var jm = wod.judgeMode||'reps';
+  var type = wod.wodFormat||wod.type||'amrap';
+  var base = '';
+  if(jm==='maxload'||wod.scoreFinale==='load'){
+    base = (sc.load||0)+' kg';
+  } else if(jm==='ergo'){
+    base = sc.ergoDone ? '✅' : (sc.ergoVal>0 ? sc.ergoVal+'m' : '—');
+  } else if(wod.scoreFinale==='dist'){
+    base = (sc.dist||sc.distance||0)+' '+(wod.scoreFinaleUnit||'m');
+  } else if(wod.scoreFinale==='time'||type==='fortime'){
+    base = sc.finalTime>0 ? fmt(sc.finalTime) : '—';
+  } else {
+    base = (sc.reps||0)+' reps';
+  }
+  // Tiebreak
+  if(sc.tiebreak!=null && sc.tiebreak>0){
+    base += ' <span style="font-size:10px;color:#D97706;font-weight:700;">🎯'+fmt(sc.tiebreak)+'</span>';
+  }
+  return base;
+}
+
+
+// ── DONNÉES ──
+function getCategories(){
+  var cats = {};
+  Object.values(ALL_HEATS).forEach(function(h){
+    if(!h.catName) return;
+    if(!cats[h.catName]) cats[h.catName] = {name:h.catName, wods:{}, teams:{}};
+  });
+  return cats;
+}
+
+
+function getWodsForCat(catName){
+  var wods = {};
+  Object.values(ALL_HEATS).forEach(function(h){
+    if(h.catName !== catName) return;
+    var wod = h.wodInfo||{};
+    var nom = wod.nom||'WOD';
+    var zone = h.catZone||1;
+    // Si deux WODs de même nom mais zones différentes → distinguer
+    var key = nom;
+    if(wods[nom] && (wods[nom]._zone||1) !== zone){
+      key = nom + ' (Z' + zone + ')';
+    }
+    if(!wods[key]){
+      var w = Object.assign({}, wod);
+      w._zone = zone;
+      wods[key] = w;
+    }
+  });
+  return wods;
+}
+
+
+// ── CLASSEMENT D'UN WOD pour une catégorie ──
+// Retourne [{teamName, heat, lane, sc, val}] trié meilleur → pire
+function rankWod(catName, wodNom){
+  var entries = [];
+  Object.keys(ALL_HEATS).forEach(function(hid){
+    var h = ALL_HEATS[hid];
+    if(h.catName !== catName) return;
+    var wod = h.wodInfo||{};
+    if((wod.nom||'WOD') !== wodNom) return;
+    var lanes = h.lanes||{};
+    Object.keys(lanes).forEach(function(ln){
+      var l = lanes[ln];
+      if(!l||!l.teamName) return;
+      var sc = ALL_SCORES[hid+'_'+ln] || (h.scores&&h.scores[ln]) || {};
+      var val = scoreVal(sc, wod);
+      entries.push({
+        teamName: l.teamName,
+        heat: parseInt(hid), lane: parseInt(ln),
+        zone: h.catZone||1,
+        sc: sc, wod: wod, val: val
+      });
+    });
+  });
+
+
+  // Tri : validés d'abord, puis par valeur décroissante (ou croissante si fortime)
+  // En cas d'égalité : tiebreak le plus rapide gagne (valeur la plus petite)
+  entries.sort(function(a,b){
+    var aOk = a.val!==null, bOk = b.val!==null;
+    if(aOk&&!bOk) return -1;
+    if(!aOk&&bOk) return 1;
+    if(!aOk&&!bOk) return a.teamName.localeCompare(b.teamName);
+    if(b.val !== a.val) return b.val - a.val; // fortime déjà négatif donc OK
+    // Égalité → tiebreak (plus petit = plus rapide = mieux)
+    var aTb = (a.sc&&a.sc.tiebreak>0) ? a.sc.tiebreak : Infinity;
+    var bTb = (b.sc&&b.sc.tiebreak>0) ? b.sc.tiebreak : Infinity;
+    return aTb - bTb;
+  });
+
+
+  return entries;
+}
+
+
+// ── CLASSEMENT GÉNÉRAL (total des points) ──
+// Points : 0 pts pour le 1er, 1 pt pour le 2e, etc.
+// Ex-aequo : même rang, même points
+function buildTotalRanking(catName){
+  var wods = getWodsForCat(catName);
+  var wodNoms = Object.keys(wods);
+  if(!wodNoms.length) return {teams:[], wods:[]};
+
+
+  // Collecter toutes les équipes de la catégorie
+  var allTeams = {};
+  Object.values(ALL_HEATS).forEach(function(h){
+    if(h.catName !== catName) return;
+    var lanes = h.lanes||{};
+    Object.keys(lanes).forEach(function(ln){
+      var l = lanes[ln];
+      if(!l||!l.teamName) return;
+      var key = l.teamName;
+      if(!allTeams[key]) allTeams[key] = {teamName:l.teamName, points:{}, total:0, details:{}};
+    });
+  });
+
+
+  // Pour chaque WOD : calculer le rang et attribuer les points
+  wodNoms.forEach(function(wodNom){
+    var ranked = rankWod(catName, wodNom);
+
+
+    // Attribution des points avec gestion ex-aequo
+    // Deux équipes sont vraiment ex-aequo seulement si même val ET même tiebreak (ou aucun)
+    var pts = 0;
+    var i = 0;
+    while(i < ranked.length){
+      var entry = ranked[i];
+      var j = i;
+      // Chercher tous les vrais ex-aequo (même val ET même tiebreak)
+      while(j < ranked.length &&
+            ranked[j].val !== null &&
+            ranked[j].val === entry.val &&
+            ((ranked[j].sc&&ranked[j].sc.tiebreak)||0) === ((entry.sc&&entry.sc.tiebreak)||0)){
+        j++;
+      }
+      // i..j-1 sont ex-aequo → même points
+      for(var k=i;k<j;k++){
+        var name = ranked[k].teamName;
+        if(allTeams[name]){
+          allTeams[name].points[wodNom] = ranked[k].val!==null ? pts : null;
+          allTeams[name].details[wodNom] = {
+            sc: ranked[k].sc,
+            wod: ranked[k].wod,
+            rank: ranked[k].val!==null ? pts+1 : null,
+            display: scoreDisplay(ranked[k].sc, ranked[k].wod)
+          };
+        }
+      }
+      // Non validés
+      if(i === j){
+        var name2 = ranked[i].teamName;
+        if(allTeams[name2]){
+          allTeams[name2].points[wodNom] = null;
+          allTeams[name2].details[wodNom] = {
+            sc: ranked[i].sc, wod: ranked[i].wod, rank: null,
+            display: scoreDisplay(ranked[i].sc, ranked[i].wod)
+          };
+        }
+        i++;
+        pts++;
+      } else {
+        i = j; pts = j; // ex-aequo : pts suivant = nb équipes avant
+      }
+    }
+    // Équipes absentes du WOD
+    Object.values(allTeams).forEach(function(t){
+      if(t.points[wodNom]===undefined){
+        t.points[wodNom]=null;
+        t.details[wodNom]={rank:null,display:'—'};
+      }
+    });
+  });
+
+
+  // Calcul total points + tiebreak cumulé + nb podiums
+  var nTeams = Object.keys(allTeams).length;
+  Object.values(allTeams).forEach(function(t){
+    var total = 0;
+    var tbSum = 0;   // somme des tiebreaks (plus petit = mieux)
+    var p1 = 0, p2 = 0, p3 = 0; // nb de 1er, 2ème, 3ème
+    wodNoms.forEach(function(w){
+      var p  = t.points[w];
+      var d  = t.details[w] || {};
+      total += (p !== null && p !== undefined) ? p : nTeams;
+      // Tiebreak cumulé
+      if(d.sc && d.sc.tiebreak > 0) tbSum += d.sc.tiebreak;
+      // Podiums
+      if(d.rank === 1) p1++;
+      else if(d.rank === 2) p2++;
+      else if(d.rank === 3) p3++;
+    });
+    t.total   = total;
+    t.tbSum   = tbSum;    // somme tiebreaks — inférieur = mieux
+    t.podiums = p1 * 100 + p2 * 10 + p3; // score podium pondéré — supérieur = mieux
+    t.p1 = p1; t.p2 = p2; t.p3 = p3;
+  });
+
+  // ── Tri : 4 niveaux de départage ──
+  // 1. Total points (croissant — moins = meilleur)
+  // 2. Tiebreak cumulé (croissant — plus rapide = meilleur)
+  // 3. Nb podiums pondérés (décroissant — plus de 1ers = meilleur)
+  // 4. Nom alphabétique
+  var sorted = Object.values(allTeams).sort(function(a, b){
+    // 1. Points totaux
+    if (a.total !== b.total) return a.total - b.total;
+
+    // 2. Tiebreak cumulé (0 = pas de tiebreak → pas défavorisé)
+    var aTb = a.tbSum > 0 ? a.tbSum : Infinity;
+    var bTb = b.tbSum > 0 ? b.tbSum : Infinity;
+    if (aTb !== bTb) return aTb - bTb;
+
+    // 3. Nombre de podiums pondérés (1er > 2ème > 3ème)
+    if (a.podiums !== b.podiums) return b.podiums - a.podiums;
+
+    // 4. Alphabétique
+    return a.teamName.localeCompare(b.teamName);
+  });
+
+
+  return {teams:sorted, wods:wodNoms};
+}
+
+
+// ── RENDU ──
+function render(){
+  var cats = getCategories();
+  var catNames = Object.keys(cats);
+
+
+  if(!catNames.length){
+    document.getElementById('main-content').innerHTML =
+      '<div class="loading-state"><div class="loading-spinner"></div>EN ATTENTE DES DONNÉES…</div>';
+    return;
+  }
+
+
+  if(!SEL_CAT || !cats[SEL_CAT]) SEL_CAT = catNames[0];
+
+
+  // Nav catégories
+  document.getElementById('cat-nav').innerHTML = catNames.map(function(n){
+    return '<div class="cat-tab'+(n===SEL_CAT?' active':'')+'" onclick="selCat(\''+esc(n)+'\')">'
+      +n+'</div>';
+  }).join('');
+
+
+  renderCat(SEL_CAT);
+}
+
+
+function renderCat(catName){
+  var wods = getWodsForCat(catName);
+  var wodNoms = Object.keys(wods);
+  var result = buildTotalRanking(catName);
+  var nTeams = result.teams.length;
+
+
+  // Sélection WOD par défaut
+  if(!SEL_WOD || (SEL_WOD !== '__total__' && !wods[SEL_WOD])){
+    SEL_WOD = '__total__';
+  }
+
+
+  var html = '';
+
+
+  // Header catégorie
+  html += '<div class="cat-header">';
+  html += '<div>';
+  html += '<div class="cat-header-name">'+catName+'</div>';
+  html += '<div class="cat-header-sub">'+nTeams+' ÉQUIPES · '+wodNoms.length+' WOD'+(wodNoms.length>1?'S':'')+'</div>';
+  html += '</div>';
+  html += '<div class="cat-header-badge"><strong>0 pt</strong>VAINQUEUR</div>';
+  html += '</div>';
+
+
+  // WOD tabs
+  html += '<div class="wod-tabs">';
+  html += '<div class="wod-tab tot'+(SEL_WOD==='__total__'?' active':'')+'" onclick="selWod(\'__total__\')">🏆 CLASSEMENT GÉNÉRAL</div>';
+  wodNoms.forEach(function(nom){
+    html += '<div class="wod-tab'+(SEL_WOD===nom?' active':'')+'" onclick="selWod(\''+esc(nom)+'\')">'
+      +nom+'</div>';
+  });
+  html += '</div>';
+
+
+  if(SEL_WOD === '__total__'){
+    html += renderTotal(result, catName);
+  } else {
+    html += renderSingleWod(catName, SEL_WOD, wods[SEL_WOD]);
+  }
+
+
+  // Légende
+  html += '<div class="legend">';
+  html += '<div class="legend-item"><div class="legend-dot" style="background:var(--grn)"></div>0 pt = 1er du WOD</div>';
+  html += '<div class="legend-item"><div class="legend-dot" style="background:var(--amber)"></div>Ex-aequo = même rang, mêmes points</div>';
+  html += '<div class="legend-item"><div class="legend-dot" style="background:var(--brd)"></div>— = WOD non validé (pénalité)</div>';
+  html += '</div>';
+
+
+  if(lastUpdate){
+    html += '<div class="last-update">MÀJ ' + lastUpdate + '</div>';
+  }
+
+
+  document.getElementById('main-content').innerHTML = html;
+}
+
+
+function renderTotal(result, catName){
+  var teams = result.teams;
+  var wodNoms = result.wods;
+  var ncols = Math.min(wodNoms.length, 5);
+  var medals = ['🥇','🥈','🥉'];
+
+
+  if(!teams.length){
+    return '<div class="empty-wod"><span>🏆</span>AUCUNE ÉQUIPE ENREGISTRÉE</div>';
+  }
+
+
+  var html = '<div class="ranking-table">';
+
+
+  // Header
+  html += '<div class="rank-head" style="--ncols:'+ncols+'">';
+  html += '<div></div><div>ÉQUIPE</div>';
+  wodNoms.slice(0,5).forEach(function(nom){
+    html += '<div class="rh-score" title="'+nom+'">'+nom.substring(0,6)+'</div>';
+  });
+  html += '<div class="rh-score">PTS</div>';
+  html += '</div>';
+
+
+  // Lignes avec gestion ex-aequo
+  var prevTotal = -1, rank = 0, displayRank = 0;
+  teams.forEach(function(t, i){
+    if(t.total !== prevTotal){ displayRank = rank+1; }
+    rank++;
+    prevTotal = t.total;
+
+
+    var cls = displayRank===1?'p1':displayRank===2?'p2':displayRank===3?'p3':'';
+    html += '<div class="rank-row '+cls+'" style="--ncols:'+ncols+'">';
+
+
+    // Rang
+    html += '<div class="rank-pos">'
+      +(displayRank<=3?'<span class="rank-medal">'+medals[displayRank-1]+'</span>':displayRank)
+      +'</div>';
+
+
+    // Équipe — tiebreak si ex-aequo en points
+    var prevT = i>0?teams[i-1]:null;
+    var nextT = i<teams.length-1?teams[i+1]:null;
+    var hasTotalTie = (prevT&&prevT.total===t.total)||(nextT&&nextT.total===t.total);
+    var totalTbHtml = '';
+    if(hasTotalTie){
+      // Trouver le meilleur tiebreak parmi les WODs ex-aequo
+      var bestTb = Infinity;
+      wodNoms.forEach(function(w){
+        var d=t.details[w];
+        if(d&&d.sc&&d.sc.tiebreak>0){
+          var tb=d.sc.tiebreak;
+          // Comparer avec l'adversaire ex-aequo sur ce WOD
+          var rival = prevT&&prevT.total===t.total?prevT:nextT;
+          var rd = rival&&rival.details[w];
+          if(rd&&rd.rank===d.rank&&tb<bestTb) bestTb=tb;
+        }
+      });
+      if(bestTb<Infinity) totalTbHtml=' <span style="background:#FEF3C7;color:#92400E;border-radius:4px;padding:1px 5px;font-size:10px;font-weight:800;">🎯 '+fmt(bestTb)+'</span>';
+    }
+        // Podium badges
+    var podBadges = '';
+    if(t.p1>0) podBadges += '🥇×'+t.p1+' ';
+    if(t.p2>0) podBadges += '🥈×'+t.p2+' ';
+    if(t.p3>0) podBadges += '🥉×'+t.p3+' ';
+    var tbSumHtml = (hasTotalTie && t.tbSum>0)
+      ? ' <span style="background:#FEF3C7;color:#92400E;border-radius:4px;padding:1px 6px;font-size:10px;font-weight:800">🎯 '+fmt(t.tbSum)+'</span>'
+      : '';
+    var wVal = wodNoms.filter(function(w){return t.points[w]!==null;}).length;
+    html += '<div><div class="rank-team">'+t.teamName+totalTbHtml+tbSumHtml+'</div>'      +'<div class="rank-detail">'        +wVal+'/'+wodNoms.length+' WODs'        +(podBadges.trim() ? ' · '+podBadges.trim() : '')      +'</div></div>';
+
+
+    // Points par WOD
+    wodNoms.slice(0,5).forEach(function(w){
+      var p = t.points[w];
+      var cls2 = p===1?'best':p===2?'second':(p===null?'dnf':'');
+      var txt = p===null ? '—' : (p+'pt');
+      html += '<div class="rank-wod-pts '+cls2+'">'+txt+'</div>';
+    });
+
+
+    // Total
+    html += '<div class="rank-total">'+t.total+'</div>';
+
+
+    html += '</div>';
+  });
+
+
+  html += '</div>';
+  return html;
+}
+
+
+function renderSingleWod(catName, wodNom, wod){
+  var ranked = rankWod(catName, wodNom);
+  var medals = ['🥇','🥈','🥉'];
+
+
+  if(!ranked.length){
+    return '<div class="empty-wod"><span>🏋️</span>AUCUNE ÉQUIPE POUR CE WOD</div>';
+  }
+
+
+  var html = '<div class="ranking-table">';
+
+
+  // Header simple
+  html += '<div class="rank-head" style="--ncols:1">';
+  html += '<div></div><div>ÉQUIPE</div>';
+  html += '<div class="rh-score">SCORE</div>';
+  html += '<div class="rh-score">POINTS</div>';
+  html += '</div>';
+
+
+  // Attribution des points avec ex-aequo
+  var pts = 0, i = 0, pointsByName = {};
+  while(i < ranked.length){
+    if(ranked[i].val === null){
+      pointsByName[ranked[i].teamName] = null;
+      i++; pts++;
+      continue;
+    }
+    var j = i;
+    while(j < ranked.length && ranked[j].val !== null && ranked[j].val === ranked[i].val) j++;
+    for(var k=i;k<j;k++) pointsByName[ranked[k].teamName] = pts;
+    i = j; pts = j;
+  }
+
+
+  var displayRank = 0, prevVal = '__init__';
+  ranked.forEach(function(entry, idx){
+    if(entry.val !== prevVal) displayRank = idx+1;
+    prevVal = entry.val;
+
+
+    var p = pointsByName[entry.teamName];
+    var cls = displayRank===1&&entry.val!==null?'p1':displayRank===2&&entry.val!==null?'p2':displayRank===3&&entry.val!==null?'p3':'';
+    var pDisplay = p===null ? '—' : p===0 ? '0' : '+'+p;
+    var pCls = p===0?'best':p===1?'second':(p===null?'dnf':'');
+
+
+    html += '<div class="rank-row '+cls+'" style="--ncols:1">';
+
+
+    html += '<div class="rank-pos">'
+      +(displayRank<=3&&entry.val!==null?'<span class="rank-medal">'+medals[displayRank-1]+'</span>':displayRank)
+      +'</div>';
+
+
+    var prevE = idx>0?ranked[idx-1]:null;
+    var nextE = idx<ranked.length-1?ranked[idx+1]:null;
+    var hasTie = (prevE&&prevE.val===entry.val)||(nextE&&nextE.val===entry.val);
+    var tbHtml = (hasTie&&entry.sc&&entry.sc.tiebreak>0)
+      ? ' <span style="background:#FEF3C7;color:#92400E;border-radius:4px;padding:1px 5px;font-size:10px;font-weight:800;">🎯 '+fmt(entry.sc.tiebreak)+'</span>' : '';
+    html += '<div><div class="rank-team">'+entry.teamName+tbHtml+'</div>'
+      +'<div class="rank-detail">Heat '+entry.heat+' · Lane '+entry.lane+' · Z'+entry.zone+'</div>'
+      +'</div>';
+
+
+    html += '<div class="rank-wod-pts '+(entry.val!==null?'best':'dnf')+'" style="text-align:right;font-size:14px;">'
+      +scoreDisplay(entry.sc, wod)+'</div>';
+
+
+    html += '<div class="rank-wod-pts '+pCls+'">'+pDisplay+'</div>';
+
+
+    html += '</div>';
+  });
+
+
+  html += '</div>';
+  return html;
+}
+
+
+// ── NAVIGATION ──
+function selCat(name){
+  SEL_CAT = name;
+  SEL_WOD = '__total__';
+  renderCat(name);
+  document.querySelectorAll('.cat-tab').forEach(function(el){
+    el.classList.toggle('active', el.textContent===name);
+  });
+  document.getElementById('main-content').scrollTop = 0;
+  window.scrollTo(0,0);
+}
+function selWod(nom){
+  SEL_WOD = nom;
+  renderCat(SEL_CAT);
+}
+function esc(s){ return s.replace(/'/g,"\\'"); }
+
+
+// ── FIREBASE LISTENERS ──
+firebase.initializeApp && null; // déjà initialisé
+
+// ── Détection hors-ligne ──
+(function(){
+  var banner = document.createElement('div');
+  banner.id = 'offline-banner';
+  banner.style.cssText = 'display:none;position:fixed;top:0;left:0;right:0;z-index:9999;background:#EF4444;color:#fff;text-align:center;padding:8px 16px;font-weight:900;font-size:12px;letter-spacing:2px;';
+  banner.textContent = '⚠️ HORS LIGNE — Reconnexion en cours…';
+  document.body.appendChild(banner);
+  db.ref('.info/connected').on('value', function(snap){
+    banner.style.display = snap.val() ? 'none' : 'block';
+  });
+})();
+
+initBroadcastSync();
+  db.ref('heats').on('value', function(snap){
+  ALL_HEATS = snap.val()||{};
+  updateTimestamp();
+  render();
+});
+
+
+db.ref('scores').on('value', function(snap){
+  var raw = snap.val()||{};
+  // Indexer par hid_ln
+  ALL_SCORES = {};
+  Object.keys(raw).forEach(function(k){
+    var sc = raw[k];
+    if(!sc) return;
+    var key = sc.heat+'_'+sc.lane;
+    // Garder le plus récent (même clé)
+    if(!ALL_SCORES[key] || (sc.judgeOk && !ALL_SCORES[key].judgeOk)){
+      ALL_SCORES[key] = sc;
+    }
+    // Aussi stocker par clé Firebase directe
+    ALL_SCORES[k] = sc;
+  });
+  updateTimestamp();
+  render();
+});
+
+
+function updateTimestamp(){
+  var n = new Date();
+  lastUpdate = n.getHours()+':'+(n.getMinutes()<10?'0':'')+n.getMinutes()+':'+
+    (n.getSeconds()<10?'0':'')+n.getSeconds();
+}
+
+// ── Plein écran ──
+function toggleFullscreen(){
+  if(!document.fullscreenElement){
+    document.documentElement.requestFullscreen().catch(function(){});
+  } else {
+    document.exitFullscreen().catch(function(){});
+  }
+}
+// Auto fullscreen sur double-tap/click du titre
+document.addEventListener('DOMContentLoaded', function(){
+  var header = document.querySelector('header') || document.querySelector('.header') || document.querySelector('h1');
+  if(header) header.addEventListener('dblclick', toggleFullscreen);
+  // Bouton fullscreen flottant
+  var btn = document.createElement('button');
+  btn.textContent = '⛶';
+  btn.title = 'Plein écran';
+  btn.style.cssText = 'position:fixed;bottom:16px;right:16px;z-index:999;background:rgba(255,107,0,.18);border:1px solid rgba(255,107,0,.35);border-radius:8px;padding:8px 14px;font-size:18px;cursor:pointer;color:#F59E0B;backdrop-filter:blur(4px);font-weight:700;';
+  btn.onclick = toggleFullscreen;
+  document.body.appendChild(btn);
+  // Badge LIVE : rouge si hors ligne
+  document.addEventListener('offline', function(){ var b=document.getElementById('live-badge'); if(b){b.style.color='#FF3C2E';b.textContent='HORS LIGNE';} });
+  document.addEventListener('online',  function(){ var b=document.getElementById('live-badge'); if(b){b.style.color='var(--grn)';b.textContent='LIVE';} });
+});
+
+// ═══════════════════════════════════════════════════════════
+// 📡 SYNC TEMPS RÉEL — classement.html
+// ═══════════════════════════════════════════════════════════
+function initBroadcastSync() {
+  if (!db) return;
+  db.ref('meta/broadcastCmd').on('value', function(snap) {
+    var cmd = snap.val();
+    if (!cmd || !cmd.ts) return;
+    if (Date.now() - cmd.ts > 20000) return;
+    if (cmd.cmd === 'launch' || cmd.cmd === 'refresh' || cmd.cmd === 'score_updated') {
+      if (typeof render === 'function') render();
+    }
+  });
+  // Fallback: refresh every 15s
+  setInterval(function() {
+    if (typeof render === 'function') render();
+  }, 15000);
+}
+
+</script>
+</body>
+</html>

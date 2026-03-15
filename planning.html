@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Mon Planning · FOC 2026</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+:root{
+  --blue:#1E88E5;--dark:#1A3A6B;--bg:#F0F9FF;
+  --card:#fff;--border:#E2E8F0;
+  --z1:#1D4ED8;--z2:#0F766E;
+  --ff:'Segoe UI',Arial,sans-serif;
+}
+html,body{height:100%;background:var(--bg);font-family:var(--ff);color:#0F172A;}
+
+/* SPLASH */
+#splash{position:fixed;inset:0;background:var(--dark);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;z-index:999;}
+.sp-logo{font-size:48px;font-weight:900;color:#fff;letter-spacing:-2px;}
+.sp-logo em{color:#FCD34D;font-style:normal;}
+.sp-spin{width:40px;height:40px;border:3px solid rgba(255,255,255,.2);border-top-color:#fff;border-radius:50%;animation:spin .8s linear infinite;}
+.sp-txt{font-size:13px;color:rgba(255,255,255,.5);font-weight:600;}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* TOPBAR */
+.topbar{background:var(--dark);padding:14px 16px 10px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:10;box-shadow:0 2px 12px rgba(0,0,0,.15);}
+.tb-avatar{width:42px;height:42px;border-radius:50%;background:var(--blue);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:900;color:#fff;flex-shrink:0;}
+.tb-name{font-size:17px;font-weight:900;color:#fff;}
+.tb-sub{font-size:10px;color:rgba(255,255,255,.5);margin-top:1px;}
+.tb-badge{margin-left:auto;background:rgba(255,255,255,.12);border-radius:8px;padding:5px 10px;font-size:10px;font-weight:800;color:#FCD34D;white-space:nowrap;}
+
+/* EVENT BANNER */
+.ev-banner{background:linear-gradient(135deg,#1E40AF,#0891B2);margin:12px;border-radius:12px;padding:12px 16px;display:flex;align-items:center;gap:10px;}
+.ev-icon{font-size:24px;}
+.ev-name{font-size:14px;font-weight:800;color:#fff;}
+.ev-date{font-size:11px;color:rgba(255,255,255,.65);margin-top:2px;}
+
+/* DAY TABS */
+.day-tabs{display:flex;gap:8px;padding:0 12px;margin-bottom:4px;}
+.day-tab{flex:1;padding:8px;text-align:center;border-radius:10px;border:1.5px solid var(--border);background:#fff;font-size:12px;font-weight:800;color:#64748B;cursor:pointer;transition:all .15s;}
+.day-tab.active{background:var(--dark);color:#fff;border-color:var(--dark);}
+
+/* SECTION */
+.section{padding:0 12px 8px;}
+.section-lbl{font-size:9px;font-weight:800;letter-spacing:3px;color:#94A3B8;padding:10px 4px 6px;}
+
+/* HEAT CARD */
+.heat-card{background:var(--card);border:1.5px solid var(--border);border-radius:14px;padding:14px;margin-bottom:10px;border-left:4px solid var(--blue);}
+.heat-card.z1{border-left-color:var(--z1);}
+.heat-card.z2{border-left-color:var(--z2);}
+.hc-top{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+.hc-num{font-size:11px;font-weight:800;color:#94A3B8;background:#F1F5F9;border-radius:6px;padding:3px 8px;}
+.hc-cat{font-size:13px;font-weight:800;color:var(--dark);flex:1;}
+.hc-zone{font-size:10px;font-weight:800;padding:3px 8px;border-radius:6px;}
+.hc-zone.z1{background:#EFF6FF;color:var(--z1);}
+.hc-zone.z2{background:#F0FDF4;color:var(--z2);}
+.hc-teams{font-size:11px;color:#64748B;margin-bottom:8px;line-height:1.5;}
+.hc-wods{display:flex;flex-direction:column;gap:4px;}
+.hc-wod{display:flex;align-items:center;gap:8px;background:#F8FAFF;border-radius:8px;padding:7px 10px;}
+.hc-wod-name{font-size:11px;font-weight:700;color:var(--dark);flex:1;}
+.hc-wod-time{font-size:12px;font-weight:900;color:var(--blue);font-variant-numeric:tabular-nums;}
+
+/* EMPTY */
+.empty{text-align:center;padding:40px 20px;color:#94A3B8;}
+.empty-ico{font-size:40px;margin-bottom:12px;}
+.empty-txt{font-size:14px;font-weight:700;}
+.empty-sub{font-size:12px;margin-top:6px;}
+
+/* ERROR */
+#error-box{display:none;margin:20px 12px;background:#FEE2E2;border:1.5px solid #FCA5A5;border-radius:12px;padding:16px;text-align:center;}
+.err-ico{font-size:32px;margin-bottom:8px;}
+.err-txt{font-size:14px;font-weight:800;color:#B91C1C;}
+.err-sub{font-size:11px;color:#DC2626;margin-top:4px;line-height:1.6;}
+
+/* FOOTER */
+.footer{padding:16px;text-align:center;font-size:10px;color:#94A3B8;margin-top:8px;}
+</style>
+</head>
+<body>
+
+<!-- SPLASH -->
+<div id="splash">
+  <div class="sp-logo">F<em>O</em>C <em>2026</em></div>
+  <div class="sp-spin"></div>
+  <div class="sp-txt" id="sp-txt">Chargement de ton planning…</div>
+</div>
+
+<!-- APP -->
+<div id="app" style="display:none;min-height:100vh;padding-bottom:24px">
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="tb-avatar" id="tb-avatar">?</div>
+    <div>
+      <div class="tb-name" id="tb-name">—</div>
+      <div class="tb-sub" id="tb-sub">Planning bénévole</div>
+    </div>
+    <div class="tb-badge" id="tb-badge">👕 —</div>
+  </div>
+
+  <!-- EVENT BANNER -->
+  <div class="ev-banner">
+    <div class="ev-icon">🏋️</div>
+    <div>
+      <div class="ev-name" id="ev-name">FOC 2026</div>
+      <div class="ev-date" id="ev-date">—</div>
+    </div>
+  </div>
+
+  <!-- ERREUR -->
+  <div id="error-box">
+    <div class="err-ico">😕</div>
+    <div class="err-txt" id="err-txt">Impossible de charger le planning</div>
+    <div class="err-sub" id="err-sub">Vérifie ta connexion et réessaie.</div>
+  </div>
+
+  <!-- DAY TABS -->
+  <div class="day-tabs" id="day-tabs" style="display:none">
+    <div class="day-tab active" id="tab-j1" onclick="setDay(1)">📅 Jour 1</div>
+    <div class="day-tab" id="tab-j2" onclick="setDay(2)">📅 Jour 2</div>
+  </div>
+
+  <!-- HEATS -->
+  <div class="section">
+    <div class="section-lbl" id="section-lbl">MES HEATS</div>
+    <div id="heats-list"></div>
+  </div>
+
+  <div class="footer" id="footer-txt"></div>
+</div>
+
+<script>
+var JSONBIN_API = 'https://api.jsonbin.io/v3';
+var _data = null;
+var _benId = null;
+var _binId = null;
+var _activeDay = 1;
+
+function p(id){ return document.getElementById(id); }
+function txt(id, v){ var el=p(id); if(el) el.textContent=v; }
+
+function showError(title, sub){
+  p('splash').style.display='none';
+  p('app').style.display='block';
+  p('error-box').style.display='block';
+  txt('err-txt', title);
+  txt('err-sub', sub);
+}
+
+function init(){
+  var hash = window.location.hash.replace('#','');
+  var params = {};
+  hash.split('&').forEach(function(p){ var kv=p.split('='); if(kv.length===2) params[kv[0]]=kv[1]; });
+  _binId = params.bin || null;
+  _benId = params.id ? parseInt(params.id) : null;
+
+  if(!_binId || !_benId){
+    showError('QR invalide', 'Ce QR code ne contient pas les informations nécessaires. Contacte l\'organisateur.');
+    return;
+  }
+
+  txt('sp-txt', 'Connexion au serveur…');
+
+  fetch(JSONBIN_API+'/b/'+_binId+'/latest', {
+    headers: { 'X-Access-Key': '' }
+  })
+  .then(function(r){
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    return r.json();
+  })
+  .then(function(json){
+    _data = json.record || json;
+    renderPlanning();
+  })
+  .catch(function(e){
+    showError('Erreur de chargement', 'Impossible de récupérer le planning. Vérifie ta connexion internet.\n('+e.message+')');
+  });
+}
+
+function renderPlanning(){
+  p('splash').style.display='none';
+  p('app').style.display='block';
+
+  var ben = _data.benevoles && _data.benevoles[_benId];
+  if(!ben){
+    showError('Bénévole introuvable', 'Ton identifiant (ID '+_benId+') n\'a pas été trouvé dans le planning. Contacte l\'organisateur.');
+    return;
+  }
+
+  // Topbar
+  var initials = ben.name.split(' ').map(function(w){return w[0]||'';}).join('').toUpperCase().slice(0,2);
+  txt('tb-avatar', initials);
+  txt('tb-name', ben.name);
+  txt('tb-sub', 'Planning · '+(_data.event||'FOC 2026'));
+  txt('tb-badge', '👕 '+(ben.tshirt||'—'));
+
+  // Event banner
+  txt('ev-name', _data.event||'FOC 2026');
+  var dateStr = '';
+  if(_data.d1 && _data.d2) dateStr = _data.d1+' — '+_data.d2;
+  else if(_data.d1) dateStr = _data.d1;
+  txt('ev-date', dateStr);
+
+  // Jours
+  var jours = ben.jours||'12';
+  var hasJ1 = jours==='1'||jours==='12';
+  var hasJ2 = jours==='2'||jours==='12';
+
+  if(hasJ1 && hasJ2){
+    p('day-tabs').style.display='flex';
+  } else {
+    p('day-tabs').style.display='none';
+    _activeDay = hasJ1 ? 1 : 2;
+  }
+
+  renderDay();
+
+  // Footer
+  var upd = _data._updatedAt ? new Date(_data._updatedAt).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '';
+  txt('footer-txt', upd ? 'Dernière mise à jour : '+upd : '');
+}
+
+function setDay(d){
+  _activeDay = d;
+  p('tab-j1').className = 'day-tab'+(d===1?' active':'');
+  p('tab-j2').className = 'day-tab'+(d===2?' active':'');
+  renderDay();
+}
+
+function renderDay(){
+  var ben = _data && _data.benevoles && _data.benevoles[_benId];
+  if(!ben){ p('heats-list').innerHTML='<div class="empty"><div class="empty-ico">❓</div><div class="empty-txt">Bénévole introuvable</div></div>'; return; }
+
+  var heats = (ben.heats||[]).filter(function(h){ return h.jour===_activeDay; });
+  txt('section-lbl', 'MES HEATS — JOUR '+_activeDay);
+
+  var list = p('heats-list');
+  if(!heats.length){
+    list.innerHTML = '<div class="empty"><div class="empty-ico">☀️</div><div class="empty-txt">Aucun heat ce jour</div><div class="empty-sub">Tu n\'es pas assigné le jour '+_activeDay+'.</div></div>';
+    return;
+  }
+
+  list.innerHTML = heats.map(function(h){
+    var zClass = h.zone===2 ? 'z2' : 'z1';
+    var zColor = h.zone===2 ? 'var(--z2)' : 'var(--z1)';
+    var zLabel = 'Zone '+(h.zone||1);
+    var ligne  = h.ligne ? 'Ligne '+h.ligne : '';
+
+    var wodsHtml = (h.wods||[]).map(function(w){
+      if(!w||!w.nom) return '';
+      return '<div class="hc-wod">'
+        +'<div class="hc-wod-name">'+escH(w.nom)+'</div>'
+        +(w.debut&&w.fin?'<div style="font-size:10px;color:#1E88E5;font-weight:700;margin-top:2px">'+w.debut+' → '+w.fin+'</div>':'')
+        +'</div>';
+    }).join('');
+
+    return '<div class="heat-card '+zClass+'" style="border-left:4px solid '+zColor+'">'
+      +'<div class="hc-top">'
+        +'<div class="hc-num" style="background:'+zColor+';color:#fff">H'+(h.heatNum||'?')+'</div>'
+        +'<div class="hc-cat">'+escH(h.catNom||'—')+'</div>'
+        +'<div class="hc-zone '+zClass+'">'+zLabel+'</div>'
+      +'</div>'
+      +(ligne
+        ?'<div style="margin:8px 0 4px;padding:10px 12px;background:'+zColor+'18;border-radius:8px;display:flex;align-items:center;gap:10px">'
+          +'<span style="font-size:22px">📍</span>'
+          +'<div>'
+            +'<div style="font-size:12px;font-weight:900;color:'+zColor+';text-transform:uppercase;letter-spacing:1px">'+ligne+'</div>'
+            +(h.teamNom?'<div style="font-size:13px;font-weight:700;color:#1A3A6B;margin-top:2px">'+escH(h.teamNom)+'</div>':'')
+          +'</div></div>'
+        :(!ligne&&h.teamNom?'<div class="hc-teams" style="margin-top:6px">👥 '+escH(h.teamNom)+'</div>':''))
+      +(wodsHtml?'<div class="hc-wods" style="margin-top:6px">'+wodsHtml+'</div>':'')
+      +'</div>';
+  }).join('');
+}
+
+function escH(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+window.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>

@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Zone K · FOC 2026 — Accès Juges</title>
+<script>var FIREBASE_DB_URL='https://foc-2026-default-rtdb.europe-west1.firebasedatabase.app';</script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+:root{
+  --blue:#1E88E5;--blue-dark:#1565C0;--deep:#1A3A6B;
+  --bg:linear-gradient(135deg,#EFF7FF 0%,#E3F2FD 50%,#F0F9FF 100%);
+  --card:#fff;--border:#d8d8d2;--border-b:#BBDEFB;
+  --ff:'Segoe UI',Arial,sans-serif;
+}
+html,body{min-height:100dvh;background:var(--bg);font-family:var(--ff);color:var(--deep);-webkit-font-smoothing:antialiased;}
+.wrap{max-width:420px;margin:0 auto;padding:28px 18px 40px;}
+
+/* Brand */
+.brand{text-align:center;margin-bottom:28px;}
+.brand-k{display:inline-flex;width:64px;height:64px;background:#1E88E5;border-radius:14px;align-items:center;justify-content:center;font-size:36px;font-weight:900;color:#fff;box-shadow:0 4px 20px rgba(21,101,192,.3);margin-bottom:12px;}
+.brand h1{font-size:24px;font-weight:900;color:var(--deep);letter-spacing:5px;}
+.brand .sub1{font-size:11px;color:var(--blue);letter-spacing:3px;font-weight:700;margin-top:4px;}
+.brand .sub2{font-size:9px;color:#888;letter-spacing:2px;margin-top:3px;}
+
+/* Box -->
+.box{background:#fff;border:1px solid #e0e0da;border-radius:14px;padding:22px;box-shadow:0 2px 16px rgba(0,0,0,.06);}
+.box-ttl{font-size:10px;font-weight:700;color:#999;letter-spacing:2px;text-transform:uppercase;text-align:center;margin-bottom:16px;}
+
+/* Search */
+.search-wrap{position:relative;margin-bottom:14px;}
+.search-ico{position:absolute;left:11px;top:50%;transform:translateY(-50%);font-size:14px;pointer-events:none;}
+.search{width:100%;background:#F0F9FF;border:1.5px solid #ccc;border-radius:9px;color:var(--deep);padding:10px 12px 10px 33px;font-size:14px;outline:none;font-family:var(--ff);transition:border .15s;}
+.search:focus{border-color:var(--blue);background:#fff;}
+
+/* List */
+.judge-list{display:flex;flex-direction:column;gap:6px;max-height:55dvh;overflow-y:auto;}
+.jbtn{display:flex;align-items:center;gap:11px;background:#F0F9FF;border:1.5px solid #ddd;border-radius:10px;padding:11px 14px;cursor:pointer;width:100%;text-align:left;font-family:var(--ff);transition:all .12s;}
+.jbtn:active{transform:scale(.97);}
+.jbtn:hover{border-color:var(--blue);background:#E3F2FD;}
+.av{width:36px;height:36px;border-radius:50%;background:#E3F2FD;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:var(--blue);flex-shrink:0;}
+.jname{font-size:14px;font-weight:700;color:var(--deep);}
+.jrole{font-size:10px;color:#94A3B8;margin-top:1px;}
+.arrow{margin-left:auto;font-size:16px;color:#ccc;}
+
+/* States */
+.loading{text-align:center;padding:24px;color:#888;font-size:12px;}
+.spin{display:inline-block;width:24px;height:24px;border:2px solid #BBDEFB;border-top-color:var(--blue);border-radius:50%;animation:spin 1s linear infinite;margin-bottom:8px;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.empty{text-align:center;padding:18px;color:#aaa;font-size:12px;line-height:1.7;}
+.err{background:#FFEBEE;border:1px solid #EF9A9A;border-radius:8px;padding:10px 12px;font-size:11px;color:#C62828;text-align:center;margin-top:10px;}
+
+/* Footer note */
+.note{font-size:10px;color:#94A3B8;text-align:center;margin-top:16px;line-height:1.7;}
+.note b{color:var(--deep);}
+
+/* Planning view */
+#planning-view{display:none;}
+.plan-hero{background:linear-gradient(135deg,#1A3A6B,#1565C0);border-radius:16px;padding:22px 20px;margin-bottom:18px;color:#fff;}
+.plan-hero-name{font-size:28px;font-weight:900;letter-spacing:1px;}
+.plan-hero-sub{font-size:11px;color:rgba(255,255,255,.65);margin-top:4px;letter-spacing:2px;}
+.plan-heat{background:#fff;border:1.5px solid #BBDEFB;border-radius:14px;padding:0;margin-bottom:10px;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,.05);}
+.plan-heat-hdr{background:#E3F2FD;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #BBDEFB;}
+.plan-heat-num{font-size:13px;font-weight:900;color:#1A3A6B;}
+.plan-heat-wod{font-size:11px;color:#1565C0;font-weight:700;}
+.plan-heat-body{padding:12px 16px;display:flex;justify-content:space-between;align-items:center;gap:10px;}
+.plan-lane-badge{background:#1565C0;color:#fff;border-radius:10px;padding:6px 14px;font-size:13px;font-weight:900;letter-spacing:1px;}
+.plan-athletes{font-size:11px;color:#475569;line-height:1.8;flex:1;}
+.plan-athletes b{color:#1A3A6B;font-size:12px;}
+.btn-judge{display:block;width:100%;padding:18px 0;background:#1E88E5;color:#fff;border:none;border-radius:14px;font-size:18px;font-weight:900;cursor:pointer;box-shadow:0 5px 0 #1565C0;letter-spacing:1px;margin-top:6px;font-family:var(--ff);}
+.btn-judge:active{transform:translateY(2px);box-shadow:0 3px 0 #1565C0;}
+.btn-change{background:none;border:none;color:#94A3B8;font-size:11px;cursor:pointer;text-decoration:underline;margin-top:14px;display:block;width:100%;text-align:center;font-family:var(--ff);}
+.plan-empty{text-align:center;padding:28px;color:#aaa;font-size:12px;line-height:1.8;}
+.plan-loading{text-align:center;padding:28px;color:#888;font-size:12px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand">
+    <div class="brand-k">K</div>
+    <h1>ZONE K</h1>
+    <div class="sub1">FIGHTS ON CONTEST 2026</div>
+    <div class="sub2">ACCÈS JUGES</div>
+  </div>
+
+  <!-- Bandeau de reprise de session -->
+  <div id="resume-bar" style="display:none;background:#E3F2FD;border:1.5px solid #1E88E5;border-radius:12px;padding:14px 16px;margin-bottom:14px;display:flex;align-items:center;gap:12px;">
+    <div style="font-size:24px;">👤</div>
+    <div style="flex:1;">
+      <div style="font-size:13px;font-weight:700;color:#1A3A6B;" id="resume-name">—</div>
+      <div style="font-size:11px;color:#5A7FA0;margin-top:1px;">Session en cours — reprendre ?</div>
+    </div>
+    <button onclick="resumeSession()" style="background:#1E88E5;color:#fff;border:none;border-radius:8px;padding:9px 16px;font-size:13px;font-weight:700;cursor:pointer;">Reprendre →</button>
+  </div>
+
+  <div class="box">
+    <div class="box-ttl">Qui es-tu ?</div>
+    <div class="search-wrap">
+      <span class="search-ico">🔍</span>
+      <input class="search" id="search" type="text" placeholder="Rechercher ton prénom…" oninput="filterList()" autocomplete="off" autocorrect="off">
+    </div>
+    <div class="judge-list" id="judge-list">
+      <div class="loading"><div class="spin"></div><br>Chargement…</div>
+    </div>
+    <div id="err-msg"></div>
+  </div>
+
+  <div class="note">
+    Clique ton nom — tu seras directement connecté à ton interface juge.<br>
+    <b>Pas de mot de passe, pas de scan.</b>
+  </div>
+</div>
+
+<!-- VUE PLANNING (après scan QR nominatif) -->
+<div id="planning-view" class="wrap">
+  <div class="brand">
+    <div class="brand-k">K</div>
+    <h1>ZONE K</h1>
+    <div class="sub1">FIGHTS ON CONTEST 2026</div>
+    <div class="sub2">TON PLANNING JUGE</div>
+  </div>
+  <div id="plan-hero" class="plan-hero">
+    <div class="plan-hero-name" id="plan-name">—</div>
+    <div class="plan-hero-sub">PLANNING DE JUGEMENT</div>
+  </div>
+  <div id="plan-heats">
+    <div class="plan-loading"><div class="spin"></div><br>Chargement du planning…</div>
+  </div>
+  <button class="btn-change" onclick="showSelectionView()">← Changer de juge</button>
+</div>
+
+<script>
+firebase.initializeApp({databaseURL:FIREBASE_DB_URL});
+var db=firebase.database();
+var ALL_JUGES=[];
+var ALL_HEATS={};
+
+// ── Détection hash au chargement ──
+(function(){
+  var hash = window.location.hash || '';
+  var m = hash.match(/^#juge\/(.+)$/);
+  if(m){
+    var jid = parseFloat(m[1]);
+    if(jid) loadPlanningForJuge(jid);
+    else showSelectionView();
+  } else {
+    // Reprise de session
+    tryResumeSession();
+    showSelectionView();
+  }
+})();
+
+function showSelectionView(){
+  document.querySelector('.wrap').style.display='block';
+  document.getElementById('planning-view').style.display='none';
+}
+
+function showPlanningView(){
+  document.querySelector('.wrap').style.display='none';
+  document.getElementById('planning-view').style.display='block';
+}
+
+// ── Chargement planning d'un juge ──
+function loadPlanningForJuge(jid){
+  showPlanningView();
+
+  // Si on a le payload JSONBin en cache, l'utiliser directement
+  if(_entryPayload){
+    renderPlanningFromPayload(jid, _entryPayload);
+    return;
+  }
+  // Si JSONBin dispo, charger depuis JSONBin
+  if(ENTRY_BIN_ID){
+    fetch(JSONBIN_API_ENTRY+'/b/'+ENTRY_BIN_ID+'/latest')
+    .then(function(r){ if(!r.ok) throw new Error(); return r.json(); })
+    .then(function(json){
+      _entryPayload = json.record || json;
+      renderPlanningFromPayload(jid, _entryPayload);
+    })
+    .catch(function(){ loadPlanningFromFirebase(jid); });
+    return;
+  }
+  // Fallback Firebase
+  loadPlanningFromFirebase(jid);
+}
+
+function renderPlanningFromPayload(jid, payload){
+  var ben = payload.benevoles && payload.benevoles[jid];
+  if(!ben){
+    document.getElementById('plan-heats').innerHTML='<div class="plan-empty">Planning introuvable. Contacte l\'admin.</div>';
+    return;
+  }
+  var parts = (ben.name||'').split(' ');
+  var jugeInfo = {id:jid, prenom:parts[0]||'', nom:parts.slice(1).join(' ')||''};
+
+  // Construire les heats depuis payload
+  var myHeats = (ben.heats||[]).map(function(h, i){
+    var wodNom = (h.wods&&h.wods[0]&&h.wods[0].nom) ? h.wods[0].nom : (h.wodNom||'WOD');
+    var debut  = (h.wods&&h.wods[0]&&h.wods[0].debut) ? h.wods[0].debut : '';
+    var fin    = (h.wods&&h.wods[0]&&h.wods[0].fin)   ? h.wods[0].fin   : '';
+    return {
+      hid: h.globalNum || h.heatNum || (i+1),
+      heat: {
+        globalNum: h.globalNum || h.heatNum || (i+1),
+        catName: h.catNom || '',
+        catZone: h.zone || 1,
+        wodInfo: { nom: wodNom, capMinutes: null },
+        startTime: debut ? debut+(fin?' → '+fin:'') : ''
+      },
+      lane: h.ligne || '',
+      laneData: { teamName: h.teamNom || '', athletes: [] }
+    };
+  });
+
+  renderPlanning(jugeInfo, myHeats, jid);
+}
+
+function loadPlanningFromFirebase(jid){
+  db.ref('heats').once('value').then(function(snap){
+    ALL_HEATS = snap.val() || {};
+    var jugeInfo = null;
+    var myHeats = [];
+    Object.keys(ALL_HEATS).forEach(function(hid){
+      var h = ALL_HEATS[hid];
+      if(!h || !h.lanes) return;
+      Object.keys(h.lanes).forEach(function(ln){
+        var li = h.lanes[ln];
+        (li.assignedJuges||[]).forEach(function(j){
+          if(String(j.id) === String(jid)){
+            if(!jugeInfo) jugeInfo = j;
+            myHeats.push({ hid:hid, heat:h, lane:ln, laneData:li });
+          }
+        });
+      });
+    });
+    if(!jugeInfo){
+      Object.keys(ALL_HEATS).forEach(function(hid){
+        var h = ALL_HEATS[hid]; if(!h||!h.lanes||jugeInfo) return;
+        Object.keys(h.lanes).forEach(function(ln){
+          (ALL_HEATS[hid].lanes[ln].assignedJuges||[]).forEach(function(j){
+            if(!jugeInfo && String(j.id)===String(jid)) jugeInfo=j;
+          });
+        });
+      });
+    }
+    renderPlanning(jugeInfo, myHeats, jid);
+  }).catch(function(){
+    document.getElementById('plan-heats').innerHTML='<div class="plan-empty">⚠️ Impossible de charger le planning.<br>Vérifie ta connexion.</div>';
+  });
+}
+
+function renderPlanning(juge, heats, jid){
+  var nameEl = document.getElementById('plan-name');
+  var heatsEl = document.getElementById('plan-heats');
+  var judgeUrl = window.location.href.replace('entry.html','').replace(/\/?$/, '/') + 'judge.html#juge/' + jid;
+  // Normaliser l'URL
+  judgeUrl = judgeUrl.replace(/\/+judge\.html/, '/judge.html');
+
+  if(juge){
+    nameEl.textContent = (juge.prenom||'') + ' ' + (juge.nom||'');
+  } else {
+    nameEl.textContent = 'Juge #' + jid;
+  }
+
+  if(!heats.length){
+    heatsEl.innerHTML = '<div class="plan-empty">📋 Aucun heat assigné pour l\'instant.<br>Contacte l\'admin si c\'est une erreur.</div>'
+      + '<button class="btn-judge" onclick="window.location.href=\''+judgeUrl+'\'" style="margin-top:18px">⚖️ Ouvrir l\'interface juge</button>';
+    return;
+  }
+
+  // Trier les heats par numéro
+  heats.sort(function(a,b){ return (parseInt(a.hid)||0)-(parseInt(b.hid)||0); });
+
+  var html = heats.map(function(item){
+    var h = item.heat;
+    var hnum = h.globalNum || item.hid;
+    var wod = h.wodName || h.wod || 'WOD';
+    var lane = item.lane;
+    var li = item.laneData;
+    // Athlètes de la lane
+    var athletes = (li.athletes||[]).map(function(a){ return a.prenom||a.nom||a; }).join(' · ');
+    if(!athletes) athletes = '—';
+    var horaire = h.startTime || '';
+
+
+    var wodInfo = h.wodInfo || {};
+    var wodNom = wodInfo.nom || h.wodName || h.wod || 'WOD';
+    var wodType = wodInfo.type || wodInfo.wodFormat || '';
+    var cap = wodInfo.capMinutes ? wodInfo.capMinutes+'min' : '';
+    var catNom = h.catName || h.catNom || '';
+    var zone = h.catZone || 1;
+    var zColor = zone===2?'#0F766E':'#1D4ED8';
+    var zBg = zone===2?'#F0FDF4':'#EFF6FF';
+    var teamName = li.teamName || athletes;
+
+    return '<div class="plan-heat">'
+      + '<div class="plan-heat-hdr">'
+      +   '<span class="plan-heat-num">HEAT ' + hnum + '</span>'
+      +   '<span class="plan-heat-wod">' + wodNom + '</span>'
+      + '</div>'
+      + '<div style="padding:12px 14px;display:flex;flex-direction:column;gap:8px">'
+      +   '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
+      +     '<span style="background:'+zBg+';color:'+zColor+';border-radius:6px;padding:3px 10px;font-size:11px;font-weight:800">Zone '+zone+'</span>'
+      +     '<span style="background:#F1F5F9;color:#475569;border-radius:6px;padding:3px 10px;font-size:11px;font-weight:700">Lane '+lane+'</span>'
+      +     (catNom?'<span style="background:#F8FAFF;color:#94A3B8;border-radius:6px;padding:3px 10px;font-size:10px">'+catNom+'</span>':'')
+      +   '</div>'
+      +   '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">'
+      +     '<span style="font-size:12px;font-weight:800;color:#0F172A">🏋️ '+wodNom+'</span>'
+      +     (cap?'<span style="font-size:10px;color:#94A3B8">'+cap+'</span>':'')
+      +     (wodType?'<span style="font-size:9px;background:#FEF3C7;color:#92400E;border-radius:4px;padding:2px 6px;font-weight:700">'+wodType.toUpperCase()+'</span>':'')
+      +   '</div>'
+      +   '<div class="plan-athletes">👥 '+teamName+'</div>'
+      + '</div>'
+      + '</div>';
+  }).join('');
+
+  html += '<button class="btn-judge" onclick="goJuge('+jid+')">⚖️ Ouvrir l\'interface juge</button>';
+  heatsEl.innerHTML = html;
+}
+
+function goJuge(id){
+  var base = window.location.href.split('entry.html')[0];
+  if(!base) base = window.location.href.replace(/[^/]*$/, '');
+  window.location.href = base + 'judge.html#juge/' + id;
+}
+
+// ── Reprise de session (vue sélection) ──
+function tryResumeSession(){
+  try{
+    var saved=localStorage.getItem('zk-last-url');
+    if(!saved||!saved.includes('#juge/'))return;
+    var idStr=saved.split('#juge/')[1];
+    var jid=parseFloat(idStr);
+    if(!jid)return;
+    var identity=null;
+    ['zk-juge-'+jid,'zk-juge-'+Math.floor(jid)].forEach(function(k){
+      if(identity)return;
+      try{var d=JSON.parse(localStorage.getItem(k));if(d&&d.prenom)identity=d;}catch(e){}
+    });
+    var bar=document.getElementById('resume-bar');
+    if(!bar)return;
+    if(identity){
+      document.getElementById('resume-name').textContent=identity.prenom+' '+(identity.nom||'');
+      bar.style.display='flex';
+    } else {
+      document.getElementById('resume-name').textContent='Juge connecté';
+      bar.style.display='flex';
+    }
+  }catch(e){}
+}
+
+function resumeSession(){
+  try{
+    var url=localStorage.getItem('zk-last-url');
+    if(url)window.location.href=url;
+  }catch(e){}
+}
+
+// ── Chargement liste (vue sélection) ──
+// Lire le binId depuis le hash ou localStorage
+var ENTRY_BIN_ID = null;
+(function(){
+  var hash = window.location.hash.replace('#','');
+  var params = {};
+  hash.split('&').forEach(function(p){ var kv=p.split('='); if(kv.length===2) params[kv[0]]=kv[1]; });
+  ENTRY_BIN_ID = params.bin || null;
+  // Fallback localStorage
+  if(!ENTRY_BIN_ID){ try{ ENTRY_BIN_ID=localStorage.getItem('zk-jsonbin-id')||null; }catch(e){} }
+})();
+
+var JSONBIN_API_ENTRY = 'https://api.jsonbin.io/v3';
+var _entryPayload = null; // données JSONBin en cache
+
+function loadJugesFromJSONBin(binId, onDone){
+  fetch(JSONBIN_API_ENTRY+'/b/'+binId+'/latest')
+  .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
+  .then(function(json){
+    _entryPayload = json.record || json;
+    // Construire ALL_JUGES depuis payload.benevoles
+    var seen={};
+    Object.keys(_entryPayload.benevoles||{}).forEach(function(bid){
+      var b = _entryPayload.benevoles[bid];
+      if(!b||!b.name) return;
+      var parts = b.name.split(' ');
+      var prenom = parts[0]||''; var nom = parts.slice(1).join(' ')||'';
+      if(!seen[bid]){ seen[bid]=true; ALL_JUGES.push({id:parseInt(bid), prenom:prenom, nom:nom}); }
+    });
+    ALL_JUGES.sort(function(a,b){ return (a.prenom||'').localeCompare(b.prenom||''); });
+    renderList(ALL_JUGES);
+    onDone();
+  })
+  .catch(function(){ onDone(); });
+}
+
+function loadJugesFromFirebase(){
+  db.ref('heats').once('value').then(function(snap){
+    var hs=snap.val()||{};
+    var seen={};
+    Object.keys(hs).forEach(function(hid){
+      var h=hs[hid];if(!h||!h.lanes)return;
+      Object.keys(h.lanes).forEach(function(ln){
+        var li=h.lanes[ln];
+        (li.assignedJuges||[]).forEach(function(j){
+          if(j.id&&!seen[j.id]){seen[j.id]=true;ALL_JUGES.push(j);}
+        });
+      });
+    });
+    ALL_JUGES.sort(function(a,b){return(a.prenom||'').localeCompare(b.prenom||'');});
+    renderList(ALL_JUGES);
+  }).catch(function(){
+    gel('judge-list').innerHTML='';
+    gel('err-msg').innerHTML='<div class="err">Impossible de charger la liste.<br>Vérifie ta connexion.</div>';
+  });
+}
+
+// Charger : JSONBin en priorité, Firebase en fallback
+if(ENTRY_BIN_ID){
+  loadJugesFromJSONBin(ENTRY_BIN_ID, function(){
+    if(!ALL_JUGES.length) loadJugesFromFirebase();
+  });
+} else {
+  loadJugesFromFirebase();
+}
+
+function renderList(juges){
+  var el=gel('judge-list');
+  if(!juges.length){
+    el.innerHTML='<div class="empty">Aucun juge trouvé.<br>Contacte l\'admin.</div>';
+    return;
+  }
+  el.innerHTML=juges.map(function(j){
+    var ini=((j.prenom||'?')[0]+((j.nom||'?')[0])).toUpperCase();
+    return '<button class="jbtn" onclick="goJuge('+j.id+')">'
+      +'<div class="av">'+ini+'</div>'
+      +'<div><div class="jname">'+(j.prenom||'')+' '+(j.nom||'')+'</div>'
+      +'<div class="jrole">Juge</div></div>'
+      +'<span class="arrow">›</span>'
+      +'</button>';
+  }).join('');
+}
+
+function filterList(){
+  var q=gel('search').value.trim().toLowerCase();
+  if(!q){renderList(ALL_JUGES);return;}
+  renderList(ALL_JUGES.filter(function(j){
+    return ((j.prenom||'')+(j.nom||'')).toLowerCase().includes(q);
+  }));
+}
+
+function gel(id){return document.getElementById(id);}
+</script>
+</body>
+</html>
