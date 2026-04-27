@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="theme-color" content="#1d324c">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23FF5722'/><text y='.9em' font-size='80' font-family='Arial Black' fill='white'>K</text></svg>">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover, user-scalable=no">
+<title>Zone K · Accès Juges · FOC 2026</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-title" content="FOC Juge">
+<script>if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js').catch(function(){});}</script>
+<script>var FIREBASE_DB_URL = 'https://foc-2026-default-rtdb.europe-west1.firebasedatabase.app';</script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+:root{
+  --bg:#1d324c;--void:#172a40;
+  --s1:#223955;--s2:#253e5c;--s3:#253e5c;--s4:#253E5C;
+  --brd:rgba(255,255,255,.10);--brd2:rgba(255,255,255,.17);
+  --border:rgba(255,255,255,.10);--border2:rgba(255,255,255,.17);
+  --ink:#E8F4FF;--ink2:#7FB8E0;--ink3:#4A7099;--mid:#2E5070;--dim:#253e5c;
+  --fire:#FF5722;--fire2:#FF8040;--ember:#FF8A00;--amber:#FFB020;--gold:#FFD166;
+  --ok:#00E5A0;--green:#00E5A0;--err:#FF3B5C;--red:#FF3B5C;--warn:#FFB020;
+  --blue:#4DA6FF;--purple:#B06EFF;
+  --ok-bg:rgba(0,229,160,.08);--ok-brd:rgba(0,229,160,.2);
+  --err-bg:rgba(255,59,92,.08);--err-brd:rgba(255,59,92,.2);
+  --ff:'Bebas Neue',sans-serif;--fb:'Plus Jakarta Sans',sans-serif;--fm:'JetBrains Mono',monospace;
+}
+html,body{min-height:100%;background:var(--bg);color:var(--ink);font-family:var(--fb);-webkit-font-smoothing:antialiased;}
+body{
+  background:
+    radial-gradient(ellipse 90% 50% at 50% 0%,rgba(255,87,34,.1),transparent 55%),
+    var(--void);
+}
+
+.wrap{max-width:480px;margin:0 auto;padding:24px 16px;}
+
+/* HEADER */
+.entry-logo{text-align:center;margin-bottom:32px;padding-top:16px;}
+.logo-emblem{width:80px;height:80px;border-radius:18px;background:linear-gradient(145deg,#1d324c,#0D47A1,#1565C0);display:flex;flex-direction:column;align-items:center;justify-content:center;margin:0 auto 14px;box-shadow:0 8px 32px rgba(255,87,34,.2);}
+.logo-f{font-family:var(--ff);font-size:7px;font-weight:900;color:rgba(255,255,255,.35);letter-spacing:4px;}
+.logo-m{font-family:var(--ff);font-size:30px;font-weight:900;font-style:italic;color:#fff;line-height:1.1;}
+.logo-y{font-family:var(--ff);font-size:8px;font-weight:800;color:var(--gold);letter-spacing:3px;}
+.entry-title{font-family:var(--ff);font-size:26px;font-weight:900;letter-spacing:4px;background:linear-gradient(90deg,var(--fire),var(--ember));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.entry-sub{font-family:var(--ff);font-size:10px;color:var(--mid);letter-spacing:3px;margin-top:3px;}
+
+/* SEARCH */
+.search-wrap{margin-bottom:16px;position:relative;}
+.search-input{width:100%;background:var(--s1);border:1px solid var(--brd2);border-radius:10px;padding:13px 16px 13px 44px;font-size:15px;color:var(--ink);font-family:var(--fb);outline:none;-webkit-appearance:none;}
+.search-input::placeholder{color:var(--mid);}
+.search-input:focus{border-color:var(--fire);background:var(--s2);}
+.search-ico{position:absolute;left:14px;top:50%;transform:translateY(-50%);font-size:18px;pointer-events:none;}
+
+/* JUDGE LIST */
+.judge-list{display:flex;flex-direction:column;gap:6px;margin-bottom:20px;}
+.jbtn{
+  display:flex;align-items:center;gap:12px;
+  background:var(--s1);border:1px solid rgba(255,255,255,.1);
+  border-radius:12px;padding:12px 14px;cursor:pointer;width:100%;text-align:left;
+  transition:all .12s;-webkit-tap-highlight-color:transparent;
+}
+.jbtn:hover{border-color:rgba(255,90,31,.35);background:rgba(255,90,31,.05);}
+.jbtn:active{transform:scale(.98);}
+.jbtn.sel{border-color:rgba(255,90,31,.5);background:rgba(255,90,31,.1);}
+.j-av{width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,var(--s2),var(--s3));border:1.5px solid var(--brd2);display:flex;align-items:center;justify-content:center;font-family:var(--ff);font-size:13px;font-weight:900;color:var(--ink2);flex-shrink:0;}
+.jbtn.sel .j-av{background:rgba(255,87,34,.15);border-color:var(--fire);color:var(--fire2);}
+.j-name{font-family:var(--ff);font-size:15px;font-weight:800;color:var(--ink);}
+.j-role{font-size:10px;color:var(--mid);margin-top:1px;}
+.j-chip{margin-left:auto;font-family:var(--ff);font-size:9px;font-weight:800;padding:3px 8px;border-radius:5px;background:var(--s2);color:var(--mid);border:1px solid var(--brd2);flex-shrink:0;}
+
+/* CONFIRM BUTTON */
+.gen-btn{
+  width:100%;background:linear-gradient(135deg,#CC3A0F,var(--fire),var(--fire2));
+  color:#fff;border:none;border-radius:12px;padding:17px;
+  font-family:var(--fb);font-size:16px;font-weight:700;letter-spacing:.5px;
+  cursor:pointer;transition:all .15s;touch-action:manipulation;
+  box-shadow:0 4px 20px rgba(255,90,31,.35);
+}
+.gen-btn:disabled{background:var(--s2);color:var(--ink3);box-shadow:none;cursor:default;}
+.gen-btn:not(:disabled):active{transform:scale(.97);}
+.gen-btn:disabled{background:var(--s2);color:var(--dim);box-shadow:none;cursor:default;}
+.gen-btn:not(:disabled):active{transform:scale(.97);}
+
+/* SECOURS */
+.secours-section{background:var(--s1);border:1px solid var(--brd2);border-radius:12px;padding:16px;margin-top:8px;}
+.sec-title{font-family:var(--ff);font-size:11px;font-weight:800;color:var(--warn);letter-spacing:2px;text-transform:uppercase;margin-bottom:12px;}
+.sec-lbl{font-family:var(--ff);font-size:9px;font-weight:700;color:var(--mid);letter-spacing:1px;text-transform:uppercase;margin-bottom:5px;}
+.sec-input{width:100%;background:var(--s2);border:1px solid var(--brd2);border-radius:8px;padding:10px 12px;color:var(--ink);font-size:13px;font-family:var(--fb);outline:none;margin-bottom:10px;}
+.sec-input:focus{border-color:var(--fire);}
+
+/* MSG */
+.msg{font-size:11px;color:var(--err);text-align:center;margin-top:8px;min-height:16px;}
+
+/* ── Safe Area EPA ── */
+body{padding-top:env(safe-area-inset-top,0px);padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px);}
+.actions-bar,.tab-bar{padding-bottom:calc(env(safe-area-inset-bottom,0px) + 8px) !important;}
+
+/* ── Styles manquants entry.html ── */
+.offline-banner{display:none;position:fixed;top:0;left:0;right:0;z-index:9999;background:var(--err,#FF3B5C);color:#fff;text-align:center;padding:8px;font-weight:900;font-size:11px;letter-spacing:2px;font-family:var(--ff,'Bebas Neue',sans-serif);}
+.toast{position:fixed;bottom:calc(16px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%) translateY(14px);background:var(--s2,#253e5c);border:1px solid rgba(255,255,255,.14);border-radius:10px;padding:9px 16px;font-size:12px;font-weight:800;z-index:9999;opacity:0;transition:all .28s;pointer-events:none;white-space:nowrap;color:#fff;max-width:88vw;text-align:center;}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+.toast.ok{background:rgba(6,214,160,.12);border-color:rgba(6,214,160,.3);color:#00E5A0;}
+.toast.err{background:rgba(255,71,87,.12);border-color:rgba(255,71,87,.3);color:#FF3B5C;}
+.brand{text-align:center;margin-bottom:24px;padding-top:12px;}
+.brand-logo{width:72px;height:72px;border-radius:18px;background:linear-gradient(145deg,#FF4500,#FF7043);display:flex;align-items:center;justify-content:center;font-family:var(--ff,'Bebas Neue',sans-serif);font-size:46px;color:#fff;margin:0 auto 12px;box-shadow:0 6px 28px rgba(255,69,0,.4);}
+.brand-title{font-family:var(--ff,'Bebas Neue',sans-serif);font-size:26px;font-weight:900;letter-spacing:3px;background:linear-gradient(90deg,#FF5722,#FFB020);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.brand-sub{font-size:10px;color:var(--ink3,#6B7A99);letter-spacing:3px;margin-top:3px;}
+.card{background:var(--s1,#253e5c);border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:20px;margin-bottom:14px;}
+.card-title{font-family:var(--ff,'Bebas Neue',sans-serif);font-size:18px;font-weight:900;color:#fff;letter-spacing:1px;margin-bottom:14px;}
+.load-wrap{display:flex;flex-direction:column;align-items:center;gap:10px;padding:20px 0;}
+.load-txt{font-size:11px;color:var(--ink3,#6B7A99);letter-spacing:1px;}
+.spin{width:28px;height:28px;border:2px solid rgba(255,255,255,.1);border-top-color:var(--fire,#FF5722);border-radius:50%;animation:spin .9s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.select-wrap{position:relative;margin-bottom:12px;}
+.select-wrap select{width:100%;background:var(--s2,#253e5c);border:1px solid rgba(255,255,255,.14);border-radius:10px;padding:12px 36px 12px 14px;font-size:14px;color:#fff;font-family:var(--fb,'Barlow',sans-serif);outline:none;appearance:none;cursor:pointer;}
+.select-wrap select:focus{border-color:var(--fire,#FF5722);}
+.select-arrow{position:absolute;right:12px;top:50%;transform:translateY(-50%);color:var(--ink3,#6B7A99);pointer-events:none;font-size:12px;}
+.judge-preview{background:var(--s2,#253e5c);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:12px;margin-bottom:12px;display:none;}
+.jp-row{display:flex;justify-content:space-between;padding:4px 0;font-size:12px;border-bottom:1px solid rgba(255,255,255,.05);}
+.jp-row:last-child{border:none;}
+.jp-lbl{font-size:9px;font-weight:800;color:var(--ink3,#6B7A99);text-transform:uppercase;letter-spacing:1px;align-self:center;}
+.jp-val{font-weight:700;color:#fff;text-align:right;}
+.jp-val.hi{color:var(--fire,#FF5722);font-size:14px;font-family:var(--ff,'Bebas Neue',sans-serif);letter-spacing:1px;}
+.jp-badge{background:rgba(255,90,31,.15);color:var(--fire,#FF5722);border:1px solid rgba(255,90,31,.3);border-radius:5px;padding:2px 8px;font-size:10px;font-weight:800;}
+.mode-badge{display:inline-block;padding:4px 14px;border-radius:999px;font-size:9px;font-weight:900;letter-spacing:2px;text-transform:uppercase;margin-bottom:14px;}
+.mode-badge.normal{background:rgba(78,159,255,.15);color:#4DA6FF;border:1px solid rgba(78,159,255,.3);}
+.mode-badge.backup{background:rgba(245,166,35,.15);color:#FFB020;border:1px solid rgba(245,166,35,.3);}
+.steps{display:flex;align-items:center;justify-content:center;gap:0;margin-bottom:16px;}
+.step{display:flex;flex-direction:column;align-items:center;gap:3px;}
+.step-num{width:28px;height:28px;border-radius:50%;background:var(--s2,#253e5c);border:2px solid rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;color:var(--ink3,#6B7A99);}
+.step.active .step-num{background:var(--fire,#FF5722);border-color:var(--fire,#FF5722);color:#fff;}
+.step.done .step-num{background:rgba(6,214,160,.15);border-color:rgba(6,214,160,.3);color:#00E5A0;}
+.step-lbl{font-size:9px;color:var(--ink3,#6B7A99);font-weight:700;letter-spacing:.5px;}
+.step-line{flex:1;height:2px;background:rgba(255,255,255,.08);min-width:20px;}
+.step-line.done{background:rgba(6,214,160,.3);}
+.lane-list{display:flex;flex-direction:column;gap:6px;margin-bottom:12px;}
+.lane-btn{display:flex;align-items:center;gap:10px;background:var(--s2,#253e5c);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:10px 12px;cursor:pointer;width:100%;text-align:left;transition:all .12s;}
+.lane-btn:hover{border-color:rgba(255,90,31,.35);}
+.lane-btn.sel{border-color:rgba(255,90,31,.5);background:rgba(255,90,31,.08);}
+.lane-btn[disabled]{opacity:.4;cursor:not-allowed;}
+.lane-num{width:34px;height:34px;border-radius:50%;background:var(--s1,#253e5c);border:1.5px solid rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;font-family:var(--ff,'Bebas Neue',sans-serif);font-size:16px;font-weight:900;color:#fff;flex-shrink:0;}
+.lane-info{flex:1;min-width:0;}
+.li-team{font-size:13px;font-weight:800;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.li-cat{font-size:10px;color:var(--ink3,#6B7A99);margin-top:2px;}
+.lane-pill{font-size:9px;font-weight:800;padding:2px 7px;border-radius:5px;flex-shrink:0;}
+.lp-free{background:rgba(6,214,160,.1);color:#00E5A0;border:1px solid rgba(6,214,160,.2);}
+.lp-live{background:rgba(255,71,87,.1);color:#FF3B5C;border:1px solid rgba(255,71,87,.2);}
+.lp-ok{background:rgba(255,255,255,.06);color:var(--ink3,#6B7A99);border:1px solid rgba(255,255,255,.08);}
+.input-field{width:100%;background:var(--s2,#253e5c);border:1px solid rgba(255,255,255,.14);border-radius:10px;padding:12px 14px;color:#fff;font-size:15px;font-family:var(--fb,'Barlow',sans-serif);outline:none;margin-bottom:10px;}
+.input-field:focus{border-color:var(--fire,#FF5722);}
+.btn-back{width:100%;background:transparent;border:1px solid rgba(255,255,255,.1);color:var(--ink3,#6B7A99);border-radius:10px;padding:10px;font-size:12px;font-weight:700;cursor:pointer;margin-top:6px;font-family:var(--fb,'Barlow',sans-serif);}
+.footer{text-align:center;font-size:9px;color:var(--ink3,#6B7A99);letter-spacing:3px;padding:20px 0 calc(env(safe-area-inset-bottom,0px) + 20px);text-transform:uppercase;}
+.foc-sub{font-family:var(--ff,'Bebas Neue',sans-serif);font-size:8px;color:rgba(255,255,255,.3);letter-spacing:5px;}
+.foc-main{font-family:var(--ff,'Bebas Neue',sans-serif);font-size:38px;font-weight:900;font-style:italic;color:#fff;line-height:1;}
+.foc-year{font-family:var(--ff,'Bebas Neue',sans-serif);font-size:10px;color:#FFD166;letter-spacing:4px;}
+
+.btn-go{
+  width:100%;
+  background:linear-gradient(135deg,#CC3A0F,var(--fire,#FF5722),var(--fire2,#FF8040));
+  color:#fff;border:none;border-radius:12px;padding:17px;
+  font-family:var(--fb,'Barlow',sans-serif);
+  font-size:16px;font-weight:700;letter-spacing:.5px;
+  cursor:pointer;transition:all .15s;touch-action:manipulation;
+  box-shadow:0 4px 20px rgba(255,90,31,.35);
+  display:flex;align-items:center;justify-content:center;gap:8px;
+}
+.btn-go:disabled{background:var(--s2,#253e5c);color:var(--ink3,#6B7A99);box-shadow:none;cursor:default;}
+.btn-go:not(:disabled):active{transform:scale(.97);}
+</style>
+</head>
+<body>
+
+<!-- ── PIN SCREEN ── -->
+<div id="pin-screen" style="display:none;position:fixed;inset:0;z-index:9999;background:var(--bg,#223955);flex-direction:column;align-items:center;justify-content:center;padding:24px;">
+  <div style="width:100%;max-width:340px;">
+    <!-- Logo -->
+    <div style="text-align:center;margin-bottom:32px;">
+      <div style="width:72px;height:72px;border-radius:18px;background:linear-gradient(145deg,#FF4500,#FF7043);display:flex;align-items:center;justify-content:center;font-family:var(--ff,'Bebas Neue',sans-serif);font-size:46px;color:#fff;margin:0 auto 14px;box-shadow:0 6px 28px rgba(255,69,0,.4);">K</div>
+      <div style="font-family:var(--ff,'Bebas Neue',sans-serif);font-size:22px;letter-spacing:4px;background:linear-gradient(90deg,#FF5722,#FFB020);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">FOC 2026</div>
+      <div style="font-size:10px;color:var(--ink3,#6B7A99);letter-spacing:3px;margin-top:3px;">ACCÈS JUGES</div>
+    </div>
+
+    <!-- PIN label -->
+    <div style="font-size:13px;font-weight:700;color:var(--ink2,#C5CEDE);text-align:center;margin-bottom:20px;">Saisir le code PIN</div>
+
+    <!-- PIN display -->
+    <div id="pin-dots" style="display:flex;justify-content:center;gap:14px;margin-bottom:28px;">
+      <div class="pd" style="width:18px;height:18px;border-radius:50%;border:2px solid rgba(255,255,255,.2);background:transparent;transition:all .15s;"></div>
+      <div class="pd" style="width:18px;height:18px;border-radius:50%;border:2px solid rgba(255,255,255,.2);background:transparent;transition:all .15s;"></div>
+      <div class="pd" style="width:18px;height:18px;border-radius:50%;border:2px solid rgba(255,255,255,.2);background:transparent;transition:all .15s;"></div>
+      <div class="pd" style="width:18px;height:18px;border-radius:50%;border:2px solid rgba(255,255,255,.2);background:transparent;transition:all .15s;"></div>
+    </div>
+
+    <!-- Numpad -->
+    <div id="pin-pad" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px;">
+      <!-- 1–9 -->
+    </div>
+
+    <!-- Error -->
+    <div id="pin-error" style="text-align:center;font-size:12px;color:var(--red,#FF3B5C);min-height:20px;margin-top:6px;font-weight:600;"></div>
+  </div>
+</div>
+
+<div class="offline-banner" id="offline-banner">HORS LIGNE</div>
+<div class="toast" id="toast"></div>
+<div class="wrap">
+  <div class="brand">
+    <div class="brand-logo">
+      <div class="foc-sub">FIGHTS ON</div>
+      <div class="foc-main">FOC</div>
+      <div class="foc-year">2026</div>
+    </div>
+    <div class="brand-title">Zone K</div>
+    <div class="brand-sub">HYBRIDE CENTER · TOUL</div>
+  </div>
+
+  <!-- NOTE PWA -->
+  <div id="pwa-note" style="width:100%;max-width:400px;margin-bottom:12px;background:rgba(123,31,162,.1);border:1px solid rgba(123,31,162,.25);border-radius:10px;padding:10px 14px;display:flex;gap:10px;align-items:flex-start">
+    <div style="font-size:18px;flex-shrink:0">📲</div>
+    <div style="font-size:11px;color:#E8F4FF;line-height:1.6">
+      <strong style="color:#B06EFF">Installer l'app ?</strong> Chrome peut te proposer d'ajouter cette app sur ton écran d'accueil. C'est pratique mais <strong>totalement optionnel</strong> — tu peux fermer cette bannière et continuer avec ton QR code normalement.
+      <span onclick="document.getElementById('pwa-note').style.display='none'" style="display:inline-block;margin-left:8px;color:#B06EFF;cursor:pointer;font-weight:700">✕ Fermer</span>
+    </div>
+  </div>
+
+  <!-- MODE NORMAL -->
+  <div id="mode-normal" style="width:100%;max-width:400px;">
+    <div style="text-align:center;"><div class="mode-badge normal">ACCES JUGE</div></div>
+    <div class="card">
+      <div class="card-title">Selectionne ton nom</div>
+      <div class="load-wrap" id="load-wrap">
+        <div class="spin"></div>
+        <div class="load-txt" id="load-txt">Connexion Firebase...</div>
+      </div>
+      <div id="select-section" style="display:none">
+        <div class="select-wrap">
+          <select id="judge-select" onchange="onJudgeChange()">
+            <option value="">Ton prenom</option>
+          </select>
+          <div class="select-arrow">v</div>
+        </div>
+        <div class="judge-preview" id="judge-preview">
+          <div class="jp-row"><span class="jp-lbl">Juge</span><span class="jp-val hi" id="jp-name">-</span></div>
+          <div class="jp-row"><span class="jp-lbl">Heat</span><span class="jp-val" id="jp-heat">-</span></div>
+          <div class="jp-row"><span class="jp-lbl">Lane</span><span class="jp-val" id="jp-lane">-</span></div>
+          <div class="jp-row"><span class="jp-lbl">Equipe</span><span class="jp-val" id="jp-team">-</span></div>
+          <div class="jp-row"><span class="jp-lbl">Categorie</span><span class="jp-val"><span class="jp-badge" id="jp-cat">-</span></span></div>
+        </div>
+        <button class="btn-go" id="btn-go" onclick="goToJudge()" disabled>ACCEDER</button>
+        <div class="msg" id="msg"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODE SECOURS -->
+  <div id="mode-backup" style="display:none;width:100%;max-width:400px;">
+    <div style="text-align:center;"><div class="mode-badge backup">JUGE DE SECOURS</div></div>
+    <div class="steps">
+      <div class="step active" id="bk-step1"><div class="step-num">1</div><div class="step-lbl">Lane</div></div>
+      <div class="step-line" id="bk-line12"></div>
+      <div class="step" id="bk-step2"><div class="step-num">2</div><div class="step-lbl">Prenom</div></div>
+      <div class="step-line" id="bk-line23"></div>
+      <div class="step" id="bk-step3"><div class="step-num">3</div><div class="step-lbl">Acces</div></div>
+    </div>
+    <div class="card" id="bk-card-lane">
+      <div class="card-title">Quelle lane est sans juge ?</div>
+      <div class="load-wrap" id="bk-load-wrap"><div class="spin"></div><div class="load-txt">Chargement...</div></div>
+      <div id="bk-lane-content" style="display:none">
+        <div class="lane-list" id="bk-lane-list"></div>
+        <div class="msg" id="bk-lane-msg"></div>
+        <button class="btn-go" id="bk-btn-lane" onclick="bkGoStep2()" disabled>Choisir cette lane</button>
+      </div>
+    </div>
+    <div class="card" id="bk-card-prenom" style="display:none">
+      <div class="card-title">Ton prenom</div>
+      <div class="judge-preview" style="display:block;margin-bottom:14px;">
+        <div class="jp-row"><span class="jp-lbl">Lane</span><span class="jp-val hi" id="bk-recap-lane">-</span></div>
+        <div class="jp-row"><span class="jp-lbl">Equipe</span><span class="jp-val" id="bk-recap-team">-</span></div>
+        <div class="jp-row"><span class="jp-lbl">WOD</span><span class="jp-val" id="bk-recap-wod">-</span></div>
+      </div>
+      <input type="text" id="bk-prenom" class="input-field" placeholder="Ton prenom..."
+        maxlength="30" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false"
+        oninput="bkOnPrenom()" onkeydown="if(event.key==='Enter')bkGoStep3()">
+      <div class="msg" id="bk-prenom-msg"></div>
+      <button class="btn-go" id="bk-btn-prenom" onclick="bkGoStep3()" disabled>ACCEDER</button>
+      <button class="btn-back" onclick="bkGoBackStep1()">Changer de lane</button>
+    </div>
+    <div class="card" id="bk-card-go" style="display:none">
+      <div class="card-title">Connexion...</div>
+      <div class="load-wrap"><div class="spin"></div><div class="load-txt" id="bk-go-txt">Preparation...</div></div>
+    </div>
+  </div>
+
+  <div class="footer">FIGHTS ON CONTEST 2026 · ZONE K</div>
+</div>
+
+<script>
+function p2(n){return String(n).padStart(2,'0');}
+function fmtS(s){s=Math.max(0,Math.floor(s||0));return Math.floor(s/60)+':'+(s%60<10?'0':'')+(s%60);}
+function escHtml(s){return escH(s);}
+
+
+// ════════════════════════════════════
+// PIN ACCESS CONTROL
+// ════════════════════════════════════
+var PIN_ENTRY = '';
+var PIN_VERIFIED = false;
+
+function initPinScreen(){
+  // Already authenticated this session?
+  try{
+    var exp=parseInt(localStorage.getItem('zk-judge-auth')||'0');
+    if(exp && Date.now()<exp){ startEntry(); return; }
+  }catch(e){}
+
+  // Build numpad
+  var pad = document.getElementById('pin-pad');
+  if(!pad) return;
+  var nums = [1,2,3,4,5,6,7,8,9];
+  pad.innerHTML = nums.map(function(n){
+    return '<button onclick="pinPress('+n+')" style="padding:18px;font-family:var(--fm,monospace);font-size:22px;font-weight:700;color:var(--ink,#fff);background:var(--s1,#253e5c);border:1px solid rgba(255,255,255,.1);border-radius:12px;cursor:pointer;transition:all .1s;-webkit-tap-highlight-color:transparent;">'+n+'</button>';
+  }).join('')
+  + '<button onclick="pinPress(0)" style="padding:18px;font-family:var(--fm,monospace);font-size:22px;font-weight:700;color:var(--ink,#fff);background:var(--s1,#253e5c);border:1px solid rgba(255,255,255,.1);border-radius:12px;cursor:pointer;transition:all .1s;">0</button>'
+  + '<button onclick="pinDel()" style="padding:18px;font-size:20px;color:var(--ink2,#C5CEDE);background:var(--s2,#253e5c);border:1px solid rgba(255,255,255,.08);border-radius:12px;cursor:pointer;">⌫</button>'
+  + '<div></div>'; // spacer
+
+  // Show pin screen
+  document.getElementById('pin-screen').style.display = 'flex';
+}
+
+function pinPress(n){
+  if(PIN_ENTRY.length >= 4) return;
+  PIN_ENTRY += String(n);
+  updatePinDots();
+  if(PIN_ENTRY.length === 4) validatePin();
+}
+
+function pinDel(){
+  PIN_ENTRY = PIN_ENTRY.slice(0,-1);
+  updatePinDots();
+  document.getElementById('pin-error').textContent = '';
+}
+
+function updatePinDots(){
+  var dots = document.querySelectorAll('#pin-dots .pd');
+  dots.forEach(function(d, i){
+    if(i < PIN_ENTRY.length){
+      d.style.background = '#FF5722';
+      d.style.borderColor = '#FF5722';
+      d.style.boxShadow = '0 0 8px rgba(255,90,31,.5)';
+    } else {
+      d.style.background = 'transparent';
+      d.style.borderColor = 'rgba(255,255,255,.2)';
+      d.style.boxShadow = 'none';
+    }
+  });
+}
+
+function validatePin(){
+  // Read PIN from Firebase
+  db.ref('config/judgePin').once('value').then(function(snap){
+    var stored = snap.val();
+    if(!stored){
+      // No PIN set → open access (for initial setup)
+      grantAccess();
+      return;
+    }
+    if(PIN_ENTRY === String(stored)){
+      grantAccess();
+    } else {
+      // Wrong PIN
+      PIN_ENTRY = '';
+      updatePinDots();
+      var err = document.getElementById('pin-error');
+      if(err) err.textContent = '❌ Code incorrect — réessayez';
+      // Shake animation
+      var pd = document.getElementById('pin-dots');
+      if(pd){ pd.style.animation='shake .4s ease'; setTimeout(function(){ pd.style.animation=''; },500); }
+    }
+  }).catch(function(){
+    // Firebase error → allow access (don't block if offline)
+    grantAccess();
+  });
+}
+
+function grantAccess(){
+  try{ localStorage.setItem('zk-judge-auth', String(Date.now()+86400000)); }catch(e){}
+  // Si le juge avait un lien direct vers judge.html (QR nominatif), y retourner
+  var redirect = '';
+  try{ redirect = localStorage.getItem('zk-redirect-after-auth') || ''; }catch(e){}
+  if(redirect && redirect.includes('judge.html')){
+    try{ localStorage.removeItem('zk-redirect-after-auth'); }catch(e){}
+    window.location.replace(redirect);
+    return;
+  }
+  document.getElementById('pin-screen').style.display = 'none';
+  startEntry();
+}
+
+function startEntry(){
+  var hash = window.location.hash || '';
+  var IS_BACKUP = hash === '#backup';
+  var PRENOM_AUTO = '';
+  // Format : entry.html#prenom/NOM — auto-sélectionne le juge par prénom
+  if(hash.startsWith('#prenom/')){
+    PRENOM_AUTO = decodeURIComponent(hash.replace('#prenom/',''));
+  }
+  document.getElementById('mode-normal').style.display=IS_BACKUP?'none':'block';
+  document.getElementById('mode-backup').style.display=IS_BACKUP?'block':'none';
+  if(IS_BACKUP) loadBackupLanes();
+  else loadJuges(PRENOM_AUTO);
+}
+
+// Add shake keyframes
+(function(){
+  var s=document.createElement('style');
+  s.textContent='@keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-8px)}40%{transform:translateX(8px)}60%{transform:translateX(-5px)}80%{transform:translateX(5px)}}';
+  document.head.appendChild(s);
+})();
+
+
+if(!firebase.apps.length)firebase.initializeApp({databaseURL:FIREBASE_DB_URL});
+var db=firebase.database();
+db.ref('.info/connected').on('value',function(snap){document.getElementById('offline-banner').style.display=snap.val()?'none':'block';});
+// Démarrer le flow PIN dès que Firebase est prêt
+initPinScreen();
+
+// Detect mode from hash
+// ← moved to startEntry() inside PIN flow
+
+// ── MODE NORMAL ──
+var ALL_JUGES=[],SEL_JUGE=null;
+function loadJuges(prenomAuto){
+  setLoad('Chargement...');
+  // Timeout 10s si Firebase ne répond pas
+  var _loadTimeout = setTimeout(function(){
+    var el = document.getElementById('load-txt');
+    var wrap = document.getElementById('load-wrap');
+    if(wrap && wrap.style.display !== 'none'){
+      wrap.innerHTML = '<div style="text-align:center;padding:10px">'
+        +'<div style="font-size:28px;margin-bottom:10px">📡</div>'
+        +'<div style="font-size:13px;color:#FF3B5C;font-weight:700;margin-bottom:8px">Connexion Firebase lente ou indisponible</div>'
+        +'<div style="font-size:11px;color:var(--ink3);margin-bottom:14px;line-height:1.6">Vérifie le WiFi et recharge la page.<br>Si le problème persiste, utilise le <strong>Mode Secours</strong> ci-dessous.</div>'
+        +'<button onclick="location.reload()" style="padding:9px 20px;border-radius:8px;background:var(--fire);border:none;color:#fff;font-weight:800;font-size:12px;cursor:pointer">🔄 Recharger</button>'
+        +'</div>';
+    }
+  }, 10000);
+
+  // Charger benevoles + judgeAssignments d'abord (légers)
+  // heats seulement si judgeAssignments est vide (fallback lourd)
+  Promise.all([
+    db.ref('benevoles').once('value'),
+    db.ref('judgeAssignments').once('value')
+  ]).then(function(snaps){
+    clearTimeout(_loadTimeout);
+    var bens=snaps[0].val()||{};
+    var judgeAssigns=snaps[1].val()||{};
+    var heats={};
+    var statOrd={live:0,timecap:1,countdown:2,pre:3,pending:4,done:9};
+
+    // Construire assignMap depuis judgeAssignments (rapide) + fallback heats (lent)
+    var assignMap={};
+    // Priorité 1 : judgeAssignments (déjà indexé par id)
+    Object.keys(judgeAssigns).forEach(function(bid){
+      var asgs=judgeAssigns[bid];
+      if(!Array.isArray(asgs)) return;
+      assignMap[String(bid)]=asgs.map(function(a){
+        var hSt=(heats[a.heat]||{}).status||a.status||'pending';
+        return {
+          heatId:a.heat, lane:String(a.lane||''),
+          teamName:a.team||'—', catName:a.cat||'—',
+          wodNom:a.wod||'—', status:hSt,
+          globalNum:a.globalNum||0, _ord:statOrd[hSt]!=null?statOrd[hSt]:5
+        };
+      });
+    });
+    // Fallback : compléter depuis les heats si judgeAssignments vide
+    // (on charge heats uniquement dans ce cas — c'est le nœud lourd)
+    if(!Object.keys(assignMap).length){
+      setLoad('Chargement planning...');
+      db.ref('heats').once('value').then(function(hSnap){
+        heats=hSnap.val()||{};
+        Object.keys(heats).forEach(function(hid){
+          var h=heats[hid]; if(!h||!h.lanes) return;
+          var hSt=h.status||'pending';
+          var newOrd=statOrd[hSt]!=null?statOrd[hSt]:5;
+          var globalNum=parseInt(String(hid).replace(/\D/g,''))||0;
+          Object.keys(h.lanes).forEach(function(ln){
+            var li=h.lanes[ln]; if(!li) return;
+            (li.assignedJuges||[]).forEach(function(j){
+              if(!j||!j.id) return;
+              var key=String(j.id);
+              if(!assignMap[key]) assignMap[key]=[];
+              assignMap[key].push({
+                heatId:hid, lane:ln,
+                teamName:li.teamName||'—', catName:h.catName||'—',
+                wodNom:(h.wodInfo&&h.wodInfo.nom)||'—', status:hSt,
+                globalNum:globalNum, _ord:newOrd
+              });
+            });
+          });
+        });
+        finishLoad(bens,judgeAssigns,heats,assignMap,statOrd,prenomAuto);
+      }).catch(function(){setLoad('Erreur réseau. Vérifie ta connexion.');});
+      return; // On sort — finishLoad sera appelé après le chargement des heats
+    }
+    finishLoad(bens,judgeAssigns,heats,assignMap,statOrd,prenomAuto);
+  }).catch(function(){setLoad('Erreur réseau. Vérifie ta connexion.');});
+}
+
+function finishLoad(bens,judgeAssigns,heats,assignMap,statOrd,prenomAuto){
+    // Trier chaque liste par ordre global
+    Object.keys(assignMap).forEach(function(k){
+      assignMap[k].sort(function(a,b){ return a.globalNum-b.globalNum; });
+    });
+
+    // Source principale : benevoles Firebase (toujours à jour depuis index.html)
+    var jugesMap={};
+    var benKeys=Object.keys(bens);
+    if(benKeys.length){
+      benKeys.forEach(function(bid){
+        var b=bens[bid]; if(!b||b.isAthlete) return;
+        var key=String(b.id||bid);
+        var asgs=assignMap[key]||[];
+        // Exclure les heats terminés du planning affiché
+        var activeAsgs=asgs.filter(function(a){return a.status!=='done' && a.status!=='timecap';});
+        var displayAsgs=activeAsgs.length?activeAsgs:asgs; // Si tout est done, montrer quand même
+        // Heat principal = le premier actif
+        var bestAsg=activeAsgs[0]||asgs[0]||{};
+        jugesMap[key]={
+          id:b.id||bid,
+          prenom:b.prenom||'',
+          nom:b.nom||'',
+          role:b.role||'Juge',
+          heatId:bestAsg.heatId||null,
+          lane:bestAsg.lane||null,
+          teamName:bestAsg.teamName||'—',
+          catName:bestAsg.catName||'—',
+          wodNom:bestAsg.wodNom||'—',
+          status:bestAsg.status||'—',
+          _ord:bestAsg._ord!=null?bestAsg._ord:99,
+          allHeats:displayAsgs  // Heats actifs uniquement
+        };
+      });
+    } else {
+      // Fallback si pas de benevoles : lire depuis assignedJuges des heats
+      Object.keys(heats).forEach(function(hid){
+        var h=heats[hid]; if(!h||!h.lanes) return;
+        var hSt=h.status||'pending';
+        var newOrd=statOrd[hSt]!=null?statOrd[hSt]:5;
+        var globalNum=parseInt(String(hid).replace(/\D/g,''))||0;
+        Object.keys(h.lanes).forEach(function(ln){
+          var li=h.lanes[ln]; if(!li) return;
+          (li.assignedJuges||[]).forEach(function(j){
+            if(!j||!j.id) return;
+            var key=String(j.id);
+            if(!jugesMap[key]){
+              jugesMap[key]={id:j.id,prenom:j.prenom||'',nom:j.nom||'',role:j.role||'Juge',
+                heatId:hid,lane:ln,teamName:li.teamName||'—',
+                catName:h.catName||'—',wodNom:(h.wodInfo&&h.wodInfo.nom)||'—',
+                status:hSt,_ord:newOrd,allHeats:[]};
+            }
+            jugesMap[key].allHeats.push({heatId:hid,lane:ln,teamName:li.teamName||'—',
+              catName:h.catName||'—',wodNom:(h.wodInfo&&h.wodInfo.nom)||'—',
+              status:hSt,globalNum:globalNum,_ord:newOrd});
+          });
+        });
+      });
+      Object.values(jugesMap).forEach(function(j){
+        j.allHeats.sort(function(a,b){return a.globalNum-b.globalNum;});
+      });
+    }
+
+    if(!Object.keys(jugesMap).length){
+      setLoad('⚠️ Aucun bénévole/juge configuré. Injecte les données depuis l\'admin (index.html → Firebase → Seed).');
+      return;
+    }
+
+    ALL_JUGES=Object.values(jugesMap).sort(function(a,b){
+      var fa=(a.prenom+' '+a.nom).toLowerCase(),fb=(b.prenom+' '+b.nom).toLowerCase();
+      return fa<fb?-1:fa>fb?1:0;
+    });
+    if(!ALL_JUGES.length){setLoad('Aucun juge trouvé. Utilise le mode secours.');return;}
+    populateSelect();showSelect();
+    // Auto-sélection par prénom si QR nominatif scanné
+    if(prenomAuto){
+      var match=ALL_JUGES.find(function(j){
+        return (j.prenom||'').toLowerCase()===prenomAuto.toLowerCase() ||
+               (j.prenom+' '+j.nom).toLowerCase()===prenomAuto.toLowerCase();
+      });
+      if(match){
+        var sel=document.getElementById('judge-select');
+        if(sel){ sel.value=String(match.id); onJudgeChange(); }
+      }
+    }
+}
+function populateSelect(){
+  var sel=document.getElementById('judge-select');
+  sel.innerHTML='<option value="">— Ton prénom —</option>';
+  ALL_JUGES.forEach(function(j){var o=document.createElement('option');o.value=j.id;o.textContent=j.prenom+' '+j.nom;sel.appendChild(o);});
+}
+function onJudgeChange(){
+  var val=document.getElementById('judge-select').value;
+  var preview=document.getElementById('judge-preview'),btnGo=document.getElementById('btn-go');
+  document.getElementById('msg').textContent='';
+  if(!val){SEL_JUGE=null;preview.style.display='none';btnGo.disabled=true;return;}
+  SEL_JUGE=ALL_JUGES.find(function(j){return String(j.id)===String(val);});
+  if(!SEL_JUGE){preview.style.display='none';btnGo.disabled=true;return;}
+  document.getElementById('jp-name').textContent=SEL_JUGE.prenom+' '+SEL_JUGE.nom;
+
+  document.getElementById('jp-heat').textContent=SEL_JUGE.heatId?'Heat #'+SEL_JUGE.heatId:'Planning non encore généré';
+  document.getElementById('jp-lane').textContent=SEL_JUGE.lane?'Lane '+SEL_JUGE.lane:'—';
+  document.getElementById('jp-team').textContent=SEL_JUGE.teamName||'—';
+  document.getElementById('jp-cat').textContent=SEL_JUGE.catName||'—';
+
+  // Afficher le planning complet (tous les heats) si plusieurs
+  var planEl=document.getElementById('jp-planning');
+  if(planEl) planEl.remove();
+  var allH=SEL_JUGE.allHeats||[];
+  if(allH.length>1){
+    var stLabels={live:'🟢 LIVE',timecap:'🟡 TC',pre:'🟡 PRÉ',pending:'⚪ Attente',done:'✅ Terminé'};
+    var html='<div style="margin-top:10px;border-top:1px solid rgba(255,255,255,.08);padding-top:10px">'
+      +'<div style="font-size:9px;font-weight:800;letter-spacing:2px;color:var(--ink3,#4A7099);text-transform:uppercase;margin-bottom:8px">Planning complet ('+allH.length+' heats)</div>';
+    allH.forEach(function(a){
+      var stLbl=stLabels[a.status]||'⚪ —';
+      var isDone=a.status==='done';
+      var isActive=a.status==='live'||a.status==='timecap'||a.status==='pre';
+      html+='<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:8px;margin-bottom:5px;'
+        +(isActive?'background:rgba(255,87,34,.12);border:1px solid rgba(255,87,34,.25);'
+          :isDone?'background:rgba(0,229,160,.06);border:1px solid rgba(0,229,160,.15);opacity:.7;'
+          :'background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);')
+        +'">'
+        +'<div style="font-size:10px;font-weight:900;min-width:24px;font-family:monospace;color:'+(isActive?'#FF8A00':isDone?'#00E5A0':'#7FB8E0')+'">H'+a.globalNum+'</div>'
+        +'<div style="flex:1;min-width:0">'
+          +'<div style="font-size:12px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+escH(a.teamName)+'</div>'
+          +'<div style="font-size:10px;color:#7FB8E0">L'+a.lane+' · '+escH(a.catName)+' · '+escH(a.wodNom)+'</div>'
+        +'</div>'
+        +'<div style="font-size:9px;font-weight:800;white-space:nowrap">'+stLbl+'</div>'
+        +'</div>';
+    });
+    html+='</div>';
+    var div=document.createElement('div');
+    div.id='jp-planning';
+    div.innerHTML=html;
+    preview.appendChild(div);
+  }
+
+  preview.style.display='block';btnGo.disabled=false;
+}
+function escH(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function goToJudge(){
+  if(!SEL_JUGE)return;
+  var btn=document.getElementById('btn-go');
+  btn.disabled=true;
+  btn.innerHTML='<div class="spin" style="width:18px;height:18px;border-width:2px;border-color:rgba(255,255,255,.3);border-top-color:#fff;"></div><span>Connexion...</span>';
+  // Sauvegarder l'identité
+  try{localStorage.setItem('zk-juge-'+SEL_JUGE.id,JSON.stringify({prenom:SEL_JUGE.prenom,nom:SEL_JUGE.nom,id:SEL_JUGE.id}));}catch(e){}
+  // Marquer auth valide pour 24h AVANT de rediriger (sinon judge.html rebloque)
+  try{localStorage.setItem('zk-judge-auth',String(Date.now()+86400000));}catch(e){}
+  var base=window.location.href.split('/').slice(0,-1).join('/')+'/';
+  var url=base+'judge.html#juge/'+SEL_JUGE.id;
+  try{localStorage.setItem('zk-last-url',url);}catch(e){}
+  // Redirection immédiate — replace pour ne pas laisser entry dans l'historique
+  window.location.replace(url);
+}
+function setLoad(txt){document.getElementById('load-txt').textContent=txt;}
+function showSelect(){document.getElementById('load-wrap').style.display='none';document.getElementById('select-section').style.display='block';}
+
+// ── MODE SECOURS ──
+var BK_HEATS={},BK_LANES=[],BK_SEL_HEAT=null,BK_SEL_LANE=null;
+function loadBackupLanes(){
+  db.ref('heats').once('value').then(function(snap){
+    BK_HEATS=snap.val()||{};BK_LANES=[];
+    var statOrd={live:0,timecap:1,countdown:2,pre:3,pending:4,done:9};
+    Object.keys(BK_HEATS).forEach(function(hid){
+      var h=BK_HEATS[hid];if(!h||!h.lanes)return;
+      var st=h.status||'pending';if(st==='done')return;
+      Object.keys(h.lanes).forEach(function(ln){
+        var li=h.lanes[ln];if(!li||!li.teamName)return;
+        var sc=(h.scores||{})[ln]||{},hasJudge=!!(sc.judgePrenom);
+        var ord=statOrd[st]!=null?statOrd[st]:5;
+        BK_LANES.push({heatId:hid, lane:ln, teamName:li.teamName||'—',
+          catName:h.catName||'—',wodNom:(h.wodInfo&&h.wodInfo.nom)||'—',status:st,hasJudge:hasJudge,_ord:ord});
+      });
+    });
+    BK_LANES.sort(function(a,b){return a._ord-b._ord||String(a.heatId).localeCompare(String(b.heatId))||String(a.lane).localeCompare(String(b.lane));});
+    renderBkLanes();
+  }).catch(function(){document.getElementById('bk-load-wrap').innerHTML='<div class="load-txt" style="color:var(--err)">Erreur réseau.</div>';});
+}
+function renderBkLanes(){
+  document.getElementById('bk-load-wrap').style.display='none';
+  document.getElementById('bk-lane-content').style.display='block';
+  var list=document.getElementById('bk-lane-list');
+  if(!BK_LANES.length){list.innerHTML='<div style="text-align:center;padding:20px;font-size:12px;color:var(--gray2)">Aucun heat actif.</div>';return;}
+  var heatIds=[];
+  BK_LANES.forEach(function(l){
+    if(heatIds.indexOf(l.heatId)===-1) heatIds.push(l.heatId);
+  });
+  heatIds=heatIds.slice(0,2);
+  list.innerHTML=heatIds.map(function(heatId, idx){
+    var rows=BK_LANES.filter(function(l){ return l.heatId===heatId; });
+    if(!rows.length) return '';
+    return '<div style="margin-bottom:10px">'
+      +'<div style="font-size:10px;font-weight:900;letter-spacing:1px;text-transform:uppercase;color:'+(idx===0?'#FFB020':'#4DA6FF')+';margin:0 0 6px 2px">Heat '+heatId+(idx===0?' · à couvrir maintenant':' · juste après')+'</div>'
+      +rows.map(function(l){
+        var pill=l.hasJudge?'<span class="lane-pill lp-ok">OK</span>':(l.status==='live'||l.status==='timecap'?'<span class="lane-pill lp-live">URGENT</span>':'<span class="lane-pill lp-free">Libre</span>');
+        var dis=l.hasJudge?'disabled':'';
+        return '<button class="lane-btn" '+dis+' onclick="bkSelLane('+l.heatId+','+l.lane+')">'
+          +'<div class="lane-num">'+l.lane+'</div>'
+          +'<div class="lane-info"><div class="li-team">'+escH(l.teamName)+'</div>'
+          +'<div class="li-cat">H#'+l.heatId+' · '+escH(l.catName)+' · '+escH(l.wodNom)+'</div></div>'
+          +pill+'</button>';
+      }).join('')
+      +'</div>';
+  }).join('');
+}
+function bkSelLane(hid,ln){
+  BK_SEL_HEAT=hid;BK_SEL_LANE=ln;
+  document.querySelectorAll('.lane-btn').forEach(function(b){b.classList.remove('sel');});
+  var idx=BK_LANES.findIndex(function(l){return l.heatId===hid&&l.lane===ln;});
+  var btns=document.querySelectorAll('.lane-btn');
+  if(btns[idx])btns[idx].classList.add('sel');
+  document.getElementById('bk-btn-lane').disabled=false;
+}
+function bkGoStep2(){
+  if(!BK_SEL_HEAT||!BK_SEL_LANE)return;
+  var l=BK_LANES.find(function(x){return x.heatId===BK_SEL_HEAT&&x.lane===BK_SEL_LANE;});
+  document.getElementById('bk-recap-lane').textContent='Lane '+BK_SEL_LANE+' — Heat #'+BK_SEL_HEAT;
+  document.getElementById('bk-recap-team').textContent=l?l.teamName:'—';
+  document.getElementById('bk-recap-wod').textContent=l?l.wodNom:'—';
+  document.getElementById('bk-card-lane').style.display='none';
+  document.getElementById('bk-card-prenom').style.display='block';
+  bkSetStep(2);
+  setTimeout(function(){document.getElementById('bk-prenom').focus();},200);
+}
+function bkOnPrenom(){
+  var v=document.getElementById('bk-prenom').value.trim();
+  document.getElementById('bk-btn-prenom').disabled=v.length<2;
+  document.getElementById('bk-prenom-msg').textContent='';
+}
+function bkGoBackStep1(){
+  document.getElementById('bk-card-prenom').style.display='none';
+  document.getElementById('bk-card-lane').style.display='block';
+  BK_SEL_HEAT=null;BK_SEL_LANE=null;
+  document.querySelectorAll('.lane-btn').forEach(function(b){b.classList.remove('sel');});
+  document.getElementById('bk-btn-lane').disabled=true;
+  bkSetStep(1);
+}
+function bkGoStep3(){
+  var prenom=document.getElementById('bk-prenom').value.trim();
+  if(prenom.length<2){document.getElementById('bk-prenom-msg').textContent='Saisis au moins 2 caractères';return;}
+  document.getElementById('bk-card-prenom').style.display='none';
+  document.getElementById('bk-card-go').style.display='block';
+  bkSetStep(3);
+  var backupId=-(Date.now()%100000);
+  var judgeEntry={id:backupId,prenom:prenom,nom:'(Secours)',role:'Juge Secours'};
+  try{localStorage.setItem('zk-juge-'+backupId,JSON.stringify({prenom:prenom,nom:'(Secours)',id:backupId}));localStorage.setItem('zk-j-'+BK_SEL_LANE,JSON.stringify({prenom:prenom,nom:'(Secours)',id:backupId}));}catch(e){}
+  var laneRef=db.ref('heats/'+BK_SEL_HEAT+'/lanes/'+BK_SEL_LANE+'/assignedJuges');
+  laneRef.once('value').then(function(snap){
+    var existing=snap.val()||[];
+    if(!Array.isArray(existing))existing=Object.values(existing);
+    if(!existing.some(function(j){return j&&j.prenom===prenom;}))existing.push(judgeEntry);
+    return laneRef.set(existing);
+  }).then(function(){
+    return db.ref('heats/'+BK_SEL_HEAT+'/judges/'+BK_SEL_LANE).set({prenom:prenom,nom:'(Secours)',lane:BK_SEL_LANE,ts:Date.now(),backup:true});
+  }).then(function(){
+    document.getElementById('bk-go-txt').textContent='Connecté ! Redirection...';
+    toast('Connecté comme juge de secours !','ok',2000);
+    var url='judge.html?h='+BK_SEL_HEAT+'&l='+BK_SEL_LANE;
+    try{localStorage.setItem('zk-last-url',url);}catch(e){}
+    setTimeout(function(){window.location.href=url;},1000);
+  }).catch(function(){document.getElementById('bk-go-txt').textContent='Erreur Firebase.';});
+}
+function bkSetStep(n){
+  for(var i=1;i<=3;i++){var s=document.getElementById('bk-step'+i);if(!s)continue;s.classList.remove('active','done');if(i<n)s.classList.add('done');if(i===n)s.classList.add('active');}
+  var l12=document.getElementById('bk-line12'),l23=document.getElementById('bk-line23');
+  if(l12)l12.classList.toggle('done',n>=2);if(l23)l23.classList.toggle('done',n>=3);
+}
+function escH(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function toast(msg,cls,dur){var el=document.getElementById('toast');el.className='toast'+(cls?' '+cls:'');el.textContent=msg;el.classList.add('show');setTimeout(function(){el.classList.remove('show');},dur||2500);}
+
+function enhanceEntryUX(){
+  if(document.getElementById('entry-fast-card')) return;
+  var normal=document.getElementById('mode-normal');
+  if(normal){
+    var hero=document.createElement('div');
+    hero.id='entry-fast-card';
+    hero.style.cssText='background:linear-gradient(135deg,rgba(30,136,229,.18),rgba(255,90,31,.14));border:1px solid rgba(255,255,255,.12);border-radius:16px;padding:16px 18px;margin:0 0 14px 0;box-shadow:0 10px 24px rgba(0,0,0,.18);';
+    hero.innerHTML=''
+      +'<div style="display:inline-flex;align-items:center;gap:8px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.1);border-radius:999px;padding:5px 10px;font-size:10px;font-weight:900;letter-spacing:1px;color:#9BD2FF;text-transform:uppercase;margin-bottom:10px;">Acces direct</div>'
+      +'<div style="font-family:var(--ff);font-size:28px;letter-spacing:2px;color:#fff;line-height:1;">Connexion juge simplifiee</div>'
+      +'<div style="font-size:12px;color:var(--ink2);line-height:1.8;margin-top:8px;">Choisis simplement ton prenom puis appuie sur <b style="color:#fff;">Acceder</b>. Aucun mot de passe n&rsquo;est demande sur ce flux.</div>'
+      +'<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:12px;">'
+        +'<div style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:10px 12px;"><div style="font-size:10px;font-weight:900;color:#FFB089;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">Etape 1</div><div style="font-size:12px;font-weight:800;color:#fff;">Selection du juge</div></div>'
+        +'<div style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:10px 12px;"><div style="font-size:10px;font-weight:900;color:#89F0C2;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">Etape 2</div><div style="font-size:12px;font-weight:800;color:#fff;">Ouverture de l&rsquo;interface</div></div>'
+      +'</div>';
+    normal.insertBefore(hero, normal.firstChild);
+  }
+
+  var title=document.querySelector('#mode-normal .card-title');
+  if(title) title.textContent='Choisis ton prenom et entre directement';
+  var btn=document.getElementById('btn-go');
+  if(btn) btn.textContent='ACCEDER A MON INTERFACE';
+  var foot=document.querySelector('.footer');
+  if(foot) foot.textContent='APP JUGE · CONNEXION RAPIDE · FIGHTS ON CONTEST 2026';
+}
+
+// Start with PIN check
+window.addEventListener('load', function(){ setTimeout(enhanceEntryUX, 120); });
+// Lancer le flow PIN au chargement
+// initPinScreen est appelé inline après firebase init (voir ci-dessus)
+</script>
+</body>
+</html>

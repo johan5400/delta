@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Historique des Résultats</title>
+<script>var FIREBASE_DB_URL='https://foc-2026-default-rtdb.europe-west1.firebasedatabase.app';</script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --bg:#05070a;--panel:#0d1520;--panel2:#0f1a28;
+  --brd:rgba(255,255,255,.08);--brd2:rgba(255,255,255,.13);
+  --ink:#E8F4FF;--ink2:#7FB8E0;--ink3:#3A5270;--mid:#2E5070;
+  --accent:#FF5722;--accent2:#FF8A00;
+  --ok:#06D6A0;--err:#ef4444;--warn:#FFB020;--gold:#FFD166;
+  --ff:'Bebas Neue',sans-serif;--fb:'Plus Jakarta Sans',sans-serif;--fm:'JetBrains Mono',monospace;
+}
+html,body{min-height:100%;background:var(--bg);color:var(--ink);font-family:var(--fb);overflow-x:hidden}
+body{display:flex;flex-direction:column;min-height:100vh}
+
+/* TOPBAR */
+.topbar{position:sticky;top:0;z-index:20;display:flex;align-items:center;justify-content:space-between;padding:10px 18px;background:rgba(3,5,10,.96);backdrop-filter:blur(20px);border-bottom:1px solid rgba(255,255,255,.06)}
+.brand{display:flex;align-items:center;gap:10px}
+.brand-k{width:36px;height:36px;border-radius:9px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-family:var(--ff);font-size:22px;color:#fff;flex-shrink:0}
+.brand-title{font-family:var(--ff);font-size:22px;letter-spacing:2px;line-height:1;color:#fff}
+.nav-links{display:flex;gap:10px}
+.nav-btn{text-decoration:none;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.03);color:var(--ink2);border-radius:999px;padding:6px 14px;font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase;transition:.15s}
+.nav-btn:hover{background:rgba(255,255,255,.08)}
+
+/* FILTERS */
+.filters{padding:16px 18px;display:flex;gap:10px;overflow-x:auto;scrollbar-width:none}
+.filters::-webkit-scrollbar{display:none}
+.filter-chip{white-space:nowrap;padding:8px 16px;border-radius:999px;background:var(--panel);border:1px solid var(--brd);color:var(--ink2);font-size:12px;font-weight:700;cursor:pointer;transition:.2s}
+.filter-chip.active{background:var(--accent);color:#fff;border-color:transparent}
+
+/* CONTENT */
+.shell{flex:1;padding:0 18px 24px;display:flex;flex-direction:column;gap:16px}
+.section-title{font-family:var(--ff);font-size:24px;letter-spacing:2px;color:var(--gold);margin-bottom:4px;display:flex;align-items:center;gap:8px}
+.section-title::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,var(--brd),transparent)}
+
+.history-grid{display:grid;grid-template-columns:repeat(auto-fill, minmax(340px, 1fr));gap:16px}
+@media (max-width:400px){ .history-grid{grid-template-columns:1fr} }
+
+.heat-card{background:var(--panel);border:1px solid var(--brd);border-radius:16px;overflow:hidden;transition:transform .2s, border-color .2s}
+.heat-card:hover{border-color:rgba(255,255,255,.15)}
+.heat-header{padding:12px 16px;background:rgba(255,255,255,.02);border-bottom:1px solid var(--brd);display:flex;justify-content:space-between;align-items:flex-start}
+.heat-info{display:flex;flex-direction:column;gap:2px}
+.heat-num{font-family:var(--ff);font-size:14px;color:var(--ink3);letter-spacing:1px}
+.heat-wod{font-family:var(--ff);font-size:20px;color:#fff;letter-spacing:1px}
+.heat-cat{font-size:11px;color:var(--ink2);font-weight:700}
+.heat-status{padding:4px 8px;border-radius:6px;font-size:9px;font-weight:900;letter-spacing:1px;text-transform:uppercase;background:rgba(6,214,160,.12);color:#06D6A0}
+
+.results-list{padding:8px 0}
+.result-row{display:grid;grid-template-columns:32px 1fr auto;gap:12px;align-items:center;padding:8px 16px;border-bottom:1px solid rgba(255,255,255,.03)}
+.result-row:last-child{border-bottom:none}
+.res-rank{font-family:var(--ff);font-size:18px;text-align:center;color:var(--ink3)}
+.res-rank.p1{color:#FFD700}.res-rank.p2{color:#C0C0C0}.res-rank.p3{color:#CD7F32}
+.res-name{font-weight:700;font-size:14px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.res-score{font-family:var(--fm);font-size:13px;font-weight:700;color:var(--ink2)}
+
+.empty-state{padding:60px 20px;text-align:center;color:var(--ink3)}
+.empty-icon{font-size:48px;margin-bottom:16px;opacity:.3}
+
+/* LOADING */
+.loader{display:flex;justify-content:center;padding:40px}
+.spinner{width:30px;height:30px;border:3px solid rgba(255,255,255,.1);border-top-color:var(--accent);border-radius:50%;animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">
+    <div class="brand-k">F</div>
+    <div class="brand-title">HISTORY</div>
+  </div>
+  <div class="nav-links">
+    <a href="live.html" class="nav-btn">← Live</a>
+  </div>
+</div>
+
+<div id="filters-container" class="filters">
+  <div class="filter-chip active" onclick="setFilter('all')">TOUS</div>
+</div>
+
+<div class="shell">
+  <div id="content">
+    <div class="loader"><div class="spinner"></div></div>
+  </div>
+</div>
+
+<script>
+firebase.initializeApp({databaseURL:FIREBASE_DB_URL});
+var db=firebase.database();
+
+var HEATS = {};
+var SCORES = {};
+var CURRENT_FILTER = 'all';
+
+// Utils
+function escH(s){ if(!s)return ''; return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function fmt(s){ if(!s||s<0)return '--:--'; var m=Math.floor(s/60),se=s%60; return m+':'+(se<10?'0':'')+se; }
+
+function getScoreDisplay(sc, wod) {
+  if(!sc || !sc.judgeOk) return '—';
+  var t = (wod.wodFormat || wod.type || '').toLowerCase();
+  var sf = (wod.scoreFinale || wod.scoreType || '').toLowerCase();
+  var jm = (wod.judgeMode || '').toLowerCase();
+  
+  if(jm==='maxload'||sf==='load'||t==='maxload') return (sc.load||0)+' kg';
+  if(sf==='dist') return (sc.dist||sc.distance||0)+' m';
+  if(t==='fortime'||sf==='time') return sc.finalTime > 0 ? fmt(sc.finalTime) : '—';
+  return (sc.reps||0)+' reps';
+}
+
+function getScoreValue(sc, wod) {
+  if(!sc || !sc.judgeOk) return -1;
+  var t = (wod.wodFormat || wod.type || '').toLowerCase();
+  var sf = (wod.scoreFinale || wod.scoreType || '').toLowerCase();
+  
+  if(t==='fortime'||sf==='time') return sc.finalTime > 0 ? -sc.finalTime : -999999;
+  return parseInt(sc.reps) || parseFloat(sc.load) || parseFloat(sc.dist) || 0;
+}
+
+function setFilter(f) {
+  CURRENT_FILTER = f;
+  document.querySelectorAll('.filter-chip').forEach(el => {
+    el.classList.toggle('active', el.textContent === f || (f==='all' && el.textContent==='TOUS'));
+  });
+  render();
+}
+
+function render() {
+  var content = document.getElementById('content');
+  var filteredHeats = Object.keys(HEATS)
+    .map(id => ({id: id, ...HEATS[id]}))
+    .filter(h => h.status === 'done' || h.status === 'timecap');
+  
+  // Extraire les catégories pour les filtres
+  var cats = [...new Set(filteredHeats.map(h => h.catName))].filter(Boolean).sort();
+  var filtersHtml = '<div class="filter-chip '+(CURRENT_FILTER==='all'?'active':'')+'" onclick="setFilter(\'all\')">TOUS</div>';
+  cats.forEach(c => {
+    filtersHtml += '<div class="filter-chip '+(CURRENT_FILTER===c?'active':'')+'" onclick="setFilter(\''+c+'\')">'+c+'</div>';
+  });
+  document.getElementById('filters-container').innerHTML = filtersHtml;
+
+  if (CURRENT_FILTER !== 'all') {
+    filteredHeats = filteredHeats.filter(h => h.catName === CURRENT_FILTER);
+  }
+
+  // Trier par WOD puis par numéro de heat
+  filteredHeats.sort((a, b) => {
+    var wA = (a.wodInfo||{}).nom || '';
+    var wB = (b.wodInfo||{}).nom || '';
+    if(wA !== wB) return wA.localeCompare(wB);
+    return (parseInt(a.catHeatNum)||0) - (parseInt(b.catHeatNum)||0);
+  });
+
+  if (filteredHeats.length === 0) {
+    content.innerHTML = '<div class="empty-state"><div class="empty-icon">📂</div><p>Aucun résultat disponible pour le moment.</p></div>';
+    return;
+  }
+
+  var html = '';
+  var currentWod = '';
+  
+  filteredHeats.forEach(h => {
+    var wodNom = (h.wodInfo||{}).nom || 'WOD';
+    if (wodNom !== currentWod) {
+      if (currentWod !== '') html += '</div>';
+      currentWod = wodNom;
+      html += '<div class="section-title">' + escH(currentWod) + '</div>';
+      html += '<div class="history-grid">';
+    }
+
+    var entries = [];
+    var lanes = h.lanes || {};
+    Object.keys(lanes).forEach(ln => {
+      var lane = lanes[ln];
+      if(!lane || !lane.teamName) return;
+      var sc = (h.scores || {})[ln] || SCORES[h.id + '_' + ln] || {};
+      entries.push({
+        name: lane.teamName,
+        score: getScoreDisplay(sc, h.wodInfo || {}),
+        val: getScoreValue(sc, h.wodInfo || {})
+      });
+    });
+
+    entries.sort((a, b) => b.val - a.val);
+
+    html += '<div class="heat-card">' +
+      '<div class="heat-header">' +
+        '<div class="heat-info">' +
+          '<div class="heat-num">HEAT ' + (h.catHeatNum || h.id.replace(/\D/g,'')) + '</div>' +
+          '<div class="heat-cat">' + escH(h.catName || '') + '</div>' +
+        '</div>' +
+        '<div class="heat-status">TERMINÉ</div>' +
+      '</div>' +
+      '<div class="results-list">';
+    
+    entries.forEach((e, i) => {
+      var rankCls = i === 0 ? 'p1' : i === 1 ? 'p2' : i === 2 ? 'p3' : '';
+      html += '<div class="result-row">' +
+        '<div class="res-rank ' + rankCls + '">' + (i + 1) + '</div>' +
+        '<div class="res-name">' + escH(e.name) + '</div>' +
+        '<div class="res-score">' + e.score + '</div>' +
+      '</div>';
+    });
+
+    html += '</div></div>';
+  });
+
+  html += '</div>';
+  content.innerHTML = html;
+}
+
+// Data loading
+db.ref('heats').on('value', snap => {
+  HEATS = snap.val() || {};
+  render();
+});
+
+db.ref('scores').on('value', snap => {
+  var raw = snap.val() || {};
+  SCORES = {};
+  Object.keys(raw).forEach(k => {
+    var sc = raw[k];
+    if(!sc) return;
+    SCORES[k] = sc;
+    if(sc.heatNum != null && sc.laneNum != null) SCORES[sc.heatNum + '_' + sc.laneNum] = sc;
+  });
+  render();
+});
+
+</script>
+</body>
+</html>

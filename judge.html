@@ -1,0 +1,2279 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="theme-color" content="#1d324c">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover,user-scalable=no">
+<title>Zone K · Judge · FOC 2026</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-title" content="FOC Juge">
+<script>if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js').catch(function(){});}</script>
+<script>var FIREBASE_DB_URL='https://foc-2026-default-rtdb.europe-west1.firebasedatabase.app';var WRITE_TOKEN='FOC2026ZK_SECRET_19SEP';</script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700;900&family=Barlow:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700;900&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --bg:#1d324c;--s1:#223955;--s2:#253e5c;--s3:#253e5c;
+  --brd:rgba(255,255,255,.10);--brd2:rgba(255,255,255,.17);
+  --ink:#E8F4FF;--ink2:#7FB8E0;--mid:#2E5070;
+  --fire:#FF5722;--ember:#FF8A00;--gold:#FFD166;
+  --ok:#00E5A0;--err:#FF3B5C;--warn:#FFB020;--blue:#4DA6FF;--purple:#B06EFF;
+  --z1:#FF5722;--z1-bg:rgba(255,87,34,.15);--z1-brd:rgba(255,87,34,.35);
+  --z2:#4DA6FF;--z2-bg:rgba(77,166,255,.15);--z2-brd:rgba(77,166,255,.35);
+  --ff:'Bebas Neue',sans-serif;--fc:'Barlow Condensed',sans-serif;
+  --fb:'Barlow',sans-serif;--fm:'JetBrains Mono',monospace;
+  --sat:env(safe-area-inset-top,0px);--sab:env(safe-area-inset-bottom,0px);
+}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-family:var(--fb)}
+body{display:flex;flex-direction:column}
+
+@keyframes fade-up{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+@keyframes pop{0%{transform:scale(1.22);color:var(--gold)}100%{transform:scale(1);color:var(--fire)}}
+@keyframes cd-slam{0%{transform:scale(1.55);opacity:0}60%{transform:scale(.93)}100%{transform:scale(1);opacity:1}}
+@keyframes cd-go{0%{transform:scale(.5) rotate(-3deg);opacity:0}60%{transform:scale(1.08)}100%{transform:scale(1);opacity:1}}
+@keyframes tkFlash{0%,100%{border-color:rgba(77,166,255,.5);box-shadow:0 0 0 rgba(77,166,255,0)}50%{border-color:rgba(77,166,255,1);box-shadow:0 0 18px rgba(77,166,255,.5)}}
+@keyframes tb-slide{from{transform:translateY(-110%)}to{transform:translateY(0)}}
+@keyframes pulse-border{0%,100%{border-color:rgba(255,59,92,.3)}50%{border-color:rgba(255,59,92,.95)}}
+@keyframes glow-fire{0%,100%{filter:drop-shadow(0 0 18px rgba(255,87,34,.35))}50%{filter:drop-shadow(0 0 52px rgba(255,138,0,.7))}}
+@keyframes move-flash{from{opacity:0;transform:translateY(8px) scale(.97)}to{opacity:1;transform:none}}
+@keyframes rest-in{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:scale(1)}}
+@keyframes rest-pulse{0%,100%{opacity:.7}50%{opacity:1}}
+
+.scr{display:none;flex-direction:column;flex:1;overflow:hidden}
+.scr.on{display:flex;animation:fade-up .26s ease}
+
+/* MENU */
+#s-menu{padding:calc(var(--sat) + 14px) 16px 16px;gap:10px;overflow-y:auto;align-items:center;background:radial-gradient(ellipse at 20% 0%,rgba(255,87,34,.1) 0%,transparent 55%),radial-gradient(ellipse at 85% 90%,rgba(77,166,255,.05) 0%,transparent 50%),var(--bg)}
+.m-logo{width:64px;height:64px;border-radius:16px;background:linear-gradient(135deg,var(--fire),var(--ember));display:flex;align-items:center;justify-content:center;font-family:var(--ff);font-size:48px;color:#fff;box-shadow:0 8px 28px rgba(255,87,34,.45);flex-shrink:0}
+.m-title{font-family:var(--ff);font-size:28px;letter-spacing:4px}
+.m-sub{font-family:var(--fc);font-size:9px;font-weight:800;letter-spacing:2px;color:var(--mid);text-transform:uppercase}
+.m-notice{font-size:11px;color:var(--ink2);text-align:center;line-height:1.65;max-width:340px;background:var(--s1);border:1px solid var(--brd2);border-radius:10px;padding:10px 14px;width:100%}
+.m-notice strong{color:var(--ink)}
+.sc-list{width:100%;max-width:400px;display:flex;flex-direction:column;gap:7px}
+.sc-section-lbl{font-family:var(--fc);font-size:9px;font-weight:800;letter-spacing:2px;color:var(--mid);text-transform:uppercase;padding:4px 2px 2px}
+.sc{padding:12px 14px;border:1px solid var(--brd2);border-radius:13px;background:linear-gradient(135deg,var(--s1),var(--s2));display:flex;align-items:center;gap:11px;cursor:pointer;transition:all .11s;width:100%;text-align:left}
+.sc:active{transform:scale(.975);border-color:var(--fire)}
+.sc-ico{font-size:22px;flex-shrink:0;width:30px;text-align:center}
+.sc-name{font-family:var(--fc);font-size:14px;font-weight:900;color:var(--ink);letter-spacing:.3px}
+.sc-desc{font-family:var(--fc);font-size:10px;font-weight:600;color:var(--mid);margin-top:2px;line-height:1.4}
+.sc-lv{font-family:var(--fc);font-size:7px;font-weight:900;padding:3px 8px;border-radius:4px;letter-spacing:1px;text-transform:uppercase;flex-shrink:0;margin-left:auto}
+.fmt-amrap{background:rgba(255,87,34,.12);color:var(--fire);border:1px solid rgba(255,87,34,.25)}
+.fmt-fortime{background:rgba(0,229,160,.1);color:var(--ok);border:1px solid rgba(0,229,160,.22)}
+.fmt-rounds,.fmt-interval{background:rgba(255,176,32,.1);color:var(--warn);border:1px solid rgba(255,176,32,.22)}
+.fmt-emom,.fmt-tabata{background:rgba(0,229,160,.08);color:#6EE7B7;border:1px solid rgba(0,229,160,.18)}
+.fmt-maxload{background:rgba(77,166,255,.1);color:var(--blue);border:1px solid rgba(77,166,255,.22)}
+.fmt-ergo{background:rgba(176,110,255,.1);color:var(--purple);border:1px solid rgba(176,110,255,.22)}
+.fmt-open{background:rgba(255,209,102,.1);color:var(--gold);border:1px solid rgba(255,209,102,.22)}
+
+/* ATTENTE */
+#s-wait{align-items:center;justify-content:center;gap:16px;padding:24px 20px;background:radial-gradient(ellipse at 50% 30%,rgba(77,166,255,.06) 0%,transparent 60%),var(--bg)}
+.w-ico{font-size:60px;animation:blink 2s infinite}
+.w-title{font-family:var(--ff);font-size:30px;letter-spacing:4px}
+.w-sub{font-family:var(--fc);font-size:11px;font-weight:700;letter-spacing:1px;color:var(--ink2);text-align:center}
+.w-info{background:var(--s1);border:1px solid var(--brd2);border-radius:14px;padding:14px 18px;width:100%;max-width:330px}
+.w-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--brd)}
+.w-row:last-child{border-bottom:none}
+.w-lbl{font-family:var(--fc);font-size:9px;font-weight:800;letter-spacing:1.5px;color:var(--mid);text-transform:uppercase}
+.w-val{font-family:var(--fc);font-size:12px;font-weight:800;color:var(--ink)}
+
+/* PRE */
+#s-pre{align-items:center;justify-content:center;gap:12px;padding:calc(var(--sat) + 18px) 16px 18px;background:radial-gradient(ellipse at 60% 20%,rgba(255,176,32,.06) 0%,transparent 55%),var(--bg)}
+.pre-team{font-family:var(--ff);font-size:28px;letter-spacing:2px;text-align:center}
+.pre-wod{font-family:var(--fc);font-size:12px;font-weight:700;color:var(--ink2);text-align:center;letter-spacing:.5px}
+.pre-card{background:var(--s1);border:1px solid var(--brd2);border-radius:14px;padding:14px 16px;width:100%;max-width:360px}
+.pre-moves{font-size:12px;color:var(--ink2);line-height:1.9}
+.pre-moves strong{color:var(--ink);font-size:13px}
+.pre-tb{margin-top:10px;padding:9px 13px;background:rgba(255,209,102,.07);border:1px solid rgba(255,209,102,.2);border-radius:9px;font-family:var(--fc);font-size:11px;font-weight:700;color:var(--gold);line-height:1.5;white-space:pre-line}
+.btn-ready{width:100%;max-width:360px;padding:17px;background:linear-gradient(135deg,var(--fire),var(--ember));border:none;border-radius:14px;color:#fff;font-family:var(--ff);font-size:24px;letter-spacing:5px;cursor:pointer;box-shadow:0 6px 26px rgba(255,87,34,.4);touch-action:manipulation}
+
+/* COUNTDOWN */
+#s-cd{align-items:center;justify-content:center;position:relative;overflow:hidden;background:var(--bg)}
+#cd-svg{position:absolute;width:min(88vw,370px);height:min(88vw,370px);top:50%;left:50%;transform:translate(-50%,-50%);pointer-events:none;z-index:0}
+.cd-heat{font-family:var(--fc);font-size:11px;font-weight:700;letter-spacing:3px;color:rgba(255,255,255,.22);text-transform:uppercase;z-index:1}
+#cd-box{display:flex;align-items:center;justify-content:center;position:relative;z-index:1}
+.cd-num{font-family:var(--ff);font-size:min(58vw,270px);font-weight:900;font-style:italic;line-height:.85;text-align:center;animation:cd-slam .22s cubic-bezier(.22,1,.36,1)}
+.cd-num.orange{background:linear-gradient(160deg,#FFD166,#FF8A00,#FF5722);-webkit-background-clip:text;-webkit-text-fill-color:transparent;filter:drop-shadow(0 0 28px rgba(255,138,0,.5))}
+.cd-num.red{background:linear-gradient(160deg,#FF9090,#FF3B5C);-webkit-background-clip:text;-webkit-text-fill-color:transparent;filter:drop-shadow(0 0 28px rgba(255,59,92,.6))}
+.cd-go-wrap{display:flex;flex-direction:column;align-items:center;gap:6px;animation:cd-go .38s cubic-bezier(.22,1,.36,1)}
+.cd-go{font-family:var(--ff);font-size:min(28vw,150px);font-weight:900;font-style:italic;background:linear-gradient(135deg,#00FF95,var(--ok));-webkit-background-clip:text;-webkit-text-fill-color:transparent;filter:drop-shadow(0 0 36px rgba(0,229,160,.6));line-height:1}
+.cd-go-sub{font-family:var(--fc);font-size:13px;font-weight:800;letter-spacing:4px;color:rgba(255,255,255,.28);text-transform:uppercase}
+
+/* JUGE HEADER */
+#s-judge{overflow:hidden}
+.j-hdr{background:linear-gradient(160deg,var(--s1),var(--s2));border-bottom:1px solid var(--brd);padding:10px 13px;flex-shrink:0;padding-top:calc(var(--sat) + 10px)}
+.j-hdr-r1{display:flex;align-items:center;gap:8px;margin-bottom:5px}
+.j-heat-lbl{font-family:var(--fc);font-size:10px;font-weight:800;letter-spacing:2px;color:var(--ember);text-transform:uppercase;flex-shrink:0}
+.j-team{font-family:var(--fc);font-size:17px;font-weight:900;color:var(--ink);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.j-lane{font-family:var(--fc);font-size:9px;font-weight:800;padding:3px 8px;border-radius:5px;background:rgba(255,255,255,.07);color:var(--ink2);border:1px solid var(--brd);flex-shrink:0}
+.j-hdr-r2{display:flex;align-items:center;gap:8px}
+.j-wod-lbl{font-family:var(--fc);font-size:11px;font-weight:600;color:var(--ink2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.j-fmt{font-family:var(--fc);font-size:8px;font-weight:800;padding:2px 7px;border-radius:4px;background:rgba(255,87,34,.1);color:var(--fire);border:1px solid rgba(255,87,34,.2);text-transform:uppercase;flex-shrink:0}
+.j-timer{font-family:var(--fm);font-size:21px;font-weight:900;margin-left:auto;flex-shrink:0}
+.j-timer.ok{color:var(--ok)}.j-timer.warn{color:var(--warn)}.j-timer.danger{color:var(--err);animation:blink .5s infinite}
+.judge-lock{display:none;align-items:center;justify-content:center;gap:8px;padding:9px 12px;background:rgba(255,176,32,.08);border-bottom:1px solid rgba(255,176,32,.18);color:var(--warn);font-family:var(--fc);font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase}
+.judge-lock.show{display:flex}
+.judge-lock strong{color:#FFE3A3}
+
+/* BARRE MOUVEMENTS */
+.j-moves{padding:5px 9px;border-bottom:1px solid var(--brd);flex-shrink:0;display:flex;gap:5px;flex-wrap:wrap;background:rgba(0,0,0,.18)}
+.mv{flex:1;display:flex;flex-direction:column;gap:3px;min-width:58px}
+.mv-lbl{font-family:var(--fc);font-size:10px;font-weight:800;padding:4px 7px;border-radius:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mv.done .mv-lbl{background:rgba(0,229,160,.1);color:var(--ok);border:1px solid rgba(0,229,160,.2)}
+.mv.active .mv-lbl{background:rgba(255,138,0,.18);color:var(--ember);border:1px solid rgba(255,138,0,.4);animation:blink 1.4s infinite;font-size:11px}
+.mv.pending .mv-lbl{background:rgba(255,255,255,.03);color:var(--mid);border:1px solid rgba(255,255,255,.05)}
+.mv-bar{height:3px;background:rgba(255,255,255,.07);border-radius:2px;overflow:hidden}
+.mv-fill{height:100%;border-radius:2px;transition:width .15s}
+.mv.done .mv-fill{background:var(--ok)}.mv.active .mv-fill{background:linear-gradient(90deg,var(--fire),var(--ember))}
+
+/* EMOM */
+.emom-bar{padding:8px 12px;border-bottom:1px solid var(--brd);flex-shrink:0;display:flex;align-items:center;gap:10px}
+.emom-phase{font-family:var(--ff);font-size:21px;letter-spacing:3px;padding:5px 14px;border-radius:8px;flex-shrink:0;transition:all .3s}
+.emom-phase.work{background:rgba(0,229,160,.15);color:var(--ok);border:1px solid rgba(0,229,160,.3)}
+.emom-phase.rest{background:rgba(255,59,92,.12);color:var(--err);border:1px solid rgba(255,59,92,.25);animation:blink .7s infinite}
+.emom-round{font-family:var(--fc);font-size:11px;font-weight:700;color:var(--mid);flex:1}
+.emom-countdown{font-family:var(--fm);font-size:23px;font-weight:900;flex-shrink:0}
+.emom-countdown.work{color:var(--ok)}.emom-countdown.rest{color:var(--err)}
+.emom-reset-row{display:flex;gap:6px;padding:5px 12px;border-bottom:1px solid var(--brd);flex-shrink:0}
+.btn-emom-rst{flex:1;padding:7px;border:1px solid rgba(255,176,32,.3);border-radius:7px;background:rgba(255,176,32,.08);color:var(--warn);font-family:var(--fc);font-size:10px;font-weight:800;cursor:pointer}
+.btn-emom-rst-all{flex:1;padding:7px;border:1px solid rgba(255,59,92,.25);border-radius:7px;background:rgba(255,59,92,.06);color:var(--err);font-family:var(--fc);font-size:10px;font-weight:800;cursor:pointer}
+.emom-history{padding:4px 12px;border-bottom:1px solid var(--brd);display:flex;gap:5px;flex-wrap:wrap;flex-shrink:0}
+.emom-rnd-chip{font-family:var(--fm);font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;background:var(--s3);color:var(--ink2);border:1px solid var(--brd)}
+.emom-rnd-chip.current{background:rgba(0,229,160,.1);color:var(--ok);border-color:rgba(0,229,160,.25)}
+
+/* COMPTEUR CENTRAL */
+.j-counter{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:6px 14px 4px;cursor:pointer;user-select:none;touch-action:manipulation;background:radial-gradient(circle at 50% 42%,rgba(255,87,34,.05) 0%,transparent 65%)}
+.j-lbl{font-family:var(--fc);font-size:9px;font-weight:800;letter-spacing:4px;color:rgba(255,255,255,.22);text-transform:uppercase;margin-bottom:2px}
+.j-num{font-family:var(--ff);font-size:min(40vw,166px);font-weight:900;font-style:italic;color:var(--fire);line-height:.9;transition:transform .07s;animation:glow-fire 3s ease infinite}
+.j-num.pop{animation:pop .15s ease,glow-fire 3s ease infinite}
+/* ★ NOM MOUVEMENT — très grand */
+.j-move-name{font-family:var(--ff);font-size:min(12vw,56px);font-weight:900;letter-spacing:2px;color:var(--ink);margin-top:4px;text-align:center;line-height:1;text-transform:uppercase;animation:move-flash .22s ease}
+.j-target{font-family:var(--fm);font-size:min(4.2vw,17px);font-weight:700;color:rgba(255,255,255,.3);margin-top:6px;letter-spacing:.5px}
+.j-norep{font-family:var(--fc);font-size:11px;font-weight:800;color:var(--err);background:rgba(255,59,92,.1);border:1px solid rgba(255,59,92,.22);padding:4px 12px;border-radius:7px;margin-top:8px}
+
+/* BOUTONS */
+.j-btns{display:flex;gap:8px;padding:10px 12px;flex-shrink:0;border-top:1px solid var(--brd);padding-bottom:calc(var(--sab) + 10px)}
+.btn-rep{flex:1;padding:42px 8px;border:none;border-radius:18px;background:linear-gradient(135deg,var(--fire),var(--ember));color:#fff;font-family:var(--ff);font-size:60px;letter-spacing:3px;cursor:pointer;box-shadow:0 6px 28px rgba(255,87,34,.45);touch-action:manipulation;transition:transform .07s,box-shadow .07s}
+.btn-rep:active{transform:scale(.94);box-shadow:0 2px 8px rgba(255,87,34,.2)}
+.btn-tb{flex:1;padding:20px 6px;border:1px solid rgba(255,209,102,.22);border-radius:14px;background:rgba(255,209,102,.06);color:var(--gold);font-family:var(--ff);font-size:13px;cursor:pointer;touch-action:manipulation;line-height:1.2}
+.btn-tb:active{transform:scale(.95)}
+.btn-tb.done{background:rgba(0,229,160,.1);color:var(--ok);border-color:rgba(0,229,160,.28)}
+.btn-validate{width:calc(100% - 24px);margin:8px 12px 0;padding:15px;border:none;border-radius:14px;background:linear-gradient(135deg,#1e344e,var(--ok));color:#14263a;font-family:var(--ff);font-size:20px;letter-spacing:3px;cursor:pointer;touch-action:manipulation;font-weight:900;box-shadow:0 4px 18px rgba(0,229,160,.18)}
+.is-disabled{opacity:.38 !important;filter:grayscale(.18);cursor:not-allowed !important;box-shadow:none !important}
+.j-counter.is-disabled{pointer-events:none;opacity:.45;filter:saturate(.7)}
+.j-counter.is-disabled .j-num{animation:none;filter:none}
+.ml-inp.is-disabled,#ergo-inp.is-disabled{opacity:.45;cursor:not-allowed;background:rgba(255,255,255,.04)!important}
+
+/* ★ ÉCRAN REPOS */
+#j-rest-screen{
+  display:none;flex-direction:column;align-items:center;justify-content:center;
+  flex:1;gap:12px;
+  background:radial-gradient(ellipse at 50% 40%,rgba(255,59,92,.1) 0%,rgba(5,7,9,.98) 70%);
+  pointer-events:all;
+}
+#j-rest-screen.show{display:flex;animation:fade-up .28s ease}
+.rest-ico{font-size:72px;animation:blink 1.4s ease infinite}
+.rest-label{font-family:var(--ff);font-size:min(24vw,110px);font-weight:900;letter-spacing:4px;
+  color:var(--err);line-height:1;
+  text-shadow:0 0 40px rgba(255,59,92,.45)}
+.rest-cd-lbl{font-family:var(--fc);font-size:12px;font-weight:800;letter-spacing:3px;
+  color:rgba(255,255,255,.3);text-transform:uppercase}
+.rest-cd{font-family:var(--fm);font-size:min(14vw,64px);font-weight:900;color:var(--err);
+  line-height:1;margin-top:4px}
+.rest-round{font-family:var(--fc);font-size:13px;font-weight:700;color:rgba(255,255,255,.35);margin-top:8px}
+.rest-hist{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;max-width:300px}
+
+/* TB */
+#tb-banner{position:fixed;top:0;left:0;right:0;z-index:200;display:none;flex-direction:column;background:linear-gradient(135deg,#7F0020,var(--err));box-shadow:0 6px 28px rgba(255,59,92,.55)}
+#tb-banner.show{display:flex;animation:tb-slide .26s cubic-bezier(.22,1,.36,1)}
+.tb-bar{height:4px;background:rgba(255,255,255,.15)}
+.tb-bar-fill{height:100%;background:rgba(255,255,255,.65);transition:width 5s linear}
+.tb-main{display:flex;align-items:center;gap:12px;padding:13px 15px}
+.tb-ico{font-size:30px;flex-shrink:0;animation:blink .8s infinite}
+.tb-txt{flex:1}
+.tb-title{font-family:var(--ff);font-size:23px;letter-spacing:3px;color:#fff}
+.tb-desc{font-family:var(--fc);font-size:11px;font-weight:700;color:rgba(255,255,255,.7);margin-top:2px}
+.tb-cd{font-family:var(--fm);font-size:30px;font-weight:900;color:#fff;flex-shrink:0}
+.tb-btn{width:calc(100% - 26px);margin:0 13px 13px;padding:14px;background:#fff;color:#CC0022;border:none;border-radius:12px;font-family:var(--ff);font-size:21px;letter-spacing:3px;cursor:pointer;touch-action:manipulation}
+#tb-fs{position:fixed;inset:0;z-index:300;display:none;flex-direction:column;align-items:center;justify-content:center;background:radial-gradient(ellipse at 50% 40%,rgba(255,59,92,.18) 0%,#162c44 62%);border:5px solid rgba(255,59,92,.5);animation:pulse-border 1s infinite}
+#tb-fs.show{display:flex}
+.tbfs-lbl{font-family:var(--fc);font-size:11px;font-weight:800;letter-spacing:4px;color:rgba(255,255,255,.28);text-transform:uppercase;margin-bottom:10px}
+.tbfs-ico{font-size:68px;animation:blink .55s infinite;margin-bottom:6px}
+.tbfs-title{font-family:var(--ff);font-size:54px;letter-spacing:5px;color:var(--err);text-align:center;line-height:.95;text-shadow:0 0 38px rgba(255,59,92,.5)}
+.tbfs-btn{margin-top:26px;width:calc(100% - 48px);padding:23px;background:var(--err);color:#fff;border:none;border-radius:16px;font-family:var(--ff);font-size:29px;letter-spacing:4px;cursor:pointer;touch-action:manipulation;box-shadow:0 8px 30px rgba(255,59,92,.55)}
+.tbfs-skip{margin-top:12px;padding:10px 26px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.3);border-radius:8px;font-family:var(--fc);font-size:10px;font-weight:800;cursor:pointer;text-transform:uppercase;letter-spacing:1px}
+
+/* MAXLOAD */
+.ml-section{padding:12px 14px;border-bottom:1px solid var(--brd);flex-shrink:0}
+.ml-lbl{font-family:var(--fc);font-size:9px;font-weight:800;letter-spacing:2px;color:var(--mid);text-transform:uppercase;margin-bottom:8px}
+.ml-inp{flex:1;padding:12px 14px;border-radius:10px;border:1px solid var(--brd2);background:var(--s2);color:var(--ink);font-family:var(--fm);font-size:22px;font-weight:700;outline:none;text-align:center}
+.ml-inp:focus{border-color:rgba(255,87,34,.5)}
+
+/* DONE */
+#s-done{align-items:center;justify-content:center;gap:14px;background:radial-gradient(ellipse at 50% 40%,rgba(0,229,160,.08) 0%,var(--bg) 65%)}
+.done-ico{font-size:66px}
+.done-title{font-family:var(--ff);font-size:34px;letter-spacing:4px}
+.done-score{font-family:var(--fm);font-size:54px;font-weight:900;color:var(--ok);text-align:center}
+.done-meta{font-family:var(--fc);font-size:12px;font-weight:600;color:var(--ink2);text-align:center;line-height:1.8}
+.done-tb{font-family:var(--fc);font-size:11px;font-weight:700;color:var(--gold);background:rgba(255,209,102,.08);border:1px solid rgba(255,209,102,.15);padding:5px 16px;border-radius:8px}
+.btn-again{padding:14px 30px;background:linear-gradient(135deg,var(--fire),var(--ember));border:none;border-radius:14px;color:#fff;font-family:var(--ff);font-size:20px;letter-spacing:3px;cursor:pointer;margin-top:4px;box-shadow:0 4px 20px rgba(255,87,34,.35)}
+
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--s2);border:1px solid var(--brd2);color:var(--ink);padding:9px 16px;border-radius:10px;font-family:var(--fc);font-size:11px;font-weight:700;letter-spacing:.5px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:500;white-space:nowrap;box-shadow:0 8px 24px rgba(0,0,0,.4)}
+#toast.show{opacity:1}
+#fb-ih{display:none;position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:850;min-width:260px;max-width:92vw;padding:10px 14px;border-radius:14px;background:linear-gradient(135deg,rgba(29,50,76,.98),rgba(18,32,58,.98));border:1px solid rgba(77,166,255,.35);box-shadow:0 12px 30px rgba(0,0,0,.4);text-align:center}
+#fb-ih.show{display:block}
+#fb-ih.warn{border-color:rgba(255,176,32,.35)}
+.fbih-title{font-family:var(--fc);font-size:10px;font-weight:900;letter-spacing:2px;text-transform:uppercase;color:var(--ink2)}
+.fbih-label{font-family:var(--fc);font-size:12px;font-weight:800;color:var(--ink);margin-top:4px}
+.fbih-cd{font-family:var(--fm);font-size:30px;font-weight:900;color:var(--blue);margin-top:6px}
+#fb-ih.warn .fbih-cd{color:var(--warn)}
+</style>
+</head>
+<body>
+
+<div id="tb-banner">
+  <div class="tb-bar"><div class="tb-bar-fill" id="tb-fill"></div></div>
+  <div class="tb-main">
+    <div class="tb-ico">🎯</div>
+    <div class="tb-txt"><div class="tb-title">TIEBREAK !</div><div class="tb-desc" id="tb-desc-lbl">Confirme le chrono</div></div>
+    <div class="tb-cd" id="tb-cd">5</div>
+  </div>
+  <button class="tb-btn" onclick="confirmTB()">🎯 CONFIRMER LE TIEBREAK</button>
+</div>
+
+<div id="tb-fs">
+  <div class="tbfs-lbl">Tiebreak en attente</div>
+  <div class="tbfs-ico">🎯</div>
+  <div class="tbfs-title">CONFIRME<br>MAINTENANT</div>
+  <button class="tbfs-btn" onclick="confirmTB()">🎯 TIEBREAK</button>
+  <button class="tbfs-skip" onclick="dismissTB()">Pas maintenant</button>
+</div>
+
+<div id="fb-ih">
+  <div class="fbih-title" id="fb-ih-title">Inter-heat</div>
+  <div class="fbih-label" id="fb-ih-label">Préparation du prochain départ</div>
+  <div class="fbih-cd" id="fb-ih-cd">0:00</div>
+</div>
+
+<div id="toast"></div>
+
+<!-- ATTENTE -->
+<div class="scr" id="s-wait">
+  <div class="w-ico">⏳</div>
+  <div class="w-title" id="w-title">EN ATTENTE</div>
+  <div class="w-sub" id="w-sub">Le heat va démarrer dans quelques secondes…</div>
+  <!-- Décompte interheat/coupure affiché directement ici -->
+  <div id="w-countdown-zone" style="display:none;text-align:center;margin:8px 0">
+    <div id="w-countdown-label" style="font-size:11px;font-weight:800;letter-spacing:2px;color:var(--ink2);text-transform:uppercase;margin-bottom:4px">INTER-HEAT</div>
+    <div id="w-countdown-val" style="font-family:var(--ff);font-size:72px;font-weight:900;color:var(--fire);line-height:1">—:——</div>
+  </div>
+  <div class="w-info">
+    <div class="w-row"><span class="w-lbl">Judge</span><span class="w-val" id="w-juge">—</span></div>
+    <div class="w-row"><span class="w-lbl">Heat</span><span class="w-val" id="w-heat">—</span></div>
+    <div class="w-row"><span class="w-lbl">Équipe</span><span class="w-val" id="w-team">—</span></div>
+    <div class="w-row"><span class="w-lbl">WOD</span><span class="w-val" id="w-wod">—</span></div>
+    <div class="w-row"><span class="w-lbl">Format</span><span class="w-val" id="w-fmt">—</span></div>
+  </div>
+  <!-- Planning complet du juge — tous les heats -->
+  <div id="w-planning" style="display:none;width:100%;max-width:330px;background:var(--s1);border:1px solid var(--brd2);border-radius:14px;padding:12px 14px">
+    <div style="font-size:9px;font-weight:800;letter-spacing:2px;color:var(--mid);text-transform:uppercase;margin-bottom:8px">MON PLANNING</div>
+    <div id="w-planning-rows"></div>
+  </div>
+</div>
+
+<!-- PRE — écran unique : info + WOD + bouton prêt -->
+<div class="scr" id="s-pre">
+  <div class="w-info" style="width:100%;max-width:360px;margin-bottom:8px">
+    <div class="w-row"><span class="w-lbl">Juge</span><span class="w-val" id="pre-juge-name">—</span></div>
+    <div class="w-row"><span class="w-lbl">Heat</span><span class="w-val" id="pre-heat-info">—</span></div>
+    <div class="w-row"><span class="w-lbl">Équipe</span><span class="w-val" id="pre-team">—</span></div>
+    <div class="w-row"><span class="w-lbl">Zone</span><span class="w-val" id="pre-zone-info">—</span></div>
+  </div>
+  <div class="pre-wod" id="pre-wod" style="margin-bottom:6px">—</div>
+  <div class="pre-card">
+    <div class="pre-moves" id="pre-moves"></div>
+    <div class="pre-tb" id="pre-tb" style="display:none"></div>
+  </div>
+  <button class="btn-ready" id="btn-ready-main" onclick="goCD()">⚡ JE SUIS PRÊT</button>
+</div>
+
+<!-- COUNTDOWN -->
+<div class="scr" id="s-cd">
+  <div id="cd-box" style="font-family:var(--ff);font-size:min(55vw,260px);font-weight:900;color:var(--fire);text-align:center;line-height:1"></div>
+  <div class="cd-heat" id="cd-heat" style="font-size:16px;color:var(--ink2);margin-top:12px;text-align:center">—</div>
+</div>
+
+<!-- JUGE -->
+<div class="scr" id="s-judge">
+  <div class="j-hdr">
+    <div class="j-hdr-r1">
+      <span class="j-heat-lbl" id="j-heat">—</span>
+      <span class="j-team" id="j-team">—</span>
+      <span class="j-lane" id="j-lane">L—</span>
+      <button onclick="callTK()" id="btn-call-tk"
+        style="display:none;margin-left:auto;background:rgba(77,166,255,.25);border:2.5px solid rgba(77,166,255,.7);color:var(--blue);border-radius:12px;padding:10px 18px;font-size:16px;font-weight:900;cursor:pointer;letter-spacing:.5px;flex-shrink:0;animation:tkFlash 1.8s ease infinite"
+        title="Appeler le Timekeeper">📞 TK</button>
+    </div>
+    <div class="j-hdr-r2">
+      <span class="j-wod-lbl" id="j-wod">—</span>
+      <span class="j-fmt" id="j-fmt">—</span>
+      <span class="j-timer ok" id="j-timer">00:00</span>
+    </div>
+  </div>
+  <div class="judge-lock" id="judge-lock"><span>🔒</span><span id="judge-lock-text">Attends le départ du timekeeper</span></div>
+  <div class="emom-bar" id="j-emom-bar" style="display:none">
+    <div class="emom-phase work" id="emom-phase">WORK</div>
+    <div class="emom-round" id="emom-round">Round 1</div>
+    <div class="emom-countdown work" id="emom-cd">1:00</div>
+  </div>
+  <div class="emom-history" id="j-emom-history" style="display:none"></div>
+  <div class="emom-reset-row" id="j-emom-reset" style="display:none">
+    <button class="btn-emom-rst" onclick="resetRound()">↺ Reset ce round</button>
+    <button class="btn-emom-rst-all" onclick="resetAllRounds()">✕ Tout remettre à 0</button>
+  </div>
+  <div class="j-moves" id="j-moves"></div>
+
+  <!-- Zone REPS / AMRAP / EMOM -->
+  <div id="j-reps-zone" style="display:flex;flex-direction:column;flex:1;overflow:hidden;position:relative">
+    <button class="btn-validate" onclick="validate()">✅ VALIDER LE SCORE</button>
+    <div id="j-round-history" style="display:none;flex-wrap:wrap;gap:5px;padding:6px 12px;border-bottom:1px solid var(--brd);flex-shrink:0"></div>
+    <!-- ★ ÉCRAN REPOS — s'affiche par-dessus le compteur en phase REST -->
+    <div id="j-rest-screen">
+      <svg width="160" height="120" viewBox="0 0 160 120" style="margin-bottom:4px">
+        <!-- Athlète affalé qui se repose - style cartoon -->
+        <!-- Sol -->
+        <rect x="10" y="95" width="140" height="6" rx="3" fill="rgba(255,255,255,.1)"/>
+        <!-- Corps allongé -->
+        <ellipse cx="80" cy="90" rx="50" ry="9" fill="#FF5722" opacity=".9"/>
+        <!-- Tête -->
+        <circle cx="118" cy="82" r="14" fill="#FFCC80"/>
+        <!-- Casque/bandeau -->
+        <path d="M106 76 Q118 70 130 76" stroke="#FF5722" stroke-width="4" fill="none" stroke-linecap="round"/>
+        <!-- Oeil fermé (qui dort) -->
+        <path d="M112 82 Q115 80 118 82" stroke="#5D4037" stroke-width="2" fill="none" stroke-linecap="round"/>
+        <path d="M120 82 Q123 80 126 82" stroke="#5D4037" stroke-width="2" fill="none" stroke-linecap="round"/>
+        <!-- Sourire -->
+        <path d="M113 87 Q118 91 124 87" stroke="#5D4037" stroke-width="2" fill="none" stroke-linecap="round"/>
+        <!-- Bras sous la tête -->
+        <ellipse cx="108" cy="88" rx="12" ry="5" fill="#FFCC80" transform="rotate(-10 108 88)"/>
+        <!-- Haltère à côté -->
+        <rect x="28" y="84" width="32" height="6" rx="3" fill="rgba(255,255,255,.2)"/>
+        <rect x="24" y="80" width="8" height="14" rx="3" fill="rgba(255,255,255,.35)"/>
+        <rect x="56" y="80" width="8" height="14" rx="3" fill="rgba(255,255,255,.35)"/>
+        <!-- ZZZ -->
+        <text x="128" y="68" font-size="11" fill="rgba(255,255,255,.7)" font-weight="900">z</text>
+        <text x="135" y="58" font-size="14" fill="rgba(255,255,255,.6)" font-weight="900">z</text>
+        <text x="143" y="46" font-size="17" fill="rgba(255,255,255,.5)" font-weight="900">z</text>
+      </svg>
+      <div class="rest-label">REPOS</div>
+      <div class="rest-cd-lbl">prochain round dans</div>
+      <div class="rest-cd" id="rest-cd-val">—</div>
+      <div class="rest-round" id="rest-round-info">—</div>
+      <div class="rest-hist" id="rest-hist"></div>
+    </div>
+    <!-- Compteur normal -->
+    <div class="j-counter" id="j-counter" onclick="addRep()">
+      <div class="j-lbl" id="j-lbl">Mouvement en cours</div>
+      <div class="j-num" id="j-num">0</div>
+      <div id="j-total" style="font-family:var(--fm);font-size:min(4vw,16px);font-weight:700;color:rgba(255,255,255,.25);letter-spacing:1px;margin-top:2px;min-height:18px"></div>
+      <div class="j-move-name" id="j-move">—</div>
+      <div class="j-target" id="j-target"></div>
+      <div id="j-move-info" style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:5px;min-height:18px"></div>
+      <div class="j-norep" id="j-norep" style="display:none">🚫 No-rep : <span id="j-nr-count">0</span></div>
+    </div>
+    <div class="j-btns">
+      <button class="btn-rep" id="btn-rep" onclick="addRep()">+ REP</button>
+      <button class="btn-tb" id="btn-tb" onclick="manualTB()">🎯<br>TB</button>
+    </div>
+  </div>
+
+  <!-- Zone MAXLOAD -->
+  <div id="j-maxload-zone" style="display:none;flex-direction:column;flex:1;overflow:hidden">
+    <div class="ml-section">
+      <div class="ml-lbl">Saisir la charge (kg)</div>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+        <input id="ml-inp" class="ml-inp" type="number" min="1" max="999" placeholder="Ex: 80" inputmode="numeric" onkeydown="if(event.key==='Enter') document.getElementById('btn-ml-valid').focus()">
+        <span style="font-family:var(--fc);font-size:15px;font-weight:700;color:var(--mid)">kg</span>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button id="btn-ml-valid" onclick="addAttempt(true)" style="flex:1;padding:15px;border:none;border-radius:12px;background:linear-gradient(135deg,#1e344e,var(--ok));color:#14263a;font-family:var(--ff);font-size:20px;letter-spacing:2px;cursor:pointer;font-weight:900">✅ VALIDÉ</button>
+        <button onclick="addAttempt(false)" style="flex:1;padding:15px;border:1px solid rgba(255,59,92,.4);border-radius:12px;background:rgba(255,59,92,.1);color:var(--err);font-family:var(--ff);font-size:20px;letter-spacing:2px;cursor:pointer">✕ ÉCHEC</button>
+      </div>
+    </div>
+    <div style="flex:1;overflow-y:auto;padding:10px 12px">
+      <div class="ml-lbl" style="margin-bottom:8px">Tentatives</div>
+      <div id="ml-attempts"></div>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-top:1px solid var(--brd);background:var(--s1)">
+      <div style="font-family:var(--fc);font-size:10px;font-weight:800;letter-spacing:2px;color:var(--mid);text-transform:uppercase">Meilleur essai</div>
+      <div id="ml-best" style="font-family:var(--fm);font-size:38px;font-weight:900;color:var(--gold)">—</div>
+    </div>
+    <div style="padding:8px 12px 12px">
+      <button onclick="validate()" style="width:100%;padding:14px;border:none;border-radius:12px;background:linear-gradient(135deg,#1e344e,var(--ok));color:#14263a;font-family:var(--ff);font-size:20px;letter-spacing:3px;cursor:pointer;font-weight:900">✅ VALIDER LE SCORE</button>
+    </div>
+  </div>
+
+  <!-- Zone ERGO -->
+  <div id="j-ergo-zone" style="display:none;flex-direction:column;flex:1">
+    <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;gap:14px">
+      <div style="font-family:var(--fc);font-size:11px;font-weight:700;color:var(--mid);letter-spacing:1px" id="ergo-target-lbl">Objectif</div>
+      <div style="font-family:var(--fm);font-size:40px;font-weight:900;color:var(--blue)" id="ergo-target-val">—</div>
+      <div style="font-family:var(--fc);font-size:11px;font-weight:600;color:var(--ink2);text-align:center;line-height:1.6">Saisis le résultat quand l'athlète a terminé</div>
+      <div style="display:flex;gap:8px;align-items:center;width:100%;max-width:280px">
+        <input id="ergo-inp" style="flex:1;padding:14px;border-radius:10px;border:1px solid rgba(77,166,255,.3);background:rgba(77,166,255,.06);color:var(--ink);font-family:var(--fm);font-size:24px;font-weight:700;outline:none;text-align:center" type="number" min="0" placeholder="0" inputmode="numeric" onkeydown="if(event.key==='Enter') validateErgo()">
+        <span style="font-family:var(--fc);font-size:18px;font-weight:700;color:var(--blue);flex-shrink:0" id="ergo-unit">m</span>
+      </div>
+      <button onclick="validateErgo()" style="padding:15px 30px;background:linear-gradient(135deg,var(--blue),#2080FF);border:none;border-radius:12px;color:#fff;font-family:var(--ff);font-size:20px;letter-spacing:2px;cursor:pointer">✅ VALIDER</button>
+    </div>
+  </div>
+</div>
+
+<!-- DONE -->
+<div class="scr" id="s-done">
+  <div class="done-ico">✅</div>
+  <div class="done-title">SCORE VALIDÉ</div>
+  <div class="done-score" id="done-score">—</div>
+  <div class="done-meta" id="done-meta">—</div>
+  <div class="done-tb" id="done-tb" style="display:none"></div>
+  <div style="font-size:11px;color:var(--ok);text-align:center;max-width:280px;line-height:1.6;font-weight:700">✓ Score transmis au TK et au Live</div>
+  <div id="done-next-info" style="font-size:12px;color:var(--ink2);text-align:center;max-width:280px;line-height:1.7;margin-top:4px"></div>
+  <div style="font-size:11px;color:var(--warn);text-align:center;max-width:280px;line-height:1.6;font-weight:700;margin-top:8px">⚠️ Attends le signal avant de quitter</div>
+  <button onclick="returnToWait()" style="margin-top:20px;padding:14px 32px;background:linear-gradient(135deg,var(--fire),var(--ember));border:none;color:#fff;border-radius:12px;font-size:15px;font-weight:800;cursor:pointer;letter-spacing:1px;box-shadow:0 4px 18px rgba(255,87,34,.35)">↩ WOD SUIVANT — Choisir ma ligne</button>
+</div>
+
+<script>
+/* ======================================================
+   FOC 2026 · Interface Judge
+   ──────────────────────────────────────────────────────
+   Lit les WODs depuis localStorage('zonek-data')
+   → clé écrite par l'admin à chaque autoSave
+   → fallback scénarios intégrés si rien de configuré
+====================================================== */
+
+/* ── Utils ── */
+function p2(n){ return String(n).padStart(2,'0'); }
+function fmtT(s){ s=Math.max(0,Math.floor(s||0)); return Math.floor(s/60)+':'+p2(s%60); }
+function escH(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+/* ── État global ── */
+var SC=null, moveIdx=0, moveReps=0, totalReps=0, noReps=0, currentRound=1;
+var _preShown=false; // guard anti-double "je suis prêt"
+var tbTs=null, tbPhase=0, tbCapTs=null, tbIv=null;
+var startTs=null, elapsed=0, timerIv=null, done=false, endWarned=false;
+var mlAttempts=[];
+var emomRound=1, emomIsWork=true;
+var emomRoundReps=0, emomRoundHistory=[], emomTotalReps=0;
+
+/* ── Utils ── */
+function $(id){ return document.getElementById(id); }
+function vib(p){ try{if(navigator.vibrate)navigator.vibrate(p);}catch(e){} }
+var _tt=null;
+function toast(msg){ var el=$('toast'); el.textContent=msg; el.classList.add('show'); clearTimeout(_tt); _tt=setTimeout(function(){el.classList.remove('show');},2200); }
+var _ihIv=null;
+function showInterheatBanner(data){
+  var box=$('fb-ih'); if(!box) return;
+  var title=$('fb-ih-title'), label=$('fb-ih-label'), cd=$('fb-ih-cd');
+  var wCdZone=$('w-countdown-zone'), wCdLabel=$('w-countdown-label'), wCdVal=$('w-countdown-val');
+  var isCoupure=(data.ihType||'')==='coupure';
+  box.classList.toggle('warn', isCoupure);
+  box.classList.add('show');
+  if(title) title.textContent=(isCoupure?'Coupure':'Inter-heat').toUpperCase();
+  if(label) label.textContent=data.label||'Préparation du prochain départ';
+  // Afficher dans s-wait aussi
+  if(wCdZone) wCdZone.style.display='block';
+  if(wCdLabel) wCdLabel.textContent=isCoupure?'⏸ COUPURE':'⏳ INTER-HEAT';
+  clearInterval(_ihIv);
+  _ihIv=setInterval(function(){
+    var rem=Math.max(0,Math.ceil(((data.target||serverNow())-serverNow())/1000));
+    var str=fmtT(rem);
+    if(cd) cd.textContent=str;
+    if(wCdVal) wCdVal.textContent=str;
+    if(rem<=0){ clearInterval(_ihIv); _ihIv=null; hideInterheatBanner(); }
+  },300);
+}
+function hideInterheatBanner(){
+  clearInterval(_ihIv); _ihIv=null;
+  var box=$('fb-ih'); if(box) box.classList.remove('show');
+  var wCdZone=$('w-countdown-zone'); if(wCdZone) wCdZone.style.display='none';
+  // Recharger le prochain heat du juge a la fin de l'IH
+  // Ne pas interrompre si le juge est deja actif sur un ecran de WOD
+  var _ihActiveNow = ['s-pre','s-cd','s-judge'].indexOf(_currentScreen) !== -1;
+  if(FB_JUGE_ID && !_ihActiveNow){
+    setTimeout(function(){
+      db.ref('heats').once('value').then(function(snap){
+        var best=selectBestJudgeAssignment(FB_JUGE_ID, snap.val()||{});
+        // Uniquement si c'est un heat DIFFERENT — jamais reset le heat en cours
+        if(best && String(best.heatId)!==String(FB_HEAT_ID)){
+          db.ref('heats/'+best.heatId).once('value').then(function(hs){
+            var h=hs.val()||{};
+            var li=(h.lanes||{})[String(best.lane)]||{};
+            applyRealData({
+              heatId:best.heatId, lane:String(best.lane),
+              teamName:li.teamName||best.teamName||'—',
+              catName:h.catName||best.catName||'—',
+              catId:String(h.catId||best.catId||''),
+              zone:parseInt(h.catZone||h.zone||best.zone||1)||1,
+              wodInfo:h.wodInfo||best.wodInfo||null,
+              prenom:best.prenom||FB_JUGE_PRENOM||'Juge',
+              nom:best.nom||FB_JUGE_NOM||'',
+              status:h.status||'pending',
+              startTimestamp:h.startTimestamp||null
+            });
+          });
+        }
+      });
+    }, 1000);
+  }
+}
+function show(id){
+  ['s-wait','s-pre','s-cd','s-judge','s-done'].forEach(function(s){
+    var el=$(s); if(el) el.classList.remove('on');
+  });
+  var target=$(id);
+  if(target) target.classList.add('on');
+  _currentScreen = id;
+  // Wake Lock : libérer avec 10s de délai sur les écrans d'attente
+  clearTimeout(window._wlReleaseTimer);
+  if(id==='s-judge'||id==='s-cd'||id==='s-pre'){
+    requestWakeLock();
+  } else {
+    // EN ATTENTE ou DONE → libérer après 10s (temps de se préparer)
+    window._wlReleaseTimer = setTimeout(function(){
+      releaseWakeLock();
+    }, 10000);
+  }
+}
+
+/* ── Convertir wodInfo Firebase → scénario SC ── */
+function wodToScenario(wod){
+  wod = wod || {};
+  var fmt = String(wod.wodFormat || wod.type || 'amrap').toLowerCase();
+  // Normaliser le format
+  if(fmt==='fortime') fmt='fortime';
+  else if(fmt==='maxload') fmt='maxload';
+  else if(fmt==='emom') fmt='emom';
+  else if(fmt==='interval'||fmt==='intervals') fmt='interval';
+  else if(fmt==='rounds') fmt='rounds';
+  else if(fmt==='ergo') fmt='ergo';
+  else fmt='amrap';
+
+  var fmtLabels={amrap:'AMRAP',fortime:'FOR TIME',maxload:'MAX LOAD',emom:'EMOM',interval:'INTERVAL',rounds:'ROUNDS',ergo:'ERGO'};
+  var cap = parseInt(wod.capSec||wod.capSeconds||wod.durationSec||wod.duree||0,10)||0;
+  if(!cap){
+    var cm=parseInt(wod.capMinutes||wod.workMin||0,10)||0;
+    cap = cm * 60;
+  }
+  if(!cap) cap = 8*60; // défaut 8 min
+
+  var movs = wod.mouvements || wod.movements || [];
+  if(!Array.isArray(movs)) movs = [];
+
+  // ── Appliquer l'adaptation par catégorie ──
+  // catId passé en 2e argument de wodToScenario
+  var catId = arguments[1] ? String(arguments[1]) : '';
+
+  var moves = movs.map(function(m){
+    var baseQty = parseInt(m.qty||m.reps||0)||0;
+    var basePoids = '';
+    var baseTime = '';
+    var baseDist = parseInt(m.ergoTarget||0)||0;
+
+    // Si catId et des valeurs par catégorie existent → les utiliser
+    if(catId){
+      if(m.qtyParCat && m.qtyParCat[catId] != null && m.qtyParCat[catId] !== '')
+        baseQty = parseInt(m.qtyParCat[catId])||baseQty;
+      if(m.poids && m.poids[catId])
+        basePoids = m.poids[catId];
+      if(m.timeParCat && m.timeParCat[catId])
+        baseTime = m.timeParCat[catId];
+      if(m.distParCat && m.distParCat[catId] != null && m.distParCat[catId] !== '')
+        baseDist = parseInt(m.distParCat[catId])||baseDist;
+    }
+
+    return {
+      n: m.nom||m.name||'Mouvement',
+      q: baseQty,
+      poids: basePoids,
+      temps: baseTime,
+      type: m.type||'reps',
+      ergoTarget: baseDist,
+      ergoUnit: m.ergoUnit||'m',
+      qui: m.qui||'',
+      comment: m.comment||'',
+      note: m.note||''
+    };
+  });
+  if(!moves.length) moves = [{n: wod.description||wod.desc||'Reps', q:0, type:'reps', poids:'', temps:''}];
+
+  var hasTB = !!(wod.hasTiebreak);
+  var tbAuto = (wod.tiebreakMoveIdx!=null) ? parseInt(wod.tiebreakMoveIdx) : -1;
+
+  return {
+    prenom:'', nom:'', heat:'H?', lane:'1', team:'—', zone:1,
+    wod: wod.nom || wod.name || 'WOD',
+    fmt: fmt,
+    fmtLabel: fmtLabels[fmt]||fmt.toUpperCase(),
+    cap: cap,
+    moves: moves,
+    rounds: parseInt(wod.rounds||1)||1,
+    pauseEntreToursActive: !!wod.pauseEntreToursActive,
+    pauseEntreToursSec: parseInt(wod.pauseEntreToursSec||0)||0,
+    hasTiebreak: hasTB,
+    tbAuto: tbAuto,
+    tiebreakDesc: wod.tiebreakDesc||'',
+    emomWork: parseInt(wod.workMin||60)||60,
+    emomRest: parseInt(wod.restMin||0)||0,
+    scoreFinale: wod.scoreFinale||'',
+    judgeMode: wod.judgeMode||'reps'
+  };
+}
+function canFinalizeNow(){
+  if(done) return false;
+  return HEAT_STATUS==='live' || HEAT_STATUS==='timecap';
+}
+function setCtlDisabled(el, disabled){
+  if(!el) return;
+  if('disabled' in el) el.disabled=!!disabled;
+  el.classList.toggle('is-disabled', !!disabled);
+}
+function refreshJudgeLockUI(){
+  var liveOpen=canEditScoreNow();
+  var finalOpen=canFinalizeNow();
+  var lock=$('judge-lock'), txt=$('judge-lock-text');
+  var msg='Attends le départ du timekeeper';
+  if(done) msg='Score validé';
+  if(HEAT_STATUS==='timecap') msg='Timecap atteint : validation seulement';
+  else if(HEAT_STATUS==='live') msg='';
+  else if(HEAT_STATUS==='done') msg='Heat terminé';
+  else if(HEAT_STATUS==='pre' || HEAT_STATUS==='pending') msg='Attends le départ du timekeeper';
+  else msg='Saisie bloquée';
+  if(lock){
+    lock.classList.toggle('show', !liveOpen);
+    if(txt) txt.textContent=msg || 'GO';
+  }
+  setCtlDisabled($('j-counter'), !liveOpen);
+  ['btn-rep','btn-tb','ml-inp','ergo-inp'].forEach(function(id){ setCtlDisabled($(id), !liveOpen); });
+  document.querySelectorAll('.btn-emom-rst,.btn-emom-rst-all').forEach(function(el){ setCtlDisabled(el, !liveOpen); });
+  document.querySelectorAll('.btn-validate').forEach(function(el){ setCtlDisabled(el, !finalOpen); });
+  document.querySelectorAll('#j-maxload-zone button').forEach(function(el){
+    setCtlDisabled(el, /VALIDER LE SCORE/i.test(el.textContent||'') ? !finalOpen : !liveOpen);
+  });
+  // Boutons HJ et TK : visibles en LIVE ou TIMECAP (et si écran juge actif)
+  var tkBtn=$('btn-call-tk');
+  var inJudge=(_currentScreen==='s-judge');
+  var showBtns=((HEAT_STATUS==='live'||HEAT_STATUS==='timecap')&&!done)||inJudge;
+  if(tkBtn) tkBtn.style.display=showBtns?'inline-flex':'none';
+  var ergoBtn=document.querySelector('#j-ergo-zone button');
+  if(ergoBtn) setCtlDisabled(ergoBtn, !finalOpen);
+}
+function canEditScoreNow(){
+  if(done) return false;
+  return HEAT_STATUS==='live';
+}
+function guardScoreEdit(msg){
+  if(canEditScoreNow()) return true;
+  toast(msg||'Saisie bloquée hors chrono live');
+  return false;
+}
+
+/* ── Navigation ── */
+function goMenu(){
+  clearInterval(timerIv); clearInterval(tbIv); clearInterval(window._cdIv);
+  done=false; endWarned=false; dismissTB();
+  moveIdx=0; moveReps=0; totalReps=0; noReps=0;
+  tbTs=0; tbPhase=0; tbCapTs=null; elapsed=0;
+  mlAttempts=[];
+  _currentScreen='s-wait';
+  if(SC){
+    var safe=function(id,val){var el=$(id);if(el)el.textContent=val;};
+    safe('w-juge',SC.prenom+' '+SC.nom);
+    safe('w-heat',SC.heat);
+    safe('w-team',SC.team);
+    safe('w-wod',SC.wod);
+    safe('w-fmt',SC.fmtLabel);
+  }
+  show('s-wait');
+}
+
+function returnToWait(){
+  // Fin de WOD → retour entry.html pour réassignation au WOD suivant
+  clearInterval(timerIv); clearInterval(tbIv); clearInterval(window._cdIv);
+  endWarned=false; dismissTB();
+  // Construire l'URL entry.html avec prénom auto pour éviter de reselectionner
+  var base=window.location.href.split('/').slice(0,-1).join('/')+'/';
+  var prenomSlug='';
+  if(SC&&SC.prenom) prenomSlug='#prenom/'+encodeURIComponent(SC.prenom);
+  try{ localStorage.removeItem('zk-judge-auth'); }catch(e){}
+  window.location.replace(base+'entry.html'+prenomSlug);
+}
+
+
+function goPre(){
+  if(!SC) return;
+  if(_currentScreen==='s-pre') return; // déjà sur cet écran, évite clignotement
+  _currentScreen='s-pre';
+  $('pre-team').textContent = SC.team;
+  $('pre-wod').textContent  = SC.wod+' · TC '+fmtT(SC.cap);
+  // Nouveaux champs info juge
+  var pj=$('pre-juge-name'); if(pj) pj.textContent=(SC.prenom||'')+' '+(SC.nom||'');
+  var ph=$('pre-heat-info'); if(ph) ph.textContent=SC.heat||'—';
+  var pz=$('pre-zone-info'); if(pz) pz.textContent='Zone '+(SC.zone||1);
+
+  /* résumé mouvements adapté au format */
+  var html='';
+  if(SC.fmt==='maxload'){
+    html='Saisie de la <strong>charge en kg</strong> pour chaque tentative.<br>Le meilleur essai validé est le score final.';
+  } else if(SC.fmt==='ergo'){
+    var m0=SC.moves[0]||{};
+    html='Objectif : <strong>'+(m0.ergoTarget?m0.ergoTarget+' '+(m0.ergoUnit||'m'):'voir machine')+'</strong><br>Saisis le résultat affiché sur la machine à la fin.';
+  } else if(SC.fmt==='emom'){
+    html='À chaque minute :<br>'+SC.moves.map(function(m){ return '<strong>'+(m.q?m.q+'× ':'')+m.n+'</strong>'; }).join(' + ')+'<br><span style="font-size:11px;opacity:.6">Les reps repartent à 0 au début de chaque round.</span>';
+  } else if(SC.fmt==='interval'){
+    html=SC.moves.map(function(m){ return '<strong>'+(m.q?m.q+'× ':'')+m.n+'</strong>'; }).join(' · ')+'<br>'
+      +'<strong>'+fmtT(SC.emomWork)+'</strong> WORK / <strong>'+fmtT(SC.emomRest)+'</strong> REST';
+  } else {
+    html=SC.moves.map(function(m,mi){
+      var QCOL={'A':'#60A5FA','B':'#F472B6','A+B':'#34D399','relay':'#FBBF24','both':'#A78BFA'};
+      var QBG={'A':'rgba(96,165,250,.15)','B':'rgba(244,114,182,.15)','A+B':'rgba(52,211,153,.15)','relay':'rgba(251,191,36,.15)','both':'rgba(167,139,250,.15)'};
+      var QLABELS={'A':'👤 Athlète A','B':'👤 Athlète B','A+B':'👥 A + B ensemble','relay':'🔄 Relais A/B','both':'👥 Les deux'};
+      var CLABELS={'synchro':'🤝 Synchro','solo':'💪 Solo','share':'🔀 Partage libre','relay':'🏃 Relais','alt':'↔️ Alterné'};
+      var quiCol=QCOL[m.qui]||'#7FB8E0';
+      var quiBg=QBG[m.qui]||'rgba(127,184,224,.1)';
+      // Carte mouvement
+      var card='<div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-left:3px solid '+quiCol+';border-radius:10px;padding:9px 12px;margin-bottom:7px">';
+      // Ligne 1 : numéro + reps + nom + poids
+      card+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">';
+      card+='<span style="background:rgba(255,255,255,.08);border-radius:5px;padding:1px 7px;font-size:10px;font-weight:800;color:var(--ink2);flex-shrink:0">#'+(mi+1)+'</span>';
+      if(m.q) card+='<span style="font-family:var(--fm);font-size:18px;font-weight:900;color:#60A5FA;flex-shrink:0">'+m.q+'×</span>';
+      card+='<span style="font-size:15px;font-weight:800;color:#fff;flex:1">'+m.n+'</span>';
+      if(m.poids) card+='<span style="background:rgba(167,139,250,.15);color:#C084FC;border-radius:6px;padding:2px 8px;font-size:12px;font-weight:700;flex-shrink:0">'+m.poids+'</span>';
+      card+='</div>';
+      // Ligne 2 : qui travaille + comment
+      if(m.qui||m.comment){
+        card+='<div style="display:flex;gap:6px;flex-wrap:wrap">';
+        if(m.qui) card+='<span style="background:'+quiBg+';color:'+quiCol+';border-radius:6px;padding:3px 10px;font-size:12px;font-weight:800">'+(QLABELS[m.qui]||m.qui)+'</span>';
+        if(m.comment) card+='<span style="background:rgba(52,211,153,.1);color:#6EE7B7;border-radius:6px;padding:3px 10px;font-size:12px;font-weight:700">'+(CLABELS[m.comment]||m.comment)+'</span>';
+        if(m.note) card+='<span style="color:rgba(255,255,255,.45);font-size:11px;font-style:italic;padding:3px 0">'+m.note+'</span>';
+        card+='</div>';
+      }
+      card+='</div>';
+      return card;
+    }).join('');
+    if(SC.rounds>1) html='<div style="font-size:.85em;opacity:.7;margin-bottom:6px">'+SC.rounds+' tours'+(SC.pauseEntreToursActive?' · pause '+fmtT(SC.pauseEntreToursSec)+' entre chaque':'')+' :</div>'+html;
+  }
+  $('pre-moves').innerHTML=html;
+
+  var tbEl=$('pre-tb');
+  if(SC.tb){
+    var desc=(SC.tbAuto>=0&&SC.moves[SC.tbAuto])
+      ?'🎯 Tiebreak automatique — fin des '+SC.moves[SC.tbAuto].n
+      :'🎯 Tiebreak manuel — bouton 🎯 au bon moment';
+    if(SC.tbDesc) desc+='\n'+SC.tbDesc;
+    tbEl.textContent=desc; tbEl.style.display='block';
+  } else { tbEl.style.display='none'; }
+  // Réactiver le bouton prêt à chaque nouveau heat
+  var btnReady=$('btn-ready-main');
+  if(btnReady){ btnReady.disabled=false; btnReady.style.opacity='1'; btnReady.textContent='⚡ JE SUIS PRÊT'; }
+  refreshJudgeLockUI();
+  show('s-pre');
+}
+
+/* ── Countdown ── */
+var CD_TOTAL=5;
+function goCD(){
+  // Signaler au TK que le juge est prêt
+  if(db && FB_HEAT_ID && FB_LANE){
+    var path='heats/'+FB_HEAT_ID+'/scores/'+FB_LANE+'/judgeReady';
+    db.ref(path).set(true);
+  }
+  refreshJudgeLockUI();
+  if(!SC) return;
+  _currentScreen='s-cd';
+  $('cd-heat').textContent=SC.heat+' · '+SC.team;
+  // Masquer le bouton prêt pour éviter double-clic
+  var btnReady=$('btn-ready-main'); if(btnReady){ btnReady.disabled=true; btnReady.style.opacity='0.4'; btnReady.textContent='✅ Signal envoyé…'; }
+  show('s-cd');
+  // Écran d'attente TK — le countdown démarrera via triggerFBCountdown quand le TK lance
+  $('cd-box').innerHTML='<div style="text-align:center;padding:30px 20px">'
+    +'<div style="font-size:56px;margin-bottom:16px">✅</div>'
+    +'<div style="font-family:var(--ff);font-size:28px;letter-spacing:3px;color:var(--ok);margin-bottom:8px">PRÊT !</div>'
+    +'<div style="font-size:13px;color:var(--ink2);line-height:1.7">Attends le lancement<br>par le <strong style="color:var(--blue)">Timekeeper</strong></div>'
+    +'</div>';
+  vib([60,40,60]);
+  // Le countdown démarre via triggerFBCountdown() quand le TK lance
+}
+
+/* ── Démarrage juge ── */
+function startJudge(){
+  // ★ Utiliser le startTimestamp Firebase (écrit par TK) — pas Date.now() local
+  // HEAT_START_TS est rempli par Firebase quand le TK lance le heat
+  startTs = HEAT_START_TS || serverNow();
+  elapsed = HEAT_START_TS ? Math.floor((serverNow() - HEAT_START_TS) / 1000) : 0;
+  done=false; endWarned=false; mlAttempts=[];
+  _currentScreen='s-judge';
+  show('s-judge');
+  $('j-heat').textContent=SC.heat; $('j-team').textContent=SC.team;
+  $('j-lane').textContent='Lane '+SC.lane; $('j-wod').textContent=SC.wod;
+  $('j-fmt').textContent=SC.fmtLabel;
+
+  var fmt=SC.fmt;
+  var isReps=(fmt==='fortime'||fmt==='amrap');
+  var isEmom=(fmt==='emom'||fmt==='interval');
+  var isML=(fmt==='maxload'), isErgo=(fmt==='ergo');
+
+  $('j-reps-zone').style.display=(isReps||isEmom)?'flex':'none';
+  $('j-maxload-zone').style.display=isML?'flex':'none';
+  $('j-ergo-zone').style.display=isErgo?'flex':'none';
+  $('j-moves').style.display=(isReps||isEmom)?'flex':'none';
+  $('j-emom-bar').style.display=isEmom?'flex':'none';
+
+  if(isEmom){
+    emomRound=1; emomIsWork=true; emomRoundReps=0; emomRoundHistory=[]; emomTotalReps=0;
+    $('j-emom-history').style.display='flex'; $('j-emom-history').innerHTML='';
+    $('j-emom-reset').style.display='flex'; updateEmomDisplay();
+  } else {
+    $('j-emom-history').style.display='none'; $('j-emom-reset').style.display='none';
+  }
+
+  if(isML){ $('ml-attempts').innerHTML=''; $('ml-best').textContent='—'; $('ml-inp').value=''; }
+  if(isErgo){
+    var m0=SC.moves[0]||{};
+    var tgt=m0.ergoTarget||m0.q||0;
+    $('ergo-target-val').textContent=tgt?(tgt+' '+(m0.ergoUnit||'m')):'—';
+    $('ergo-unit').textContent=m0.ergoUnit||'m'; $('ergo-inp').value='';
+  }
+
+  $('j-nr-count').textContent='0'; $('j-norep').style.display='none';
+  var tb=$('btn-tb'); if(tb){tb.className='btn-tb';tb.innerHTML='🎯<br>TB';tb.style.display='none';}
+  if(isReps) updateDisplay();
+  refreshJudgeLockUI();
+
+  clearInterval(timerIv);
+  timerIv=setInterval(function(){
+    if(done) return;
+    elapsed=Math.floor((serverNow()-startTs)/1000);
+    var isAmrap=(fmt==='amrap'), isEmomT=(fmt==='emom'||fmt==='interval');
+    if(isEmomT) updateEmomPhase(elapsed);
+    var rem=(isAmrap||isEmomT)?Math.max(0,SC.cap-elapsed):elapsed;
+    var tel=$('j-timer'); tel.textContent=fmtT(rem);
+    var left=SC.cap-elapsed; tel.className='j-timer '+(left>120?'ok':left>30?'warn':'danger');
+    if(left>0&&left<=5&&!done&&!endWarned){
+      endWarned=true;
+      vib([120,80,120]);
+      toast('⏱ Fin du chrono dans '+left+'s');
+    }
+    if((isAmrap||isEmomT)&&rem===0&&!done){done=true;setTimeout(validate,800);}
+    else if(!isAmrap&&!isEmomT&&elapsed>=SC.cap&&!done){done=true;setTimeout(validate,800);}
+  },100);
+}
+
+/* ── MaxLoad ── */
+function addAttempt(valid){
+  if(!guardScoreEdit('Attends le départ ou la reprise du heat')) return;
+  var inp=$('ml-inp'), val=parseFloat(inp.value);
+  if(!val||val<=0){inp.focus();toast('Saisis le poids');return;}
+  mlAttempts.push({kg:val,ok:valid}); inp.value=''; inp.focus();
+  renderAttempts();
+  toast(valid?'✅ '+val+'kg validé':'✕ '+val+'kg — échec');
+}
+function renderAttempts(){
+  var best=0; mlAttempts.forEach(function(a){if(a.ok&&a.kg>best)best=a.kg;});
+  $('ml-best').textContent=best||'—';
+  $('ml-attempts').innerHTML=mlAttempts.slice().reverse().map(function(a){
+    var isBest=a.ok&&a.kg===best, col=a.ok?'var(--ok)':'var(--err)';
+    var bg=a.ok?'rgba(0,229,160,.06)':'rgba(255,59,92,.06)', brd=a.ok?'rgba(0,229,160,.15)':'rgba(255,59,92,.15)';
+    var lbl=isBest?'🏆 MEILLEUR':(a.ok?'Validé':'Échec');
+    return '<div style="display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:9px;border:1px solid '+brd+';background:'+bg+';margin-bottom:5px">'
+      +'<span style="font-size:18px">'+(a.ok?'✅':'✕')+'</span>'
+      +'<span style="font-family:var(--fm);font-size:17px;font-weight:700;color:'+col+';flex:1">'+a.kg+' kg</span>'
+      +'<span style="font-family:var(--fc);font-size:9px;font-weight:800;color:var(--mid);text-transform:uppercase">'+lbl+'</span></div>';
+  }).join('');
+}
+
+/* ── Ergo ── */
+function validateErgo(){
+  if(!guardScoreEdit('Attends le départ ou la reprise du heat')) return;
+  var val=parseFloat($('ergo-inp').value);
+  if(!val||val<0){$('ergo-inp').focus();toast('Saisis la valeur');return;}
+  validate(val);
+}
+
+/* ── Affichage compteur ── */
+function updateDisplay(){
+  if(!SC) return;
+  var m=SC.moves[moveIdx], isAmrap=(SC.fmt==='amrap');
+  // Afficher les reps du mouvement en cours — pas le total
+  $('j-num').textContent=moveReps;
+
+  // Total cumulé en petit sous le compteur
+  var totEl=$('j-total');
+  if(totEl) totEl.textContent=totalReps>0?'TOTAL : '+totalReps:'';
+
+  /* ★ nom mouvement animé */
+  var mn=m?m.n:'—', mel=$('j-move');
+  if(mel.textContent!==mn){mel.style.animation='none';void mel.offsetWidth;mel.style.animation='move-flash .22s ease';mel.textContent=mn;}
+  var lbl=$('j-lbl'); if(lbl) lbl.textContent=m?m.n:'Mouvement en cours';
+
+  /* target : X / quota + numéro de tour pour Rounds */
+  if(m&&m.q>0){
+    var tgt=moveReps+' / '+m.q;
+    if(SC.fmt==='rounds'&&(SC.rounds||1)>1) tgt+=' · Tour '+currentRound+' / '+(SC.rounds||1);
+    $('j-target').textContent=tgt;
+  } else{$('j-target').textContent='';}
+
+  /* poids / temps adapté catégorie */
+  var infoEl=$('j-move-info');
+  if(infoEl){
+    var chips=[];
+    if(m&&m.poids) chips.push('<span style="background:rgba(167,139,250,.2);color:#C084FC;border-radius:20px;padding:3px 10px;font-size:13px;font-weight:800">⚖️ '+m.poids+'</span>');
+    if(m&&m.temps) chips.push('<span style="background:rgba(52,211,153,.15);color:#6EE7B7;border-radius:20px;padding:3px 10px;font-size:13px;font-weight:800">⏱ '+m.temps+'</span>');
+    // Qui travaille — bien visible pendant le judging
+    var QCOL3={'A':'#60A5FA','B':'#F472B6','A+B':'#34D399','relay':'#FBBF24','both':'#A78BFA'};
+    var QLBL3={'A':'👤 Athlète A','B':'👤 Athlète B','A+B':'👥 A + B','relay':'🔄 Relais A/B','both':'👥 Les deux'};
+    var CLBL3={'synchro':'🤝 Synchro','solo':'💪 Solo','share':'🔀 Partage','relay':'🏃 Relais','alt':'↔️ Alterné'};
+    if(m&&m.qui){var qc3=QCOL3[m.qui]||'#7FB8E0';chips.push('<span style="background:'+qc3+'22;color:'+qc3+';border-radius:20px;padding:4px 12px;font-size:13px;font-weight:900;border:1px solid '+qc3+'44">'+(QLBL3[m.qui]||m.qui)+'</span>');}
+    if(m&&m.comment) chips.push('<span style="background:rgba(52,211,153,.12);color:#6EE7B7;border-radius:20px;padding:4px 12px;font-size:13px;font-weight:700">'+(CLBL3[m.comment]||m.comment)+'</span>');
+    if(m&&m.note) chips.push('<span style="color:rgba(255,255,255,.4);font-size:11px;font-style:italic">'+m.note+'</span>');
+    infoEl.innerHTML=chips.join('');
+  }
+
+  /* passage auto — géré uniquement dans addRep pour éviter double-appel */
+  var old=$('j-counter').querySelector('.j-next-btn,.j-done-btn');if(old)old.remove();
+
+  /* barre mouvements avec qui/comment */
+  var _QCOL={'A':'#60A5FA','B':'#F472B6','A+B':'#34D399','relay':'#FBBF24','both':'#A78BFA'};
+  var _CLBLS={'synchro':'Sync','solo':'Solo','share':'Libre','relay':'Relais','alt':'Alt'};
+  $('j-moves').innerHTML=SC.moves.map(function(m2,i){
+    var isDone=i<moveIdx, isAct=i===moveIdx;
+    var pct=isDone?100:(isAct&&m2.q>0?Math.min(100,Math.round(moveReps/m2.q*100)):0);
+    var cls=isDone?'mv done':isAct?'mv active':'mv pending';
+    var lbl=(isDone?'✓ ':isAct?'▶ ':'')+m2.n;
+    if(m2.q>0) lbl+=' ×'+m2.q;
+    if(m2.poids) lbl+=' · <span style="color:#C084FC;font-size:.8em">'+m2.poids+'</span>';
+    if(m2.temps) lbl+=' · <span style="color:#6EE7B7;font-size:.8em">'+m2.temps+'</span>';
+    var qTag='',cTag='';
+    if(m2.qui){var qc=_QCOL[m2.qui]||'#7FB8E0';qTag='<span style="background:'+qc+'22;color:'+qc+';border-radius:4px;padding:1px 6px;font-size:9px;font-weight:800;margin-left:4px">'+m2.qui+'</span>';}
+    if(m2.comment){cTag='<span style="background:rgba(52,211,153,.12);color:#6EE7B7;border-radius:4px;padding:1px 6px;font-size:9px;font-weight:700;margin-left:3px">'+(_CLBLS[m2.comment]||m2.comment)+'</span>';}
+    return '<div class="'+cls+'"><div class="mv-lbl">'+lbl+qTag+cTag+'</div>'
+      +'<div class="mv-bar"><div class="mv-fill" style="width:'+pct+'%"></div></div></div>';
+  }).join('');
+
+  /* Bloquer btn-rep si WOD complètement terminé (tous mouvements quota atteint) */
+  /* En AMRAP : jamais bloquer — le juge boucle jusqu'au timecap */
+  var repBtn=$('btn-rep');
+  if(repBtn){
+    var curM=SC.moves[moveIdx];
+    var isAmrapFmt=(SC.fmt==='amrap');
+    // ForTime uniquement : bloquer quand dernier mouvement et quota atteint
+    var ftDone=(SC.fmt==='fortime')&&(moveIdx>=SC.moves.length-1)&&curM&&curM.q>0&&moveReps>=curM.q;
+    // AMRAP : jamais allDone (le chrono gère la fin via timecap)
+    var allDone=isAmrapFmt ? false : ftDone;
+    var _wasDisabled = repBtn.disabled;
+    repBtn.disabled=!!allDone;
+    repBtn.style.opacity=allDone?'0.3':'';
+    repBtn.style.background=allDone?'rgba(255,255,255,.06)':'';
+    // Griser aussi le compteur cliquable
+    var jc=$('j-counter');
+    if(jc) jc.style.pointerEvents=allDone?'none':'';
+    // Quand ForTime termine : mettre en avant le bouton VALIDER
+    if(allDone && !_wasDisabled){
+      vib([100,50,200,50,200]);
+      toast('✅ WOD terminé — VALIDE le score !', '#00E5A0', 4000);
+      var _vBtn = document.querySelector('.btn-validate');
+      if(_vBtn){
+        setTimeout(function(){
+          _vBtn.scrollIntoView({behavior:'smooth', block:'center'});
+          _vBtn.style.transition='box-shadow .3s';
+          _vBtn.style.boxShadow='0 0 0 4px #00E5A0, 0 4px 24px rgba(0,229,160,.5)';
+          setTimeout(function(){ _vBtn.style.boxShadow=''; }, 2500);
+        }, 300);
+      }
+    }
+  }
+}
+
+/* ── Actions rep ── */
+function addRep(){
+  if(!guardScoreEdit('Saisie bloquée')) return;
+  if(!emomIsWork && (SC.fmt==='interval'||SC.fmt==='emom') && SC.emomRest>0){
+    vib([30,20,30]); toast('⏸ Phase de repos — attends le GO !'); return;
+  }
+  var m=SC.moves[moveIdx]; if(!m) return;
+  var isLastMove=(moveIdx>=SC.moves.length-1);
+  var isLastRep=(m.q>0 && moveReps>=m.q-1); // va atteindre le quota sur cette rep
+  var fmt=SC.fmt||'';
+
+  // Bloquer si ForTime terminé (dernier mouvement, quota déjà atteint)
+  if(fmt==='fortime' && m.q>0 && isLastMove && moveReps>=m.q){
+    toast('✅ WOD terminé — appuie sur VALIDER'); vib([100,50,200]); return;
+  }
+  // Bloquer si Rounds terminés (tous les tours faits)
+  if(fmt==='rounds' && m.q>0 && isLastMove && moveReps>=m.q && currentRound>=(SC.rounds||1)){
+    toast('✅ '+( SC.rounds||1)+' tours terminés — appuie sur VALIDER'); vib([100,50,200]); return;
+  }
+
+  totalReps++; moveReps++;
+  // Passage automatique au mouvement suivant si quota atteint
+  if(m.q>0 && moveReps>=m.q && !isLastMove){
+    nextMove();
+  }
+  // Fin de série : AMRAP → boucle infinie, Rounds → boucle si tours restants
+  else if(m.q>0 && moveReps>=m.q && isLastMove){
+    if(fmt==='amrap'){
+      amrapLoop();
+    } else if(fmt==='rounds' && currentRound<(SC.rounds||1)){
+      roundsLoop();
+    }
+  }
+  vib(18);
+  var fmt=(SC.fmt||'').toLowerCase();
+  if(fmt==='emom'||fmt==='interval') emomRoundReps++;
+  var nel=$('j-num'); nel.classList.remove('pop'); void nel.offsetWidth; nel.classList.add('pop');
+  // Tiebreak auto : déclenche quand on atteint exactement le quota du mouvement tbAuto
+  if(SC.tb && !tbTs && tbPhase===0 && SC.tbAuto>=0 && SC.tbAuto===moveIdx && m.q>0 && moveReps===m.q){
+    // Capturer l'elapsed réel depuis le début du heat
+    tbCapTs = startTs ? Math.floor((serverNow()-startTs)/1000) : elapsed;
+    triggerTB();
+  }
+  updateDisplay();
+  if(db) pushScoreLive();
+}
+function nextMove(){
+  moveIdx++; moveReps=0;
+  var m=SC.moves[moveIdx];
+  if(m){
+    toast('▶ '+m.n);
+    // Son + vibration au changement de mouvement
+    playMoveChangeSound();
+    vib([80,40,80,40,160]);
+  }
+  updateDisplay();
+  if(db) pushScoreLive();
+}
+/* ── AMRAP : reboucler au début après une série complète ── */
+function amrapLoop(){
+  moveIdx=0; moveReps=0;
+  var totalPerSeries=SC.moves.reduce(function(s,mv){return s+(mv.q||1);},0);
+  var seriesCount=totalPerSeries>0?Math.floor(totalReps/totalPerSeries):0;
+  playMoveChangeSound();
+  vib([60,30,60,30,120,30,60]);
+  toast('🔁 Série '+seriesCount+' terminée — GO !','#FFB74D',2000);
+  updateDisplay();
+  if(db) pushScoreLive();
+}
+/* ── ROUNDS : nouveau tour si tours restants ── */
+function roundsLoop(){
+  currentRound++;
+  moveIdx=0; moveReps=0;
+  var totalRounds=SC.rounds||1;
+  playMoveChangeSound();
+  vib([80,40,80,40,200,40,80]);
+  toast('🔄 Tour '+currentRound+' / '+totalRounds+' — GO !','#FFB74D',2500);
+  updateDisplay();
+  if(db) pushScoreLive();
+}
+function addNR(){
+  if(!guardScoreEdit('Plus de saisie pendant l’inter-heat, la coupure ou après le timecap')) return;
+  noReps++; $('j-nr-count').textContent=noReps; $('j-norep').style.display='block';
+  toast('🚫 No-rep #'+noReps);
+  if(db) pushScoreLive();
+}
+function manualTB(){
+  toast('🎯 Tiebreak automatique — aucune saisie manuelle', 'ok');
+}
+
+/* ── Validate ── */
+function validate(ergoVal){
+  if(HEAT_STATUS!=='live' && HEAT_STATUS!=='timecap'){
+    toast('Attends le départ du Timekeeper');
+    return;
+  }
+  done=true; clearInterval(timerIv); clearInterval(tbIv); dismissTB(); refreshJudgeLockUI();
+  var score,meta,fmt=(SC.fmt||'').toLowerCase();
+  if(fmt==='maxload'){
+    var best=0; mlAttempts.forEach(function(a){if(a.ok&&a.kg>best)best=a.kg;});
+    score=best?best+' kg':'—';
+    meta=SC.heat+' · Lane '+SC.lane+' · '+SC.wod+' · '+mlAttempts.length+' essai'+(mlAttempts.length>1?'s':'');
+  } else if(fmt==='ergo'){
+    var m0=SC.moves[0]||{}; score=(ergoVal||0)+(m0.ergoUnit||'m');
+    meta=SC.heat+' · Lane '+SC.lane+' · '+SC.wod;
+  } else if(fmt==='amrap'){
+    score=totalReps+' reps';
+    meta=SC.heat+' · Lane '+SC.lane+' · AMRAP '+fmtT(SC.cap)+(noReps?' · '+noReps+' NR':'');
+  } else {
+    var allDone=moveIdx>=SC.moves.length-1&&moveReps>=(SC.moves[moveIdx]||{q:0}).q;
+    score=allDone?fmtT(elapsed):totalReps+' reps (TC)';
+    meta=SC.heat+' · Lane '+SC.lane+' · '+SC.wod+(noReps?' · '+noReps+' NR':'');
+  }
+  $('done-score').textContent=score; $('done-meta').textContent=meta;
+  var tEl=$('done-tb');
+  if(tbTs){tEl.textContent='🎯 Tiebreak : '+fmtT(tbTs);tEl.style.display='block';}else tEl.style.display='none';
+  // ★ Pousser score final vers Firebase
+  if(db){
+    clearInterval(_scoreIv);
+    var payload={reps:0,finalTime:0,load:0,dist:0,noReps:noReps};
+    var fmt2=(SC.fmt||'').toLowerCase();
+    if(fmt2==='maxload'){
+      var best2=0; mlAttempts.forEach(function(a){if(a.ok&&a.kg>best2)best2=a.kg;});
+      payload.load=best2;
+    } else if(fmt2==='ergo'){
+      payload.dist=typeof ergoVal!=='undefined'?(ergoVal||0):0;
+    } else if(fmt2==='fortime'){
+      var allD=moveIdx>=SC.moves.length&&(SC.moves.length===0||moveReps>=(SC.moves[moveIdx]||{q:0}).q);
+      var allDone2=moveIdx>=SC.moves.length-1&&moveReps>=(SC.moves[SC.moves.length-1]||{q:0}).q;
+      payload.finalTime=allDone2?elapsed:0;
+      payload.reps=totalReps;
+    } else {
+      payload.reps=totalReps;
+    }
+    payload.tiebreak=tbTs||0;
+    pushScoreFinal(payload);
+  }
+  show('s-done');
+}
+
+/* ── EMOM / Intervalles ── */
+function updateEmomPhase(e){
+  var work=SC.emomWork||60, rest=SC.emomRest||0, cycle=work+rest, pos=e%cycle;
+  var newIsWork=rest===0?true:pos<work, newRound=Math.floor(e/cycle)+1;
+  if(newRound!==emomRound||newIsWork!==emomIsWork){
+    var wasWork=emomIsWork, wasRound=emomRound;
+    emomIsWork=newIsWork; emomRound=newRound;
+    if(wasWork&&(rest===0?wasRound!==newRound:!newIsWork)){
+      emomRoundHistory[wasRound-1]=emomRoundReps; emomTotalReps+=emomRoundReps; emomRoundReps=0;
+    }
+    if((SC.fmt||'').toLowerCase()==='emom'&&newIsWork&&newRound!==wasRound){
+      emomRoundHistory[wasRound-1]=emomRoundReps; emomRoundReps=0; moveIdx=0; moveReps=0;
+    }
+    updateEmomDisplay();
+    if(newIsWork && emomRound>1) vib([80,60,80]);
+  }
+  var phaseRem=newIsWork?work-pos:cycle-pos;
+  var cdEl=$('emom-cd'); if(cdEl) cdEl.textContent=fmtT(phaseRem);
+  // ★ Countdown visible sur l'écran repos
+  var restCd=$('rest-cd-val'); if(restCd&&!emomIsWork) restCd.textContent=fmtT(phaseRem);
+}
+function updateEmomDisplay(){
+  var fl=(SC.fmt||'').toLowerCase(), work=SC.emomWork||60, rest=SC.emomRest||0;
+  var cycle=work+rest, totalRounds=Math.round(SC.cap/cycle);
+  var pe=$('emom-phase'),re=$('emom-round'),ce=$('emom-cd');
+  if(pe){pe.textContent=emomIsWork?'WORK':'REST';pe.className='emom-phase '+(emomIsWork?'work':'rest');}
+  if(re) re.textContent='Round '+emomRound+' / '+totalRounds+(emomIsWork?' · '+emomRoundReps+' reps':'');
+  if(ce) ce.className='emom-countdown '+(emomIsWork?'work':'rest');
+  var hh=emomRoundHistory.map(function(r,i){ return '<span class="emom-rnd-chip'+(i===emomRound-2?' current':'')+'">R'+(i+1)+': '+r+'</span>'; }).join('');
+  var h1=$('j-emom-history'),h2=$('j-round-history');
+  if(h1) h1.innerHTML=hh;
+  if(h2){h2.innerHTML=hh;h2.style.display=emomRoundHistory.length?'flex':'none';}
+
+  // ★ Écran REPOS — affiché uniquement si phase REST et restSec > 0
+  var restScreen=$('j-rest-screen'), counter=$('j-counter'), btns=$('j-btns')||document.querySelector('.j-btns');
+  var isResting = !emomIsWork && rest>0;
+  if(restScreen){
+    restScreen.classList.toggle('show', isResting);
+    if(counter) counter.style.display = isResting?'none':'flex';
+    if(btns)    btns.style.display    = isResting?'none':'flex';
+    if(isResting){
+      // Historique dans l'écran repos
+      var rh=$('rest-hist');
+      if(rh) rh.innerHTML=hh;
+      var ri=$('rest-round-info');
+      if(ri) ri.textContent='Round '+emomRound+' / '+totalRounds+' · '+emomRoundReps+' reps';
+    }
+  }
+  // Pousser roundPhase vers Firebase pour live.html et TK
+  if(typeof db!=='undefined' && db && typeof db.ref==='function' && typeof FB_HEAT_ID!=='undefined' && FB_HEAT_ID){
+    var phase = isResting ? 'rest' : 'work';
+    if(window._lastPushedPhase !== phase){
+      window._lastPushedPhase = phase;
+      try{ db.ref('heats/'+FB_HEAT_ID).update({roundPhase:phase, curRound:emomRound}); }catch(e){}
+    }
+  }
+  // Wake Lock : libérer après 10s de repos, réactiver immédiatement au WORK
+  if(isResting){
+    clearTimeout(window._wlReleaseTimer);
+    window._wlReleaseTimer = setTimeout(function(){ releaseWakeLock(); }, 10000);
+  } else if(_currentScreen==='s-judge'){
+    clearTimeout(window._wlReleaseTimer);
+    requestWakeLock();
+  }
+  if(fl==='emom') updateDisplay();
+}
+function resetRound(){
+  emomRoundReps=0;moveReps=0;moveIdx=0;
+  updateDisplay();updateEmomDisplay();
+  toast('↺ Round '+emomRound+' remis à 0');
+}
+function resetAllRounds(){
+  emomRoundReps=0;emomRoundHistory=[];emomTotalReps=0;
+  totalReps=0;moveReps=0;moveIdx=0;noReps=0;
+  $('j-nr-count').textContent='0';
+  updateDisplay();updateEmomDisplay();
+  toast('✕ Tout remis à 0');
+}
+
+/* ── Tiebreak 2 phases ── */
+function triggerTB(){
+  tbPhase=1;
+  var banner=$('tb-banner'),cdEl=$('tb-cd'),fillEl=$('tb-fill'),descEl=$('tb-desc-lbl');
+  if(descEl) descEl.textContent=SC.tbDesc||'Confirme le chrono';
+  banner.classList.add('show');
+  fillEl.style.transition='none';fillEl.style.width='100%';
+  setTimeout(function(){fillEl.style.transition='width 5s linear';fillEl.style.width='0%';},50);
+  var val=5; if(cdEl) cdEl.textContent=val;
+  clearInterval(tbIv);
+  tbIv=setInterval(function(){ val--; if(cdEl)cdEl.textContent=Math.max(0,val); if(val<=0){clearInterval(tbIv);if(tbPhase===1)escalateTB();} },1000);
+}
+function escalateTB(){
+  tbPhase=2; $('tb-banner').classList.remove('show'); $('tb-fs').classList.add('show');
+  clearInterval(tbIv);
+}
+function confirmTB(){
+  clearInterval(tbIv); tbPhase=0;
+  $('tb-banner').classList.remove('show'); $('tb-fs').classList.remove('show');
+  if(!tbTs){
+    tbTs=tbCapTs!==null?tbCapTs:elapsed;
+    $('btn-tb').className='btn-tb done'; $('btn-tb').innerHTML='✅<br>TB';
+    toast('🎯 Tiebreak : '+fmtT(tbTs));
+  }
+  tbCapTs=null;
+}
+function dismissTB(){
+  clearInterval(tbIv); tbPhase=0; tbCapTs=null;
+  var b=$('tb-banner');if(b)b.classList.remove('show');
+  var f=$('tb-fs');if(f)f.classList.remove('show');
+}
+
+/* ==================================================
+   FIREBASE — Mode RÉEL
+   Activé si l'URL contient #juge/ID ou ?h=X&l=Y
+   ou via entry.html (redirect avec hash #juge/ID)
+================================================== */
+var db=null, FB_HEAT_ID=null, FB_LANE=null, FB_JUGE_ID=null, FB_JUGE_PRENOM='', FB_JUGE_NOM='';
+var REAL_MODE=true;
+var _scoreIv=null, _liveTs=null;
+var HEAT_STATUS='pending';
+var HEAT_START_TS=null;
+var _heatStatusRef=null, _heatStartRef=null, _countdownRef=null, _cdFallbackRef=null, _urgenceRef=null, _broadcastRef=null, _judgeHeatsRef=null, _interheatRef=null, _nextHeatWatchRef=null, _nextHeatWatchIv=null;
+
+function judgeStatusRank(st){
+  if(st==='live' || st==='timecap') return 0;
+  if(st==='pre') return 1;
+  if(st==='pending') return 2;
+  if(st==='done') return 9;
+  return 5;
+}
+function judgeHeatSortValue(hid,h){
+  var g=parseInt((h&&h.globalNum)||0,10)||0;
+  if(g>0) return g;
+  return parseInt(String(hid||'').replace(/\D/g,''),10)||999999;
+}
+function selectBestJudgeAssignment(jugeId, heats){
+  var best=null, bestRank=999, bestOrder=999999;
+  Object.keys(heats||{}).forEach(function(hid){
+    var h=heats[hid];
+    if(!h || !h.lanes) return;
+    Object.keys(h.lanes).forEach(function(ln){
+      var li=h.lanes[ln];
+      if(!li || !li.assignedJuges) return;
+      var juges=Array.isArray(li.assignedJuges)?li.assignedJuges:Object.values(li.assignedJuges);
+      var hit=null;
+      juges.forEach(function(j){
+        if(!j || hit) return;
+        if(String(j.id)===String(jugeId) || String(j.prenom||'')===String(jugeId)) hit=j;
+      });
+      if(!hit) return;
+      var rank=judgeStatusRank(h.status||'pending');
+      var order=judgeHeatSortValue(hid,h);
+      if(!best || rank<bestRank || (rank===bestRank && order<bestOrder)){
+        bestRank=rank;
+        bestOrder=order;
+        best={
+          heatId:hid, lane:ln, teamName:li.teamName||'—',
+          catName:h.catName||'—', catId:String(h.catId||''), wodInfo:h.wodInfo||null,
+          prenom:hit.prenom||'', nom:hit.nom||'',
+          status:h.status||'pending', startTimestamp:h.startTimestamp||null,
+          zone:parseInt(h.catZone||h.zone||1,10)||1
+        };
+      }
+    });
+  });
+  return best;
+}
+
+var _serverTimeOffset = 0; // offset ms entre horloge locale et serveur Firebase
+
+function initFirebase(){
+  try{
+    if(!firebase.apps.length) firebase.initializeApp({databaseURL:FIREBASE_DB_URL});
+    db=firebase.database();
+    // Sync horloge avec le serveur Firebase
+    db.ref('.info/serverTimeOffset').on('value',function(snap){
+      _serverTimeOffset = snap.val()||0;
+    });
+    db.ref('.info/connected').on('value',function(s){
+      var off=document.getElementById('fb-offline');
+      if(off) off.style.display=s.val()?'none':'block';
+    });
+    return true;
+  }catch(e){ return false; }
+}
+
+// Heure serveur précise = Date.now() + offset
+function serverNow(){ return Date.now() + _serverTimeOffset; }
+
+/* Lire URL : entry.html écrit #juge/JUGEID puis redirige ici */
+function parseURL(){
+  // Format 1 : judge.html#juge/JUGEID  (depuis entry.html)
+  var hash=window.location.hash.replace('#','');
+  if(hash.startsWith('juge/')){
+    FB_JUGE_ID=hash.replace('juge/','');
+    return 'juge';
+  }
+  // Format 2 : judge.html?h=HEATID&l=LANE (QR nominatif direct)
+  var params=new URLSearchParams(window.location.search);
+  var h=params.get('h'), l=params.get('l');
+  if(h&&l){ FB_HEAT_ID=String(h); FB_LANE=String(l); return 'hl'; }
+  return null;
+}
+
+/* Charger les infos du juge depuis Firebase (mode #juge/ID) */
+
+/* Charger heat+lane directement */
+function loadHeatLane(heatId, lane, onDone){
+  if(!db){ onDone(null); return; }
+  db.ref('heats/'+heatId).once('value').then(function(snap){
+    var h=snap.val();
+    if(!h){ onDone(null); return; }
+    var li=(h.lanes||{})[String(lane)]||{};
+    onDone({heatId:heatId, lane:String(lane), teamName:li.teamName||'—',
+      catName:h.catName||'—', catId:String(h.catId||''), zone:parseInt(h.catZone||h.zone||1,10)||1, wodInfo:h.wodInfo||null,
+      prenom:'', nom:'', status:h.status||'pending', startTimestamp:h.startTimestamp||null});
+  }).catch(function(){ onDone(null); });
+}
+
+/* Appliquer les infos Firebase sur le scénario */
+function applyRealData(data){
+  if(!data){ showError('Données manquantes','Impossible de charger les données du heat.'); return; }
+  stopWatchNextHeat();
+  FB_HEAT_ID=data.heatId; FB_LANE=String(data.lane);
+  FB_JUGE_PRENOM=data.prenom||FB_JUGE_PRENOM||'Juge';
+  FB_JUGE_NOM=data.nom||FB_JUGE_NOM||'';
+  HEAT_STATUS=data.status||'pending';
+  HEAT_START_TS=data.startTimestamp||null;
+
+  // Construire le scénario depuis wodInfo Firebase
+  var wod=data.wodInfo;
+  var sc;
+  try{
+    if(wod&&(wod.nom||wod.name)){
+      sc=wodToScenario(wod, data.catId||'');
+      sc.prenom=FB_JUGE_PRENOM; sc.nom=FB_JUGE_NOM;
+      sc.heat='H'+String(FB_HEAT_ID).replace(/\D/g,'');
+      sc.lane=FB_LANE; sc.team=data.teamName||'—';
+      sc.zone=parseInt(data.zone||(wod&&wod.zone)||1,10)||1;
+    } else {
+      sc = {
+        prenom:FB_JUGE_PRENOM, nom:FB_JUGE_NOM,
+        heat:'H'+String(FB_HEAT_ID).replace(/\D/g,''),
+        lane:FB_LANE, team:data.teamName||'—', zone:parseInt(data.zone||1)||1,
+        wod:'WOD en attente', fmt:'amrap', fmtLabel:'AMRAP',
+        cap:600, moves:[{n:'Reps',q:0,type:'reps'}],
+        rounds:1, hasTiebreak:false, tbAuto:-1, tiebreakDesc:'',
+        emomWork:60, emomRest:0, scoreFinale:'', judgeMode:'reps'
+      };
+    }
+    SC=JSON.parse(JSON.stringify(sc));
+  } catch(e){
+    showError('Erreur scénario', e.message||'Erreur inconnue'); return;
+  }
+
+  // Réinitialiser compteurs
+  moveIdx=0; moveReps=0; totalReps=0; noReps=0;
+  tbTs=0; tbPhase=0; tbCapTs=null; elapsed=0; done=false;
+  _preShown=false; // reset guard pour le nouvel heat
+  clearInterval(timerIv); clearInterval(tbIv);
+
+  // Remplir l'écran d'attente — protéger chaque accès DOM
+  var safe=function(id,val){ var el=$(id); if(el) el.textContent=val; };
+  safe('w-juge', SC.prenom+' '+SC.nom);
+  safe('w-heat', SC.heat);
+  safe('w-team', SC.team);
+  safe('w-wod',  SC.wod);
+  safe('w-fmt',  SC.fmtLabel||SC.fmt||'—');
+
+  // Signaler présence
+  signalPresence();
+  saveSession();
+  if(FB_JUGE_ID) loadAndShowPlanning(FB_JUGE_ID);
+  checkDuplicateJudge();
+
+  // Écouter les changements EN PREMIER pour éviter les race conditions
+  listenHeatStatus();
+
+  // Afficher le bon écran directement selon le statut actuel
+  if(data.status==='pre'){
+    _preShown=true; // bloquer le listener pour ne pas re-déclencher goPre
+    setTimeout(goPre, 400);
+  } else if(data.status==='live'||data.status==='timecap'){
+    HEAT_STATUS=data.status;
+    setTimeout(function(){
+      if(data.startTimestamp){ startTs=data.startTimestamp; HEAT_START_TS=data.startTimestamp; elapsed=Math.floor((serverNow()-startTs)/1000); }
+      startJudgeReal();
+    }, 400);
+  } else {
+    // pending — écran d'attente
+    show('s-wait');
+  }
+}
+
+/* Signaler présence dans Firebase */
+/* ── Planning complet du juge ── */
+function loadAndShowPlanning(jugeId){
+  if(!db||!jugeId) return;
+  db.ref('heats').once('value').then(function(snap){
+    var heats=snap.val()||{};
+    var myHeats=[];
+    var stLabels={live:'🟢 LIVE',timecap:'🟡 TC',pre:'🟡 PRÉ',pending:'⚪ Attente',done:'✅ Terminé'};
+    Object.keys(heats).forEach(function(hid){
+      var h=heats[hid]; if(!h||!h.lanes) return;
+      var globalNum=parseInt(String(hid).replace(/\D/g,''))||0;
+      Object.keys(h.lanes).forEach(function(ln){
+        var li=h.lanes[ln]; if(!li||!li.assignedJuges) return;
+        var juges=Array.isArray(li.assignedJuges)?li.assignedJuges:Object.values(li.assignedJuges);
+        var hit=juges.find(function(j){return j&&(String(j.id)===String(jugeId)||String(j.prenom||'')===String(jugeId));});
+        if(!hit) return;
+        myHeats.push({hid:hid,lane:ln,globalNum:globalNum,
+          teamName:li.teamName||'—',catName:h.catName||'—',
+          wodNom:(h.wodInfo&&h.wodInfo.nom)||'—',status:h.status||'pending'});
+      });
+    });
+    // Exclure les heats terminés — le juge sait ce qu'il a encore à faire
+    var activeHeats=myHeats.filter(function(a){return a.status!=='done';});
+    var displayHeats=activeHeats.length?activeHeats:myHeats; // si tout done, montrer quand même
+    var planEl=$('w-planning'), rowsEl=$('w-planning-rows');
+    if(!planEl||!rowsEl) return;
+    if(displayHeats.length<2){planEl.style.display='none';return;}
+    planEl.style.display='block';
+    rowsEl.innerHTML=displayHeats.map(function(a){
+      var isActive=a.status==='live'||a.status==='timecap'||a.status==='pre';
+      var isDone=a.status==='done';
+      var isCurrent=String(a.hid)===String(FB_HEAT_ID)&&String(a.lane)===String(FB_LANE);
+      var stLbl=stLabels[a.status]||'—';
+      return '<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:7px;margin-bottom:4px;'
+        +(isCurrent?'background:rgba(255,87,34,.18);border:1px solid rgba(255,87,34,.35);'
+          :isActive?'background:rgba(77,166,255,.1);border:1px solid rgba(77,166,255,.2);'
+          :isDone?'background:rgba(0,229,160,.06);border:1px solid rgba(0,229,160,.12);opacity:.65;'
+          :'background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);')
+        +'">'
+        +'<div style="font-size:10px;font-weight:900;min-width:22px;color:'+(isCurrent?'var(--fire)':isActive?'var(--blue)':isDone?'var(--ok)':'var(--mid)')+'">H'+a.globalNum+'</div>'
+        +'<div style="flex:1;min-width:0">'
+          +'<div style="font-size:11px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+a.teamName+'</div>'
+          +'<div style="font-size:9px;color:var(--ink2)">L'+a.lane+' · '+a.catName+' · '+a.wodNom+'</div>'
+        +'</div>'
+        +'<div style="font-size:9px;white-space:nowrap">'+stLbl+'</div>'
+        +'</div>';
+    }).join('');
+  }).catch(function(){});
+}
+
+function signalPresence(){
+  if(!db||!FB_HEAT_ID||!FB_LANE) return;
+  var path='heats/'+FB_HEAT_ID+'/scores/'+FB_LANE;
+  var payload={judgePrenom:FB_JUGE_PRENOM,judgeName:FB_JUGE_PRENOM+' '+FB_JUGE_NOM,
+    heat:parseInt(String(FB_HEAT_ID).replace(/\D/g,''))||0,
+    lane:parseInt(FB_LANE)||0,ts:Date.now()};
+  db.ref(path).update(payload);
+  db.ref('scores/'+FB_HEAT_ID+'_'+FB_LANE).update(payload);
+}
+
+/* ── Queue offline — persist dans localStorage si réseau coupé ── */
+var _offlineQueue=[];
+var _isOnline=navigator.onLine!==false;
+var _LS_KEY='foc-judge-offline-'+window.location.pathname;
+
+function _saveOfflineQueue(){
+  try{ localStorage.setItem(_LS_KEY, JSON.stringify(_offlineQueue)); }catch(e){}
+}
+function _loadOfflineQueue(){
+  try{
+    var saved=JSON.parse(localStorage.getItem(_LS_KEY)||'[]');
+    if(saved.length){ _offlineQueue=saved; toast('📦 '+saved.length+' reps en attente de sync...','#FF8A00'); }
+  }catch(e){}
+}
+
+if(typeof window!=='undefined'){
+  window.addEventListener('online', function(){
+    _isOnline=true;
+    _flushQueue();
+    var dot=document.getElementById('conn-dot-judge');
+    if(dot){ dot.style.background='#00E5A0'; dot.title='Connecté'; }
+  });
+  window.addEventListener('offline', function(){
+    _isOnline=false;
+    toast('📴 Hors ligne — reps sauvegardés localement','#FF8A00');
+    var dot=document.getElementById('conn-dot-judge');
+    if(dot){ dot.style.background='#FF3B5C'; dot.title='Hors ligne'; }
+  });
+  // Charger les reps sauvegardés au démarrage
+  _loadOfflineQueue();
+}
+
+function _flushQueue(){
+  if(!db||!_offlineQueue.length) return;
+  var q=_offlineQueue.slice(); _offlineQueue=[];
+  localStorage.removeItem(_LS_KEY);
+  q.forEach(function(item){
+    db.ref('scores/'+item.path).set(item.sc).catch(function(){ _offlineQueue.push(item); _saveOfflineQueue(); });
+    if(item.hpath) db.ref('heats/'+item.hpath).set(item.sc).catch(function(){});
+  });
+  if(q.length) toast('📶 '+q.length+' rep(s) synchronisé(s) ✓','#00E5A0');
+}
+
+/* ── Détection doublon de juge sur la même lane ── */
+function checkDuplicateJudge(){
+  if(!db||!FB_HEAT_ID||!FB_LANE) return;
+  var presRef=db.ref('heats/'+FB_HEAT_ID+'/scores/'+FB_LANE+'/judgePresence');
+  presRef.once('value',function(snap){
+    var data=snap.val();
+    if(data && data.sessionId && data.sessionId!==_mySessionId && (Date.now()-data.ts)<30000){
+      // Un autre juge est connecté sur cette lane depuis moins de 30s
+      toast('⚠️ Un autre juge est déjà sur cette lane !','#FF3B5C',5000);
+    }
+  });
+}
+var _mySessionId=String(Date.now()+Math.random()).replace('.','');
+
+/* ── Restore session après fermeture accidentelle ── */
+function saveSession(){
+  if(!FB_HEAT_ID||!FB_LANE||!REAL_MODE) return;
+  try{
+    localStorage.setItem('foc-judge-session',JSON.stringify({
+      heatId:FB_HEAT_ID, lane:FB_LANE, prenom:FB_JUGE_PRENOM,
+      nom:FB_JUGE_NOM, ts:Date.now()
+    }));
+  }catch(e){}
+}
+function restoreSessionIfNeeded(){
+  try{
+    var s=JSON.parse(localStorage.getItem('foc-judge-session')||'null');
+    if(!s) return;
+    // Session valide si moins de 2h
+    if(Date.now()-s.ts > 7200000){ localStorage.removeItem('foc-judge-session'); return; }
+    if(FB_HEAT_ID&&FB_LANE) return; // déjà chargé via URL
+    FB_HEAT_ID=s.heatId; FB_LANE=s.lane;
+    FB_JUGE_PRENOM=s.prenom||'Juge'; FB_JUGE_NOM=s.nom||'';
+    toast('🔄 Session restaurée — '+s.prenom+' Lane '+s.lane,'#4DA6FF',4000);
+  }catch(e){}
+}
+
+/* ── Son changement de mouvement ── */
+function playMoveChangeSound(){
+  try{
+    var ctx=new(window.AudioContext||window.webkitAudioContext)();
+    // Double bip montant
+    [[0,440,0.08],[0.12,660,0.07]].forEach(function(p){
+      var osc=ctx.createOscillator();
+      var gain=ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.frequency.value=p[1];
+      gain.gain.setValueAtTime(0.5,ctx.currentTime+p[0]);
+      gain.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+p[0]+p[2]+0.15);
+      osc.start(ctx.currentTime+p[0]);
+      osc.stop(ctx.currentTime+p[0]+p[2]+0.18);
+    });
+  }catch(e){}
+}
+
+/* ── Son GO ! (Web Audio API) ── */
+function playGoSound(){
+  try{
+    var ctx=new(window.AudioContext||window.webkitAudioContext)();
+    // 3 bips courts + 1 long
+    [0,0.15,0.30,0.55].forEach(function(t,i){
+      var osc=ctx.createOscillator();
+      var gain=ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.frequency.value=i===3?880:660;
+      gain.gain.setValueAtTime(0.6,ctx.currentTime+t);
+      gain.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+t+(i===3?0.4:0.1));
+      osc.start(ctx.currentTime+t);
+      osc.stop(ctx.currentTime+t+(i===3?0.45:0.12));
+    });
+  }catch(e){}
+}
+
+/* Pousser score live vers Firebase (avec fallback queue offline) */
+function pushScoreLive(){
+  if(!db||!FB_HEAT_ID||!FB_LANE||!REAL_MODE) return;
+  if(HEAT_STATUS!=='live') return;
+  var sc={
+    heat:FB_HEAT_ID, lane:FB_LANE,
+    heatNum:parseInt(String(FB_HEAT_ID).replace(/\D/g,''))||0,
+    laneNum:parseInt(FB_LANE)||0,
+    teamName:(SC&&SC.team)||'',
+    reps:totalReps, noReps:noReps,
+    curMoveIdx:moveIdx, moveReps:moveReps, currentRound:currentRound,
+    judgePrenom:FB_JUGE_PRENOM, judgeName:FB_JUGE_PRENOM+' '+FB_JUGE_NOM,
+    judgeOk:false, tiebreak:tbTs||0,
+    _src:'judge', _priority:80, ts:Date.now(), _token:typeof WRITE_TOKEN!=='undefined'?WRITE_TOKEN:''
+  };
+  var path=FB_HEAT_ID+'_'+FB_LANE;
+  var hpath=FB_HEAT_ID+'/scores/'+FB_LANE;
+  if(!_isOnline){
+    _offlineQueue=[{path:path,hpath:hpath,sc:sc}];
+    toast('\uD83D\uDCF4 Hors ligne \u2014 score en attente');
+    return;
+  }
+  var p1=db.ref('scores/'+path).set(sc);
+  var p2=db.ref('heats/'+hpath).set(sc);
+  if(p1&&p1.catch) p1.catch(function(){ _offlineQueue=[{path:path,hpath:hpath,sc:sc}]; });
+  if(p2&&p2.catch) p2.catch(function(){});
+}
+
+/* Pousser score final validé — priorité maximale + blocage navigation 1.2s */
+function pushScoreFinal(scorePayload){
+  if(!db||!FB_HEAT_ID||!FB_LANE) return;
+  if(HEAT_STATUS!=='live' && HEAT_STATUS!=='timecap'){
+    toast('Attends le départ du Timekeeper');
+    return;
+  }
+  var sc=Object.assign({},scorePayload,{
+    heat:FB_HEAT_ID, lane:FB_LANE,
+    heatNum:parseInt(String(FB_HEAT_ID).replace(/\D/g,''))||0,
+    laneNum:parseInt(FB_LANE)||0,
+    teamName:(SC&&SC.team)||'',
+    judgePrenom:FB_JUGE_PRENOM, judgeName:FB_JUGE_PRENOM+' '+FB_JUGE_NOM,
+    judgeOk:true, tiebreak:tbTs||0,
+    _src:'judge', _priority:90, ts:Date.now(), _token:typeof WRITE_TOKEN!=='undefined'?WRITE_TOKEN:''
+  });
+  var path=FB_HEAT_ID+'_'+FB_LANE;
+  var hpath=FB_HEAT_ID+'/scores/'+FB_LANE;
+  var push=function(){
+    db.ref('scores/'+path).set(sc);
+    db.ref('heats/'+hpath).set(sc);
+  };
+  // Bloquer bouton retour pendant 1.2s pour garantir les 3 pushes
+  history.pushState(null,'',location.href);
+  window.addEventListener('popstate',function _block(){
+    history.pushState(null,'',location.href);
+    window.removeEventListener('popstate',_block);
+  });
+  push();
+  setTimeout(push, 300);
+  setTimeout(push, 1000);
+  setTimeout(_flushQueue, 1200);
+  vib([100, 50, 200]);
+}
+
+/* Écouter statut heat */
+
+/* Countdown déclenché par Firebase (depuis TK) */
+function triggerFBCountdown(target){
+  $('cd-heat').textContent=(SC?SC.heat+' · '+SC.team:'—');
+  show('s-cd');
+  clearInterval(window._cdIv);
+  var _lastRem=-1;
+  window._cdIv=setInterval(function(){
+    var rem=Math.ceil((target-serverNow())/1000);
+    if(rem>0){
+      var col=rem<=2?'#FF3B5C':rem<=3?'#FF8A00':'#FF5722';
+      $('cd-box').innerHTML='<span style="color:'+col+'">'+rem+'</span>';
+      if(rem!==_lastRem){
+        _lastRem=rem;
+        if(rem<=3) vib([120,60,120]);
+        else if(rem<=5) vib(80);
+        else vib(30);
+      }
+    } else {
+      clearInterval(window._cdIv);
+      $('cd-box').innerHTML='<span style="color:var(--ok)">GO!</span>';
+      vib([200,80,200,80,400]);
+      playGoSound();
+      HEAT_STATUS='live';
+      refreshJudgeLockUI();
+      // Récupérer le startTimestamp Firebase avant de démarrer le chrono
+      if(db && FB_HEAT_ID){
+        db.ref('heats/'+FB_HEAT_ID+'/startTimestamp').once('value').then(function(snap){
+          if(snap&&snap.val()) HEAT_START_TS=snap.val();
+          setTimeout(startJudgeReal, 920);
+        });
+      } else {
+        setTimeout(startJudgeReal,920);
+      }
+    }
+  },100);
+}
+
+/* ── Appel Timekeeper ── */
+var _tkCooldown=false;
+function callTK(){
+  if(_tkCooldown){ toast('Appel déjà envoyé — attends 15s'); return; }
+  if(!db||!FB_HEAT_ID||!FB_LANE){ toast('Non connecté'); return; }
+  var payload={
+    ts:Date.now(), heat:FB_HEAT_ID, lane:FB_LANE,
+    juge:FB_JUGE_PRENOM+' '+FB_JUGE_NOM,
+    team:SC?SC.team:'—', zone:SC?SC.zone:1, active:true,
+    type:'judge_call_tk'
+  };
+  db.ref('system/tkAlert').set(payload);
+  var btn=$('btn-call-tk');
+  if(btn){ btn.style.background='rgba(77,166,255,.3)'; btn.textContent='⏳ TK'; }
+  toast('📞 Timekeeper appelé !','#4DA6FF');
+  vib([50,30,50,30,150]);
+  _tkCooldown=true;
+  setTimeout(function(){
+    _tkCooldown=false;
+    if(btn){ btn.style.background='rgba(77,166,255,.15)'; btn.textContent='📞 TK'; }
+  },15000);
+}
+
+/* ── Appel Head Juge ── */
+var _hjCooldown=false;
+function callHeadJuge(){
+  if(_hjCooldown){ toast('Appel déjà envoyé — attends 10s'); return; }
+  if(!db||!FB_HEAT_ID||!FB_LANE){ toast('Non connecté'); return; }
+  var payload={
+    ts:Date.now(), heat:FB_HEAT_ID, lane:FB_LANE,
+    juge:FB_JUGE_PRENOM+' '+FB_JUGE_NOM,
+    team:SC?SC.team:'—', zone:SC?SC.zone:1, active:true
+  };
+  db.ref('system/headJugeCall').set(payload);
+  var btn=$('btn-head-juge');
+  if(btn){ btn.style.background='rgba(255,59,92,.3)'; btn.textContent='⏳ HJ'; }
+  toast('🚨 Head Juge appelé !','#FF3B5C');
+  vib([100,50,100,50,200]);
+  _hjCooldown=true;
+  setTimeout(function(){
+    _hjCooldown=false;
+    if(btn){ btn.style.background='rgba(255,87,34,.15)'; btn.textContent='🚨 HJ'; }
+  },10000);
+}
+
+/* startJudge en mode réel */
+function startJudgeReal(){
+  startJudge();
+  // Pas de setInterval — pushScoreLive() est appelé directement dans addRep() et addNR()
+  // → 0 write inutile, latence nulle
+}
+
+/* Surcharges stabilité jour J */
+function loadJugeFromFirebase(jugeId, onDone){
+  if(!db){ onDone(null); return; }
+  // Priorité 1 : judgeAssignments par ID exact
+  db.ref('judgeAssignments/'+jugeId).once('value').then(function(snap){
+    var assigns=snap.val();
+    if(assigns && Array.isArray(assigns) && assigns.length){
+      var statOrd={live:0,timecap:1,pre:2,pending:3,done:9};
+      assigns.sort(function(a,b){
+        var ao=statOrd[a.status||'pending']!=null?statOrd[a.status||'pending']:5;
+        var bo=statOrd[b.status||'pending']!=null?statOrd[b.status||'pending']:5;
+        return ao-bo||(a.globalNum||0)-(b.globalNum||0);
+      });
+      var best=assigns[0];
+      db.ref('heats/'+best.heat).once('value').then(function(hSnap){
+        var h=hSnap.val()||{};
+        var li=(h.lanes||{})[String(best.lane)]||{};
+        db.ref('benevoles/'+jugeId).once('value').then(function(bSnap){
+          var ben=bSnap.val()||{};
+          onDone({
+            heatId:best.heat, lane:String(best.lane),
+            teamName:li.teamName||best.team||'—',
+            catName:h.catName||best.cat||'—',
+            catId:String(h.catId||''),
+            zone:parseInt(h.catZone||h.zone||best.zone||1,10)||1,
+            wodInfo:h.wodInfo||null,
+            prenom:ben.prenom||best.prenom||'Juge',
+            nom:ben.nom||best.nom||'',
+            status:h.status||'pending',
+            startTimestamp:h.startTimestamp||null
+          });
+        }).catch(function(){
+          onDone({
+            heatId:best.heat, lane:String(best.lane),
+            teamName:li.teamName||best.team||'—',
+            catName:h.catName||best.cat||'—',
+            catId:String(h.catId||''),
+            zone:parseInt(h.catZone||h.zone||best.zone||1,10)||1,
+            wodInfo:h.wodInfo||null,
+            prenom:best.prenom||'Juge', nom:best.nom||'',
+            status:h.status||'pending', startTimestamp:h.startTimestamp||null
+          });
+        });
+      }).catch(function(){ onDone(null); });
+      return;
+    }
+    // Priorité 2 : judgeAssignmentsByPrenom (fallback si IDs déphasés)
+    db.ref('benevoles/'+jugeId).once('value').then(function(bSnap){
+      var ben=bSnap.val();
+      if(ben && ben.prenom){
+        var prenomKey=ben.prenom.toLowerCase().replace(/[^a-z0-9]/g,'_');
+        db.ref('judgeAssignmentsByPrenom/'+prenomKey).once('value').then(function(pSnap){
+          var assigns2=pSnap.val();
+          if(assigns2 && Array.isArray(assigns2) && assigns2.length){
+            var statOrd2={live:0,timecap:1,pre:2,pending:3,done:9};
+            assigns2.sort(function(a,b){
+              var ao=statOrd2[a.status||'pending']!=null?statOrd2[a.status||'pending']:5;
+              var bo=statOrd2[b.status||'pending']!=null?statOrd2[b.status||'pending']:5;
+              return ao-bo||(a.globalNum||0)-(b.globalNum||0);
+            });
+            var best2=assigns2[0];
+            db.ref('heats/'+best2.heat).once('value').then(function(hSnap2){
+              var h2=hSnap2.val()||{};
+              var li2=(h2.lanes||{})[String(best2.lane)]||{};
+              onDone({
+                heatId:best2.heat, lane:String(best2.lane),
+                teamName:li2.teamName||best2.team||'—',
+                catName:h2.catName||best2.cat||'—',
+                catId:String(h2.catId||''),
+                zone:parseInt(h2.catZone||h2.zone||best2.zone||1,10)||1,
+                wodInfo:h2.wodInfo||null,
+                prenom:ben.prenom||'Juge', nom:ben.nom||'',
+                status:h2.status||'pending', startTimestamp:h2.startTimestamp||null
+              });
+            }).catch(function(){ onDone(null); });
+          } else {
+            // Priorité 3 : scanner les heats (fallback ultime)
+            db.ref('heats').once('value').then(function(s){
+              onDone(selectBestJudgeAssignment(jugeId, s.val()||{}));
+            }).catch(function(){ onDone(null); });
+          }
+        }).catch(function(){
+          db.ref('heats').once('value').then(function(s){
+            onDone(selectBestJudgeAssignment(jugeId, s.val()||{}));
+          }).catch(function(){ onDone(null); });
+        });
+      } else {
+        // Pas de bénévole trouvé — fallback heats
+        db.ref('heats').once('value').then(function(s){
+          onDone(selectBestJudgeAssignment(jugeId, s.val()||{}));
+        }).catch(function(){ onDone(null); });
+      }
+    }).catch(function(){
+      db.ref('heats').once('value').then(function(s){
+        onDone(selectBestJudgeAssignment(jugeId, s.val()||{}));
+      }).catch(function(){ onDone(null); });
+    });
+  }).catch(function(){
+    db.ref('heats').once('value').then(function(s){
+      onDone(selectBestJudgeAssignment(jugeId, s.val()||{}));
+    }).catch(function(){ onDone(null); });
+  });
+}
+function watchJudgeAssignment(){
+  if(!db || !FB_JUGE_ID) return;
+  if(_judgeHeatsRef) _judgeHeatsRef.off();
+
+  // Délai avant d'attacher : laisser applyRealData stabiliser l'écran
+  var assignPath = 'judgeAssignments/'+FB_JUGE_ID;
+  // Stocker la ref pour pouvoir la détacher si besoin
+  setTimeout(function(){
+  if(_judgeHeatsRef) _judgeHeatsRef.off();
+  _judgeHeatsRef = db.ref(assignPath);
+  _judgeHeatsRef.on('value', function(snap){
+    var assignments = snap.val();
+    if(!assignments || !Array.isArray(assignments) || !assignments.length){
+      // Pas d'entrée dans judgeAssignments → fallback sur scan complet (une seule fois)
+      db.ref('heats').once('value', function(heatsSnap){
+        var best = selectBestJudgeAssignment(FB_JUGE_ID, heatsSnap.val()||{});
+        if(!best) return;
+        var idChanged = String(best.heatId)!==String(FB_HEAT_ID) || String(best.lane)!==String(FB_LANE);
+        var activeScreens = ['s-pre','s-cd','s-judge'];
+        if(idChanged && activeScreens.indexOf(_currentScreen)===-1){
+          applyRealData(best);
+        }
+      });
+      return;
+    }
+    // Trouver le meilleur assignment depuis judgeAssignments
+    var best = null, bestRank = 999, bestOrder = 999999;
+    assignments.forEach(function(a){
+      if(!a || !a.heatId) return;
+      var h = null;
+      // Récupérer le heat depuis HEATS en mémoire si dispo
+      if(typeof HEATS !== 'undefined' && HEATS[a.heatId]) h = HEATS[a.heatId];
+      var rank = h ? judgeStatusRank(h.status||'pending') : 4;
+      var order = h ? judgeHeatSortValue(a.heatId, h) : 999999;
+      if(!best || rank < bestRank || (rank===bestRank && order < bestOrder)){
+        bestRank = rank; bestOrder = order;
+        best = {
+          heatId: a.heatId, lane: String(a.lane||'1'),
+          teamName: a.teamName||'—', catName: a.catName||'—',
+          catId: String(a.catId||''), wodInfo: a.wodInfo||null,
+          prenom: a.prenom||FB_JUGE_PRENOM||'Juge', nom: a.nom||FB_JUGE_NOM||'',
+          status: (h&&h.status)||'pending', startTimestamp: (h&&h.startTimestamp)||null,
+          zone: parseInt((h&&(h.catZone||h.zone))||1,10)||1
+        };
+      }
+    });
+    if(!best) return;
+    var idChanged = String(best.heatId)!==String(FB_HEAT_ID) || String(best.lane)!==String(FB_LANE);
+    // N'appeler applyRealData que si l'assignment a vraiment changé ET qu'on n'est pas en train de juger
+    var busyScreens = ['s-pre','s-cd','s-judge'];
+    var alreadyLoaded = FB_HEAT_ID && !idChanged;
+    if(!alreadyLoaded && busyScreens.indexOf(_currentScreen)===-1){
+      applyRealData(best);
+    }
+  });
+  }, 2000); // délai 2s pour éviter race condition au chargement
+}
+function startWatchNextHeat(){
+  if(!db || !FB_JUGE_ID) return;
+  if(_nextHeatWatchRef) _nextHeatWatchRef.off();
+  clearInterval(_nextHeatWatchIv);
+  var _checked=false;
+
+  function tryLoadNext(heatsData){
+    if(_checked) return;
+    var heats=heatsData||{};
+    // Chercher le prochain heat du juge en ignorant le heat actuel (done)
+    var best=null, bestRank=999, bestOrder=999999;
+    Object.keys(heats).forEach(function(hid){
+      if(String(hid)===String(FB_HEAT_ID)) return; // ignorer le heat actuel
+      var h=heats[hid]; if(!h||!h.lanes) return;
+      Object.keys(h.lanes).forEach(function(ln){
+        var li=h.lanes[ln]; if(!li||!li.assignedJuges) return;
+        var juges=Array.isArray(li.assignedJuges)?li.assignedJuges:Object.values(li.assignedJuges);
+        var hit=juges.find(function(j){return j&&(String(j.id)===String(FB_JUGE_ID)||String(j.prenom||'')===String(FB_JUGE_ID));});
+        if(!hit) return;
+        var rank=judgeStatusRank(h.status||'pending');
+        var order=judgeHeatSortValue(hid,h);
+        if(!best||rank<bestRank||(rank===bestRank&&order<bestOrder)){
+          bestRank=rank; bestOrder=order;
+          best={heatId:hid,lane:ln,teamName:li.teamName||'—',
+            catName:h.catName||'—',catId:String(h.catId||''),
+            wodInfo:h.wodInfo||null,prenom:hit.prenom||'',nom:hit.nom||'',
+            status:h.status||'pending',startTimestamp:h.startTimestamp||null,
+            zone:parseInt(h.catZone||h.zone||1)||1};
+        }
+      });
+    });
+    if(best){
+      // Charger immédiatement si done=true, sinon attendre pre/live du prochain heat
+      if(!done && best.status==='pending') return; // pas encore prêt
+      _checked=true;
+      clearInterval(_nextHeatWatchIv);
+      if(_nextHeatWatchRef){ _nextHeatWatchRef.off(); _nextHeatWatchRef=null; }
+      // Récupérer les infos complètes du heat
+      db.ref('heats/'+best.heatId).once('value').then(function(snap){
+        var h=snap.val()||{};
+        var li=(h.lanes||{})[String(best.lane)]||{};
+        applyRealData({
+          heatId:best.heatId, lane:String(best.lane),
+          teamName:li.teamName||best.teamName||'—',
+          catName:h.catName||best.catName||'—',
+          catId:String(h.catId||best.catId||''),
+          zone:parseInt(h.catZone||h.zone||best.zone||1)||1,
+          wodInfo:h.wodInfo||best.wodInfo||null,
+          prenom:best.prenom||FB_JUGE_PRENOM||'Juge',
+          nom:best.nom||FB_JUGE_NOM||'',
+          status:h.status||best.status||'pending',
+          startTimestamp:h.startTimestamp||null
+        });
+      }).catch(function(){applyRealData(best);});
+    }
+  }
+
+  // Écouter tous les heats en temps réel
+  _nextHeatWatchRef=db.ref('heats');
+  _nextHeatWatchRef.on('value', function(snap){
+    tryLoadNext(snap.val()||{});
+  });
+  // Retry toutes les 10s pendant 5 min (fallback)
+  var _attempts=0;
+  _nextHeatWatchIv=setInterval(function(){
+    _attempts++;
+    if(_attempts>30||_checked){ clearInterval(_nextHeatWatchIv); return; }
+    db.ref('heats').once('value').then(function(s){ tryLoadNext(s.val()||{}); });
+  }, 10000);
+}
+function stopWatchNextHeat(){
+  if(_nextHeatWatchRef){ _nextHeatWatchRef.off(); _nextHeatWatchRef=null; }
+  clearInterval(_nextHeatWatchIv); _nextHeatWatchIv=null;
+}
+function listenHeatStatus(){
+  if(!db||!FB_HEAT_ID) return;
+  if(_heatStatusRef) _heatStatusRef.off();
+  if(_heatStartRef) _heatStartRef.off();
+  if(_countdownRef) _countdownRef.off();
+  if(_cdFallbackRef) _cdFallbackRef.off();
+  if(_urgenceRef) _urgenceRef.off();
+  if(_broadcastRef) _broadcastRef.off();
+  if(_interheatRef) _interheatRef.off();
+
+  // Écouter tout le heat (statut + wodInfo en même temps)
+  // Charger wodInfo + startTimestamp une seule fois (évite les faux triggers)
+  db.ref('heats/'+FB_HEAT_ID).once('value',function(snapFull){
+    var hFull=snapFull.val()||{};
+    if(hFull.startTimestamp) HEAT_START_TS=hFull.startTimestamp;
+    if(hFull.wodInfo&&hFull.wodInfo.nom&&(!SC||SC.wod==='WOD en attente')&&totalReps===0&&moveIdx===0){
+      var newSC=wodToScenario(hFull.wodInfo);
+      newSC.prenom=FB_JUGE_PRENOM; newSC.nom=FB_JUGE_NOM;
+      newSC.heat='H'+String(FB_HEAT_ID).replace(/\D/g,'');
+      newSC.lane=FB_LANE;
+      newSC.team=SC?SC.team:(hFull.lanes&&hFull.lanes[FB_LANE]?hFull.lanes[FB_LANE].teamName||'—':'—');
+      newSC.zone=parseInt(hFull.catZone||hFull.zone||1,10)||1;
+      SC=JSON.parse(JSON.stringify(newSC));
+      $('w-juge').textContent=SC.prenom+' '+SC.nom;
+      $('w-heat').textContent=SC.heat;
+      $('w-team').textContent=SC.team;
+      $('w-wod').textContent=SC.wod;
+      $('w-fmt').textContent=SC.fmtLabel;
+    }
+  });
+
+  // Écouter UNIQUEMENT le statut — pas tout le noeud (évite les triggers sur chaque score pushé)
+  _heatStatusRef=db.ref('heats/'+FB_HEAT_ID+'/status');
+  _heatStatusRef.on('value',function(snap){
+    var st=snap.val()||'pending';
+    HEAT_STATUS=st;
+    refreshJudgeLockUI();
+    if(st==='pre'&&!done&&!_preShown){
+      _preShown=true;
+      if(_currentScreen==='s-judge') goPre();
+      else if(_currentScreen!=='s-pre'&&_currentScreen!=='s-cd') setTimeout(goPre,600);
+    }
+    else if(st==='live'&&!done){
+      // Récupérer startTimestamp si pas encore connu
+      if(!HEAT_START_TS){
+        db.ref('heats/'+FB_HEAT_ID+'/startTimestamp').once('value',function(s){
+          if(s.val()){ startTs=s.val(); HEAT_START_TS=s.val(); }
+          if(_currentScreen!=='s-judge' && totalReps===0 && !timerIv) startJudge();
+        });
+      } else {
+        startTs=HEAT_START_TS;
+        if(_currentScreen!=='s-judge' && totalReps===0 && !timerIv) startJudge();
+      }
+    }
+    else if(st==='timecap'&&!done){
+      if(!HEAT_START_TS){
+        db.ref('heats/'+FB_HEAT_ID+'/startTimestamp').once('value',function(s){
+          if(s.val()){ startTs=s.val(); HEAT_START_TS=s.val(); }
+          if(_currentScreen!=='s-judge') startJudge();
+        });
+      } else {
+        startTs=HEAT_START_TS;
+        if(_currentScreen!=='s-judge') startJudge();
+      }
+    }
+    else if((st==='done'||st==='timecap')&&done){
+      startWatchNextHeat();
+    }
+    else if(st==='done'&&!done){
+      startWatchNextHeat();
+    }
+  });
+
+  _heatStartRef=db.ref('heats/'+FB_HEAT_ID+'/startTimestamp');
+  _heatStartRef.on('value',function(snap){
+    if(snap && snap.val()) HEAT_START_TS=snap.val();
+  });
+
+  // Countdown par zone (system/countdown/z1 ou z2)
+  var zone=SC?String(SC.zone||1):'1';
+  _countdownRef=db.ref('system/countdown/z'+zone);
+  _countdownRef.on('value',function(snap){
+    var cd=snap.val();
+    if(!cd||!cd.active||!cd.target) return;
+    var rem=Math.ceil((cd.target-serverNow())/1000);
+    if(rem>0) triggerFBCountdown(cd.target);
+  });
+  // Fallback : écouter aussi system/countdown (nœud global pour compatibilité)
+  _cdFallbackRef=db.ref('system/countdown');
+  _cdFallbackRef.on('value',function(snap){
+    var cd=snap.val();
+    if(!cd||!cd.active||cd.z1||cd.z2) return; // ignorer si structure par zone
+    if(cd.hid && String(cd.hid)!==String(FB_HEAT_ID)) return;
+    var rem=Math.ceil((cd.target-serverNow())/1000);
+    if(rem>0) triggerFBCountdown(cd.target);
+  });
+
+  _urgenceRef=db.ref('system/urgence');
+  _urgenceRef.on('value',function(snap){
+    var u=snap.val()||{};
+    var el=$('fb-urgence');
+    if(el) el.style.display=u.active?'flex':'none';
+  });
+
+  // Reconnexion Firebase → relancer startWatchNextHeat si en attente
+  db.ref('.info/connected').on('value',function(snap){
+    if(snap.val()===true && (HEAT_STATUS==='done'||HEAT_STATUS==='timecap') && done){
+      setTimeout(function(){
+        db.ref('heats').once('value').then(function(s){ 
+          if(_nextHeatWatchRef||_nextHeatWatchIv) return; // déjà en cours
+          startWatchNextHeat();
+        });
+      }, 2000);
+    }
+  });
+
+  _broadcastRef=db.ref('system/broadcast');
+  var _judgeLastBroadcastTs=Date.now()-5000;
+  _broadcastRef.on('value',function(snap){
+    var msg=snap.val();
+    if(!msg||!msg.message) return;
+    var ts=msg.ts||0;
+    if(ts<=_judgeLastBroadcastTs) return;
+    _judgeLastBroadcastTs=ts;
+    if(msg.target==='all'||msg.target==='judge') toast('📢 '+msg.message);
+  });
+
+  // Bannière départ journée avec chrono descendant
+  var _departBannerIv=null;
+  db.ref('system/departAnnonce').on('value',function(snap){
+    var d=snap.val();
+    clearInterval(_departBannerIv);
+    var banner=document.getElementById('judge-depart-banner');
+    if(!banner){
+      banner=document.createElement('div');
+      banner.id='judge-depart-banner';
+      banner.style.cssText='position:fixed;top:0;left:0;right:0;z-index:200;background:linear-gradient(135deg,#06D6A0,#00B48A);color:#fff;text-align:center;padding:14px;font-family:var(--ff);font-size:22px;letter-spacing:2px;display:none;box-shadow:0 4px 20px rgba(0,0,0,.3)';
+      document.body.insertBefore(banner,document.body.firstChild);
+    }
+    if(!d||!d.active){banner.style.display='none';return;}
+    banner.style.display='block';
+    vib([100,50,100]);
+    function updateBanner(){
+      var rem=Math.max(0,Math.ceil((d.target-serverNow())/1000));
+      var m=Math.floor(rem/60), s=rem%60;
+      banner.textContent='🚀 DÉPART HEAT 1 — '+(rem>0?m+'min'+(s>0?' '+String(s).padStart(2,'0')+'s':''):'GO !');
+      if(rem<=0){clearInterval(_departBannerIv);vib([200,100,200,100,400]);setTimeout(function(){banner.style.display='none';},4000);}
+    }
+    updateBanner();
+    _departBannerIv=setInterval(updateBanner,1000);
+  });
+
+  _interheatRef=db.ref('system/interheat');
+  _interheatRef.on('value',function(snap){
+    var all=snap.val()||{};
+    var z=(SC&&SC.zone)?parseInt(SC.zone,10)||1:1;
+    var d=all[String(z)]||all[z]||null;
+    if(d&&d.active&&d.target&&d.target>Date.now()&&d.seconds>0){
+      showInterheatBanner(d);
+    } else {
+      hideInterheatBanner();
+    }
+  });
+}
+
+/* ── Init — Mode réel uniquement ── */
+function init(){
+  var urlType=parseURL();
+  if(urlType){
+    REAL_MODE=true;
+    if(!initFirebase()){
+      showError('Firebase non disponible','Vérifie ta connexion internet et réessaie.');
+      return;
+    }
+    show('s-wait');
+    $('w-juge').textContent='Chargement…';
+    $('w-heat').textContent='—';
+    $('w-team').textContent='—';
+    $('w-wod').textContent='—';
+    $('w-fmt').textContent='—';
+
+    if(urlType==='juge'){
+      loadJugeFromFirebase(FB_JUGE_ID, function(data){
+        if(data){ applyRealData(data); watchJudgeAssignment(); }
+        else {
+          // Chercher si le bénévole existe dans Firebase même sans planning
+          db.ref('benevoles/'+FB_JUGE_ID).once('value').then(function(bSnap){
+            var ben=bSnap.val();
+            if(ben && ben.prenom){
+              // Bénévole connu mais pas encore de planning → écran d'attente
+              FB_JUGE_PRENOM=ben.prenom||'Juge';
+              FB_JUGE_NOM=ben.nom||'';
+              var safe=function(id,val){var el=$(id);if(el)el.textContent=val;};
+              safe('w-juge',FB_JUGE_PRENOM+' '+FB_JUGE_NOM);
+              safe('w-heat','En attente');
+              safe('w-team','—');
+              safe('w-wod','Planning non encore généré');
+              safe('w-fmt','Le Timekeeper va lancer la journée');
+              show('s-wait');
+              toast('⏳ Planning pas encore généré — attends le TK','#FF8A00',6000);
+            } else {
+              showError('Juge introuvable','Ton QR est invalide ou tu n\'es pas encore enregistré.\nContacte le Timekeeper.');
+            }
+          }).catch(function(){
+            showError('Juge introuvable','Ton QR est invalide ou tu n\'es pas encore assigné à un heat.\nContacte le Timekeeper.');
+          });
+        }
+      });
+    } else {
+      loadHeatLane(FB_HEAT_ID, FB_LANE, function(data){
+        if(data){ applyRealData(data); }
+        else { showError('Heat introuvable','Ce heat n\'existe pas dans Firebase.\nContacte le Timekeeper.'); }
+      });
+    }
+  } else {
+    showError('Accès incorrect','Tu dois scanner ton QR code personnel pour accéder à l\'interface juge.\n\nDemande ton QR au Timekeeper.');
+  }
+}
+
+function showError(title, msg){
+  var el=document.getElementById('s-error');
+  if(!el){
+    el=document.createElement('div');
+    el.id='s-error';
+    el.style.cssText='position:fixed;inset:0;background:#0f1a2a;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;text-align:center;padding:28px;z-index:999';
+    el.innerHTML='<div style="font-size:56px">🔒</div>'
+      +'<div id="s-error-title" style="font-family:var(--ff);font-size:28px;letter-spacing:3px;color:#FF5722"></div>'
+      +'<div id="s-error-msg" style="font-size:14px;color:#94A3B8;line-height:1.8;max-width:300px;white-space:pre-line"></div>'
+      +'<button onclick="window.location.reload()" style="margin-top:8px;background:#1E88E5;color:#fff;border:none;border-radius:8px;padding:10px 24px;font-size:13px;font-weight:800;cursor:pointer">🔄 Réessayer</button>'
+      +'<div style="font-size:11px;color:#475569;margin-top:4px">FOC 2026 · Zone K</div>';
+    document.body.appendChild(el);
+  }
+  var t=document.getElementById('s-error-title');
+  var m=document.getElementById('s-error-msg');
+  if(t) t.textContent=title;
+  if(m) m.textContent=msg;
+}
+
+init();
+</script>
+
+<!-- Overlay urgence Firebase -->
+<div id="fb-urgence" style="display:none;position:fixed;inset:0;z-index:999;background:rgba(185,28,28,.97);flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center;padding:24px">
+  <div style="font-family:var(--ff);font-size:56px;letter-spacing:4px;color:#fff">ARRET URGENCE</div>
+  <div style="font-size:14px;color:rgba(255,255,255,.7)">La compétition est temporairement suspendue.<br>Attends les consignes du Timekeeper.</div>
+</div>
+<!-- Indicateur hors ligne -->
+<div id="fb-offline" style="display:none;position:fixed;top:0;left:0;right:0;z-index:50;background:#b91c1c;color:#fff;text-align:center;padding:8px;font-weight:800;font-size:11px;letter-spacing:1px">HORS LIGNE</div>
+
+<script>
+// Wake Lock — empêche l'écran de s'éteindre
+var _wakeLock = null;
+async function requestWakeLock(){
+  try{
+    if('wakeLock' in navigator){
+      _wakeLock = await navigator.wakeLock.request('screen');
+      _wakeLock.addEventListener('release', function(){
+        // Ne pas relancer automatiquement — géré manuellement selon l'état
+      });
+    }
+  }catch(e){}
+}
+async function releaseWakeLock(){
+  try{ if(_wakeLock){ await _wakeLock.release(); _wakeLock=null; } }catch(e){}
+}
+// Activer/désactiver le Wake Lock selon la phase
+function updateWakeLock(screenName){
+  // Écran actif → garder allumé
+  if(screenName==='s-judge'||screenName==='s-cd'||screenName==='s-pre'){
+    requestWakeLock();
+  } else {
+    // EN ATTENTE ou DONE → libérer, l'écran peut s'éteindre
+    releaseWakeLock();
+  }
+}
+document.addEventListener('visibilitychange', function(){
+  if(document.visibilityState === 'visible' && _currentScreen==='s-judge') requestWakeLock();
+});
+// Démarrer sans Wake Lock — il sera activé au PRÉ
+var _currentScreen = 's-wait';
+</script>
+</body>
+</html>
