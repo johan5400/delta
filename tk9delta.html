@@ -327,7 +327,7 @@ body{display:flex;flex-direction:column}
       <div id="mcdBannerSub" style="font-size:13px;color:#7FB8E0">Préparation en cours…</div>
     </div>
   </div>
-  <div id="mcdBannerVal" style="font-family:'JetBrains Mono',monospace;font-size:48px;font-weight:900;color:#fff;letter-spacing:-2px">2:00</div>
+  <div id="mcdBannerVal" style="font-family:'JetBrains Mono',monospace;font-size:48px;font-weight:900;color:#fff;letter-spacing:-2px">1:00</div>
 </div>
 <div id="hjBanner" style="display:none;position:fixed;top:0;left:0;right:0;z-index:200;background:linear-gradient(135deg,#7C0000,#C62828);padding:14px 20px;display:none;align-items:center;gap:16px;box-shadow:0 4px 20px rgba(0,0,0,.5)">
   <div style="font-size:28px">🚨</div>
@@ -1307,12 +1307,12 @@ function startDay(day){
   }
   found.forEach(function(f){ zoneState[f.z].selected=f.hid; setStatus(f.hid,'pre'); drawZone(f.z); });
   if(g('dayMode')) g('dayMode').textContent='J'+day+' LANCÉ';
-  if(g('dayNextEvent')) g('dayNextEvent').textContent='Départ dans 2:00';
+  if(g('dayNextEvent')) g('dayNextEvent').textContent='Départ dans 1:00';
 
-  // ── Morning countdown 2 min → lancement piloté par le listener Firebase (résilient aux rechargements) ──
-  var mcdTarget = serverNow() + 120000;
+  // ── Morning countdown 1 min → lancement piloté par le listener Firebase (résilient aux rechargements) ──
+  var mcdTarget = serverNow() + 60000;
   dbRef('system/morningCountdown').set({active:true, target:mcdTarget, ts:serverNow(), day:day, token:'foc2026zk'});
-  toast('⏳ Compte à rebours 2 min lancé — heats au GO !', '#2D9CFF', 5000);
+  toast('⏳ Compte à rebours 1 min lancé — heats au GO !', '#2D9CFF', 5000);
   lockDay(day);
   // NOTE : le lancement effectif des heats est géré par _mcdLaunchGo()
   //        déclenché depuis le listener morningCountdown quand rem<=0
@@ -1500,8 +1500,8 @@ function openUrgence(){g('urgenceBanner').classList.add('show');}
 function applyUrgence(){var delay=parseInt(g('urgenceDelay').value,10)||10; var mode=g('urgenceMode').value; [1,2].forEach(function(z){ clearInterval(zoneState[z].jtIv); var subEl=g('z'+z+'StatusSub'); if(subEl&&(subEl.textContent||'').indexOf('Forçage')!==-1)subEl.textContent=''; }); dbRef('system/urgence').set({active:true,ts:Date.now(),delay:delay,resumeMode:mode,token:'foc2026zk'}); dbRef('system/broadcast').set({target:'all',message:'Compétition suspendue. Attendre les consignes du Timekeeper.',ts:Date.now(),source:'tkx',token:'foc2026zk'});}
 function resumeUrgence(){dbRef('system/urgence').set({active:false,ts:serverNow(),token:'foc2026zk'});}
 function launchMorningCD(){
-  if(!confirm('Lancer le compte à rebours de début de journée (2 minutes) ?'))return;
-  var target=serverNow()+120000;
+  if(!confirm('Lancer le compte à rebours de début de journée (1 minutes) ?'))return;
+  var target=serverNow()+60000;
   dbRef('system/morningCountdown').set({active:true,target:target,ts:serverNow(),token:'foc2026zk'});
 }
 // Listener morning countdown pour affichage TK
@@ -1554,7 +1554,7 @@ function _mcdLaunchGo(day){
       if(curSt==='live'||curSt==='timecap'||curSt==='done') return; // déjà lancé
       var alertEl=g('z'+z+'JudgeAlert');
       if(alertEl) alertEl.classList.remove('show');
-      launchHeatDirect(z, hid);
+      launchHeat(z, hid); // countdown 10s avant GO
       launched.push('Z'+z+' H'+hid);
     });
     if(launched.length){

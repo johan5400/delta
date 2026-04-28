@@ -268,7 +268,7 @@ body{height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-fami
 
 <div id="morning-cd">
   <div class="mcd-lbl">⏳ DÉBUT DE JOURNÉE</div>
-  <div class="mcd-val" id="mcd-val">2:00</div>
+  <div class="mcd-val" id="mcd-val">1:00</div>
   <div class="mcd-sub" id="mcd-sub">Préparation en cours…</div>
 </div>
 
@@ -1437,7 +1437,7 @@ if(db){
     if(!d.active||!d.target){if(el)el.className='';return;}
     if(el)el.className='on';
     function tick(){
-      var rem=Math.ceil((d.target-now())/1000);
+      var rem=Math.max(0,Math.ceil((d.target-now())/1000));
       if(rem<=0){
         if(val){val.textContent='GO !';val.className='mcd-val go';}
         if(sub)sub.textContent='C\'est parti !';
