@@ -75,6 +75,9 @@ body{height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-fami
 #z1{grid-column:2;grid-row:2;min-height:0;overflow:hidden}
 .shell.solo #z2{grid-column:1/3;grid-row:2}
 .shell.solo #z1{grid-column:1/3;grid-row:2}
+/* en solo : chrono partagé reste visible en haut */
+.shell.solo{grid-template-rows:auto 1fr!important}
+.shell.solo #z2,.shell.solo #z1{grid-row:2!important}
 .shell.solo .zone-col.hidden{display:none}
 .shell.solo .shared-chrono-col{grid-column:1/3}
 .zone-col{display:flex;flex-direction:column;min-height:0;overflow:hidden;position:relative}
@@ -108,9 +111,8 @@ body{height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-fami
 /* Zone body : chrono haut, équipes bas */
 .zone-body{flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden;background:rgba(7,9,15,.92)}
 /* Chrono individuel par zone */
-.zone-chrono{flex-shrink:0;padding:6px 16px 8px}
-.zone-chrono .chrono-lbl{font-size:clamp(9px,1.1vw,16px);letter-spacing:4px}
-.zone-chrono .chrono-val{font-size:clamp(48px,7.5vw,160px);letter-spacing:-2px}
+/* chronos par zone supprimés — un seul chrono partagé en haut */
+.zone-chrono{display:none!important}
 
 /* Chrono — GRAND, sans cap restrictif */
 .chrono-band{
@@ -283,7 +285,7 @@ if(db) db.ref('.info/serverTimeOffset').on('value',function(s){_off=s.val()||0;}
 function now(){return Date.now()+_off;}
 
 // ════ STATE ════
-var HEATS={},SCORES={},IH={},CD={},ZSYNC={},VIEW='both';
+var HEATS={},SCORES={},IH={},CD={},ZSYNC={},WD={},CLASSEMENT={},VIEW='both';
 var _iv={1:null,2:null},_ivKey={1:null,2:null};
 var _dh={1:null,2:null},_ds={1:null,2:null};
 var _hold={1:null,2:null};
@@ -354,6 +356,12 @@ function getNext(zone){
 // ════ CAP — identique à tk9delta.wodCapSec ════
 function wodCapSec(w){
   w=w||{};
+  // Merger avec WD (wods/ Firebase) si duree absent
+  var wid=w.id!=null?String(w.id):'';
+  if(wid&&WD[wid]){
+    var lv=WD[wid];
+    if(!(parseInt(w.duree||0,10)>0)&&lv.duree>0) w=Object.assign({},w,{duree:lv.duree,capSec:lv.capSec||lv.duree,capMinutes:lv.capMinutes||0,workMin:lv.workMin||0});
+  }
   var sec=parseInt(w.duree||w.capSec||w.capSeconds||w.durationSec||0,10)||0;
   if(sec>0)return sec;
   var cm=parseInt(w.capMinutes||0,10)||0;
@@ -438,7 +446,12 @@ function getSharedClockState(){
     var rem=cap>0?Math.max(0,cap-elapsed):elapsed;
     var hot=cap>0&&(rem<=30);
     var warn=cap>0&&(rem<=60);
-    return{val:fmt(rem),vcls:hot?'hot':warn?'warn':'run',lbl:'⏱ CHRONO',bcls:hot?'clr-hot':'clr-run'};
+    // Détecter sync Z1+Z2 : si les deux zones ont le même startTimestamp (±500ms)
+    var dOther=getHeat(refZone===1?2:1);
+    var tsOther=dOther&&dOther.h&&dOther.h.startTimestamp||0;
+    var isSync=tsOther>0&&Math.abs(ts-tsOther)<500;
+    var chronoLbl=isSync?'⚡ Z1 + Z2 SYNC':'⏱ ZONE '+refZone;
+    return{val:fmt(rem),vcls:hot?'hot':warn?'warn':'run',lbl:chronoLbl,bcls:hot?'clr-hot':'clr-run'};
   }
 
   return{val:'--:--',vcls:'idle',lbl:'⌛ EN ATTENTE',bcls:''};
@@ -460,13 +473,9 @@ function startSharedClock(){
 
 // applyC() met à jour _lastFrame ET le chrono de la zone (cv-z1/cv-z2)
 function applyC(z,txt,vcls,lbl,bcls){
+  // Mémorise le dernier état (pour holdLastFrame) mais ne touche plus aux chronos de zone
   _lastFrame[z]={txt:txt,lbl:lbl||'',vcls:vcls,bcls:bcls||''};
-  var cv=document.getElementById('cv-z'+z);
-  var cl=document.getElementById('cl-z'+z);
-  var cb=document.getElementById('cb-z'+z);
-  if(cv&&txt!=null){cv.textContent=txt;cv.className='chrono-val '+(vcls||'');}
-  if(cl&&lbl!=null)cl.textContent=lbl;
-  if(cb&&bcls!=null)cb.className='chrono-band zone-chrono '+(bcls||'');
+  // Chrono par zone supprimé — un seul chrono partagé en haut (tickSharedClock)
 }
 function holdLastFrame(z,ms){
   var f=_lastFrame[z];
@@ -583,6 +592,27 @@ function startClock(z,hid,h,w){
 
 // ════ CLASSEMENT GÉNÉRAL ════
 function getLeaders(){
+  // Utiliser classement/ Firebase si disponible (pushé par index.html)
+  if(CLASSEMENT&&Object.keys(CLASSEMENT).length){
+    var leaders={};
+    Object.keys(CLASSEMENT).forEach(function(catKey){
+      var cat=CLASSEMENT[catKey];
+      if(!cat||!cat.teams||!cat.teams.length) return;
+      var top=cat.teams[0]; // déjà trié par rank
+      // On a besoin du catId — on le retrouve depuis HEATS
+      Object.keys(HEATS).forEach(function(hid){
+        var h=HEATS[hid];
+        if(!h) return;
+        var cname=h.catName||h.catNom||'';
+        var zoneNum=parseInt(h.catZone!=null?h.catZone:h.zone,10)||1;
+        var ckey=(cname+'__z'+zoneNum).replace(/[^a-zA-Z0-9_-]/g,'_');
+        if(ckey===catKey&&top&&top.name) leaders[String(h.catId||'')]=top.name;
+      });
+    });
+    if(Object.keys(leaders).length) return leaders;
+  }
+  // Fallback : calcul local
+  var pts={},p1={};
   var pts={},p1={};
   Object.keys(HEATS).forEach(function(hid){
     var h=HEATS[hid];if(!h||!h.catId||!(h.status==='done'||h.status==='timecap'))return;
@@ -1056,10 +1086,7 @@ function renderZone(zone){
           +'<span class="tag pending">EN ATTENTE</span>'
         +'</div><div class="wod-nom" style="opacity:.15">— — —</div></div>'
         +'<div class="zone-body">'
-          +'<div class="chrono-band zone-chrono" id="cb-z'+zone+'">'
-            +'<div class="chrono-lbl" id="cl-z'+zone+'">⌛ EN ATTENTE</div>'
-            +'<div class="chrono-val idle" id="cv-z'+zone+'">--:--</div>'
-          +'</div>'
+/* chrono zone supprimé */
           +'<div class="zone-idle"><div class="idle-z">Z'+zone+'</div><div class="idle-lb">EN ATTENTE</div></div>'
         +'</div>';
     }
@@ -1134,10 +1161,7 @@ function renderZone(zone){
       +(movsHtml?'<div class="mov-row">'+movsHtml+'</div>':'')
     +'</div>'
     +'<div class="zone-body">'
-      +'<div class="chrono-band zone-chrono" id="cb-z'+zone+'">'
-        +'<div class="chrono-lbl" id="cl-z'+zone+'">⏱ CHRONO</div>'
-        +'<div class="chrono-val idle" id="cv-z'+zone+'">--:--</div>'
-      +'</div>'
+/* chrono zone supprimé */
       +'<div class="teams-band" id="tband-'+zone+'">'
         +renderRankCards(heatRows,dw,displaySt,displaySt==='live'||displaySt==='pre',dhFull,displayCatId,displayCatLeader)
       +'</div>'
@@ -1245,62 +1269,82 @@ function getPodEl(zone){
   return{ov:ov,ct:document.getElementById('pod-content-z'+zone),ti:document.getElementById('pod-timer-z'+zone)};
 }
 
-function showPodium(zone,hid,h,dur){
+function buildWodClassement(h){
+  var catId=String(h.catId||''),catName=h.catName||'';
+  if(CLASSEMENT&&Object.keys(CLASSEMENT).length){
+    var zoneNum=parseInt(h.catZone!=null?h.catZone:h.zone,10)||1;
+    var catKey=(catName+'__z'+zoneNum).replace(/[^a-zA-Z0-9_-]/g,'_');
+    var fbCat=CLASSEMENT[catKey];
+    if(fbCat&&fbCat.teams&&fbCat.teams.length)
+      return fbCat.teams.map(function(t){return{t:t.name,p:t.points,p1:t.podiums?t.podiums.p1:0};});
+  }
+  var catH=Object.keys(HEATS).filter(function(k){var hh=HEATS[k];return hh&&String(hh.catId)===catId&&(hh.status==='done'||hh.status==='timecap');});
+  var tpts={},tp1={};
+  catH.forEach(function(k){
+    var hh=HEATS[k],ww=hh.wodInfo||{},sf2=(ww.scoreFinale||ww.scoreType||'').toLowerCase();
+    var isT2=(ww.wodFormat||'').toLowerCase()==='fortime'||sf2==='time';
+    var grp=[];
+    Object.keys(hh.slots||hh.lanes||{}).forEach(function(ln){var l=(hh.slots||hh.lanes)[ln];if(!l||!l.teamName)return;var sc=getSc(k,hh,ln);if(!(sc.judgeOk===true||sc.judgeOk===1))return;grp.push({t:l.teamName,v:isT2?(sc.finalTime>0?-sc.finalTime:0):parseInt(sc.reps)||0});});
+    grp.sort(function(a,b){return b.v-a.v;});var pp=1;
+    grp.forEach(function(e,i){if(i>0&&e.v!==grp[i-1].v)pp=i+1;tpts[e.t]=(tpts[e.t]||0)+pp;if(pp===1){if(!tp1[e.t])tp1[e.t]=0;tp1[e.t]++;}});
+  });
+  var gen=Object.keys(tpts).map(function(t){return{t:t,p:tpts[t],p1:tp1[t]||0};});
+  gen.sort(function(a,b){return a.p!==b.p?a.p-b.p:b.p1-a.p1;});
+  return gen;
+}
+function renderHeatHtml(hid,h){
+  var w=h.wodInfo||{},sf=(w.scoreFinale||w.scoreType||'').toLowerCase();
+  var isT=(w.wodFormat||'').toLowerCase()==='fortime'||sf==='time';
+  var lanes=h.slots||h.lanes||{},entries=[];
+  Object.keys(lanes).forEach(function(ln){var l=lanes[ln];if(!l||!l.teamName)return;var sc=getSc(hid,h,ln);entries.push({t:l.teamName,sc:sc,v:scoreVal(sc,w)});});
+  entries.sort(function(a,b){if(a.sc.judgeOk&&!b.sc.judgeOk)return -1;if(!a.sc.judgeOk&&b.sc.judgeOk)return 1;return b.v-a.v;});
+  var html='<div class="p-title">🏁 '+esc(w.nom||'WOD')+'</div>'
+    +'<div class="p-sub">'+esc(h.catName||'')+' · Heat '+(h.catHeatNum||'—')+' / '+(h.nbHeatsTotal||'—')+'</div>';
+  entries.forEach(function(e,i){html+='<div class="p-row'+(i<3?' r'+(i+1):'')+'"><div class="p-rk">'+(MEDALS[i]||i+1)+'</div><div class="p-nm">'+esc(e.t)+'</div><div class="p-sc">'+(e.sc.judgeOk?scoreStr(e.sc,w):'—')+'</div></div>';});
+  return html;
+}
+function renderWodHtml(h){
+  var gen=buildWodClassement(h);
+  var html='<div class="p-title">🏆 CLASSEMENT WOD</div><div class="p-sub">'+esc(h.catName||'')+'</div>';
+  gen.forEach(function(t,i){html+='<div class="p-row'+(i<3?' r'+(i+1):'')+'"><div class="p-rk">'+(MEDALS[i]||i+1)+'</div><div class="p-nm">'+esc(t.t)+'</div><div class="p-pts">'+t.p+' pt'+(t.p>1?'s':'')+'</div></div>';});
+  return html;
+}
+function showPodium(zone,hid,h,ihSec){
   if(_podiumShown[hid])return;
   _podiumShown[hid]=true;
   var p=getPodEl(zone),ov=p.ov,ct=p.ct,ti=p.ti;
   if(!ov||!ct)return;
-  var w=h.wodInfo||{},sf=(w.scoreFinale||w.scoreType||'').toLowerCase();
-  var isT=(w.wodFormat||'').toLowerCase()==='fortime'||sf==='time';
   var isLast=h.catHeatNum&&h.nbHeatsTotal&&parseInt(h.catHeatNum)>=parseInt(h.nbHeatsTotal);
-  var lanes=h.slots||h.lanes||{},entries=[];
-  Object.keys(lanes).forEach(function(ln){var l=lanes[ln];if(!l||!l.teamName)return;var sc=getSc(hid,h,ln);entries.push({t:l.teamName,sc:sc,v:scoreVal(sc,w)});});
-  entries.sort(function(a,b){if(a.sc.judgeOk&&!b.sc.judgeOk)return -1;if(!a.sc.judgeOk&&b.sc.judgeOk)return 1;return isT?a.v-b.v:b.v-a.v;});
-
-  // ── Phase 1 : résultat HEAT ──
-  var heatHtml='<div class="p-title">🏁 '+esc(w.nom||'WOD')+'</div>'
-    +'<div class="p-sub">'+esc(h.catName||'')+' · Heat '+(h.catHeatNum||'—')+'</div>';
-  entries.forEach(function(e,i){heatHtml+='<div class="p-row'+(i<3?' r'+(i+1):'')+'"><div class="p-rk">'+(MEDALS[i]||i+1)+'</div><div class="p-nm">'+esc(e.t)+'</div><div class="p-sc">'+(e.sc.judgeOk?scoreStr(e.sc,w):'—')+'</div></div>';});
-
-  var heatDur=Math.min(dur,isLast?20:dur); // phase heat : tout le temps si pas dernier, 20s si dernier
-  ct.innerHTML=heatHtml;
+  var totalSec=Math.max(10,ihSec||20);
+  var reservePreview=Math.min(8,Math.round(totalSec*0.10));
+  var available=Math.max(5,totalSec-reservePreview);
+  var heatDur=isLast?Math.round(available*0.40):available;
+  var wodDur=isLast?(available-heatDur):0;
+  if(heatDur<4){ov._localPod=false;return;}
   ov.className='pod-overlay on';ov._localPod=true;
-  clearInterval(_podIv[zone]); _podIv[zone]=null;
-
-  // Si dernier heat → enchaîner avec WOD après heatDur secondes
-  if(isLast){
-    var end1=Date.now()+heatDur*1000;
-    _podIv[zone]=setInterval(function(){
-      var rem=Math.max(0,Math.ceil((end1-Date.now())/1000));
-      if(ti)ti.textContent='Classement WOD dans '+rem+'s';
-      if(rem<=0){
-        clearInterval(_podIv[zone]); _podIv[zone]=null;
+  clearInterval(_podIv[zone]);_podIv[zone]=null;
+  // ── Phase 1 : résultat heat ──
+  ct.innerHTML=renderHeatHtml(hid,h);
+  var p1End=Date.now()+heatDur*1000;
+  _podIv[zone]=setInterval(function(){
+    var rem=Math.max(0,Math.ceil((p1End-Date.now())/1000));
+    if(ti) ti.textContent=isLast?('Classement WOD dans '+rem+'s'):('Prochain heat dans '+(rem+reservePreview)+'s');
+    if(rem<=0){
+      clearInterval(_podIv[zone]);_podIv[zone]=null;
+      if(isLast&&wodDur>=4){
         // ── Phase 2 : classement WOD ──
-        var catId=String(h.catId||'');
-        var catH=Object.keys(HEATS).filter(function(k){var hh=HEATS[k];return hh&&String(hh.catId)===catId&&(hh.status==='done'||hh.status==='timecap');});
-        var tpts={},tp1={};
-        catH.forEach(function(k){
-          var hh=HEATS[k],ww=hh.wodInfo||{},sf2=(ww.scoreFinale||ww.scoreType||'').toLowerCase();
-          var isT2=(ww.wodFormat||'').toLowerCase()==='fortime'||sf2==='time';
-          var grp=[];
-          Object.keys(hh.slots||hh.lanes||{}).forEach(function(ln){var l=(hh.slots||hh.lanes)[ln];if(!l||!l.teamName)return;var sc=getSc(k,hh,ln);if(!(sc.judgeOk===true||sc.judgeOk===1))return;grp.push({t:l.teamName,v:isT2?(sc.finalTime>0?-sc.finalTime:0):parseInt(sc.reps)||0});});
-          grp.sort(function(a,b){return b.v-a.v;});var pp=1;
-          grp.forEach(function(e,i){if(i>0&&e.v!==grp[i-1].v)pp=i+1;tpts[e.t]=(tpts[e.t]||0)+pp;if(pp===1){if(!tp1[e.t])tp1[e.t]=0;tp1[e.t]++;}});
-        });
-        var gen=Object.keys(tpts).map(function(t){return{t:t,p:tpts[t],p1:tp1[t]||0};});
-        gen.sort(function(a,b){return a.p!==b.p?a.p-b.p:b.p1-a.p1;});
-        var wodHtml='<div class="p-title">🏆 CLASSEMENT WOD</div><div class="p-sub">'+esc(h.catName||'')+'</div>';
-        gen.forEach(function(t,i){wodHtml+='<div class="p-row'+(i<3?' r'+(i+1):'')+'"><div class="p-rk">'+(MEDALS[i]||i+1)+'</div><div class="p-nm">'+esc(t.t)+'</div><div class="p-pts">'+t.p+' pts</div></div>';});
-        ct.innerHTML=wodHtml;
-        var end2=Date.now()+30000;
-        _podIv[zone]=setInterval(function(){var rem2=Math.max(0,Math.ceil((end2-Date.now())/1000));if(ti)ti.textContent='Fermeture dans '+rem2+'s';if(rem2<=0){clearInterval(_podIv[zone]);_podIv[zone]=null;ov._localPod=false;ov.className='pod-overlay';}},500);
+        ct.innerHTML=renderWodHtml(h);
+        var p2End=Date.now()+wodDur*1000;
+        _podIv[zone]=setInterval(function(){
+          var rem2=Math.max(0,Math.ceil((p2End-Date.now())/1000));
+          if(ti) ti.textContent='Prochain heat dans '+(rem2+reservePreview)+'s';
+          if(rem2<=0){clearInterval(_podIv[zone]);_podIv[zone]=null;ov._localPod=false;ov.className='pod-overlay';}
+        },200);
+      } else {
+        ov._localPod=false;ov.className='pod-overlay';
       }
-    },500);
-  } else {
-    // Pas dernier heat : afficher résultat heat pendant dur secondes
-    var end=Date.now()+dur*1000;
-    _podIv[zone]=setInterval(function(){var rem=Math.max(0,Math.ceil((end-Date.now())/1000));if(ti)ti.textContent='Fermeture dans '+rem+'s';if(rem<=0){clearInterval(_podIv[zone]);_podIv[zone]=null;ov._localPod=false;ov.className='pod-overlay';}},500);
-  }
+    }
+  },200);
 }
 function showTKPodiumSlide(slide,idx,total,step){
   [1,2].forEach(function(zone){
@@ -1335,8 +1379,14 @@ if(db){
           if(h.status==='pending'||h.status==='pre') delete _podiumShown[hid];
           if(h.status==='done'||h.status==='timecap'){
             var zone=parseInt(h.catZone!=null?h.catZone:h.zone)||1;
-            var ihD=IH[String(zone)],ihSec=ihD&&ihD.active&&ihD.target>now()?Math.round((ihD.target-now())/1000):0;
-            setTimeout(function(){showPodium(zone,hid,HEATS[hid]||h,ihSec>30?Math.min(ihSec-10,60):20);},1500);
+            var ihD=IH[String(zone)];
+            var ihSec=ihD&&ihD.active&&ihD.target>now()?Math.round((ihD.target-now())/1000):0;
+            // Si inter-heat pas encore actif dans Firebase, lire depuis wodInfo
+            if(ihSec<=0){ var _wi=(HEATS[hid]||h).wodInfo||{}; ihSec=parseInt(_wi.interHeat||_wi.coupureApres||0,10)||0; }
+            if(ihSec<=0) ihSec=20; // fallback
+            // Attendre 3s (scores) puis afficher podium avec le temps réel de l'inter-heat
+            var _ihSecSnap=ihSec;
+            setTimeout(function(){showPodium(zone,hid,HEATS[hid]||h,_ihSecSnap);},3000);
           }
         }
       }
@@ -1354,6 +1404,29 @@ if(db){
   [1,2].forEach(function(z){db.ref('system/countdown/z'+z).on('value',function(snap){var cd=snap.val();CD[String(z)]=(cd&&cd.active&&cd.target>now())?cd:null;_ivKey[z]=null;scheduleRender();});});
   db.ref('system/podiumSlideshow').on('value',function(s){var p=s.val()||{};if(p.active&&p.slide)showTKPodiumSlide(p.slide,p.idx,p.total,p.step);else{[1,2].forEach(function(zone){var ov=document.getElementById('pod-z'+zone);if(ov&&!ov._localPod)ov.className='pod-overlay';});}});
   db.ref('.info/connected').on('value',function(s){if(s.val()===true)db.ref('heats').once('value').then(function(snap){HEATS=snap.val()||{};_dh={1:null,2:null};renderAll();});});
+  // Listener wods/ — duree/capSec toujours à jour (même logique que tk9delta)
+  db.ref('wods').on('value',function(s){
+    WD=s.val()||{};
+    // Patcher les wodInfo en cache
+    Object.keys(HEATS).forEach(function(hid){
+      var h=HEATS[hid]; if(!h||!h.wodId) return;
+      var lv=WD[String(h.wodId)]; if(!lv) return;
+      var wi=h.wodInfo=h.wodInfo||{};
+      if(lv.duree>0) wi.duree=lv.duree;
+      if(lv.capSec>0) wi.capSec=lv.capSec;
+      if(lv.capMinutes>0) wi.capMinutes=lv.capMinutes;
+      if(lv.workMin>0) wi.workMin=lv.workMin;
+      if(lv.wodFormat) wi.wodFormat=lv.wodFormat;
+      if(lv.interHeat>0) wi.interHeat=lv.interHeat;
+      if(lv.coupureApres>0) wi.coupureApres=lv.coupureApres;
+    });
+    _dh[1]=null;_dh[2]=null;scheduleRender();
+  });
+  // Listener classement/ — mis à jour par index.html après chaque heat
+  db.ref('classement').on('value',function(s){
+    CLASSEMENT=s.val()||{};
+    scheduleRender();
+  });
   var _mcdIv=null;
   db.ref('system/morningCountdown').on('value',function(s){
     var d=s.val()||{};

@@ -3495,22 +3495,22 @@ var STATIONS=[
   {id:10,name:"Run/Zone sécurité",diff:1,desc:"Parcours extérieur · sécurité",     requis:0},
 ];
 var BENEVOLES=[
-  {"id":4001,"prenom":"Thomas","nom":"Martin","role":"Head Judge","zone":1,"jours":"12","tshirt":"L","isAthlete":false},
-  {"id":4002,"prenom":"Sophie","nom":"Dubois","role":"Juge Z1","zone":1,"jours":"12","tshirt":"S","isAthlete":false},
+  {"id":4001,"prenom":"Thomas","nom":"Martin","role":"Head Judge Z1","zone":1,"jours":"12","tshirt":"L","isAthlete":false},
+  {"id":4002,"prenom":"Sophie","nom":"Dubois","role":"Head Judge Z2","zone":2,"jours":"12","tshirt":"S","isAthlete":false},
   {"id":4003,"prenom":"Lucas","nom":"Bernard","role":"Juge Z1","zone":1,"jours":"12","tshirt":"M","isAthlete":false},
-  {"id":4004,"prenom":"Camille","nom":"Petit","role":"Juge Z2","zone":2,"jours":"12","tshirt":"S","isAthlete":false},
-  {"id":4005,"prenom":"Antoine","nom":"Leroy","role":"Juge Z2","zone":2,"jours":"12","tshirt":"XL","isAthlete":false},
+  {"id":4004,"prenom":"Camille","nom":"Petit","role":"Juge Z1","zone":1,"jours":"12","tshirt":"S","isAthlete":false},
+  {"id":4005,"prenom":"Antoine","nom":"Leroy","role":"Juge Z1","zone":1,"jours":"12","tshirt":"XL","isAthlete":false},
   {"id":4006,"prenom":"Julie","nom":"Moreau","role":"Juge Z2","zone":2,"jours":"12","tshirt":"M","isAthlete":false},
-  {"id":4007,"prenom":"Maxime","nom":"Simon","role":"Juge Z1","zone":1,"jours":"12","tshirt":"L","isAthlete":false},
-  {"id":4008,"prenom":"Lea","nom":"Fontaine","role":"Juge Z1","zone":1,"jours":"12","tshirt":"XS","isAthlete":false},
-  {"id":4009,"prenom":"Hugo","nom":"Garnier","role":"Juge Z2","zone":2,"jours":"12","tshirt":"L","isAthlete":false},
-  {"id":4010,"prenom":"Ines","nom":"Renard","role":"Juge Z1","zone":1,"jours":"12","tshirt":"S","isAthlete":false},
-  {"id":4011,"prenom":"Baptiste","nom":"Chevalier","role":"Juge Z2","zone":2,"jours":"12","tshirt":"M","isAthlete":false},
-  {"id":4012,"prenom":"Manon","nom":"Girard","role":"Juge Z1","zone":1,"jours":"12","tshirt":"S","isAthlete":false},
-  {"id":4013,"prenom":"Romain","nom":"Lefebvre","role":"Juge Z2","zone":2,"jours":"12","tshirt":"XL","isAthlete":false},
-  {"id":4014,"prenom":"Chloe","nom":"Rousseau","role":"Juge Z1","zone":1,"jours":"12","tshirt":"S","isAthlete":false},
-  {"id":4015,"prenom":"Nicolas","nom":"Dupont","role":"Juge Z2","zone":2,"jours":"12","tshirt":"L","isAthlete":false}
-]; // 15 juges FOC 2026
+  {"id":4007,"prenom":"Maxime","nom":"Simon","role":"Juge Z2","zone":2,"jours":"12","tshirt":"L","isAthlete":false},
+  {"id":4008,"prenom":"Lea","nom":"Fontaine","role":"Juge Z2","zone":2,"jours":"12","tshirt":"XS","isAthlete":false},
+  {"id":4009,"prenom":"Hugo","nom":"Garnier","role":"Juge Z1","zone":1,"jours":"1","tshirt":"L","isAthlete":false},
+  {"id":4010,"prenom":"Ines","nom":"Renard","role":"Juge Z2","zone":2,"jours":"1","tshirt":"S","isAthlete":false},
+  {"id":4011,"prenom":"Baptiste","nom":"Chevalier","role":"Juge Z1","zone":1,"jours":"2","tshirt":"M","isAthlete":false},
+  {"id":4012,"prenom":"Manon","nom":"Girard","role":"Juge Z2","zone":2,"jours":"2","tshirt":"S","isAthlete":false},
+  {"id":4013,"prenom":"Romain","nom":"Lefebvre","role":"Logistique","zone":1,"jours":"12","tshirt":"XL","isAthlete":false},
+  {"id":4014,"prenom":"Chloe","nom":"Rousseau","role":"Accueil","zone":1,"jours":"12","tshirt":"S","isAthlete":false},
+  {"id":4015,"prenom":"Nicolas","nom":"Dupont","role":"Speaker","zone":2,"jours":"12","tshirt":"L","isAthlete":false}
+]; // 15 bénévoles FOC 2026
 var PRESENCE={},HEURE_ARR={},NOTES_JOUR={};
 var RESULT=null,editBenId=null,mailSent={};
 
@@ -3579,7 +3579,7 @@ function show(id,btn){
   if(id!=='programme'){var _pr=document.getElementById('programme-result');if(_pr){_pr.style.display='none';_pr.style.visibility='hidden';_pr.style.height='0';_pr.style.overflow='hidden';}}
   else{var _pr2=document.getElementById('programme-result');if(_pr2){_pr2.style.display='';_pr2.style.visibility='';_pr2.style.height='';_pr2.style.overflow='';}}
   // Arrêter le refresh classement si on quitte l'onglet
-  if(id!=='classement-tk'){ clearInterval(_classementRefreshIv); _classementRefreshIv=null; if(typeof stopClassementAutoRefresh==='function') stopClassementAutoRefresh(); }
+  // Les listeners Firebase classement tournent en permanence en arrière-plan (stopClassementAutoRefresh retiré)
   if(id==="categories"){setTimeout(function(){renderCategories();},80);}
   if(id==="planning"){generateHeatsSilent();syncHeatsToFirebase();setTimeout(function(){if(typeof syncJudgeAssignmentsNow==='function')syncJudgeAssignmentsNow();},2000);setTimeout(renderPlanningCF,50);}
   if(id==="programme"){setTimeout(function(){renderProgWodsList();computeProgramme();},50);}
@@ -6203,7 +6203,42 @@ function importData(ev){
 // ═══════════════════════════════════════════
 // CATÉGORIES & HEATS
 // ═══════════════════════════════════════════
-var CATEGORIES=[{"id":1001,"nom":"RX Mixte","couleur":"#E8421A","ordre":1,"nbHeats":1,"nbLignes":6,"zone":"1","jour":1,"wodOrdres":{},"teams":[{"id":3001,"nom":"Team Alpha","ligne":null},{"id":3002,"nom":"Team Bravo","ligne":null},{"id":3003,"nom":"Team Charlie","ligne":null},{"id":3004,"nom":"Team Delta","ligne":null},{"id":3005,"nom":"Team Echo","ligne":null}]},{"id":1002,"nom":"RX Femmes","couleur":"#C62828","ordre":2,"nbHeats":1,"nbLignes":6,"zone":"2","jour":1,"wodOrdres":{},"teams":[{"id":3011,"nom":"Iron Queens","ligne":null},{"id":3012,"nom":"Fiery Ladies","ligne":null},{"id":3013,"nom":"Storm Sisters","ligne":null},{"id":3014,"nom":"Wildcats","ligne":null}]},{"id":1003,"nom":"Scaled Mixte","couleur":"#1D6DB5","ordre":3,"nbHeats":1,"nbLignes":6,"zone":"1","jour":2,"wodOrdres":{},"teams":[{"id":3021,"nom":"Easy Riders","ligne":null},{"id":3022,"nom":"Just Sweat","ligne":null},{"id":3023,"nom":"Fun Squad","ligne":null},{"id":3024,"nom":"No Ego","ligne":null},{"id":3025,"nom":"Keep Moving","ligne":null},{"id":3026,"nom":"Chill & Lift","ligne":null}]},{"id":1004,"nom":"Masters 35+","couleur":"#7C3AED","ordre":4,"nbHeats":1,"nbLignes":6,"zone":"2","jour":2,"wodOrdres":{},"teams":[{"id":3031,"nom":"Silver Fox","ligne":null},{"id":3032,"nom":"Old School","ligne":null},{"id":3033,"nom":"Vintage Iron","ligne":null},{"id":3034,"nom":"Forever Young","ligne":null}]},{"id":1005,"nom":"Rookie","couleur":"#059669","ordre":5,"nbHeats":1,"nbLignes":6,"zone":"1","jour":1,"wodOrdres":{},"teams":[{"id":3041,"nom":"First Steps","ligne":null},{"id":3042,"nom":"Newbies FC","ligne":null},{"id":3043,"nom":"Just Started","ligne":null}]}]; // Données FOC 2026 — modifiez directement ici
+var CATEGORIES=[
+  {"id":1001,"nom":"RX Mixte","couleur":"#E8421A","ordre":1,"nbHeats":1,"nbLignes":6,"zone":"1","jour":1,"wodId":"2001","wodOrdres":{},"teams":[
+    {"id":3001,"nom":"Team Alpha","ligne":null},{"id":3002,"nom":"Team Bravo","ligne":null},
+    {"id":3003,"nom":"Team Charlie","ligne":null},{"id":3004,"nom":"Team Delta","ligne":null},
+    {"id":3005,"nom":"Team Echo","ligne":null},{"id":3006,"nom":"Team Foxtrot","ligne":null}
+  ]},
+  {"id":1002,"nom":"RX Femmes","couleur":"#C62828","ordre":2,"nbHeats":1,"nbLignes":6,"zone":"2","jour":1,"wodId":"2002","wodOrdres":{},"teams":[
+    {"id":3011,"nom":"Iron Queens","ligne":null},{"id":3012,"nom":"Fiery Ladies","ligne":null},
+    {"id":3013,"nom":"Storm Sisters","ligne":null},{"id":3014,"nom":"Wildcats","ligne":null},
+    {"id":3015,"nom":"Titan Girls","ligne":null},{"id":3016,"nom":"Les Intrépides","ligne":null}
+  ]},
+  {"id":1003,"nom":"Scaled Mixte","couleur":"#1D6DB5","ordre":3,"nbHeats":1,"nbLignes":6,"zone":"1","jour":1,"wodId":"2003","wodOrdres":{},"teams":[
+    {"id":3021,"nom":"Easy Riders","ligne":null},{"id":3022,"nom":"Just Sweat","ligne":null},
+    {"id":3023,"nom":"Fun Squad","ligne":null},{"id":3024,"nom":"No Ego","ligne":null},
+    {"id":3025,"nom":"Keep Moving","ligne":null},{"id":3026,"nom":"Chill & Lift","ligne":null}
+  ]},
+  {"id":1004,"nom":"Masters 35+","couleur":"#7C3AED","ordre":4,"nbHeats":1,"nbLignes":6,"zone":"2","jour":1,"wodId":"2004","wodOrdres":{},"teams":[
+    {"id":3031,"nom":"Silver Fox","ligne":null},{"id":3032,"nom":"Old School","ligne":null},
+    {"id":3033,"nom":"Vintage Iron","ligne":null},{"id":3034,"nom":"Forever Young","ligne":null},
+    {"id":3035,"nom":"Les Vétérans","ligne":null},{"id":3036,"nom":"Golden Rx","ligne":null}
+  ]},
+  {"id":1005,"nom":"Rookie","couleur":"#059669","ordre":5,"nbHeats":1,"nbLignes":6,"zone":"1","jour":2,"wodId":"2005","wodOrdres":{},"teams":[
+    {"id":3041,"nom":"First Steps","ligne":null},{"id":3042,"nom":"Newbies FC","ligne":null},
+    {"id":3043,"nom":"Just Started","ligne":null},{"id":3044,"nom":"Débutants Pro","ligne":null},
+    {"id":3045,"nom":"Courage First","ligne":null}
+  ]},
+  {"id":1006,"nom":"Team 4 Mixte","couleur":"#D4A000","ordre":6,"nbHeats":1,"nbLignes":4,"zone":"2","jour":2,"wodId":"2006","wodOrdres":{},"teams":[
+    {"id":3051,"nom":"Les Quatuors","ligne":null},{"id":3052,"nom":"Quad Force","ligne":null},
+    {"id":3053,"nom":"Team Fusion","ligne":null},{"id":3054,"nom":"Carré d'As","ligne":null}
+  ]},
+  {"id":1007,"nom":"RX Hommes","couleur":"#FF6B35","ordre":7,"nbHeats":1,"nbLignes":6,"zone":"1","jour":2,"wodId":"2007","wodOrdres":{},"teams":[
+    {"id":3061,"nom":"Barbell Bros","ligne":null},{"id":3062,"nom":"Les Titans","ligne":null},
+    {"id":3063,"nom":"Iron Men","ligne":null},{"id":3064,"nom":"Muscle Factory","ligne":null},
+    {"id":3065,"nom":"Rx Warriors","ligne":null},{"id":3066,"nom":"The Grinders","ligne":null}
+  ]}
+]; // 7 catégories FOC 2026 — J1: RX Mixte, RX Femmes, Scaled, Masters · J2: Rookie, Team4, RX Hommes
 var HEATS_RESULT = null;
 var editCatId = null;
 
@@ -8316,95 +8351,104 @@ var ZONES = [
 ];
 var WODS=[
 // ══════════════════════════════════════════════════════════════
-//  FOC 2026 — 8 WODs · 2 jours · 2 zones · formats alternés
+//  FOC 2026 — 8 WODs · 2 jours · 2 zones · formats variés
+//  Tous ≤ 3min · interHeat 90s · coupureApres 180s entre WODs
 //
-//  JOUR 1 — 4 WODs (2 par zone)
-//    Z1 WOD 1 : AMRAP 3min  →  Cindy (Pull-Ups / Push-Ups / Air Squats)
-//    Z2 WOD 1 : For Time     →  21-15-9 Thrusters + Bar Muscle-Ups (cap 3min)
-//    Z1 WOD 2 : For Time     →  3 rounds Power Clean + Box Jump Over (cap 3min)
-//    Z2 WOD 2 : AMRAP 3min  →  KB Swing + Burpees + Wall Ball
+//  JOUR 1 — 4 WODs
+//    Z1 WOD 1 : AMRAP 3min  · Cindy (Pull/Push/Squat)          → RX Mixte
+//    Z2 WOD 2 : For Time    · 21-15-9 Thruster + C2B (cap 3)  → RX Femmes
+//    Z1 WOD 3 : For Time    · 3 rds Power Clean + BJO (cap 3) → Scaled Mixte
+//    Z2 WOD 4 : AMRAP 3min  · KB Swing + Burpee + Wall Ball   → Masters 35+
 //
-//  JOUR 2 — 4 WODs (2 par zone)
-//    Z1 WOD 3 : AMRAP 3min   →  Double Unders + Toes-to-Bar + Devils Press
-//    Z2 WOD 3 : For Time     →  4 rounds Deadlift + Box Jump Over (cap 3min)
-//    Z1 WOD 4 : For Time     →  21-15-9 Power Snatch + Pull-Ups (cap 3min)
-//    Z2 WOD 4 : AMRAP 3min  →  Wall Walk + Hang Power Clean + Burpees
+//  JOUR 2 — 4 WODs
+//    Z1 WOD 5 : AMRAP 3min  · DU + T2B + Devils Press         → Rookie
+//    Z2 WOD 6 : For Time    · 4 rds Deadlift + Box Jump       → Team 4 Mixte
+//    Z1 WOD 7 : For Time    · 21-15-9 Snatch + Pull-Up        → RX Hommes
+//    Z2 WOD 8 : AMRAP 3min  · Wall Walk + HPC + Burpee Bar    → (bonus)
 // ══════════════════════════════════════════════════════════════
 
-// ── JOUR 1 · ZONE 1 · WOD 1 — AMRAP 3min ───────────────────
-{"id":2001,"nom":"Cindy","desc":"AMRAP 3min · Pull-Ups / Push-Ups / Air Squats","zone":"1","jour":1,"ordreZone":1,
- "duree":180,"interHeat":90,"coupureApres":0,"wodFormat":"amrap","workMin":180,"restMin":0,"rounds":1,"capMinutes":3,
- "scoreType":"reps","scoreFields":["reps"],"pauseEntreToursActive":false,"pauseEntreToursSec":0,
+// ── JOUR 1 · ZONE 1 · WOD 1 — AMRAP 3min · Cindy ───────────
+{"id":2001,"nom":"Cindy Sprint","desc":"AMRAP 3min · Pull-Ups / Push-Ups / Air Squats","descComplete":"Enchaîner le maximum de rounds en 3 minutes.\n5 Pull-Ups · 10 Push-Ups · 15 Air Squats","zone":"1","jour":1,"ordreZone":1,
+ "duree":180,"interHeat":90,"coupureApres":180,"wodFormat":"amrap","workMin":180,"restMin":0,"rounds":1,"capMinutes":3,"timingUnit":"seconds",
+ "scoreType":"reps","scoreFields":["reps"],"hasTiebreak":false,"tiebreakMoveIdx":-1,"tiebreakDesc":"","tiebreakReps":null,
+ "pauseEntreToursActive":false,"pauseEntreToursSec":0,
  "mouvements":[
-  {"nom":"Pull-Ups","qty":5,"type":"reps","ergoTarget":0,"ergoUnit":"m","poids":{"1001":"","1002":"","1003":"","1004":"","1005":""},"qtyParCat":{"1001":5,"1002":5,"1003":3,"1004":3,"1005":2},"timeParCat":{},"distParCat":{}},
-  {"nom":"Push-Ups","qty":10,"type":"reps","ergoTarget":0,"ergoUnit":"m","poids":{"1001":"","1002":"","1003":"","1004":"","1005":""},"qtyParCat":{"1001":10,"1002":10,"1003":7,"1004":7,"1005":5},"timeParCat":{},"distParCat":{}},
-  {"nom":"Air Squats","qty":15,"type":"reps","ergoTarget":0,"ergoUnit":"m","poids":{"1001":"","1002":"","1003":"","1004":"","1005":""},"qtyParCat":{"1001":15,"1002":15,"1003":12,"1004":10,"1005":8},"timeParCat":{},"distParCat":{}}
+  {"nom":"Pull-Ups","qty":5,"type":"reps","ergoTarget":0,"ergoUnit":"m","poids":{"1001":"","1002":"","1003":"","1004":"","1005":"","1006":"","1007":""},"qtyParCat":{"1001":5,"1002":5,"1003":3,"1004":3,"1005":2,"1006":4,"1007":7},"timeParCat":{},"distParCat":{}},
+  {"nom":"Push-Ups","qty":10,"type":"reps","ergoTarget":0,"ergoUnit":"m","poids":{"1001":"","1002":"","1003":"","1004":"","1005":"","1006":"","1007":""},"qtyParCat":{"1001":10,"1002":10,"1003":7,"1004":7,"1005":5,"1006":8,"1007":12},"timeParCat":{},"distParCat":{}},
+  {"nom":"Air Squats","qty":15,"type":"reps","ergoTarget":0,"ergoUnit":"m","poids":{"1001":"","1002":"","1003":"","1004":"","1005":"","1006":"","1007":""},"qtyParCat":{"1001":15,"1002":15,"1003":12,"1004":10,"1005":8,"1006":12,"1007":15},"timeParCat":{},"distParCat":{}}
  ]},
 
-// ── JOUR 1 · ZONE 2 · WOD 1 — For Time cap 3min ─────────────
-{"id":2002,"nom":"Thruster 21-15-9","desc":"For Time · 21-15-9 Thrusters + Bar Muscle-Ups (cap 3min)","zone":"2","jour":1,"ordreZone":1,
- "duree":180,"interHeat":90,"coupureApres":0,"wodFormat":"fortime","workMin":180,"restMin":0,"rounds":1,"capMinutes":3,
- "scoreType":"time","scoreFields":["time"],"pauseEntreToursActive":false,"pauseEntreToursSec":0,
+// ── JOUR 1 · ZONE 2 · WOD 2 — For Time cap 3min · 21-15-9 ──
+{"id":2002,"nom":"Thruster C2B","desc":"For Time · 21-15-9 Thrusters + Chest-to-Bar (cap 3min)","descComplete":"Pour temps · 3 barres descendantes.\n21-15-9 Thrusters + 21-15-9 Chest-to-Bar Pull-Ups","zone":"2","jour":1,"ordreZone":1,
+ "duree":180,"interHeat":90,"coupureApres":180,"wodFormat":"fortime","workMin":180,"restMin":0,"rounds":1,"capMinutes":3,"timingUnit":"seconds",
+ "scoreType":"time","scoreFields":["time"],"hasTiebreak":true,"tiebreakMoveIdx":0,"tiebreakDesc":"Temps au dernier Thruster","tiebreakReps":21,
+ "pauseEntreToursActive":false,"pauseEntreToursSec":0,
  "mouvements":[
-  {"nom":"Thrusters","qty":21,"type":"reps","ergoTarget":0,"ergoUnit":"m","poids":{"1001":"42.5kg","1002":"30kg","1003":"25kg","1004":"35kg","1005":"20kg"},"qtyParCat":{"1001":21,"1002":21,"1003":15,"1004":18,"1005":12},"timeParCat":{},"distParCat":{}},
-  {"nom":"Bar Muscle-Ups","qty":21,"type":"reps","ergoTarget":0,"ergoUnit":"m","poids":{"1001":"","1002":"","1003":"","1004":"","1005":""},"qtyParCat":{"1001":21,"1002":15,"1003":9,"1004":12,"1005":6},"timeParCat":{},"distParCat":{}}
+  {"nom":"Thrusters","qty":21,"type":"reps","ergoTarget":0,"ergoUnit":"m","poids":{"1001":"42.5kg","1002":"30kg","1003":"25kg","1004":"35kg","1005":"20kg","1006":"30kg","1007":"52.5kg"},"qtyParCat":{"1001":21,"1002":21,"1003":15,"1004":18,"1005":12,"1006":18,"1007":21},"timeParCat":{},"distParCat":{}},
+  {"nom":"Chest-to-Bar","qty":21,"type":"reps","ergoTarget":0,"ergoUnit":"m","poids":{"1001":"","1002":"","1003":"","1004":"","1005":"","1006":"","1007":""},"qtyParCat":{"1001":21,"1002":15,"1003":9,"1004":12,"1005":6,"1006":12,"1007":21},"timeParCat":{},"distParCat":{}}
  ]},
 
-// ── JOUR 1 · ZONE 1 · WOD 2 — For Time cap 3min ─────────────
-{"id":2003,"nom":"Clean Box Jump","desc":"For Time · 3 rounds Power Clean + Box Jump Over (cap 3min)","zone":"1","jour":1,"ordreZone":2,
- "duree":180,"interHeat":90,"coupureApres":0,"wodFormat":"fortime","workMin":180,"restMin":0,"rounds":1,"capMinutes":3,
- "scoreType":"time","scoreFields":["time"],"pauseEntreToursActive":false,"pauseEntreToursSec":0,
+// ── JOUR 1 · ZONE 1 · WOD 3 — For Time cap 3min · Clean + BJO ─
+{"id":2003,"nom":"Clean Box Jump","desc":"For Time · 3 rounds Power Clean + Box Jump Over (cap 3min)","descComplete":"Pour temps · 3 rounds :\n9 Power Cleans + 12 Box Jump Over","zone":"1","jour":1,"ordreZone":2,
+ "duree":180,"interHeat":90,"coupureApres":180,"wodFormat":"fortime","workMin":180,"restMin":0,"rounds":3,"capMinutes":3,"timingUnit":"seconds",
+ "scoreType":"time","scoreFields":["time"],"hasTiebreak":false,"tiebreakMoveIdx":-1,"tiebreakDesc":"","tiebreakReps":null,
+ "pauseEntreToursActive":false,"pauseEntreToursSec":0,
  "mouvements":[
-  {"nom":"Power Clean","qty":9,"type":"reps","ergoTarget":0,"ergoUnit":"m","poids":{"1001":"70kg","1002":"50kg","1003":"40kg","1004":"60kg","1005":"30kg"},"qtyParCat":{"1001":9,"1002":9,"1003":7,"1004":8,"1005":5},"timeParCat":{},"distParCat":{}},
-  {"nom":"Box Jump Over","qty":12,"type":"reps","ergoTarget":0,"ergoUnit":"m","poids":{"1001":"","1002":"","1003":"","1004":"","1005":""},"qtyParCat":{"1001":12,"1002":12,"1003":9,"1004":10,"1005":7},"timeParCat":{},"distParCat":{}}
+  {"nom":"Power Clean","qty":9,"type":"reps","ergoTarget":0,"ergoUnit":"m","poids":{"1001":"70kg","1002":"50kg","1003":"40kg","1004":"60kg","1005":"30kg","1006":"50kg","1007":"80kg"},"qtyParCat":{"1001":9,"1002":9,"1003":7,"1004":8,"1005":5,"1006":7,"1007":9},"timeParCat":{},"distParCat":{}},
+  {"nom":"Box Jump Over","qty":12,"type":"reps","ergoTarget":0,"ergoUnit":"m","poids":{"1001":"","1002":"","1003":"","1004":"","1005":"","1006":"","1007":""},"qtyParCat":{"1001":12,"1002":12,"1003":9,"1004":10,"1005":7,"1006":10,"1007":12},"timeParCat":{},"distParCat":{}}
  ]},
 
-// ── JOUR 1 · ZONE 2 · WOD 2 — AMRAP 3min ───────────────────
-{"id":2004,"nom":"KB Swing Power","desc":"AMRAP 3min · KB Swing + Burpees + Wall Ball","zone":"2","jour":1,"ordreZone":2,
- "duree":180,"interHeat":90,"coupureApres":0,"wodFormat":"amrap","workMin":180,"restMin":0,"rounds":1,"capMinutes":3,
- "scoreType":"reps","scoreFields":["reps"],"pauseEntreToursActive":false,"pauseEntreToursSec":0,
+// ── JOUR 1 · ZONE 2 · WOD 4 — AMRAP 3min · KB + Burpee + WB ─
+{"id":2004,"nom":"KB Power Wave","desc":"AMRAP 3min · KB Swing + Burpee Over Bar + Wall Ball","descComplete":"AMRAP 3min :\n15 KB Swings + 10 Burpee Over Bar + 12 Wall Balls","zone":"2","jour":1,"ordreZone":2,
+ "duree":180,"interHeat":90,"coupureApres":180,"wodFormat":"amrap","workMin":180,"restMin":0,"rounds":1,"capMinutes":3,"timingUnit":"seconds",
+ "scoreType":"reps","scoreFields":["reps"],"hasTiebreak":false,"tiebreakMoveIdx":-1,"tiebreakDesc":"","tiebreakReps":null,
+ "pauseEntreToursActive":false,"pauseEntreToursSec":0,
  "mouvements":[
-  {"nom":"KB Swing","qty":15,"type":"reps","ergoTarget":0,"ergoUnit":"m","poids":{"1001":"32kg","1002":"24kg","1003":"20kg","1004":"24kg","1005":"16kg"},"qtyParCat":{"1001":15,"1002":15,"1003":12,"1004":12,"1005":10},"timeParCat":{},"distParCat":{}},
-  {"nom":"Burpees","qty":10,"type":"reps","ergoTarget":0,"ergoUnit":"m","poids":{"1001":"","1002":"","1003":"","1004":"","1005":""},"qtyParCat":{"1001":10,"1002":10,"1003":8,"1004":8,"1005":6},"timeParCat":{},"distParCat":{}},
-  {"nom":"Wall Ball","qty":12,"type":"reps","ergoTarget":0,"ergoUnit":"m","poids":{"1001":"9kg","1002":"6kg","1003":"6kg","1004":"9kg","1005":"4kg"},"qtyParCat":{"1001":12,"1002":12,"1003":10,"1004":10,"1005":8},"timeParCat":{},"distParCat":{}}
+  {"nom":"KB Swing","qty":15,"type":"reps","ergoTarget":0,"ergoUnit":"m","poids":{"1001":"32kg","1002":"24kg","1003":"20kg","1004":"24kg","1005":"16kg","1006":"24kg","1007":"32kg"},"qtyParCat":{"1001":15,"1002":15,"1003":12,"1004":12,"1005":10,"1006":12,"1007":15},"timeParCat":{},"distParCat":{}},
+  {"nom":"Burpee Over Bar","qty":10,"type":"reps","ergoTarget":0,"ergoUnit":"m","poids":{"1001":"","1002":"","1003":"","1004":"","1005":"","1006":"","1007":""},"qtyParCat":{"1001":10,"1002":10,"1003":7,"1004":8,"1005":5,"1006":8,"1007":10},"timeParCat":{},"distParCat":{}},
+  {"nom":"Wall Ball","qty":12,"type":"reps","ergoTarget":0,"ergoUnit":"m","poids":{"1001":"9kg","1002":"6kg","1003":"6kg","1004":"9kg","1005":"4kg","1006":"6kg","1007":"9kg"},"qtyParCat":{"1001":12,"1002":12,"1003":10,"1004":10,"1005":8,"1006":10,"1007":12},"timeParCat":{},"distParCat":{}}
  ]},
 
-// ── JOUR 2 · ZONE 1 · WOD 3 — AMRAP 3min ────────────────────
-{"id":2005,"nom":"DU Toes Press","desc":"AMRAP 3min · Double Unders + Toes-to-Bar + Devils Press","zone":"1","jour":2,"ordreZone":1,
- "duree":180,"interHeat":90,"coupureApres":0,"wodFormat":"amrap","workMin":180,"restMin":0,"rounds":1,"capMinutes":3,
- "scoreType":"reps","scoreFields":["reps"],"pauseEntreToursActive":false,"pauseEntreToursSec":0,
+// ── JOUR 2 · ZONE 1 · WOD 5 — AMRAP 3min · DU + T2B + Devils ─
+{"id":2005,"nom":"Triple Menace","desc":"AMRAP 3min · Double Unders + Toes-to-Bar + Devils Press","descComplete":"AMRAP 3min :\n30 Double Unders + 15 Toes-to-Bar + 10 Devils Press","zone":"1","jour":2,"ordreZone":1,
+ "duree":180,"interHeat":90,"coupureApres":180,"wodFormat":"amrap","workMin":180,"restMin":0,"rounds":1,"capMinutes":3,"timingUnit":"seconds",
+ "scoreType":"reps","scoreFields":["reps"],"hasTiebreak":false,"tiebreakMoveIdx":-1,"tiebreakDesc":"","tiebreakReps":null,
+ "pauseEntreToursActive":false,"pauseEntreToursSec":0,
  "mouvements":[
-  {"nom":"Double Unders","qty":30,"type":"reps","ergoTarget":0,"ergoUnit":"m","poids":{"1001":"","1002":"","1003":"","1004":"","1005":""},"qtyParCat":{"1001":30,"1002":30,"1003":20,"1004":20,"1005":15},"timeParCat":{},"distParCat":{}},
-  {"nom":"Toes-to-Bar","qty":15,"type":"reps","ergoTarget":0,"ergoUnit":"m","poids":{"1001":"","1002":"","1003":"","1004":"","1005":""},"qtyParCat":{"1001":15,"1002":15,"1003":10,"1004":10,"1005":7},"timeParCat":{},"distParCat":{}},
-  {"nom":"Devils Press","qty":10,"type":"reps","ergoTarget":0,"ergoUnit":"m","poids":{"1001":"22.5kg","1002":"15kg","1003":"12.5kg","1004":"17.5kg","1005":"10kg"},"qtyParCat":{"1001":10,"1002":10,"1003":8,"1004":8,"1005":6},"timeParCat":{},"distParCat":{}}
+  {"nom":"Double Unders","qty":30,"type":"reps","ergoTarget":0,"ergoUnit":"m","poids":{"1001":"","1002":"","1003":"","1004":"","1005":"","1006":"","1007":""},"qtyParCat":{"1001":30,"1002":30,"1003":20,"1004":20,"1005":15,"1006":25,"1007":30},"timeParCat":{},"distParCat":{}},
+  {"nom":"Toes-to-Bar","qty":15,"type":"reps","ergoTarget":0,"ergoUnit":"m","poids":{"1001":"","1002":"","1003":"","1004":"","1005":"","1006":"","1007":""},"qtyParCat":{"1001":15,"1002":15,"1003":10,"1004":10,"1005":7,"1006":12,"1007":15},"timeParCat":{},"distParCat":{}},
+  {"nom":"Devils Press","qty":10,"type":"reps","ergoTarget":0,"ergoUnit":"m","poids":{"1001":"22.5kg","1002":"15kg","1003":"12.5kg","1004":"17.5kg","1005":"10kg","1006":"15kg","1007":"22.5kg"},"qtyParCat":{"1001":10,"1002":10,"1003":8,"1004":8,"1005":6,"1006":8,"1007":10},"timeParCat":{},"distParCat":{}}
  ]},
 
-// ── JOUR 2 · ZONE 2 · WOD 3 — For Time cap 3min ─────────────
-{"id":2006,"nom":"DL Box Jump Over","desc":"For Time · 4 rounds Deadlift + Box Jump Over (cap 3min)","zone":"2","jour":2,"ordreZone":1,
- "duree":180,"interHeat":90,"coupureApres":0,"wodFormat":"fortime","workMin":180,"restMin":0,"rounds":1,"capMinutes":3,
- "scoreType":"time","scoreFields":["time"],"pauseEntreToursActive":false,"pauseEntreToursSec":0,
+// ── JOUR 2 · ZONE 2 · WOD 6 — For Time cap 3min · DL + BJO ──
+{"id":2006,"nom":"Deadlift Storm","desc":"For Time · 4 rounds Deadlift + Box Jump Over (cap 3min)","descComplete":"Pour temps · 4 rounds :\n8 Deadlifts + 10 Box Jump Over","zone":"2","jour":2,"ordreZone":1,
+ "duree":180,"interHeat":90,"coupureApres":180,"wodFormat":"fortime","workMin":180,"restMin":0,"rounds":4,"capMinutes":3,"timingUnit":"seconds",
+ "scoreType":"time","scoreFields":["time"],"hasTiebreak":false,"tiebreakMoveIdx":-1,"tiebreakDesc":"","tiebreakReps":null,
+ "pauseEntreToursActive":false,"pauseEntreToursSec":0,
  "mouvements":[
-  {"nom":"Deadlift","qty":8,"type":"reps","ergoTarget":0,"ergoUnit":"m","poids":{"1001":"100kg","1002":"70kg","1003":"60kg","1004":"80kg","1005":"50kg"},"qtyParCat":{"1001":8,"1002":8,"1003":6,"1004":7,"1005":5},"timeParCat":{},"distParCat":{}},
-  {"nom":"Box Jump Over","qty":10,"type":"reps","ergoTarget":0,"ergoUnit":"m","poids":{"1001":"","1002":"","1003":"","1004":"","1005":""},"qtyParCat":{"1001":10,"1002":10,"1003":8,"1004":8,"1005":6},"timeParCat":{},"distParCat":{}}
+  {"nom":"Deadlift","qty":8,"type":"reps","ergoTarget":0,"ergoUnit":"m","poids":{"1001":"100kg","1002":"70kg","1003":"60kg","1004":"80kg","1005":"50kg","1006":"70kg","1007":"120kg"},"qtyParCat":{"1001":8,"1002":8,"1003":6,"1004":7,"1005":5,"1006":6,"1007":8},"timeParCat":{},"distParCat":{}},
+  {"nom":"Box Jump Over","qty":10,"type":"reps","ergoTarget":0,"ergoUnit":"m","poids":{"1001":"","1002":"","1003":"","1004":"","1005":"","1006":"","1007":""},"qtyParCat":{"1001":10,"1002":10,"1003":8,"1004":8,"1005":6,"1006":8,"1007":10},"timeParCat":{},"distParCat":{}}
  ]},
 
-// ── JOUR 2 · ZONE 1 · WOD 4 — For Time cap 3min ────────────
-{"id":2007,"nom":"Snatch Pull-Ups","desc":"For Time · 21-15-9 Power Snatch + Pull-Ups (cap 3min)","zone":"1","jour":2,"ordreZone":2,
- "duree":180,"interHeat":90,"coupureApres":0,"wodFormat":"fortime","workMin":180,"restMin":0,"rounds":1,"capMinutes":3,
- "scoreType":"time","scoreFields":["time"],"pauseEntreToursActive":false,"pauseEntreToursSec":0,
+// ── JOUR 2 · ZONE 1 · WOD 7 — For Time cap 3min · Snatch + PU ─
+{"id":2007,"nom":"Snatch Pull","desc":"For Time · 21-15-9 Power Snatch + Pull-Ups (cap 3min)","descComplete":"Pour temps · 3 barres descendantes :\n21-15-9 Power Snatch + 21-15-9 Pull-Ups","zone":"1","jour":2,"ordreZone":2,
+ "duree":180,"interHeat":90,"coupureApres":180,"wodFormat":"fortime","workMin":180,"restMin":0,"rounds":1,"capMinutes":3,"timingUnit":"seconds",
+ "scoreType":"time","scoreFields":["time"],"hasTiebreak":true,"tiebreakMoveIdx":0,"tiebreakDesc":"Temps au dernier Snatch","tiebreakReps":21,
+ "pauseEntreToursActive":false,"pauseEntreToursSec":0,
  "mouvements":[
-  {"nom":"Power Snatch","qty":21,"type":"reps","ergoTarget":0,"ergoUnit":"m","poids":{"1001":"50kg","1002":"35kg","1003":"30kg","1004":"42.5kg","1005":"22.5kg"},"qtyParCat":{"1001":21,"1002":21,"1003":15,"1004":18,"1005":12},"timeParCat":{},"distParCat":{}},
-  {"nom":"Pull-Ups","qty":21,"type":"reps","ergoTarget":0,"ergoUnit":"m","poids":{"1001":"","1002":"","1003":"","1004":"","1005":""},"qtyParCat":{"1001":21,"1002":15,"1003":10,"1004":12,"1005":7},"timeParCat":{},"distParCat":{}}
+  {"nom":"Power Snatch","qty":21,"type":"reps","ergoTarget":0,"ergoUnit":"m","poids":{"1001":"50kg","1002":"35kg","1003":"30kg","1004":"42.5kg","1005":"22.5kg","1006":"35kg","1007":"60kg"},"qtyParCat":{"1001":21,"1002":21,"1003":15,"1004":18,"1005":12,"1006":18,"1007":21},"timeParCat":{},"distParCat":{}},
+  {"nom":"Pull-Ups","qty":21,"type":"reps","ergoTarget":0,"ergoUnit":"m","poids":{"1001":"","1002":"","1003":"","1004":"","1005":"","1006":"","1007":""},"qtyParCat":{"1001":21,"1002":15,"1003":10,"1004":12,"1005":7,"1006":15,"1007":21},"timeParCat":{},"distParCat":{}}
  ]},
 
-// ── JOUR 2 · ZONE 2 · WOD 4 — AMRAP 3min ───────────────────
-{"id":2008,"nom":"Wall Clean Burpee","desc":"AMRAP 3min · Wall Walk + Hang Power Clean + Burpees","zone":"2","jour":2,"ordreZone":2,
- "duree":180,"interHeat":90,"coupureApres":0,"wodFormat":"amrap","workMin":180,"restMin":0,"rounds":1,"capMinutes":3,
- "scoreType":"reps","scoreFields":["reps"],"pauseEntreToursActive":false,"pauseEntreToursSec":0,
+// ── JOUR 2 · ZONE 2 · WOD 8 — AMRAP 3min · Wall Walk + HPC + Burpee ─
+{"id":2008,"nom":"Wall Clean Blast","desc":"AMRAP 3min · Wall Walk + Hang Power Clean + Burpee Bar","descComplete":"AMRAP 3min :\n3 Wall Walks + 6 Hang Power Cleans + 9 Burpee Over Bar","zone":"2","jour":2,"ordreZone":2,
+ "duree":180,"interHeat":90,"coupureApres":180,"wodFormat":"amrap","workMin":180,"restMin":0,"rounds":1,"capMinutes":3,"timingUnit":"seconds",
+ "scoreType":"reps","scoreFields":["reps"],"hasTiebreak":false,"tiebreakMoveIdx":-1,"tiebreakDesc":"","tiebreakReps":null,
+ "pauseEntreToursActive":false,"pauseEntreToursSec":0,
  "mouvements":[
-  {"nom":"Wall Walk","qty":3,"type":"reps","ergoTarget":0,"ergoUnit":"m","poids":{"1001":"","1002":"","1003":"","1004":"","1005":""},"qtyParCat":{"1001":3,"1002":3,"1003":2,"1004":2,"1005":2},"timeParCat":{},"distParCat":{}},
-  {"nom":"Hang Power Clean","qty":6,"type":"reps","ergoTarget":0,"ergoUnit":"m","poids":{"1001":"60kg","1002":"42.5kg","1003":"35kg","1004":"50kg","1005":"27.5kg"},"qtyParCat":{"1001":6,"1002":6,"1003":5,"1004":5,"1005":4},"timeParCat":{},"distParCat":{}},
-  {"nom":"Burpee Bar","qty":9,"type":"reps","ergoTarget":0,"ergoUnit":"m","poids":{"1001":"","1002":"","1003":"","1004":"","1005":""},"qtyParCat":{"1001":9,"1002":9,"1003":7,"1004":7,"1005":5},"timeParCat":{},"distParCat":{}}
+  {"nom":"Wall Walk","qty":3,"type":"reps","ergoTarget":0,"ergoUnit":"m","poids":{"1001":"","1002":"","1003":"","1004":"","1005":"","1006":"","1007":""},"qtyParCat":{"1001":3,"1002":3,"1003":2,"1004":2,"1005":2,"1006":2,"1007":3},"timeParCat":{},"distParCat":{}},
+  {"nom":"Hang Power Clean","qty":6,"type":"reps","ergoTarget":0,"ergoUnit":"m","poids":{"1001":"60kg","1002":"42.5kg","1003":"35kg","1004":"50kg","1005":"27.5kg","1006":"42.5kg","1007":"70kg"},"qtyParCat":{"1001":6,"1002":6,"1003":5,"1004":5,"1005":4,"1006":5,"1007":6},"timeParCat":{},"distParCat":{}},
+  {"nom":"Burpee Over Bar","qty":9,"type":"reps","ergoTarget":0,"ergoUnit":"m","poids":{"1001":"","1002":"","1003":"","1004":"","1005":"","1006":"","1007":""},"qtyParCat":{"1001":9,"1002":9,"1003":7,"1004":7,"1005":5,"1006":7,"1007":9},"timeParCat":{},"distParCat":{}}
  ]}
 
 ]; // FOC 2026 — 8 WODs · J1: WODs 1-4 · J2: WODs 5-8 · Zones alternées · Formats alternés
@@ -13802,6 +13846,18 @@ async function generateAndPublishAll(){
     await _db.ref('system/config').set({eventNom:ev2.nom||'FOC 2026',seedAt:Date.now(),totalHeats:heats.length});
   }catch(e){}
 
+  // 7 — WODs (pour que tk9delta puisse lire duree/capSec en temps réel)
+  try{
+    var wodsObj={};
+    (typeof WODS!=='undefined'?WODS:[]).forEach(function(w){
+      if(!w||(!w.id&&w.id!==0)) return;
+      if(typeof ensureWodTiming==='function') ensureWodTiming(w);
+      var wi=typeof fbBuildWodInfo==='function' ? fbBuildWodInfo(w) : {};
+      wodsObj[String(w.id)]=wi;
+    });
+    if(Object.keys(wodsObj).length) await _db.ref('wods').set(wodsObj);
+  }catch(e){}
+
   if(typeof _genAndPublishDone!=='undefined') _genAndPublishDone = true;
 
   clearTimeout(_safetyTimer);
@@ -13825,10 +13881,11 @@ window.generateAndPublishAll = generateAndPublishAll;
 ═══════════════════════════════════════════════ */
 async function renderClassementTK(){
   var el=document.getElementById('classement-tk-content');
-  if(!el) return;
-  el.innerHTML='<div style="text-align:center;padding:30px;color:var(--ink3)">⏳ Chargement…</div>';
+  // Onglet actif = mise à jour DOM, sinon calcul silencieux + push Firebase uniquement
+  var tabVisible = el && document.getElementById('classement-tk') && document.getElementById('classement-tk').classList.contains('active');
+  if(tabVisible && el) el.innerHTML='<div style="text-align:center;padding:30px;color:var(--ink3)">⏳ Chargement…</div>';
   var _db=window.db||(typeof LS_FB_DB!=='undefined'&&LS_FB_DB)||null;
-  if(!_db){el.innerHTML='<div style="text-align:center;padding:30px;color:var(--err)">❌ Firebase non connecté</div>';return;}
+  if(!_db){ if(tabVisible&&el) el.innerHTML='<div style="text-align:center;padding:30px;color:var(--err)">❌ Firebase non connecté</div>'; return; }
   try{
     var heatsSnap=await _db.ref('heats').once('value');
     var scoresSnap=await _db.ref('scores').once('value');
@@ -14063,9 +14120,73 @@ async function renderClassementTK(){
       html+='</div>';
     });
 
-    el.innerHTML=html;
+    // ── Rendu DOM seulement si onglet visible ──
+    if(tabVisible && el) el.innerHTML=html;
+
+    // ── Push Firebase classement/ (toujours, même en arrière-plan) ──
+    // Construire un objet JSON léger par catégorie pour classement.html et live.html
+    try{
+      var fbClass={};
+      Object.keys(cats).forEach(function(catKey){
+        var cat=cats[catKey];
+        var wodNames2=Object.keys(cat.wods);
+        var teamObjs2={};
+        Object.keys(cat.teams).forEach(function(tname){
+          teamObjs2[tname]={name:tname,points:0,validated:0,podiums:{p1:0,p2:0,p3:0},bestTiebreak:null,byWod:{},tieCount:0};
+        });
+        var wodGroups2={};
+        Object.keys(cat.teams).forEach(function(tname){
+          cat.teams[tname].entries.forEach(function(e){
+            var heatClosed=(e.heatStatus==='done'||e.heatStatus==='timecap');
+            if(!e.hasRawScore || !(e.judgeOk || heatClosed)) return;
+            if(!wodGroups2[e.wod]) wodGroups2[e.wod]=[];
+            wodGroups2[e.wod].push({team:tname,val:scoreVal(e.sc,e.wodInfo),tb:parseInt(e.sc.tiebreak||0,10)||0,sc:e.sc,wInfo:e.wodInfo});
+          });
+        });
+        Object.keys(wodGroups2).forEach(function(wname){
+          var grp=wodGroups2[wname].slice().sort(function(a,b){
+            if(b.val!==a.val) return b.val-a.val;
+            return (a.tb>0?a.tb:999999)-(b.tb>0?b.tb:999999);
+          });
+          var pts2=1;
+          grp.forEach(function(e,i){
+            var prev=grp[i-1]||null;
+            var isTie=!!(prev && e.val===prev.val && e.tb===prev.tb);
+            if(!isTie) pts2=i+1;
+            var t=teamObjs2[e.team]; if(!t) return;
+            t.points+=pts2; t.validated++;
+            if(pts2===1) t.podiums.p1++;
+            else if(pts2===2) t.podiums.p2++;
+            else if(pts2===3) t.podiums.p3++;
+            if(e.tb>0&&(t.bestTiebreak===null||e.tb<t.bestTiebreak)) t.bestTiebreak=e.tb;
+            if(isTie) t.tieCount++;
+            t.byWod[wname]={rank:pts2,points:pts2,score:fmtSc(e.sc,e.wInfo),tb:e.tb,isTie:isTie};
+          });
+        });
+        var teams2=Object.values(teamObjs2).sort(function(a,b){
+          if(a.validated===0&&b.validated===0) return 0;
+          if(a.validated===0) return 1; if(b.validated===0) return -1;
+          if(a.points!==b.points) return a.points-b.points;
+          if(b.podiums.p1!==a.podiums.p1) return b.podiums.p1-a.podiums.p1;
+          var aTB=a.bestTiebreak!==null?a.bestTiebreak:999999;
+          var bTB=b.bestTiebreak!==null?b.bestTiebreak:999999;
+          return aTB-bTB;
+        });
+        var fbKey=catKey.replace(/[^a-zA-Z0-9_-]/g,'_');
+        fbClass[fbKey]={
+          name:cat.name, zone:cat.zone,
+          updatedAt:Date.now(),
+          teams:teams2.map(function(t,idx){
+            return {rank:idx+1,name:t.name,points:t.points,validated:t.validated,
+              podiums:t.podiums,byWod:t.byWod,bestTiebreak:t.bestTiebreak};
+          })
+        };
+      });
+      if(Object.keys(fbClass).length) _db.ref('classement').set(fbClass);
+    }catch(e3){ console.warn('classement push:', e3.message); }
+
   }catch(e2){
-    el.innerHTML='<div style="text-align:center;padding:30px;color:var(--err)">Erreur : '+e2.message+'<br><button onclick="renderClassementTK()" style="margin-top:10px;padding:6px 14px;border-radius:6px;border:1px solid;cursor:pointer">🔄 Réessayer</button></div>';
+    if(tabVisible && el) el.innerHTML='<div style="text-align:center;padding:30px;color:var(--err)">Erreur : '+e2.message+'<br><button onclick="renderClassementTK()" style="margin-top:10px;padding:6px 14px;border-radius:6px;border:1px solid;cursor:pointer">🔄 Réessayer</button></div>';
   }
 }
 window.renderClassementTK=renderClassementTK;
@@ -16249,6 +16370,21 @@ async function fbStartSeed_legacy(){
     fbLog('✅ system/config écrit','ok');
   } catch(e){ fbLog('⚠️ system/config — '+e.message,'warn'); }
 
+  // Écrire wods/ (pour que tk9delta lise duree/capSec en temps réel)
+  try {
+    var wodsObj2={};
+    (typeof WODS!=='undefined'?WODS:[]).forEach(function(w){
+      if(!w||(!w.id&&w.id!==0)) return;
+      if(typeof ensureWodTiming==='function') ensureWodTiming(w);
+      var wi2=typeof fbBuildWodInfo==='function' ? fbBuildWodInfo(w) : {};
+      wodsObj2[String(w.id)]=wi2;
+    });
+    if(Object.keys(wodsObj2).length){
+      await db.ref('wods').set(wodsObj2);
+      fbLog('✅ wods/ écrits ('+Object.keys(wodsObj2).length+')','ok');
+    }
+  } catch(e){ fbLog('⚠️ wods/ — '+e.message,'warn'); }
+
   document.getElementById('fb-progress-zone').style.display='none';
   document.getElementById('fb-done-card').style.display='block';
   document.getElementById('fb-done-body').innerHTML =
@@ -16308,6 +16444,8 @@ if(db && typeof db.ref==='function') {
       body.innerHTML = 'Base : <strong>foc-2026</strong> · Europe West 1';
       if(card){ card.style.borderColor='rgba(0,229,160,.2)'; card.style.background='linear-gradient(135deg,rgba(0,229,160,.04),var(--s1))'; }
       fbInitData();
+      // Démarrer le classement auto en arrière-plan dès la connexion Firebase
+      if(typeof startClassementAutoRefresh==='function') startClassementAutoRefresh();
     } else {
       title.textContent = '🔴 Firebase hors ligne';
       body.textContent = 'Vérifier la connexion réseau.';

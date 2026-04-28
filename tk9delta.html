@@ -438,6 +438,11 @@ body{display:flex;flex-direction:column}
     </div>
   </section>
 
+  <!-- ★ Bouton lancement synchronisé Z1+Z2 -->
+  <div id="syncLaunchBanner" style="display:none;align-items:center;justify-content:center;padding:10px 0;">
+    <button onclick="launchBothZones()" style="background:linear-gradient(135deg,#7C3AED,#5B21B6);color:#fff;border:none;border-radius:14px;padding:14px 32px;font-family:var(--ff);font-size:22px;letter-spacing:2px;cursor:pointer;box-shadow:0 8px 24px rgba(124,58,237,.35);">⚡ LANCER Z1 + Z2 SYNC</button>
+  </div>
+
   <section class="zone">
     <div class="zone-head">
       <div><div class="zone-title">ZONE 2</div><div class="zone-sub">Chrono indépendant, juges, WOD indépendant</div></div>
@@ -580,7 +585,7 @@ function toast(msg,color,dur){
   clearTimeout(_toastIv);
   _toastIv=setTimeout(function(){ el.style.opacity='0'; },dur);
 }
-var HD={}, SC={}, ACTIVE_DAY=1, AUTO=true; var AUTO_LAUNCH_DELAY=0; var INTER_HEAT_DELAY=60; var REQUIRE_JUDGES_READY=false; var AUTO_VALIDATE_ON_DONE=true;
+var HD={}, SC={}, WD={}, ACTIVE_DAY=1, AUTO=true; var AUTO_LAUNCH_DELAY=0; var INTER_HEAT_DELAY=60; var REQUIRE_JUDGES_READY=false; var AUTO_VALIDATE_ON_DONE=true;
 var AUTO_COUNTDOWN_SECS=10;
 var JUDGE_TIMEOUT=30; // secondes avant de forcer les scores non valides (mode AUTO)
 var zoneState={1:{selected:null,timerIv:null,ihIv:null,ihRem:null,jtIv:null,jtHid:null,_lastDoneHid:null},2:{selected:null,timerIv:null,ihIv:null,ihRem:null,jtIv:null,jtHid:null,_lastDoneHid:null}};
@@ -687,6 +692,12 @@ function wodTextCapSec(wod){
 }
 function wodCapSec(wod){
   wod=wod||{};
+  // Fusionner avec WD (wods/ Firebase) si on a un id et que duree est absent/nul
+  var wodId=wod.id!=null?String(wod.id):'';
+  if(wodId && typeof WD!=='undefined' && WD[wodId]){
+    var live=WD[wodId];
+    if(!(parseInt(wod.duree||0,10)>0) && live.duree>0) wod=Object.assign({},wod,{duree:live.duree,capSec:live.capSec||live.duree,capMinutes:live.capMinutes||0,workMin:live.workMin||0});
+  }
   var sec=parseInt(wod.duree||wod.capSec||wod.capSeconds||wod.durationSec||0,10)||0;
   if(sec>0) return sec;
   var textSec=wodTextCapSec(wod);
@@ -703,6 +714,14 @@ function wodCapSec(wod){
 }
 function wodTransitionSec(wod){
   wod=wod||{};
+  // Fusionner avec WD pour avoir interHeat/coupureApres à jour
+  var wodId=wod.id!=null?String(wod.id):'';
+  if(wodId && typeof WD!=='undefined' && WD[wodId]){
+    var live=WD[wodId];
+    wod=Object.assign({},wod);
+    if(live.coupureApres>0) wod.coupureApres=live.coupureApres;
+    if(live.interHeat>0)    wod.interHeat=live.interHeat;
+  }
   var cp=parseInt(wod.coupureApres||0,10)||0;
   if(cp>0) return Math.max(cp,AUTO_COUNTDOWN_SECS);
   var ih=parseInt(wod.interHeat||0,10)||0;
@@ -928,8 +947,37 @@ function tickClock(){var d=new Date(); g('clock').textContent=p2(d.getHours())+'
 setInterval(function(){tickClock(); updateDayOverview();},1000); tickClock();
 
 if(db){
-  dbRef('.info/connected').on('value',function(s){g('connState').textContent=s.val()?'Firebase connecté':'Hors ligne'; g('connState').className='chip'+(s.val()?' ok':'');});
+  dbRef('.info/connected').on('value',function(s){g('connState').textContent=s.val()?'Firebase connecté':'Hors ligne'; g('connState').className='chip'+(s.val()?' ok':'');})
+  // Récupérer le jour actif après rechargement
+  dbRef('system/activeDay').once('value',function(snap){
+    var d=snap.val();
+    if(d&&d.day&&(d.day===1||d.day===2)){
+      if(ACTIVE_DAY!==d.day){ ACTIVE_DAY=d.day; g('dayState').textContent='Jour actif, J'+d.day+' · AUTO · zones séparées (reprise)'; }
+    }
+  });;
   dbRef('heats').on('value',function(s){HD=s.val()||{}; refreshAll();});
+  // Listener wods/ — maintient WD à jour pour que le chrono ait toujours duree/capSec corrects
+  dbRef('wods').on('value',function(s){
+    WD=s.val()||{};
+    // Patch immédiat de tous les wodInfo en cache pour éviter un redémarrage
+    Object.keys(HD).forEach(function(hid){
+      var h=HD[hid]; if(!h||!h.wodId) return;
+      var live=WD[String(h.wodId)]; if(!live) return;
+      // Merge : les champs venant de wods/ écrasent wodInfo seulement s'ils sont non-nuls
+      var wi=h.wodInfo=h.wodInfo||{};
+      if(live.duree>0)    wi.duree=live.duree;
+      if(live.capSec>0)   wi.capSec=live.capSec;
+      if(live.capMinutes>0) wi.capMinutes=live.capMinutes;
+      if(live.workMin>0)  wi.workMin=live.workMin;
+      if(live.wodFormat)  wi.wodFormat=live.wodFormat;
+      if(live.rounds>0)   wi.rounds=live.rounds;
+      if(live.pauseEntreToursActive!=null) wi.pauseEntreToursActive=live.pauseEntreToursActive;
+      if(live.pauseEntreToursSec>0) wi.pauseEntreToursSec=live.pauseEntreToursSec;
+      if(live.interHeat>0) wi.interHeat=live.interHeat;
+      if(live.coupureApres>0) wi.coupureApres=live.coupureApres;
+    });
+    refreshAll();
+  });
   dbRef('scores').on('value',function(s){
     var prev=SC||{};
     SC=s.val()||{};
@@ -1134,7 +1182,13 @@ function resetZoneDayHeats(zone){
     });
   });
 }
-function setDay(day){ACTIVE_DAY=day; g('dayState').textContent='Jour actif, J'+day+' · AUTO · zones séparées'; refreshAll();}
+function setDay(day){
+  ACTIVE_DAY=day;
+  g('dayState').textContent='Jour actif, J'+day+' · AUTO · zones séparées';
+  // Persister le jour actif pour récupération après rechargement
+  try{ dbRef('system/activeDay').set({day:day,ts:serverNow(),token:'foc2026zk'}); }catch(e){}
+  refreshAll();
+}
 var _dayLocked=false;
 var _dayLaunchedDay=null;
 function tryStartDay(day){
@@ -1280,6 +1334,9 @@ function judgesReadyForHeat(hid){
 }
 function autoValidateHeat(hid){
   var h=HD[hid]||{};
+  var wod=h.wodInfo||{};
+  var isFortime=(wod.wodFormat||wod.type||'amrap').toLowerCase()==='fortime';
+  var capSec=wodCapSec(wod);
   Object.keys(h.lanes||{}).forEach(function(ln){
     var lane=h.lanes[ln];
     if(!lane||!lane.teamName) return;
@@ -1291,6 +1348,15 @@ function autoValidateHeat(hid){
       sc._priority=Math.max(100,parseInt(sc._priority||0,10)||0);
       sc.tkTs=Date.now();
       sc.teamName=lane.teamName||sc.teamName||'';
+      // ForTime : si pas de finalTime juge, calculer le temps réel écoulé
+      if(isFortime && !(parseInt(sc.finalTime||0,10)>0)){
+        var startTs=h.startTimestamp||0;
+        if(startTs>0){
+          var elapsed=Math.max(1,Math.floor((serverNow()-startTs)/1000));
+          // Plafonner au capSec si timecap
+          sc.finalTime = capSec>0 ? Math.min(elapsed,capSec) : elapsed;
+        }
+      }
       dbRef('scores/'+hid+'_'+ln).set(sc);
       dbRef('heats/'+hid+'/scores/'+ln).set(sc);
     }
@@ -1612,6 +1678,7 @@ function drawZone(zone){
   g('z'+zone+'State').textContent=st.toUpperCase(); g('z'+zone+'State').className='state '+statusClass(st);
   if(!zoneState[zone].counting){ updateZoneTimer(zone,hid,h); updateZoneButton(zone,st); }
   renderCatRank(zone,h.catName);
+  updateSyncBanner();
   if(st==='live' || st==='pre'){
     if(g('z'+zone+'HeatRankTitle')) g('z'+zone+'HeatRankTitle').textContent='CLASSEMENT HEAT';
     renderHeatRank(zone,hid,h);
@@ -1770,6 +1837,70 @@ function showTKCountdown(zone, hid, seconds, target, onDone){
     }
   },250);
 }
+/* ══════════════════════════════════════════
+   LANCEMENT SYNCHRONISÉ Z1 + Z2
+   ══════════════════════════════════════════ */
+function canSyncLaunch(){
+  var h1id = currentHeat(1)||zoneState[1].selected||nextHeat(1);
+  var h2id = currentHeat(2)||zoneState[2].selected||nextHeat(2);
+  if(!h1id||!h2id) return false;
+  var st1=heatStatus(HD[h1id]||{}), st2=heatStatus(HD[h2id]||{});
+  // Possible si les deux sont en pending ou pre (pas encore live)
+  return (st1==='pending'||st1==='pre') && (st2==='pending'||st2==='pre');
+}
+function updateSyncBanner(){
+  var banner=document.getElementById('syncLaunchBanner');
+  if(!banner) return;
+  banner.style.display = canSyncLaunch() ? 'flex' : 'none';
+}
+function launchBothZones(){
+  var h1id = currentHeat(1)||zoneState[1].selected||nextHeat(1);
+  var h2id = currentHeat(2)||zoneState[2].selected||nextHeat(2);
+  if(!h1id||!h2id){ alert('Sélectionner un heat dans chaque zone d'abord'); return; }
+
+  var CD = AUTO_COUNTDOWN_SECS;
+  var target = serverNow() + CD*1000;
+  var ts_go = target; // timestamp GO commun
+
+  // Pré les deux heats si besoin
+  if(heatStatus(HD[h1id]||{})!=='pre') setStatus(h1id,'pre');
+  if(heatStatus(HD[h2id]||{})!=='pre') setStatus(h2id,'pre');
+
+  // Écrire countdown sur les deux zones simultanément
+  var cdBase = {token:'foc2026zk',target:target,startIn:CD,ts:serverNow(),active:true};
+  var updates = {};
+  updates['system/countdown/z1'] = Object.assign({},cdBase,{hid:h1id,zone:1});
+  updates['system/countdown/z2'] = Object.assign({},cdBase,{hid:h2id,zone:2});
+  updates['system/countdown']    = Object.assign({},cdBase,{hid:h1id,zone:'12'});
+  updates['system/interheat/1']  = {active:false,zone:1,ts:serverNow()};
+  updates['system/interheat/2']  = {active:false,zone:2,ts:serverNow()};
+  dbRef('').update(updates);
+
+  tkLog('SYNC','Z1+Z2 sync countdown '+CD+'s → GO à '+ts_go,'ok');
+
+  // Countdown visuel sur les deux zones
+  [1,2].forEach(function(z){
+    var hid = z===1?h1id:h2id;
+    zoneState[z].selected=hid;
+    zoneState[z].ihRem=null;
+    showTKCountdown(z, hid, CD, target, function(){
+      var ts=serverNow();
+      setStatus(hid,'live',{startTimestamp:ts_go,countdownTarget:ts_go,curRound:1,roundPhase:'work',_src:'tkx_sync'});
+      dbRef('system/countdown/z'+z).update({active:false});
+      zoneState[z].ihRem=null;
+      drawZone(z);
+      // Démarrer timer — Z2 utilisera le même startTimestamp que Z1
+      var hh=HD[hid]||{};
+      if(hh.wodInfo) updateZoneTimer(z,hid,hh);
+    });
+  });
+
+  // Masquer le bouton sync
+  var banner=document.getElementById('syncLaunchBanner');
+  if(banner) banner.style.display='none';
+  playTKGoSound();
+}
+
 function zoneTimecap(zone){
   var hid=currentHeat(zone)||zoneState[zone].selected;
   if(!hid) return;
@@ -1812,7 +1943,14 @@ function getInterHeatDelay(zone, donHid){
   var nxt = nextHeatAfter(zone, donHid)||nextHeat(zone);
   var nextH = nxt?HD[nxt]:null;
   var nextWod = nextH?(nextH.wodInfo&&nextH.wodInfo.nom)||null:null;
-  var wod = doneH.wodInfo||{};
+  var wod = Object.assign({}, doneH.wodInfo||{});
+  // Fusionner avec WD pour avoir interHeat/coupureApres à jour
+  var _wodId = wod.id!=null ? String(wod.id) : (doneH.wodId!=null ? String(doneH.wodId) : '');
+  if(_wodId && typeof WD!=='undefined' && WD[_wodId]){
+    var _live = WD[_wodId];
+    if(_live.coupureApres>0) wod.coupureApres = _live.coupureApres;
+    if(_live.interHeat>0)    wod.interHeat    = _live.interHeat;
+  }
   var hasCoupure = wod.coupureApres!=null && String(wod.coupureApres)!=='';
   var hasInterHeat = wod.interHeat!=null && String(wod.interHeat)!=='';
   
@@ -1995,6 +2133,20 @@ function startInterheat(zone, seconds, type, label){
 function updateZoneTimer(zone,hid,h){
   clearInterval(zoneState[zone].timerIv);
   var el=g('z'+zone+'Timer'), wod=h.wodInfo||{}, st=heatStatus(h);
+  // Fusionner avec WD (wods/ Firebase) pour avoir duree/capSec toujours à jour
+  var wodId=wod.id!=null?String(wod.id):(h.wodId!=null?String(h.wodId):'');
+  if(wodId && typeof WD!=='undefined' && WD[wodId]){
+    var live=WD[wodId];
+    wod=Object.assign({},wod);
+    if(live.duree>0)      wod.duree=live.duree;
+    if(live.capSec>0)     wod.capSec=live.capSec;
+    if(live.capMinutes>0) wod.capMinutes=live.capMinutes;
+    if(live.workMin>0)    wod.workMin=live.workMin;
+    if(live.wodFormat)    wod.wodFormat=live.wodFormat;
+    if(live.rounds>0)     wod.rounds=live.rounds;
+    if(live.pauseEntreToursActive!=null) wod.pauseEntreToursActive=live.pauseEntreToursActive;
+    if(live.pauseEntreToursSec>0) wod.pauseEntreToursSec=live.pauseEntreToursSec;
+  }
   g('z'+zone+'RoundBox').style.display='none';
   if((st!=='live'&&st!=='timecap')||!h.startTimestamp){
     // Afficher inter-heat si en cours
@@ -2015,6 +2167,20 @@ function updateZoneTimer(zone,hid,h){
   var roundN=g('z'+zone+'RoundN');
   var roundT=g('z'+zone+'RoundT');
   var roundP=g('z'+zone+'RoundP');
+
+  // Si Z2 partage le même startTimestamp que Z1 (sync launch), Z2 recopie le timer Z1
+  var otherZone = zone===1?2:1;
+  var otherHid  = currentHeat(otherZone)||zoneState[otherZone].selected;
+  var otherH    = otherHid?HD[otherHid]||{}:{};
+  var sharedTs  = h.startTimestamp&&otherH.startTimestamp&&Math.abs(h.startTimestamp-otherH.startTimestamp)<500;
+  if(sharedTs && zone===2){
+    // Z2 pointe sur le DOM timer de Z1 — met à jour sa propre div depuis Z1 chaque tick
+    zoneState[zone].timerIv=setInterval(function(){
+      var srcEl=g('z1Timer'), dstEl=g('z2Timer');
+      if(srcEl&&dstEl){ dstEl.textContent=srcEl.textContent; dstEl.className=srcEl.className; }
+    },100);
+    return;
+  }
 
   zoneState[zone].timerIv=setInterval(function(){
     var hh=HD[hid]||h;
@@ -2480,12 +2646,50 @@ function renderLanes(zone,hid,h){
 
 function tkOk(hid,ln){var h=HD[hid]||{}, lane=(h.lanes||{})[ln]||{}, sc=scoreObj(hid,ln); sc.judgeOk=true; sc.tkValidated=true; sc._src='tkx'; sc._priority=Math.max(100,parseInt(sc._priority||0,10)||0); sc.tkTs=Date.now(); sc.teamName=lane.teamName||sc.teamName||''; dbRef('scores/'+hid+'_'+ln).set(sc); dbRef('heats/'+hid+'/scores/'+ln).set(sc);}
 function refreshAll(){
+  updateSyncBanner();
   [1,2].forEach(function(z){
     if(!zoneState[z].selected) zoneState[z].selected=currentHeat(z)||nextHeat(z);
     drawZone(z);
     publishZoneSync(z);
   });
   [1,2].forEach(function(z){ maybeAutoAdvanceZone(z); });
+  // ── Récupération automatique après rechargement ──
+  // Si un heat est live mais sans timer local actif → reprendre le timer + le flow AUTO
+  [1,2].forEach(function(z){
+    if(zoneState[z].timerIv) return; // timer déjà actif, rien à faire
+    if(zoneState[z].ihIv) return;    // inter-heat en cours
+    if(zoneState[z].counting) return;
+    var hid = currentHeat(z)||zoneState[z].selected;
+    if(!hid) return;
+    var h = HD[hid]||{};
+    var st = heatStatus(h);
+    if(st==='live' && h.startTimestamp){
+      // Reprendre le timer là où il en est
+      tkLog('RECOVER','Z'+z+' H'+hid+' live sans timer — reprise automatique','warn');
+      updateZoneTimer(z, hid, h);
+    } else if(st==='timecap'){
+      // Heat bloqué en timecap — déclencher l'enchaînement
+      tkLog('RECOVER','Z'+z+' H'+hid+' timecap sans suite — zoneDone AUTO','warn');
+      if(AUTO) setTimeout(function(){ zoneDone(z); }, 500);
+    } else if((st==='pending'||st==='pre') && AUTO && !zoneState[z]._autoFlowHid){
+      // Heat pre/pending mais personne ne l'a lancé (ex: rechargement pendant inter-heat)
+      // Vérifier si on est censé être en inter-heat Firebase
+      dbRef('system/interheat/'+z).once('value',function(snap){
+        var ih=snap.val()||{};
+        if(ih.active && ih.target && ih.target > serverNow()){
+          // Inter-heat encore actif dans Firebase → reprendre le countdown
+          var remSec = Math.max(0, Math.ceil((ih.target - serverNow())/1000));
+          tkLog('RECOVER','Z'+z+' inter-heat en cours ('+remSec+'s) — reprise bannière','warn');
+          zoneState[z].ihRem = remSec;
+          startInterheat(z, remSec, ih.ihType||'interheat', ih.label||'');
+        } else if(st==='pre' || st==='pending'){
+          // Plus d'inter-heat → lancer directement
+          tkLog('RECOVER','Z'+z+' H'+hid+' pre sans lancement — launchHeatDirect','warn');
+          if(AUTO && !zoneState[z].counting) launchHeatDirect(z, hid);
+        }
+      });
+    }
+  });
   updateDayOverview();
 }
 
