@@ -1856,7 +1856,7 @@ function updateSyncBanner(){
 function launchBothZones(){
   var h1id = currentHeat(1)||zoneState[1].selected||nextHeat(1);
   var h2id = currentHeat(2)||zoneState[2].selected||nextHeat(2);
-  if(!h1id||!h2id){ alert('Sélectionner un heat dans chaque zone d'abord'); return; }
+  if(!h1id||!h2id){ alert('Sélectionner un heat dans chaque zone d\'abord'); return; }
 
   var CD = AUTO_COUNTDOWN_SECS;
   var target = serverNow() + CD*1000;
