@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#07090f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Planning · FOC 2026 Delta</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23FF5722'/><text y='.9em' font-size='66' x='50' text-anchor='middle' font-family='Arial Black' fill='white'>&#916;</text></svg>">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;600;700;800;900&family=JetBrains+Mono:wght@700;800&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#07090f;--bg2:#0d1018;
+  --card:#141925;--card2:#1a2030;--card3:#222a3d;
+  --brd:rgba(255,255,255,.07);--brd2:rgba(255,255,255,.14);
+  --ink:#F3F6FC;--ink2:#A8B3C7;--ink3:#6B7890;
+  --fire:#FF5722;--ember:#FF8A00;--gold:#FFB020;
+  --blue:#4DA6FF;--purple:#9B6BFF;--ok:#00E5A0;
+  --ff:'Bebas Neue',sans-serif;--fb:'Inter',sans-serif;--fm:'JetBrains Mono',monospace;
+}
+html,body{background:var(--bg);color:var(--ink);font-family:var(--fb);-webkit-font-smoothing:antialiased}
+body{min-height:100vh;overflow-x:hidden}
+.bg-glow{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+.bg-glow::before,.bg-glow::after{content:'';position:absolute;border-radius:50%;filter:blur(120px);opacity:.18}
+.bg-glow::before{width:600px;height:600px;background:var(--fire);top:-200px;right:-150px;animation:float1 18s ease-in-out infinite}
+.bg-glow::after{width:500px;height:500px;background:var(--blue);bottom:-150px;left:-150px;animation:float2 22s ease-in-out infinite}
+@keyframes float1{0%,100%{transform:translate(0,0)}50%{transform:translate(-60px,40px)}}
+@keyframes float2{0%,100%{transform:translate(0,0)}50%{transform:translate(50px,-30px)}}
+.wrap{position:relative;z-index:1;max-width:1100px;margin:0 auto;padding:18px 14px 60px}
+.hero{text-align:center;padding:30px 0 22px;position:relative}
+.hero-badge{display:inline-flex;align-items:center;gap:7px;background:rgba(255,87,34,.12);border:1px solid rgba(255,87,34,.3);color:var(--ember);font-size:11px;font-weight:800;letter-spacing:2px;padding:6px 14px;border-radius:20px;text-transform:uppercase;margin-bottom:14px}
+.hero-badge .dot{width:7px;height:7px;border-radius:50%;background:var(--fire);box-shadow:0 0 10px var(--fire);animation:pulse 1.6s infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.85)}}
+.hero h1{font-family:var(--ff);font-size:clamp(44px,11vw,86px);line-height:.92;letter-spacing:2px;background:linear-gradient(135deg,#fff 0%,var(--gold) 45%,var(--fire) 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;filter:drop-shadow(0 4px 30px rgba(255,87,34,.3))}
+.hero .sub{font-family:var(--ff);font-size:clamp(16px,4vw,24px);letter-spacing:6px;color:var(--ink2);margin-top:2px}
+.hero .tagline{font-size:13px;color:var(--ink3);margin-top:12px;font-weight:600}
+.controls{position:sticky;top:0;z-index:20;background:rgba(7,9,15,.82);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-bottom:1px solid var(--brd);margin:0 -14px 20px;padding:12px 14px;display:flex;flex-direction:column;gap:10px}
+.search-box{position:relative}
+.search-box input{width:100%;background:var(--card);border:1.5px solid var(--brd2);border-radius:13px;padding:13px 44px;font-size:15px;color:var(--ink);outline:none;font-family:inherit;font-weight:600;transition:.2s}
+.search-box input::placeholder{color:var(--ink3)}
+.search-box input:focus{border-color:var(--fire);background:var(--card2);box-shadow:0 0 0 4px rgba(255,87,34,.12)}
+.search-box .ico{position:absolute;left:15px;top:50%;transform:translateY(-50%);font-size:17px;opacity:.6}
+.search-box .clear{position:absolute;right:12px;top:50%;transform:translateY(-50%);background:var(--card3);border:none;color:var(--ink2);width:26px;height:26px;border-radius:50%;cursor:pointer;font-size:14px;display:none;align-items:center;justify-content:center}
+.search-box .clear.show{display:flex}
+.ctrl-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.day-tabs{display:flex;gap:4px;background:var(--card);padding:4px;border-radius:11px;border:1px solid var(--brd)}
+.day-tab{padding:9px 16px;background:transparent;border:none;border-radius:8px;font-family:var(--ff);font-size:17px;letter-spacing:1.5px;color:var(--ink3);cursor:pointer;transition:.18s;white-space:nowrap}
+.day-tab:hover{color:var(--ink2)}
+.day-tab.active{background:linear-gradient(135deg,var(--fire),var(--ember));color:#fff;box-shadow:0 4px 14px rgba(255,87,34,.35)}
+.spacer{flex:1}
+.btn{display:inline-flex;align-items:center;gap:7px;padding:10px 15px;border-radius:11px;font-size:13px;font-weight:800;cursor:pointer;border:1px solid var(--brd2);background:var(--card);color:var(--ink2);font-family:inherit;transition:.18s;white-space:nowrap}
+.btn:hover{background:var(--card2);color:var(--ink);border-color:var(--ink3)}
+.btn .ic{font-size:15px;transition:transform .4s}
+.cat-filters{display:flex;gap:7px;overflow-x:auto;padding-bottom:2px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.cat-filters::-webkit-scrollbar{display:none}
+.cat-chip{display:inline-flex;align-items:center;gap:6px;padding:7px 13px;background:var(--card);border:1.5px solid var(--brd);border-radius:18px;font-size:12px;font-weight:700;color:var(--ink2);cursor:pointer;white-space:nowrap;transition:.16s;flex-shrink:0}
+.cat-chip:hover{border-color:var(--brd2)}
+.cat-chip.active{color:#fff;border-color:transparent}
+.cat-chip .cdot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.cat-chip .ccount{opacity:.65;font-size:10px}
+.day-block{margin-bottom:30px}
+.day-head{display:flex;align-items:center;gap:12px;margin:8px 0 14px;padding-bottom:10px;border-bottom:2px solid var(--brd)}
+.day-head .num{font-family:var(--ff);font-size:40px;letter-spacing:1px;background:linear-gradient(135deg,var(--gold),var(--fire));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.day-head .lbl{font-family:var(--ff);font-size:26px;letter-spacing:3px;color:var(--ink)}
+.day-head .meta{margin-left:auto;font-size:11px;color:var(--ink3);font-weight:700;text-transform:uppercase;letter-spacing:1px}
+.heat-group{margin-bottom:16px;animation:slideUp .4s cubic-bezier(.22,1,.36,1) backwards}
+@keyframes slideUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+.heat-bar{display:flex;align-items:center;gap:10px;padding:9px 14px;background:linear-gradient(90deg,var(--card2),var(--card));border:1px solid var(--brd);border-radius:12px 12px 0 0;border-bottom:none}
+.heat-bar .htime{font-family:var(--fm);font-size:18px;font-weight:800;color:var(--gold)}
+.heat-bar .hzone{font-size:11px;font-weight:800;color:var(--ink2);background:var(--card3);padding:3px 9px;border-radius:7px;letter-spacing:.5px}
+.heat-bar .hwod{font-family:var(--ff);font-size:19px;letter-spacing:1.5px;color:var(--ink);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.heat-bar .hnum{font-size:11px;font-weight:800;color:var(--ink3);font-family:var(--fm)}
+.lanes{background:var(--card);border:1px solid var(--brd);border-radius:0 0 12px 12px;overflow:hidden}
+.lane{display:flex;align-items:center;gap:12px;padding:11px 14px;border-bottom:1px solid var(--brd);transition:.15s}
+.lane:last-child{border-bottom:none}
+.lane:hover{background:var(--card2)}
+.lane.hit{background:linear-gradient(90deg,rgba(255,87,34,.16),rgba(255,87,34,.03));box-shadow:inset 3px 0 0 var(--fire)}
+.lane-num{width:30px;height:30px;border-radius:8px;background:var(--card3);display:flex;align-items:center;justify-content:center;font-family:var(--fm);font-size:14px;font-weight:800;color:var(--ink2);flex-shrink:0}
+.lane.hit .lane-num{background:var(--fire);color:#fff}
+.lane-team{flex:1;min-width:0}
+.lane-team .tname{font-size:15px;font-weight:800;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lane-team .tcat{font-size:10px;color:var(--ink3);margin-top:1px;display:flex;align-items:center;gap:5px}
+.lane-team .tcat .cdot{width:7px;height:7px;border-radius:50%}
+.state{text-align:center;padding:60px 20px;color:var(--ink3)}
+.state .em{font-size:46px;margin-bottom:14px;opacity:.5}
+.state .ttl{font-family:var(--ff);font-size:24px;letter-spacing:2px;color:var(--ink2);margin-bottom:6px}
+.spinner{width:42px;height:42px;border:4px solid var(--brd2);border-top-color:var(--fire);border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 18px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.last-update{text-align:center;font-size:11px;color:var(--ink3);margin-top:8px;font-weight:600}
+@media print{
+  @page{margin:1cm}
+  .bg-glow,.controls,.btn,.hero-badge,.hero .tagline,.last-update{display:none!important}
+  body,html{background:#fff!important;color:#000!important}
+  .wrap{max-width:100%;padding:0}
+  .hero{padding:0 0 14px}
+  .hero h1{-webkit-text-fill-color:#000;color:#000;background:none;filter:none;font-size:40px}
+  .hero .sub{color:#444}
+  .day-head .num,.day-head .lbl{-webkit-text-fill-color:#000;color:#000;background:none}
+  .day-head{border-color:#000}
+  .heat-bar{background:#f0f0f0!important;border:1px solid #999;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .heat-bar .htime{color:#b8500a!important}
+  .heat-bar .hwod{color:#000}
+  .lanes{border:1px solid #999}
+  .lane{border-color:#ddd;break-inside:avoid}
+  .lane-num{background:#e8e8e8!important;color:#000;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .lane-team .tname{color:#000}
+  .lane-team .tcat{color:#555}
+  .cdot{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .heat-group{animation:none;page-break-inside:avoid}
+}
+</style>
+</head>
+<body>
+<div class="bg-glow"></div>
+<div class="wrap">
+  <div class="hero">
+    <div class="hero-badge"><span class="dot"></span> Planning officiel</div>
+    <h1>FOC 2026</h1>
+    <div class="sub">DELTA</div>
+    <div class="tagline">Retrouve ton equipe &middot; Horaires des deux jours</div>
+  </div>
+  <div class="controls">
+    <div class="search-box">
+      <span class="ico">&#128269;</span>
+      <input type="text" id="search" placeholder="Cherche ton equipe..." autocomplete="off">
+      <button class="clear" id="clearBtn" onclick="clearSearch()">&#10005;</button>
+    </div>
+    <div class="ctrl-row">
+      <div class="day-tabs" id="dayTabs"></div>
+      <div class="spacer"></div>
+      <button class="btn" onclick="loadPlanning()"><span class="ic" id="refIc">&#128260;</span> Actualiser</button>
+      <button class="btn" onclick="window.print()"><span class="ic">&#128424;</span> Imprimer</button>
+    </div>
+    <div class="cat-filters" id="catFilters"></div>
+  </div>
+  <div id="content">
+    <div class="state"><div class="spinner"></div><div class="ttl">Chargement...</div></div>
+  </div>
+  <div class="last-update" id="lastUpdate"></div>
+</div>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+<script>
+var FIREBASE_DB_URL='https://foc-2026-default-rtdb.europe-west1.firebasedatabase.app';
+if(!firebase.apps.length) firebase.initializeApp({databaseURL:FIREBASE_DB_URL});
+var db=firebase.database();
+var _allHeats={},_dayFilter=null,_catFilter='all',_searchTerm='',_cats={};
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+function fmtMin(m){m=parseInt(m,10);if(isNaN(m))return '--';var h=Math.floor(m/60),mn=m%60;return (h<10?'0':'')+h+':'+(mn<10?'0':'')+mn;}
+function startMinuteFromHeat(h){
+  if(!h) return null;
+  if(h.estimatedStartMin!=null){var e=parseInt(h.estimatedStartMin,10);if(isFinite(e))return e;}
+  var horaires=h.horaires||{};
+  var wodId=(h.wodId!=null&&h.wodId!=='')?String(h.wodId):((h.wodInfo&&h.wodInfo.id!=null)?String(h.wodInfo.id):'');
+  if(wodId && horaires[wodId] && horaires[wodId].debut!=null){var exact=parseInt(horaires[wodId].debut,10);if(isFinite(exact))return exact;}
+  var keys=Object.keys(horaires);
+  for(var i=0;i<keys.length;i++){var item=horaires[keys[i]];if(item&&item.debut!=null){var mins=parseInt(item.debut,10);if(isFinite(mins))return mins;}}
+  return null;
+}
+function loadPlanning(){
+  var ic=document.getElementById('refIc'); if(ic) ic.style.transform='rotate(360deg)';
+  db.ref('heats').once('value').then(function(snap){
+    _allHeats=snap.val()||{};
+    buildFilters(); render();
+    var now=new Date();
+    document.getElementById('lastUpdate').textContent='Mis a jour a '+now.getHours()+':'+(now.getMinutes()<10?'0':'')+now.getMinutes();
+    if(ic) setTimeout(function(){ic.style.transform='';},450);
+  }).catch(function(){
+    document.getElementById('content').innerHTML='<div class="state"><div class="em">&#9888;&#65039;</div><div class="ttl">Connexion impossible</div><div>Reessaie dans un instant</div></div>';
+  });
+}
+function buildFilters(){
+  var daysSet={}; _cats={};
+  Object.keys(_allHeats).forEach(function(hid){
+    var h=_allHeats[hid]; if(!h) return;
+    var j=parseInt(h.catJour||h.jour||1,10)||1; daysSet[j]=true;
+    var catId=String(h.catId||h.catName||''),catName=h.catName||h.catNom||'Categorie',catColor=h.catCouleur||'#4DA6FF';
+    var lanes=h.lanes||h.slots||{};
+    Object.keys(lanes).forEach(function(ln){
+      var l=lanes[ln]; if(!l||!l.teamName) return;
+      var cid=(l.isGuest&&l.teamCatId)?String(l.teamCatId):catId;
+      var cnm=(l.isGuest&&l.teamCatName)?l.teamCatName:catName;
+      var ccl=(l.isGuest&&l.teamCatColor)?l.teamCatColor:catColor;
+      if(!_cats[cid])_cats[cid]={name:cnm,color:ccl,count:0};
+      _cats[cid].count++;
+    });
+  });
+  var days=Object.keys(daysSet).map(function(x){return parseInt(x,10);}).sort(function(a,b){return a-b;});
+  if(_dayFilter==null)_dayFilter=days.length?days[0]:1;
+  if(days.indexOf(_dayFilter)===-1&&_dayFilter!=='all')_dayFilter=days.length?days[0]:1;
+  var dt=document.getElementById('dayTabs'),html='';
+  days.forEach(function(j){html+='<button class="day-tab'+(_dayFilter===j?' active':'')+'" onclick="setDay('+j+')">Jour '+j+'</button>';});
+  if(days.length>1)html+='<button class="day-tab'+(_dayFilter==='all'?' active':'')+'" onclick="setDay(\'all\')">Tout</button>';
+  dt.innerHTML=html;
+  var cf=document.getElementById('catFilters');
+  var catHtml='<button class="cat-chip'+(_catFilter==='all'?' active':'')+'" style="'+(_catFilter==='all'?'background:linear-gradient(135deg,var(--fire),var(--ember))':'')+'" onclick="setCat(\'all\')">Toutes</button>';
+  Object.keys(_cats).sort(function(a,b){return _cats[a].name.localeCompare(_cats[b].name,'fr');}).forEach(function(cid){
+    var c=_cats[cid],act=_catFilter===cid;
+    catHtml+='<button class="cat-chip'+(act?' active':'')+'" style="'+(act?'background:'+c.color+';':'')+'" onclick="setCat(\''+esc(cid).replace(/\x27/g,"\\\x27")+'\')"><span class="cdot" style="background:'+c.color+'"></span>'+esc(c.name)+' <span class="ccount">'+c.count+'</span></button>';
+  });
+  cf.innerHTML=catHtml;
+}
+function setDay(d){_dayFilter=d;buildFilters();render();}
+function setCat(c){_catFilter=c;buildFilters();render();}
+function clearSearch(){_searchTerm='';document.getElementById('search').value='';document.getElementById('clearBtn').classList.remove('show');render();}
+document.getElementById('search').addEventListener('input',function(e){
+  _searchTerm=e.target.value.trim().toLowerCase();
+  document.getElementById('clearBtn').classList.toggle('show',!!_searchTerm);
+  render();
+});
+function heatGlobalNum(hid,h){var n=parseInt(h.globalNum||h.catHeatNum||String(hid).replace(/\D/g,''),10);return isNaN(n)?0:n;}
+function render(){
+  var content=document.getElementById('content'),list=[];
+  Object.keys(_allHeats).forEach(function(hid){
+    var h=_allHeats[hid]; if(!h) return;
+    var j=parseInt(h.catJour||h.jour||1,10)||1;
+    if(_dayFilter!=='all'&&j!==_dayFilter) return;
+    var lanes=h.lanes||h.slots||{},laneArr=[];
+    Object.keys(lanes).forEach(function(ln){
+      var l=lanes[ln]; if(!l||!l.teamName) return;
+      var cid=(l.isGuest&&l.teamCatId)?String(l.teamCatId):String(h.catId||h.catName||'');
+      var cnm=(l.isGuest&&l.teamCatName)?l.teamCatName:(h.catName||h.catNom||'');
+      var ccl=(l.isGuest&&l.teamCatColor)?l.teamCatColor:(h.catCouleur||'#4DA6FF');
+      if(_catFilter!=='all'&&cid!==_catFilter) return;
+      laneArr.push({ln:ln,team:l.teamName,catId:cid,catName:cnm,catColor:ccl});
+    });
+    if(!laneArr.length) return;
+    laneArr.sort(function(a,b){return (parseInt(a.ln,10)||0)-(parseInt(b.ln,10)||0);});
+    list.push({hid:hid,jour:j,startMin:startMinuteFromHeat(h),zone:h.catZone||h.zone||1,
+      wod:(h.wodInfo&&h.wodInfo.nom)||h.wodNom||h.wod||'WOD',globalNum:heatGlobalNum(hid,h),
+      catHeatNum:parseInt(h.catHeatNum||h.wodHeatNum||0,10)||0,nbHeats:parseInt(h.nbHeatsTotal||h.wodHeatTotal||0,10)||0,lanes:laneArr});
+  });
+  list.sort(function(a,b){
+    if(a.jour!==b.jour)return a.jour-b.jour;
+    var sa=a.startMin==null?999999:a.startMin,sb=b.startMin==null?999999:b.startMin;
+    if(sa!==sb)return sa-sb;
+    return a.globalNum-b.globalNum;
+  });
+  if(!list.length){
+    content.innerHTML='<div class="state"><div class="em">&#128269;</div><div class="ttl">Aucun resultat</div><div>'+(_searchTerm?'Aucune equipe ne correspond':'Pas de heat pour ce filtre')+'</div></div>';
+    return;
+  }
+  var byDay={};
+  list.forEach(function(it){(byDay[it.jour]=byDay[it.jour]||[]).push(it);});
+  var html='';
+  Object.keys(byDay).map(function(x){return parseInt(x,10);}).sort(function(a,b){return a-b;}).forEach(function(j){
+    var heats=byDay[j];
+    html+='<div class="day-block"><div class="day-head"><span class="num">J'+j+'</span><span class="lbl">JOUR '+j+'</span><span class="meta">'+heats.length+' heats</span></div>';
+    var di=0;
+    heats.forEach(function(ht){
+      di++;
+      var heatNumLbl=(ht.catHeatNum&&ht.nbHeats)?('H'+ht.catHeatNum+'/'+ht.nbHeats):(ht.globalNum?('#'+ht.globalNum):'');
+      html+='<div class="heat-group" style="animation-delay:'+(Math.min(di*0.03,0.4))+'s">';
+      html+='<div class="heat-bar"><span class="htime">'+fmtMin(ht.startMin)+'</span><span class="hzone">Zone '+esc(ht.zone)+'</span><span class="hwod">'+esc(ht.wod)+'</span><span class="hnum">'+heatNumLbl+'</span></div>';
+      html+='<div class="lanes">';
+      ht.lanes.forEach(function(l){
+        var hit=_searchTerm&&l.team.toLowerCase().indexOf(_searchTerm)>=0;
+        html+='<div class="lane'+(hit?' hit':'')+'"><div class="lane-num">'+esc(l.ln)+'</div><div class="lane-team"><div class="tname">'+esc(l.team)+'</div><div class="tcat"><span class="cdot" style="background:'+l.catColor+'"></span>'+esc(l.catName)+'</div></div></div>';
+      });
+      html+='</div></div>';
+    });
+    html+='</div>';
+  });
+  content.innerHTML=html;
+  if(_searchTerm){var fh=content.querySelector('.lane.hit');if(fh)fh.scrollIntoView({behavior:'smooth',block:'center'});}
+}
+loadPlanning();
+</script>
+</body>
+</html>

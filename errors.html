@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FOC 2026 · Erreurs juges</title>
+<script>var FIREBASE_DB_URL='https://foc-2026-default-rtdb.europe-west1.firebasedatabase.app';var WRITE_TOKEN='FOC2026ZK_SECRET_19SEP';</script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:system-ui,-apple-system,sans-serif;background:#1d324c;color:#eef3fa;padding:16px;line-height:1.4}
+h1{font-size:20px;margin-bottom:6px}
+.sub{color:#9bb;font-size:13px;margin-bottom:16px}
+.bar{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+.bar input,.bar select,.bar button{padding:8px 12px;border-radius:8px;border:1px solid #345;background:#22384f;color:#eef3fa;font-size:14px}
+.bar button{cursor:pointer;background:#2e4866}
+.bar button:hover{background:#395472}
+.bar .danger{background:#a33;border-color:#c44}
+.bar .danger:hover{background:#c44}
+.stats{display:flex;gap:12px;margin-bottom:14px;flex-wrap:wrap;font-size:13px}
+.stat{background:#22384f;padding:8px 14px;border-radius:8px;border:1px solid #345}
+.stat .n{font-size:20px;font-weight:800;color:#FF8A00;display:block}
+.entry{background:#22384f;border:1px solid #345;border-left:4px solid #FF3B5C;border-radius:8px;padding:12px;margin-bottom:8px;font-size:13px}
+.entry.recent{border-left-color:#FF8A00;animation:flash 1.5s ease-out}
+@keyframes flash{0%{background:#3a2a2a}100%{background:#22384f}}
+.entry .head{display:flex;justify-content:space-between;gap:10px;margin-bottom:6px;align-items:baseline;flex-wrap:wrap}
+.entry .who{font-weight:700;color:#7FD0FF}
+.entry .when{color:#9bb;font-size:11px;font-family:monospace}
+.entry .ctx{display:inline-block;background:#1a2a3e;padding:2px 8px;border-radius:4px;font-family:monospace;font-size:11px;color:#FFB020;margin-right:6px}
+.entry .heat{display:inline-block;background:#1a2a3e;padding:2px 8px;border-radius:4px;font-family:monospace;font-size:11px;color:#9eb}
+.entry .msg{font-family:monospace;font-size:12px;color:#ffd;background:#1a2a3e;padding:8px;border-radius:6px;margin-top:6px;white-space:pre-wrap;word-break:break-word}
+.entry .stack{font-family:monospace;font-size:10px;color:#9aa;margin-top:6px;white-space:pre-wrap;display:none}
+.entry.expanded .stack{display:block}
+.entry .meta{color:#789;font-size:11px;margin-top:6px}
+.empty{text-align:center;padding:40px;color:#789}
+</style>
+</head>
+<body>
+<h1>🚨 Erreurs juges — temps réel</h1>
+<div class="sub">Affiche les erreurs JavaScript remontées par les téléphones des juges via Firebase (<code>system/errors</code>).</div>
+
+<div class="bar">
+  <input type="text" id="filter-juge" placeholder="Filtrer par juge / prénom...">
+  <select id="filter-context">
+    <option value="">Tous contextes</option>
+  </select>
+  <button onclick="refresh()">🔄 Rafraîchir</button>
+  <button onclick="toggleAuto()" id="auto-btn">⏸ Pause auto</button>
+  <button class="danger" onclick="purge()">🗑 Purger tout</button>
+</div>
+
+<div class="stats">
+  <div class="stat"><span class="n" id="stat-total">0</span>erreurs total</div>
+  <div class="stat"><span class="n" id="stat-juges">0</span>juges concernés</div>
+  <div class="stat"><span class="n" id="stat-recent">0</span>dernières 5 min</div>
+</div>
+
+<div id="list"></div>
+
+<script>
+var db;
+try{
+  firebase.initializeApp({databaseURL:FIREBASE_DB_URL});
+  db=firebase.database();
+}catch(e){
+  document.body.innerHTML='<h1>Firebase erreur</h1><pre>'+e.message+'</pre>';
+}
+
+var _entries={};   // {key: entry}
+var _auto=true;
+var _filterJuge='';
+var _filterCtx='';
+
+document.getElementById('filter-juge').addEventListener('input', function(e){
+  _filterJuge=e.target.value.toLowerCase();
+  render();
+});
+document.getElementById('filter-context').addEventListener('change', function(e){
+  _filterCtx=e.target.value;
+  render();
+});
+
+function fmtTime(ts){
+  var d=new Date(ts);
+  var pad=function(n){return n<10?'0'+n:n;};
+  return pad(d.getHours())+':'+pad(d.getMinutes())+':'+pad(d.getSeconds());
+}
+
+function fmtAgo(ts){
+  var s=Math.floor((Date.now()-ts)/1000);
+  if(s<60) return s+'s';
+  if(s<3600) return Math.floor(s/60)+'min';
+  return Math.floor(s/3600)+'h';
+}
+
+function render(){
+  var arr=Object.keys(_entries).map(function(k){return Object.assign({_key:k},_entries[k]);});
+  arr.sort(function(a,b){return (b.ts||0)-(a.ts||0);});
+
+  // Stats
+  var fiveMinAgo=Date.now()-5*60*1000;
+  var juges={};
+  var contexts={};
+  var recent=0;
+  arr.forEach(function(e){
+    if(e.juge) juges[e.juge]=true;
+    if(e.context) contexts[e.context]=(contexts[e.context]||0)+1;
+    if(e.ts>=fiveMinAgo) recent++;
+  });
+  document.getElementById('stat-total').textContent=arr.length;
+  document.getElementById('stat-juges').textContent=Object.keys(juges).length;
+  document.getElementById('stat-recent').textContent=recent;
+
+  // Refresh context filter options
+  var ctxSel=document.getElementById('filter-context');
+  var existingOpts=Array.from(ctxSel.options).map(function(o){return o.value;});
+  Object.keys(contexts).sort().forEach(function(c){
+    if(existingOpts.indexOf(c)===-1){
+      var opt=document.createElement('option');
+      opt.value=c; opt.textContent=c+' ('+contexts[c]+')';
+      ctxSel.appendChild(opt);
+    }
+  });
+
+  // Filter
+  var filtered=arr.filter(function(e){
+    if(_filterCtx && e.context!==_filterCtx) return false;
+    if(_filterJuge){
+      var hay=((e.juge||'')+' '+(e.prenom||'')+' '+(e.heatId||'')).toLowerCase();
+      if(hay.indexOf(_filterJuge)===-1) return false;
+    }
+    return true;
+  });
+
+  // Render list
+  var list=document.getElementById('list');
+  if(!filtered.length){
+    list.innerHTML='<div class="empty">Aucune erreur '+(arr.length?'(filtres actifs)':'à signaler 🎉')+'</div>';
+    return;
+  }
+  list.innerHTML=filtered.slice(0,300).map(function(e){
+    var isRecent=(Date.now()-e.ts)<10000;
+    return '<div class="entry'+(isRecent?' recent':'')+'" onclick="this.classList.toggle(\'expanded\')">'
+      +'<div class="head">'
+        +'<div><span class="ctx">'+(e.context||'?')+'</span>'
+        +(e.heatId?'<span class="heat">'+e.heatId+(e.lane?' L'+e.lane:'')+'</span>':'')
+        +'</div>'
+        +'<div class="when">'+fmtTime(e.ts)+' · il y a '+fmtAgo(e.ts)+'</div>'
+      +'</div>'
+      +'<div class="who">'+(e.prenom||'')+' <span style="opacity:.6;font-weight:400">('+(e.juge||'?')+')</span>'
+      +(e.page&&e.page!=='judge'?' · '+e.page:'')+'</div>'
+      +'<div class="msg">'+escapeHtml(e.message||'')+'</div>'
+      +(e.stack?'<div class="stack">'+escapeHtml(e.stack)+'</div>':'')
+      +'<div class="meta">'+escapeHtml((e.ua||'').slice(0,80))+'</div>'
+    +'</div>';
+  }).join('');
+}
+
+function escapeHtml(s){
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function listen(){
+  if(!db) return;
+  // Limite aux 500 dernières pour éviter de tout charger
+  db.ref('system/errors').limitToLast(500).on('child_added', function(snap){
+    var v=snap.val();
+    if(v){
+      _entries[snap.key]=v;
+      if(_auto) render();
+    }
+  });
+}
+
+function refresh(){
+  _entries={};
+  document.getElementById('list').innerHTML='<div class="empty">Chargement...</div>';
+  if(db) db.ref('system/errors').limitToLast(500).off();
+  listen();
+}
+
+function toggleAuto(){
+  _auto=!_auto;
+  document.getElementById('auto-btn').textContent=_auto?'⏸ Pause auto':'▶ Reprendre auto';
+  if(_auto) render();
+}
+
+function purge(){
+  if(!confirm('Supprimer TOUTES les erreurs enregistrées ?\n\nCela ne peut pas être annulé.')) return;
+  if(!db) return;
+  db.ref('system/errors').remove().then(function(){
+    _entries={};
+    render();
+    alert('✓ Erreurs purgées');
+  }).catch(function(e){
+    alert('Erreur : '+e.message);
+  });
+}
+
+listen();
+render();
+// Re-render périodique pour mettre à jour les "il y a Xs"
+setInterval(function(){ if(_auto && Object.keys(_entries).length) render(); }, 5000);
+</script>
+</body>
+</html>

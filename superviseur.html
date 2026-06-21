@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Superviseur · Johan — FOC 2026</title>
+<script>var FIREBASE_DB_URL='https://foc-2026-default-rtdb.europe-west1.firebasedatabase.app';</script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080B13;--panel:#121A2B;--panel2:#0F1726;--line:#1E2940;--line2:#2A3A57;--ink:#EAF0FB;--ink2:#AEBBD4;--muted:#62718E;--orange:#FF8A00;--green:#00E6A2;--red:#FF5C6C;--amber:#FFB020;--blue:#4DA6FF;--mono:ui-monospace,'SF Mono',Menlo,monospace}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:radial-gradient(1200px 600px at 50% -10%,#10182b 0,var(--bg) 60%);color:var(--ink);font-family:'Inter',system-ui,sans-serif;min-height:100vh;padding:14px;max-width:1180px;margin:0 auto}
+.hdr{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;flex-wrap:wrap}
+.hdr-l{display:flex;align-items:center;gap:12px}.logo-badge{width:46px;height:46px;border-radius:12px;background:linear-gradient(135deg,#FF8A00,#FF5C00);display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue';font-size:26px;color:#1a0e00}
+.hdr h1{font-size:34px;line-height:.9;font-family:'Bebas Neue';letter-spacing:.5px}.hdr .sub{font-size:11px;color:var(--muted);font-weight:700;letter-spacing:2px;text-transform:uppercase}
+.hdr-r{display:flex;align-items:center;gap:10px}.clock{font-family:var(--mono);font-size:22px;font-weight:700}
+.live-dot{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:800;border-radius:999px;padding:5px 11px;text-transform:uppercase;letter-spacing:1px}
+.live-dot.on{color:var(--green);background:rgba(0,230,162,.1);border:1px solid rgba(0,230,162,.25)}
+.live-dot.off{color:var(--red);background:rgba(255,92,108,.1);border:1px solid rgba(255,92,108,.25)}
+.live-dot i{width:8px;height:8px;border-radius:50%}.live-dot.on i{background:var(--green);animation:pulse 1.8s infinite}.live-dot.off i{background:var(--red)}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(0,230,162,.5)}70%{box-shadow:0 0 0 8px rgba(0,230,162,0)}100%{box-shadow:0 0 0 0 rgba(0,230,162,0)}}
+.section-ttl{font-family:'Bebas Neue';font-size:18px;letter-spacing:1px;color:var(--ink2);margin:18px 2px 9px;display:flex;align-items:center;gap:8px}
+.section-ttl .c{font-size:11px;color:var(--muted);font-family:'Inter';font-weight:700;letter-spacing:0}
+.radar{background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--line2);border-radius:16px;padding:14px;position:relative;overflow:hidden}
+.radar::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--red),var(--amber),var(--green));opacity:.7}
+.radar-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:11px}
+.radar-ttl{display:flex;align-items:center;gap:9px;font-family:'Bebas Neue';font-size:21px;letter-spacing:1px}
+.radar-count{font-size:11px;font-weight:800;border-radius:999px;padding:3px 10px}
+.alerts{display:flex;flex-direction:column;gap:8px}
+.alert{display:flex;gap:11px;align-items:flex-start;padding:10px 12px;border-radius:11px;border:1px solid;background:var(--panel2)}
+.alert.crit{border-color:rgba(255,92,108,.4);background:rgba(255,92,108,.06)}.alert.warn{border-color:rgba(255,176,32,.35);background:rgba(255,176,32,.05)}.alert.info{border-color:rgba(77,166,255,.3);background:rgba(77,166,255,.05)}.alert.ok{border-color:rgba(0,230,162,.3);background:rgba(0,230,162,.05)}
+.alert .ai{flex-shrink:0;width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px;background:var(--panel)}
+.alert-body{flex:1;min-width:0}.alert-t{font-size:13px;font-weight:800}.alert-d{font-size:11.5px;color:var(--ink2);margin-top:2px;line-height:1.45}.alert-d b{color:var(--ink)}.alert-fix{font-size:11px;color:var(--green);font-weight:700;margin-top:4px}.alert-time{font-size:10px;color:var(--muted);font-family:var(--mono);flex-shrink:0}
+.stats{display:grid;grid-template-columns:repeat(6,1fr);gap:9px}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:11px 12px}.stat-l{font-size:9px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:var(--muted)}.stat-v{font-family:var(--mono);font-size:23px;font-weight:700;margin-top:4px;line-height:1}.stat-s{font-size:10px;font-weight:700;margin-top:3px;color:var(--ink2)}
+.ok-c{color:var(--green)}.warn-c{color:var(--amber)}.red-c{color:var(--red)}.or-c{color:var(--orange)}.bl-c{color:var(--blue)}
+.bar{height:6px;border-radius:99px;background:var(--panel2);overflow:hidden;border:1px solid var(--line);margin-top:6px}.bar i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,var(--orange),#FFB347)}
+.split{display:grid;grid-template-columns:1.3fr 1fr;gap:12px}.zones{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.zone{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:13px}.zone-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}.zone-name{font-family:'Bebas Neue';font-size:19px;letter-spacing:1px}.zone-name span{color:var(--orange)}
+.badge{font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:1px;padding:3px 9px;border-radius:999px}.badge.live{color:var(--green);background:rgba(0,230,162,.12);border:1px solid rgba(0,230,162,.3)}.badge.trans{color:var(--blue);background:rgba(77,166,255,.12);border:1px solid rgba(77,166,255,.3)}.badge.idle{color:var(--muted);background:rgba(98,113,142,.12);border:1px solid rgba(98,113,142,.3)}
+.zone-cat{font-size:13px;font-weight:700;margin-bottom:2px}.zone-wod{font-size:11px;color:var(--muted);margin-bottom:9px;min-height:14px}
+.timer{font-family:var(--mono);font-size:38px;font-weight:700;line-height:1}.timer.run{color:var(--green)}.timer.wait{color:var(--blue)}.timer.idle{color:var(--muted)}
+.zone-lanes{display:flex;gap:5px;margin-top:11px;flex-wrap:wrap}.lane-chip{flex:1;min-width:34px;text-align:center;font-size:9px;font-weight:800;padding:5px 2px;border-radius:7px;border:1px solid var(--line2);background:var(--panel2);color:var(--ink2)}.lane-chip.ok{border-color:rgba(0,230,162,.3);color:var(--green)}.lane-chip.off{border-color:rgba(255,92,108,.4);color:var(--red);background:rgba(255,92,108,.06)}.lane-chip.empty{border-style:dashed;color:var(--muted)}.lane-chip small{display:block;font-size:7px;color:var(--muted);font-weight:600;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rank{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:13px;max-height:330px;overflow-y:auto}.rank-cat{font-size:11px;font-weight:800;color:var(--orange);text-transform:uppercase;letter-spacing:1px;margin:10px 0 6px}.rank-cat:first-child{margin-top:0}.rank-row{display:flex;align-items:center;gap:9px;padding:6px 0;border-bottom:1px solid var(--line)}.rank-row:last-child{border-bottom:none}.rank-pos{font-family:'Bebas Neue';font-size:18px;width:22px;text-align:center;color:var(--muted)}.rank-pos.p1{color:#FFD24A}.rank-pos.p2{color:#C8D2E0}.rank-pos.p3{color:#E0935C}.rank-name{flex:1;font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.rank-pts{font-family:var(--mono);font-size:13px;font-weight:700}.rank-pts small{color:var(--muted);font-size:9px}
+.judges{display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:8px}.judge{background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:9px 11px;display:flex;gap:9px;align-items:center}.j-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}.j-dot.on{background:var(--green);box-shadow:0 0 8px rgba(0,230,162,.6)}.j-dot.idle{background:var(--amber)}.j-dot.off{background:var(--red)}.j-info{flex:1;min-width:0}.j-name{font-size:12px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.j-meta{font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.j-act{font-size:9px;font-weight:800;padding:2px 6px;border-radius:5px;flex-shrink:0}.j-act.saisie{color:var(--green);background:rgba(0,230,162,.12)}.j-act.attente{color:var(--blue);background:rgba(77,166,255,.12)}.j-act.hs{color:var(--red);background:rgba(255,92,108,.12)}
+.feed{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:6px 13px;max-height:260px;overflow-y:auto}.fe{display:flex;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)}.fe:last-child{border-bottom:none}.fe-ic{width:26px;height:26px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;background:var(--panel2)}.fe-t{flex:1;font-size:12px;font-weight:600;color:var(--ink2)}.fe-t b{color:var(--ink);font-weight:800}.fe-time{font-size:10px;color:var(--muted);font-family:var(--mono);flex-shrink:0}
+.empty-note{color:var(--muted);font-size:12px;text-align:center;padding:14px}
+@media(max-width:860px){.split{grid-template-columns:1fr}.stats{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:680px){.zones{grid-template-columns:1fr}.stats{grid-template-columns:repeat(2,1fr)}.hdr h1{font-size:28px}.timer{font-size:32px}}
+.foot{text-align:center;font-size:10px;color:var(--muted);margin-top:18px;line-height:1.6}
+</style>
+</head>
+<body>
+<div class="hdr">
+  <div class="hdr-l"><div class="logo-badge">FOC</div><div><h1>SUPERVISEUR</h1><div class="sub">Johan · l'œil de la compèt</div></div></div>
+  <div class="hdr-r"><div class="clock" id="clock">--:--:--</div><div class="live-dot off" id="conn"><i></i> <span id="connTxt">Connexion…</span></div></div>
+</div>
+
+<div class="radar">
+  <div class="radar-hd"><div class="radar-ttl"><span>📡</span> RADAR — anomalies</div><div class="radar-count" id="radarCount">…</div></div>
+  <div class="alerts" id="alerts"></div>
+</div>
+
+<div class="section-ttl">📊 STATS VITALES</div>
+<div class="stats" id="stats"></div>
+
+<div class="section-ttl">🎯 EN DIRECT</div>
+<div class="split">
+  <div class="zones" id="zones"></div>
+  <div class="rank" id="rank"></div>
+</div>
+
+<div class="section-ttl">👁 JUGES <span class="c" id="judgesCount"></span></div>
+<div class="judges" id="judges"></div>
+
+<div class="section-ttl">⚡ FIL D'ACTIVITÉ <span class="c">· temps réel</span></div>
+<div class="feed" id="feed"></div>
+
+<div class="foot">Lecture seule depuis Firebase · radar &amp; stats calculés côté navigateur, <b>zéro écriture</b>.<br>Accès superviseur « Johan » — première mise en service, à valider en conditions réelles.</div>
+
+<script>
+firebase.initializeApp({databaseURL:FIREBASE_DB_URL});
+var db=firebase.database();
+var SRV_OFF=0; db.ref('.info/serverTimeOffset').on('value',function(s){SRV_OFF=s.val()||0;});
+function now(){return Date.now()+SRV_OFF;}
+var HEATS={},SCORES={},CATS={},WODS={},MCD=null;
+var ONLINE_MS=90000; // un juge "actif" si activité < 90s
+
+db.ref('.info/connected').on('value',function(s){
+  var on=s.val()===true,el=document.getElementById('conn');
+  el.className='live-dot '+(on?'on':'off');
+  document.getElementById('connTxt').textContent=on?'Live':'Hors-ligne';
+});
+db.ref('heats').on('value',function(s){HEATS=s.val()||{};scheduleRender();detectFeed();});
+db.ref('scores').on('value',function(s){SCORES=s.val()||{};scheduleRender();detectFeed();});
+db.ref('categories').on('value',function(s){CATS=s.val()||{};scheduleRender();});
+db.ref('wods').on('value',function(s){WODS=s.val()||{};scheduleRender();});
+db.ref('system/morningCountdown').on('value',function(s){MCD=s.val()||null;});
+
+function hZone(h){return String(h.catZone||h.zone||1);}
+function hDay(h){return parseInt(h.jour||h.day||1,10)||1;}
+function hStatus(h){return (h.status||'pending');}
+function activeDay(){
+  // jour avec au moins un heat live/timecap, sinon le plus petit jour non terminé
+  var live=null,minDay=99;
+  Object.values(HEATS).forEach(function(h){if(!h)return;var st=hStatus(h);if(st==='live'||st==='timecap')live=hDay(h);var d=hDay(h);if(st!=='done'&&d<minDay)minDay=d;});
+  return live||(minDay===99?1:minDay);
+}
+function wodOf(h){var w=h.wodInfo||(h.wodId&&WODS[h.wodId])||{};return w||{};}
+function wodCap(w){var c=parseInt(w.timecap||w.cap||w.duree||w.duration||0,10)||0;return c>0?c:(parseInt(w.minutes||0,10)*60||0);}
+function fmtClock(ts){var d=new Date(ts);return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');}
+function fmtT(s){s=Math.max(0,Math.round(s));return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');}
+
+// score d'une lane via le nœud scores (clé hid_ln) ou heats/hid/scores/ln
+function laneScore(hid,ln){
+  var k=hid+'_'+ln;
+  if(SCORES[k])return SCORES[k];
+  var h=HEATS[hid];if(h&&h.scores&&h.scores[ln])return h.scores[ln];
+  return null;
+}
+function laneTeam(h,ln){
+  if(h.lanes&&h.lanes[ln]&&h.lanes[ln].teamName)return h.lanes[ln];
+  if(h.slots){var sl=(Array.isArray(h.slots)?h.slots:Object.values(h.slots)).find(function(s){return s&&String(s.ligne)===String(ln);});if(sl)return{teamName:sl.team,jugeId:sl.jugeId,assignedJuges:sl.assignedJuges,teamAbsent:sl.teamAbsent};}
+  return null;
+}
+function laneJudgeId(L){if(!L)return null;if(L.jugeId)return L.jugeId;if(L.primaryJuge)return L.primaryJuge;if(L.assignedJuges){var a=Array.isArray(L.assignedJuges)?L.assignedJuges:Object.values(L.assignedJuges);if(a[0])return (a[0].id||a[0]);}return null;}
+function laneCount(h){var m=0;if(h.lanes)Object.keys(h.lanes).forEach(function(ln){var n=parseInt(ln,10);if(n>m)m=n;});if(h.slots){var arr=Array.isArray(h.slots)?h.slots:Object.values(h.slots);arr.forEach(function(s){if(s&&+s.ligne>m)m=+s.ligne;});}return m||6;}
+
+var _rt=null;function scheduleRender(){clearTimeout(_rt);_rt=setTimeout(renderAll,120);}
+function renderAll(){try{renderZones();renderStats();renderRadar();renderRank();renderJudges();}catch(e){console.warn(e);}}
+
+function curHeatForZone(z,day){
+  var arr=Object.keys(HEATS).map(function(id){return {id:id,h:HEATS[id]};}).filter(function(o){return o.h&&hZone(o.h)===String(z)&&hDay(o.h)===day;});
+  arr.sort(function(a,b){return (a.h.globalNum||a.h.catHeatNum||0)-(b.h.globalNum||b.h.catHeatNum||0);});
+  var live=arr.find(function(o){return hStatus(o.h)==='live';});if(live)return live;
+  var tc=arr.find(function(o){return hStatus(o.h)==='timecap';});if(tc)return tc;
+  var nx=arr.find(function(o){return hStatus(o.h)==='pending'||hStatus(o.h)==='pre';});if(nx)return nx;
+  return arr.length?arr[arr.length-1]:null;
+}
+function renderZones(){
+  var day=activeDay(),out='';
+  [1,2].forEach(function(z){
+    var o=curHeatForZone(z,day);
+    if(!o){out+='<div class="zone"><div class="zone-hd"><div class="zone-name">ZONE <span>'+z+'</span></div><div class="badge idle">—</div></div><div class="empty-note">Aucun heat</div></div>';return;}
+    var h=o.h,st=hStatus(h),w=wodOf(h),cap=wodCap(w);
+    var badge=st==='live'?'<div class="badge live">● En cours</div>':st==='timecap'?'<div class="badge trans">Timecap</div>':st==='pre'?'<div class="badge trans">Briefing</div>':'<div class="badge idle">En attente</div>';
+    var tcls='idle',tval='--:--';
+    if(st==='live'&&h.startTimestamp&&cap>0){var rem=cap-Math.floor((now()-h.startTimestamp)/1000);tcls='run';tval=fmtT(rem);}
+    else if(st==='timecap'){tcls='wait';tval='00:00';}
+    else if(cap>0){tcls='idle';tval=fmtT(cap);}
+    var nb=laneCount(h),lanes='';
+    for(var i=1;i<=nb;i++){
+      var L=laneTeam(h,i),jid=laneJudgeId(L),sc=laneScore(o.id,i);
+      var fresh=sc&&sc.ts&&(now()-sc.ts<ONLINE_MS);
+      var cls='empty',nm='—';
+      if(L&&L.teamName){
+        if(L.teamAbsent){cls='off';nm='absente';}
+        else if(!jid){cls='off';nm='⚠ sans juge';}
+        else if(st==='live'&&!fresh&&sc){cls='off';nm='⚠ silence';}
+        else if(sc&&sc.judgePrenom){cls='ok';nm=sc.judgePrenom;}
+        else{cls='ok';nm=(L.teamName||'').slice(0,7);}
+      }
+      lanes+='<div class="lane-chip '+cls+'">L'+i+'<small>'+esc(nm)+'</small></div>';
+    }
+    out+='<div class="zone"><div class="zone-hd"><div class="zone-name">ZONE <span>'+z+'</span></div>'+badge+'</div>'
+      +'<div class="zone-cat">'+esc(h.catName||h.catNom||'Catégorie')+' — Heat '+(h.catHeatNum||h.globalNum||'?')+'</div>'
+      +'<div class="zone-wod">'+esc(w.nom||w.name||'WOD')+(w.format?' · '+esc(w.format):'')+'</div>'
+      +'<div class="timer '+tcls+'">'+tval+'</div><div class="zone-lanes">'+lanes+'</div></div>';
+  });
+  document.getElementById('zones').innerHTML=out;
+}
+
+function allTeams(){var n=0;Object.values(CATS).forEach(function(c){if(c&&c.teams)n+=(Array.isArray(c.teams)?c.teams.length:Object.keys(c.teams).length);});return n;}
+function heatStats(){var day=activeDay(),done=0,total=0,live=0;Object.values(HEATS).forEach(function(h){if(!h||hDay(h)!==day)return;total++;var st=hStatus(h);if(st==='done')done++;if(st==='live')live++;});return {done:done,total:total,live:live};}
+function scoreStats(){
+  // sur heats done+timecap+live : lignes avec équipe vs scores validés
+  var day=activeDay(),expected=0,validated=0;
+  Object.keys(HEATS).forEach(function(id){var h=HEATS[id];if(!h||hDay(h)!==day)return;var st=hStatus(h);if(st!=='done'&&st!=='timecap')return;var nb=laneCount(h);for(var i=1;i<=nb;i++){var L=laneTeam(h,i);if(L&&L.teamName&&!L.teamAbsent){expected++;var sc=laneScore(id,i);if(sc&&(sc.judgeOk||sc.scoreFinal!=null||sc.finalTime>0||sc.reps!=null))validated++;}}});
+  return {expected:expected,validated:validated,missing:Math.max(0,expected-validated)};
+}
+function renderStats(){
+  var hs=heatStats(),ss=scoreStats(),pct=hs.total?Math.round(hs.done/hs.total*100):0;
+  var spct=ss.expected?Math.round(ss.validated/ss.expected*100):100;
+  document.getElementById('stats').innerHTML=
+    stat('Équipes en lice',allTeams(),Object.keys(CATS).length+' catégories','')+
+    stat('Heats',hs.done+'<small style="font-size:13px;color:var(--muted)">/'+hs.total+'</small>',pct+'% fait<div class="bar"><i style="width:'+pct+'%"></i></div>','')+
+    stat('En cours',hs.live,'heat(s) live','bl-c')+
+    stat('Scores saisis',spct+'%',ss.validated+' / '+ss.expected,'')+
+    stat('Manquants',ss.missing,ss.missing>0?'à relancer':'tout est là',ss.missing>0?'warn-c':'ok-c')+
+    stat('Heure',fmtClock(now()),'maintenant','or-c');
+}
+function stat(l,v,s,vc){return '<div class="stat"><div class="stat-l">'+l+'</div><div class="stat-v '+(vc||'')+'">'+v+'</div><div class="stat-s">'+s+'</div></div>';}
+
+function renderRadar(){
+  var day=activeDay(),al=[];
+  Object.keys(HEATS).forEach(function(id){var h=HEATS[id];if(!h||hDay(h)!==day)return;var st=hStatus(h);var nb=laneCount(h);
+    // lignes sans juge (live ou à venir proche)
+    if(st==='live'||st==='pre'||st==='pending'){for(var i=1;i<=nb;i++){var L=laneTeam(h,i);if(L&&L.teamName&&!L.teamAbsent&&!laneJudgeId(L)){al.push({lv:st==='live'?'crit':'info',ic:'🚩',t:'Ligne sans juge',d:'Zone '+hZone(h)+' · Heat '+(h.catHeatNum||h.globalNum||'?')+' · <b>Ligne '+i+'</b> a une équipe mais aucun juge.',fix:'→ Assigne un juge ou un renfort',time:st});}}}
+    if(st==='live'){
+      var started=0,silent=[];for(var j=1;j<=nb;j++){var L2=laneTeam(h,j),jid=laneJudgeId(L2),sc=laneScore(id,j);if(!(L2&&L2.teamName&&!L2.teamAbsent))continue;if(sc&&(sc.reps!=null||sc.finalTime>0||sc.scoreFinal!=null))started++;if(jid&&(!sc||!sc.ts||now()-sc.ts>ONLINE_MS))silent.push({ln:j,jn:(sc&&sc.judgePrenom)||''});}
+      var elapsed=h.startTimestamp?Math.floor((now()-h.startTimestamp)/1000):0;
+      if(elapsed>120&&started===0){al.push({lv:'warn',ic:'⏱️',t:'Heat live sans aucune saisie',d:'Zone '+hZone(h)+' · Heat '+(h.catHeatNum||h.globalNum||'?')+' tourne depuis <b>'+fmtT(elapsed)+'</b> et <b>0 ligne</b> n\'a saisi.',fix:'→ Vérifie que les juges voient le compteur',time:fmtT(elapsed)});}
+      silent.forEach(function(s){al.push({lv:'crit',ic:'⚠️',t:'Juge silencieux pendant le live',d:(s.jn?'<b>'+esc(s.jn)+'</b> ':'')+'Zone '+hZone(h)+' · L'+s.ln+' : aucune activité depuis >'+(ONLINE_MS/1000)+'s.',fix:'→ Vérifie son tel / envoie un renfort',time:'silence'});});
+    }
+  });
+  al.sort(function(a,b){var o={crit:0,warn:1,info:2};return o[a.lv]-o[b.lv];});
+  var cnt=document.getElementById('radarCount');
+  if(!al.length){document.getElementById('alerts').innerHTML='<div class="alert ok"><div class="ai">✅</div><div class="alert-body"><div class="alert-t">Tout est sous contrôle</div><div class="alert-d">Aucune anomalie détectée.</div></div></div>';cnt.textContent='RAS';cnt.style.color='var(--green)';cnt.style.background='rgba(0,230,162,.12)';return;}
+  cnt.textContent=al.length+' à surveiller';cnt.style.color='var(--red)';cnt.style.background='rgba(255,92,108,.12)';
+  document.getElementById('alerts').innerHTML=al.slice(0,8).map(function(a){return '<div class="alert '+a.lv+'"><div class="ai">'+a.ic+'</div><div class="alert-body"><div class="alert-t">'+a.t+'</div><div class="alert-d">'+a.d+'</div><div class="alert-fix">'+a.fix+'</div></div><div class="alert-time">'+a.time+'</div></div>';}).join('');
+}
+
+// CLASSEMENT LIVE (best-effort) : points CrossFit par catégorie, cumul sur WOD joués
+function cfPts(pos){var g=[100,95,90,85,80,75,70,65,60,55,50,45,40,35,30,25,20,15,10];return pos>=1&&pos<=g.length?g[pos-1]:(pos>g.length?10:0);}
+function renderRank(){
+  // collecte des scores par (catégorie, wod) → valeur comparable
+  var byCatWod={}; // cat -> wod -> [{team,v,isTime}]
+  Object.keys(HEATS).forEach(function(id){var h=HEATS[id];if(!h)return;var st=hStatus(h);if(st!=='done'&&st!=='timecap'&&st!=='live')return;
+    var cat=h.catName||h.catNom||'?';var wid=h.wodId||(wodOf(h).nom)||'wod';var w=wodOf(h);
+    var sf=String((w.scoreFinale||w.scoreType||'').toLowerCase());var isTime=(sf.indexOf('time')>=0||sf==='fortime');
+    var nb=laneCount(h);
+    for(var i=1;i<=nb;i++){var L=laneTeam(h,i);if(!(L&&L.teamName)||L.teamAbsent)continue;var sc=laneScore(id,i);if(!sc)continue;
+      var v;if(isTime)v=(sc.finalTime>0?-sc.finalTime:(sc.reps!=null?-1000000+(+sc.reps||0):-2000000));else v=(+sc.reps||+sc.scoreFinal||+sc.distance||+sc.load||0);
+      byCatWod[cat]=byCatWod[cat]||{};byCatWod[cat][wid]=byCatWod[cat][wid]||[];byCatWod[cat][wid].push({team:L.teamName,v:v});}
+  });
+  var totals={}; // cat -> team -> pts
+  Object.keys(byCatWod).forEach(function(cat){totals[cat]={};Object.keys(byCatWod[cat]).forEach(function(wid){var arr=byCatWod[cat][wid].slice().sort(function(a,b){return b.v-a.v;});arr.forEach(function(e,idx){totals[cat][e.team]=(totals[cat][e.team]||0)+cfPts(idx+1);});});});
+  var cats=Object.keys(totals).sort();
+  if(!cats.length){document.getElementById('rank').innerHTML='<div class="empty-note">Classement dès les premiers scores validés.</div>';return;}
+  var out='';
+  cats.forEach(function(cat){var teams=Object.keys(totals[cat]).map(function(t){return {t:t,p:totals[cat][t]};}).sort(function(a,b){return b.p-a.p;}).slice(0,3);if(!teams.length)return;
+    out+='<div class="rank-cat">🏆 '+esc(cat)+' · live</div>';
+    teams.forEach(function(e,i){out+='<div class="rank-row"><div class="rank-pos p'+(i+1)+'">'+(i+1)+'</div><div class="rank-name">'+esc(e.t)+'</div><div class="rank-pts">'+e.p+' <small>pts</small></div></div>';});
+  });
+  document.getElementById('rank').innerHTML=out;
+}
+
+function renderJudges(){
+  // tous les juges présents = entrées scores avec judgeName + ts récent
+  var seen={},list=[];
+  Object.keys(SCORES).forEach(function(k){var s=SCORES[k];if(!s||!s.judgeName)return;var nm=s.judgeName;var prev=seen[nm];if(!prev||(s.ts||0)>(prev.ts||0)){seen[nm]={ts:s.ts,heat:s.heat,lane:s.lane,prenom:s.judgePrenom||nm};}});
+  Object.keys(seen).forEach(function(nm){var s=seen[nm];var age=now()-(s.ts||0);var state=age<ONLINE_MS?'on':age<ONLINE_MS*4?'idle':'off';list.push({nm:s.prenom||nm,heat:s.heat,lane:s.lane,age:age,state:state});});
+  list.sort(function(a,b){var o={on:0,idle:1,off:2};return o[a.state]-o[b.state]||a.age-b.age;});
+  var on=list.filter(function(j){return j.state==='on';}).length;
+  document.getElementById('judgesCount').textContent='· '+on+' actifs / '+list.length;
+  if(!list.length){document.getElementById('judges').innerHTML='<div class="empty-note">Aucun juge connecté pour l\'instant.</div>';return;}
+  document.getElementById('judges').innerHTML=list.map(function(j){
+    var act=j.state==='off'?'<div class="j-act hs">HORS-LIGNE</div>':j.state==='idle'?'<div class="j-act attente">ATTENTE</div>':'<div class="j-act saisie">ACTIF</div>';
+    var ago=j.age<60000?Math.round(j.age/1000)+' s':Math.round(j.age/60000)+' min';
+    return '<div class="judge"><div class="j-dot '+j.state+'"></div><div class="j-info"><div class="j-name">'+esc(j.nm)+'</div><div class="j-meta">Heat '+(j.heat||'?')+'·L'+(j.lane||'?')+' · '+ago+'</div></div>'+act+'</div>';
+  }).join('');
+}
+
+// FIL D'ACTIVITÉ : diff des statuts heats + validations
+var _feedState={heat:{},score:{}},FEED=[];
+function pushFeed(ic,txt){FEED.unshift({ic:ic,txt:txt,t:now()});if(FEED.length>30)FEED.pop();renderFeed();}
+function detectFeed(){
+  Object.keys(HEATS).forEach(function(id){var h=HEATS[id];if(!h)return;var st=hStatus(h);var prev=_feedState.heat[id];if(prev&&prev!==st){if(st==='live')pushFeed('▶️','<b>Heat '+(h.catHeatNum||h.globalNum||'?')+' lancé</b> — Zone '+hZone(h));else if(st==='done')pushFeed('🏁','<b>Heat '+(h.catHeatNum||h.globalNum||'?')+' terminé</b> — Zone '+hZone(h));else if(st==='timecap')pushFeed('⏱️','Timecap — Zone '+hZone(h)+' · Heat '+(h.catHeatNum||h.globalNum||'?'));}_feedState.heat[id]=st;});
+  Object.keys(SCORES).forEach(function(k){var s=SCORES[k];if(!s)return;var ok=!!(s.judgeOk);var prev=_feedState.score[k];if(prev===false&&ok)pushFeed('✅','Score validé — <b>L'+(s.lane||'?')+'</b>'+(s.judgePrenom?' · '+esc(s.judgePrenom):''));_feedState.score[k]=ok;});
+}
+function renderFeed(){var el=document.getElementById('feed');if(!FEED.length){el.innerHTML='<div class="empty-note">En attente d\'activité…</div>';return;}el.innerHTML=FEED.map(function(f){return '<div class="fe"><div class="fe-ic">'+f.ic+'</div><div class="fe-t">'+f.txt+'</div><div class="fe-time">'+new Date(f.t).toLocaleTimeString('fr-FR')+'</div></div>';}).join('');}
+
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+function tickClock(){document.getElementById('clock').textContent=new Date(now()).toLocaleTimeString('fr-FR');var z=document.getElementById('zones');if(z&&z.querySelector('.timer.run'))renderZones();}
+setInterval(tickClock,1000);
+setInterval(function(){renderJudges();renderRadar();renderStats();},5000); // rafraîchit les états temps-écoulé
+renderFeed();
+</script>
+</body>
+</html>
