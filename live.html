@@ -2619,10 +2619,26 @@ function _coupureFirstHalf(ih){
   var mid=start+(secs*1000)/2;
   return n>=start && n<mid;           // uniquement la 1ère moitié
 }
-// Les 2 zones sont-elles en coupure ET dans la 1ère moitié ?
+// ★ FENÊTRE SPONSORS — ordre voulu : résultat → classement → SPONSORS → preview prochain heat.
+//   Les sponsors NE recouvrent PLUS le résultat ni le classement : ils sortent au MILIEU
+//   de la coupure (après ~55% = résultat ~25% + classement ~30%), et s'arrêtent assez tôt
+//   pour réserver du temps à l'affichage du prochain heat (≥10s, ~22% de la coupure).
+function _coupureSponsorWindow(ih){
+  if(!ih||!ih.active||ih.ihType!=='coupure') return false;
+  var tgt=ih.target||0, secs=parseInt(ih.seconds,10)||0, n=now();
+  if(tgt<=n) return false;                       // coupure finie
+  if(secs<=0) return tgt>n;                       // durée inconnue → sponsors tant que ça dure
+  var start=tgt-secs*1000;
+  var afterClassement=start+Math.round(secs*1000*0.55);            // après résultat + classement
+  var previewReserveMs=Math.max(10000,Math.round(secs*1000*0.22)); // temps réservé pour le prochain heat
+  var sponEnd=tgt-previewReserveMs;
+  if(sponEnd<=afterClassement) return false;      // coupure trop courte → on saute les sponsors
+  return n>=afterClassement && n<sponEnd;
+}
+// Les 2 zones sont-elles en coupure ET dans la fenêtre sponsors ?
 function _bothZonesInCoupure(){
-  var c1=_coupureFirstHalf(IH['1']);
-  var c2=_coupureFirstHalf(IH['2']);
+  var c1=_coupureSponsorWindow(IH['1']);
+  var c2=_coupureSponsorWindow(IH['2']);
   var hasZ2=Object.keys(HEATS||{}).some(function(k){var h=HEATS[k]||{};return String(h.catZone!=null?h.catZone:h.zone)==='2';});
   if(!hasZ2) return c1 || c2;
   return c1 && c2;
