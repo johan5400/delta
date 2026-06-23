@@ -416,10 +416,9 @@ body{height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-fami
 }
 
 .logo-spin{
-  animation:cdLogoSpin 3s cubic-bezier(.45,0,.55,1) infinite;
+  /* ★ Logo posé — rotation retirée, glow statique propre */
   display:inline-block;
-  transform-origin:center center;
-  transform-style:preserve-3d;
+  filter:drop-shadow(0 0 20px rgba(255,140,50,.55)) drop-shadow(0 0 50px rgba(255,90,20,.28));
 }
 
 @keyframes blk{0%,100%{opacity:1}50%{opacity:.2}}
@@ -978,8 +977,11 @@ function getZoneClockState(zone){
     var capL=wodCapSec(w2);
     var ihL=parseInt(w2.interHeat,10)||0;
     var cpL=parseInt(w2.coupureApres,10)||0;
-    var delayL=Math.max(ihL,cpL);
-    var isCoup=cpL>ihL;
+    // ★ FLUIDITÉ : aligner la détection locale sur la logique EXACTE du TK
+    //   (coupure dès coupureApres>0 ; durée = coupureApres si coupure, sinon interHeat).
+    //   Avant : isCoup=cpL>ihL et delay=max → désaccord avec l'état publié → flicker 1s.
+    var delayL=(cpL>0?cpL:ihL);
+    var isCoup=(cpL>0);
     var stL=parseInt(h.startTimestamp,10)||0;
     if(stL>0 && capL>0 && delayL>0){
       var endL=stL+capL*1000+delayL*1000;
@@ -2415,9 +2417,16 @@ function buildWodClassement(h){
     var fbCat=CLASSEMENT[catKey];
     if(fbCat&&fbCat.teams&&fbCat.teams.length){
       var fbRes=fbCat.teams.map(function(t){return{t:t.name,p:t.points,p1:t.podiums?t.podiums.p1:0};});
-      var seen={}; fbRes.forEach(function(r){seen[r.t]=true;});
-      Object.keys(allTeams).forEach(function(tn){if(!seen[tn])fbRes.push({t:tn,p:0,p1:0,nr:true});});
-      return fbRes;
+      // ★ FALLBACK 0 PTS : si le classement Firebase ne contient AUCUN point (>0),
+      //   c'est qu'il a été publié incomplet → on ne l'utilise PAS et on laisse filer
+      //   vers le recalcul local ci-dessous (évite un "0 pts" affiché sur le mur).
+      var _fbHasPts=fbRes.some(function(r){return (parseFloat(r.p)||0)>0;});
+      if(_fbHasPts){
+        var seen={}; fbRes.forEach(function(r){seen[r.t]=true;});
+        Object.keys(allTeams).forEach(function(tn){if(!seen[tn])fbRes.push({t:tn,p:0,p1:0,nr:true});});
+        return fbRes;
+      }
+      // sinon (aucun point) → on n'arrête pas ici, le calcul local prend le relais
     }
   }
   var catH=Object.keys(HEATS).filter(function(k){var hh=HEATS[k];return hh&&String(hh.catId)===catId&&(hh.status==='done'||hh.status==='timecap');});
@@ -2515,8 +2524,73 @@ function renderHeatHtml(hid,h){
   });
   return html;
 }
+// ── Classement cumulé (rangs) à partir d'une liste de heats — base des flèches de progression ──
+function _genCumulativeRanks(heatKeys){
+  var tpts={},tp1={};
+  var _cfg=[100,95,90,85,80,75,70,65,60,55,50,45,40,35,30,25,20,15,10,0];
+  var byWod={};
+  (heatKeys||[]).forEach(function(k){
+    var hh=HEATS[k]; if(!hh) return; var ww=hh.wodInfo||{};
+    var wkey=String(ww.nom||ww.id||k);
+    if(!byWod[wkey]) byWod[wkey]={teams:[]};
+    Object.keys(hh.slots||hh.lanes||{}).forEach(function(ln){
+      var l=(hh.slots||hh.lanes)[ln]; if(!l||!l.teamName)return;
+      var sc=getSc(k,hh,ln); if(!(sc.judgeOk===true||sc.judgeOk===1))return;
+      var sf2=(ww.scoreFinale||ww.scoreType||'').toLowerCase();
+      var v;
+      if(ww.judgeMode==='maxload'||sf2==='load') v=parseFloat(sc.load)||0;
+      else if(ww.judgeMode==='ergo'||sf2==='dist'||sf2==='cal') v=parseFloat(sc.ergoVal||sc.dist||sc.distance)||0;
+      else if((ww.wodFormat||'').toLowerCase()==='fortime'||sf2==='time'){
+        if(sc.finalTime>0) v=-parseInt(sc.finalTime);
+        else if(parseInt(sc.reps)>0) v=-1000000+parseInt(sc.reps);
+        else v=-2000000;
+      }
+      else v=parseInt(sc.reps)||0;
+      byWod[wkey].teams.push({t:l.teamName, v:v});
+    });
+  });
+  Object.keys(byWod).forEach(function(wkey){
+    var grp=byWod[wkey].teams;
+    grp.sort(function(a,b){return b.v-a.v;});
+    var pp=1;
+    grp.forEach(function(e,i){if(i>0&&e.v!==grp[i-1].v)pp=i+1;var pts=(pp>=1&&pp<=_cfg.length)?_cfg[pp-1]:0;tpts[e.t]=(tpts[e.t]||0)+pts;if(pp===1){tp1[e.t]=(tp1[e.t]||0)+1;}});
+  });
+  var g=Object.keys(tpts).map(function(t){return{t:t,p:tpts[t],p1:tp1[t]||0};});
+  g.sort(function(a,b){return a.p!==b.p?b.p-a.p:b.p1-a.p1;});
+  var rank={}; g.forEach(function(t,i){rank[t.t]=i+1;});
+  return rank;
+}
+// ── Flèche par équipe : compare le classement ACTUEL à celui d'AVANT le dernier WOD fait ──
+function _genArrowFn(h, gen){
+  var catId=String(h.catId||'');
+  var catH=Object.keys(HEATS).filter(function(k){var hh=HEATS[k];return hh&&String(hh.catId)===catId&&(hh.status==='done'||hh.status==='timecap');});
+  var byWodHeats={}, wodRecency={};
+  catH.forEach(function(k){
+    var hh=HEATS[k], ww=hh.wodInfo||{};
+    var wkey=String(ww.nom||ww.id||k);
+    (byWodHeats[wkey]=byWodHeats[wkey]||[]).push(k);
+    // récence du WOD = quand son heat a tourné (startTimestamp), repli sur catHeatNum
+    var n=parseInt(hh.startTimestamp,10)||parseInt(hh.catHeatNum,10)||0;
+    if(wodRecency[wkey]==null||n>wodRecency[wkey]) wodRecency[wkey]=n;
+  });
+  var wodKeys=Object.keys(byWodHeats);
+  if(wodKeys.length<2) return null; // moins de 2 WODs faits → pas de comparaison possible, pas de flèche
+  var lastWod=wodKeys[0];
+  wodKeys.forEach(function(wk){ if(wodRecency[wk]>wodRecency[lastWod]) lastWod=wk; });
+  var prevHeats=catH.filter(function(k){var ww=(HEATS[k].wodInfo||{});var wkey=String(ww.nom||ww.id||k);return wkey!==lastWod;});
+  var prevRank=_genCumulativeRanks(prevHeats);
+  var curRank={}; gen.forEach(function(t,i){curRank[t.t]=i+1;});
+  return function(team){
+    var c=curRank[team], p=prevRank[team];
+    if(p==null||c==null) return null;     // équipe pas présente avant → pas de flèche
+    if(c<p) return 'up';                   // rang plus petit = remonte
+    if(c>p) return 'down';
+    return 'same';
+  };
+}
 function renderWodHtml(h){
   var gen=buildWodClassement(h);
+  var arrowFn=null; try{ arrowFn=_genArrowFn(h,gen); }catch(e){}
   var html='<div class="gen-classement">'
     +'<div class="p-title gen-title">🏆 CLASSEMENT GÉNÉRAL</div>'
     +'<div class="p-sub gen-sub">'+esc(h.catName||'')+'</div>';
@@ -2525,7 +2599,11 @@ function renderWodHtml(h){
     var rowCls='p-row gen-row'+(i<3&&!isNR?' r'+(i+1):'');
     var op=isNR?' style="opacity:.5"':'';
     var ptsHtml=isNR?'<div class="p-pts" style="color:var(--ink3)">—</div>':'<div class="p-pts">'+t.p+' pt'+(t.p>1?'s':'')+'</div>';
-    html+='<div class="'+rowCls+'"'+op+'><div class="p-rk">'+(i+1)+'</div><div class="p-nm">'+esc(t.t)+'</div>'+ptsHtml+'</div>';
+    var arr=''; if(arrowFn && !isNR){ var _d=arrowFn(t.t);
+      if(_d==='up')        arr=' <span style="color:#22c55e;font-weight:800">▲</span>';
+      else if(_d==='down') arr=' <span style="color:#ef4444;font-weight:800">▼</span>';
+      else if(_d==='same') arr=' <span style="color:var(--ink3);font-weight:700">=</span>'; }
+    html+='<div class="'+rowCls+'"'+op+'><div class="p-rk">'+(i+1)+'</div><div class="p-nm">'+esc(t.t)+arr+'</div>'+ptsHtml+'</div>';
   });
   html+='</div>';
   return html;
