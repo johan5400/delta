@@ -532,7 +532,8 @@ function _renderZoneInner(z){
     $(z+'-cat').textContent = st.wod.catName||st.wod.cat||'—';
     var fmtStr = (st.wod.wodFormat||st.wod.fmt||'').toUpperCase();
     var cap = parseInt(st.wod.duree||st.wod.capSec||st.wod.cap||0);
-    if(cap>0 && cap<600) cap*=60;
+    // ★ FIX 190mn : duree/capSec en SECONDES — ne PAS ×60.
+    if(!(cap>0)){ var _cm=parseInt(st.wod.capMinutes||0,10)||0; if(_cm>0) cap=_cm*60; }
     $(z+'-fmt').textContent = fmtStr + (cap?' · TC '+fmtT(cap):'');
     renderMovs(z, st.wod);
   }
@@ -606,7 +607,7 @@ function _renderZoneInner(z){
   $(z+'-prog').style.width=progPct+'%';
 
   // Scores / classement complet speaker
-  var wod=st.wodInfo||{};
+  var wod=st.wod||{};  // ★ FIX : st.wodInfo n'est jamais rempli → on lit st.wod (qui contient le wodInfo)
   var jm=(wod.judgeMode||'').toLowerCase();
   var sf=(wod.scoreFinale||wod.scoreType||'').toLowerCase();
   var isForTime=(wod.wodFormat||'').toLowerCase()==='fortime'||sf==='time';
@@ -884,7 +885,8 @@ function initSpeaker(){
       var h=best.h, hid=best.hid;
       var wod=h.wodInfo||{};
       var cap=parseInt(wod.duree||wod.capSec||wod.cap||0,10)||0;
-      if(cap>0&&cap<600) cap*=60;
+      // ★ FIX 190mn : duree/capSec sont en SECONDES (comme live.html/tk9delta) — ne PAS ×60.
+      if(!(cap>0)){ var _cm=parseInt(wod.capMinutes||0,10)||0; if(_cm>0) cap=_cm*60; }
 
       // Si le heat a changé, recréer le listener scores
       var heatChanged = zState[z].hid !== hid;
