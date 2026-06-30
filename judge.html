@@ -2896,6 +2896,17 @@ function validate(ergoVal){
     }
   }
   done=true; clearInterval(timerIv); clearInterval(tbIv); dismissTB(); clearJudgePostHeatWindow(); refreshJudgeLockUI();
+  // ★ FIX AFFICHAGE EMOM : flush du DERNIER round dans l'historique.
+  //   Le chrono s'arrête sans transition après le dernier round, donc ses reps
+  //   restaient dans emomRoundReps sans jamais devenir une puce. On le pousse ici.
+  //   (sans impact sur le score, qui s'appuie sur totalReps.)
+  (function(){
+    var _fmtE=(SC&&SC.fmt||'').toLowerCase();
+    if((_fmtE==='emom'||_fmtE==='interval') && emomRoundReps>0 && emomRound>0){
+      emomRoundHistory[emomRound-1]=emomRoundReps; emomTotalReps+=emomRoundReps; emomRoundReps=0;
+      try{ updateEmomDisplay(); }catch(e){}
+    }
+  })();
   _judgeAutoChainEnabled=true;
   _judgeLastCompletedAssignment=_judgeCurrentAssignmentMeta?Object.assign({},_judgeCurrentAssignmentMeta):{
     heatId:FB_HEAT_ID,
@@ -2973,7 +2984,11 @@ function updateEmomPhase(e){
       emomRoundHistory[wasRound-1]=emomRoundReps; emomTotalReps+=emomRoundReps; emomRoundReps=0;
     }
     if((SC.fmt||'').toLowerCase()==='emom'&&newIsWork&&newRound!==wasRound){
-      emomRoundHistory[wasRound-1]=emomRoundReps; emomRoundReps=0; moveIdx=0; moveReps=0;
+      // ★ FIX AFFICHAGE EMOM : ne PLUS réécrire emomRoundHistory ici.
+      //   La branche A juste au-dessus a déjà stocké le bon total du round et
+      //   remis emomRoundReps=0 ; réécrire ici écrasait la puce par 0.
+      //   On ne garde que le reset des pointeurs de mouvement (nouveau round).
+      moveIdx=0; moveReps=0;
     }
     updateEmomDisplay();
     if(newIsWork && emomRound>1) vib([80,60,80]);
