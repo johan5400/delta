@@ -1099,8 +1099,8 @@ function normalizeFortimeScore(hid,ln,sc,h,lane,fallbackTs){
   return {sc:next,changed:changed};
 }
 function scoreObj(hid,ln){var h=HD[hid]||{}, n=(h.scores||{})[ln]||null, f=SC[hid+'_'+ln]||null; return mergeScoreRecord(n,f);}
-function scoreVal(sc,wod,hid){if(!sc)return null; var type=(wod.wodFormat||wod.type||'amrap').toLowerCase(); if(type==='fortime'){var h=hid?(HD[hid]||{}):{}; var ft=inferFortimeFinalSeconds(h,sc,wod,serverNow()); if(ft>0&&sc.judgeOk)return -ft; return -(999999-(parseInt(sc.reps)||0));} return parseInt(sc.reps)||0;}
-function scoreLabel(sc,wod,hid){var type=(wod.wodFormat||wod.type||'amrap').toLowerCase(); if(type==='fortime'){var h=hid?(HD[hid]||{}):{}; var ft=inferFortimeFinalSeconds(h,sc,wod,serverNow()); if(ft>0&&sc.judgeOk)return fmtS(ft);} return (parseInt(sc.reps)||0)+' reps';}
+function scoreVal(sc,wod,hid){if(!sc)return null; var type=(wod.wodFormat||wod.type||'amrap').toLowerCase(); var sf=(wod.scoreFinale||wod.scoreType||'').toLowerCase(), jm=(wod.judgeMode||'').toLowerCase(); if(jm==='maxload'||sf==='load') return parseFloat(sc.load)||0; if(jm==='ergo'||sf==='dist'||sf==='cal') return parseFloat(sc.dist||sc.ergoVal||sc.distance)||0; if(type==='fortime'){var h=hid?(HD[hid]||{}):{}; var ft=inferFortimeFinalSeconds(h,sc,wod,serverNow()); if(ft>0&&sc.judgeOk)return -ft; return -(999999-(parseInt(sc.reps)||0));} return parseInt(sc.reps)||0;}
+function scoreLabel(sc,wod,hid){var type=(wod.wodFormat||wod.type||'amrap').toLowerCase(); var sf=(wod.scoreFinale||wod.scoreType||'').toLowerCase(), jm=(wod.judgeMode||'').toLowerCase(); if(jm==='maxload'||sf==='load') return (parseFloat(sc.load)||0)+' kg'; if(jm==='ergo'||sf==='dist'||sf==='cal') return (parseFloat(sc.dist||sc.ergoVal||sc.distance)||0)+(sf==='cal'?' cal':(' '+(sc.ergoUnit||'m'))); if(type==='fortime'){var h=hid?(HD[hid]||{}):{}; var ft=inferFortimeFinalSeconds(h,sc,wod,serverNow()); if(ft>0&&sc.judgeOk)return fmtS(ft);} return (parseInt(sc.reps)||0)+' reps';}
 
 
 /* ── Alerte Tiebreak TK ── */
@@ -3268,7 +3268,7 @@ function renderCatRank(zone,catName){
     var jm=(wInfo.judgeMode||'').toLowerCase();
     var isTime=(wInfo.wodFormat||wInfo.type||'').toLowerCase()==='fortime'||sf==='time';
     if(jm==='maxload'||sf==='load') return parseFloat(sc.load)||0;
-    if(sf==='dist') return parseFloat(sc.dist||sc.distance)||0;
+    if(jm==='ergo'||sf==='dist'||sf==='cal') return parseFloat(sc.dist||sc.ergoVal||sc.distance)||0;
     if(isTime) return parseInt(sc.finalTime||0,10)>0 ? -parseInt(sc.finalTime,10) : 0;
     return parseInt(sc.reps||0,10)||0;
   }

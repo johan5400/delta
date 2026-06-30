@@ -11663,14 +11663,10 @@ function renderProgWodsList() {
         +   ' onclick="event.stopPropagation()" onfocus="event.stopPropagation()"'
         +   ' style="'+IS+';color:var(--purple);font-size:16px;text-align:center;letter-spacing:1px"></div>'
         + '</div>'
-        + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">'
+        + '<div style="display:grid;grid-template-columns:1fr;gap:10px;margin-bottom:10px">'
         +   '<div><label style="'+LABEL+'">Score principal</label>'
         +   '<select onchange="updateWodProg('+w.id+',\'scoreType\',this.value)" style="'+SEL+'" onclick="event.stopPropagation()">'
         +   ['reps','load','dist','time','cal','points','rounds'].map(function(v){var l={reps:'🔢 Reps',load:'🏋️ Charge (kg)',dist:'🚣 Distance (m)',time:'⏱ Temps',cal:'🔥 Calories',points:'⭐ Points',rounds:'🔄 Rounds+Reps'}[v];return'<option value="'+v+'"'+(w.scoreType===v?' selected':'')+'>'+l+'</option>';}).join('')
-        +   '</select></div>'
-        +   '<div><label style="'+LABEL+'">Score secondaire</label>'
-        +   '<select onchange="updateWodProg('+w.id+',\'scoreType2\',this.value)" style="'+SEL+'" onclick="event.stopPropagation()">'
-        +   ['none','reps','load','dist','time','cal','points','rounds'].map(function(v){var l={none:'— Aucun',reps:'🔢 Reps',load:'🏋️ Charge',dist:'🚣 Distance',time:'⏱ Temps',cal:'🔥 Calories',points:'⭐ Points',rounds:'🔄 Rounds+Reps'}[v];return'<option value="'+v+'"'+((w.scoreType2||'none')===v?' selected':'')+'>'+l+'</option>';}).join('')
         +   '</select></div>'
         + '</div>'
         + '<div style="margin-bottom:12px"><label style="'+LABEL+'">Champs scorecard</label>'
@@ -16850,8 +16846,8 @@ var _ANALYSE={cats:null};
 function _anFmtTime(s){s=parseInt(s||0,10)||0;return Math.floor(s/60)+':'+String(s%60).padStart(2,'0');}
 function _anBool(v){return v===true||v===1||v==='true'||v==='1';}
 function _anCfPts(r){var g=[100,95,90,85,80,75,70,65,60,55,50,45,40,35,30,25,20,15,10,0];return (r>=1&&r<=g.length)?g[r-1]:0;}
-function _anScoreVal(sc,w){sc=sc||{};w=w||{};var sf=(w.scoreFinale||w.scoreType||'').toLowerCase();var jm=(w.judgeMode||'').toLowerCase();var isT=(w.wodFormat||'').toLowerCase()==='fortime'||sf==='time';if(jm==='maxload'||sf==='load')return parseFloat(sc.load)||0;if(sf==='dist')return parseFloat(sc.dist||sc.distance)||0;if(isT)return parseInt(sc.finalTime||0,10)>0?-parseInt(sc.finalTime,10):0;return parseInt(sc.reps||0,10)||0;}
-function _anFmtSc(sc,w){sc=sc||{};w=w||{};var sf=(w.scoreFinale||w.scoreType||'').toLowerCase();var jm=(w.judgeMode||'').toLowerCase();var isT=(w.wodFormat||'').toLowerCase()==='fortime'||sf==='time';if(jm==='maxload'||sf==='load')return (parseFloat(sc.load)||0)+' kg';if(sf==='dist')return (parseFloat(sc.dist||sc.distance)||0)+' m';if(isT&&parseInt(sc.finalTime||0,10)>0)return _anFmtTime(sc.finalTime);if(parseInt(sc.reps||0,10)>0)return parseInt(sc.reps,10)+' reps';return '—';}
+function _anScoreVal(sc,w){sc=sc||{};w=w||{};var sf=(w.scoreFinale||w.scoreType||'').toLowerCase();var jm=(w.judgeMode||'').toLowerCase();var isT=(w.wodFormat||'').toLowerCase()==='fortime'||sf==='time';if(jm==='maxload'||sf==='load')return parseFloat(sc.load)||0;if(jm==='ergo'||sf==='dist'||sf==='cal')return parseFloat(sc.dist||sc.ergoVal||sc.distance)||0;if(isT)return parseInt(sc.finalTime||0,10)>0?-parseInt(sc.finalTime,10):0;return parseInt(sc.reps||0,10)||0;}
+function _anFmtSc(sc,w){sc=sc||{};w=w||{};var sf=(w.scoreFinale||w.scoreType||'').toLowerCase();var jm=(w.judgeMode||'').toLowerCase();var isT=(w.wodFormat||'').toLowerCase()==='fortime'||sf==='time';if(jm==='maxload'||sf==='load')return (parseFloat(sc.load)||0)+' kg';if(jm==='ergo'||sf==='dist'||sf==='cal')return (parseFloat(sc.dist||sc.ergoVal||sc.distance)||0)+(sf==='cal'?' cal':(' '+(sc.ergoUnit||'m')));if(isT&&parseInt(sc.finalTime||0,10)>0)return _anFmtTime(sc.finalTime);if(parseInt(sc.reps||0,10)>0)return parseInt(sc.reps,10)+' reps';return '—';}
 function _anHasRaw(sc){sc=sc||{};return parseInt(sc.reps||0,10)>0||parseInt(sc.finalTime||0,10)>0||parseFloat(sc.load||0)>0||parseFloat(sc.dist||sc.distance||0)>0;}
 function _anEsc(s){return (typeof escHtml==='function')?escHtml(s):String(s==null?'':s);}
 
@@ -17119,7 +17115,7 @@ async function renderClassementTK(){
       var jm=(wInfo.judgeMode||'').toLowerCase();
       var isT=(wInfo.wodFormat||'').toLowerCase()==='fortime'||sf==='time';
       if(jm==='maxload'||sf==='load') return ((parseFloat(sc.load)||0)+' kg');
-      if(sf==='dist') return ((parseFloat(sc.dist||sc.distance)||0)+' m');
+      if(jm==='ergo'||sf==='dist'||sf==='cal') return ((parseFloat(sc.dist||sc.ergoVal||sc.distance)||0)+(sf==='cal'?' cal':(' '+(sc.ergoUnit||'m'))));
       if(isT&&parseInt(sc.finalTime||0,10)>0) return fmtTime(sc.finalTime);
       if(parseInt(sc.reps||0,10)>0) return parseInt(sc.reps,10)+' reps';
       return '—';
@@ -17130,7 +17126,7 @@ async function renderClassementTK(){
       var jm=(wInfo.judgeMode||'').toLowerCase();
       var isT=(wInfo.wodFormat||'').toLowerCase()==='fortime'||sf==='time';
       if(jm==='maxload'||sf==='load') return parseFloat(sc.load)||0;
-      if(sf==='dist') return parseFloat(sc.dist||sc.distance)||0;
+      if(jm==='ergo'||sf==='dist'||sf==='cal') return parseFloat(sc.dist||sc.ergoVal||sc.distance)||0;
       if(isT) return parseInt(sc.finalTime||0,10)>0 ? -parseInt(sc.finalTime,10) : 0;
       return parseInt(sc.reps||0,10)||0;
     }
@@ -17930,7 +17926,7 @@ function renderClassementAdmin(heatsData, scoresData){
     var sf=(wodInfo.scoreFinale||wodInfo.scoreType||'').toLowerCase();
     var jm=(wodInfo.judgeMode||'').toLowerCase();
     if(jm==='maxload'||sf==='load') return (parseFloat(sc.load)||0)+' kg';
-    if(sf==='dist') return (parseFloat(sc.dist||sc.distance)||0)+' m';
+    if(jm==='ergo'||sf==='dist'||sf==='cal') return (parseFloat(sc.dist||sc.ergoVal||sc.distance)||0)+(sf==='cal'?' cal':(' '+(sc.ergoUnit||'m')));
     if(fmt==='fortime'||sf==='time'){
       if(parseInt(sc.finalTime||0,10)>0) return fmtT(sc.finalTime);
       if(sc.timeCap||sc.time_cap) return 'TC'+(parseInt(sc.reps||0,10)>0?' '+sc.reps+' reps':'');
@@ -17946,7 +17942,7 @@ function renderClassementAdmin(heatsData, scoresData){
     var sf=(wodInfo.scoreFinale||wodInfo.scoreType||'').toLowerCase();
     var jm=(wodInfo.judgeMode||'').toLowerCase();
     if(jm==='maxload'||sf==='load') return parseFloat(sc.load)||0;
-    if(sf==='dist') return parseFloat(sc.dist||sc.distance)||0;
+    if(jm==='ergo'||sf==='dist'||sf==='cal') return parseFloat(sc.dist||sc.ergoVal||sc.distance)||0;
     if(fmt==='fortime'||sf==='time') return parseInt(sc.finalTime||0,10)>0?-parseInt(sc.finalTime,10):0;
     return parseInt(sc.reps||0,10)||0;
   }
@@ -21595,7 +21591,7 @@ async function renderClassementModal(){
       var jm=(wInfo.judgeMode||'').toLowerCase();
       var isT=(wInfo.wodFormat||'').toLowerCase()==='fortime'||sf==='time';
       if(jm==='maxload'||sf==='load') return (parseFloat(sc.load)||0)+' kg';
-      if(sf==='dist') return (parseFloat(sc.dist||sc.distance)||0)+' m';
+      if(jm==='ergo'||sf==='dist'||sf==='cal') return (parseFloat(sc.dist||sc.ergoVal||sc.distance)||0)+(sf==='cal'?' cal':(' '+(sc.ergoUnit||'m')));
       if(isT&&parseInt(sc.finalTime||0,10)>0) return fmtTime(sc.finalTime);
       if(parseInt(sc.reps||0,10)>0) return parseInt(sc.reps,10)+' reps';
       return '—';
@@ -21606,7 +21602,7 @@ async function renderClassementModal(){
       var jm=(wInfo.judgeMode||'').toLowerCase();
       var isT=(wInfo.wodFormat||'').toLowerCase()==='fortime'||sf==='time';
       if(jm==='maxload'||sf==='load') return parseFloat(sc.load)||0;
-      if(sf==='dist') return parseFloat(sc.dist||sc.distance)||0;
+      if(jm==='ergo'||sf==='dist'||sf==='cal') return parseFloat(sc.dist||sc.ergoVal||sc.distance)||0;
       if(isT) return parseInt(sc.finalTime||0,10)>0?-parseInt(sc.finalTime,10):0;
       return parseInt(sc.reps||0,10)||0;
     }
