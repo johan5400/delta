@@ -158,6 +158,8 @@ body{height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-fami
 .wod-nom{font-family:var(--ff);font-size:clamp(22px,3.5vw,58px);line-height:1;letter-spacing:2px;color:#fff;text-transform:uppercase}
 .wod-cat{font-family:var(--fc);font-weight:700;font-size:clamp(11px,1.4vw,20px);letter-spacing:.8px;color:var(--ink2)}
 .mov-row{display:flex;gap:3px;flex-wrap:nowrap;overflow:hidden;margin-top:2px}
+.mov-more{background:rgba(155,93,229,.18)!important;border-color:rgba(155,93,229,.4)!important}
+.mov-more .mov-q{color:#C9A0FF!important}
 .mov{display:inline-flex;align-items:baseline;gap:4px;padding:2px 9px;border-radius:3px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);white-space:nowrap}
 .mov-q{font-family:var(--fm);font-size:clamp(15px,1.7vw,24px);font-weight:900;color:#fff}
 .mov-n{font-family:var(--ff);font-size:clamp(15px,1.7vw,24px);letter-spacing:.4px;color:var(--ink2)}
@@ -395,7 +397,7 @@ body{height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-fami
 }
 .np-team:nth-child(odd) .np-lane{color:#5BB6FF;border-color:rgba(45,156,255,.3)}
 .np-team:nth-child(even) .np-lane{color:#C9A0FF;border-color:rgba(155,93,229,.3)}
-.np-nm{font-family:var(--ff);font-size:clamp(20px,3.4vw,40px);letter-spacing:.5px;color:#F2F6FC;flex:1}
+.np-nm{font-family:var(--ff);font-size:clamp(20px,3.4vw,40px);letter-spacing:.5px;color:#F2F6FC;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .p-timer{font-family:var(--fm);font-size:13px;color:var(--ink3);text-align:center;margin-top:5px}
 
 #mcd-logo{
@@ -2982,6 +2984,70 @@ if(db){
 
 setInterval(function(){var n=new Date(),el=document.getElementById('clk');if(el)el.textContent=p2(n.getHours())+':'+p2(n.getMinutes())+':'+p2(n.getSeconds());},1000);
 setInterval(scheduleRender,5000);
+
+/* ════════════════════════════════════════════════════════════════
+   AUTO-FIT LIVE — garde le header propre quel que soit le contenu :
+   · titre de WOD trop long  → réduit la police jusqu'à tenir sur 1 ligne
+   · trop de mouvements      → réduit la police, puis masque le surplus
+                               et ajoute un badge « +N » (jamais caché en douce)
+   Idempotent + caché par clé (texte+largeur) pour zéro flicker.
+   ════════════════════════════════════════════════════════════════ */
+(function(){
+  function fitNom(el){
+    if(!el) return;
+    var hdr = el.closest ? el.closest('.wod-hdr') : el.parentElement;
+    var box = hdr || el.parentElement; if(!box) return;
+    var cat = hdr ? hdr.querySelector('.wod-cat') : null;
+    var maxW = box.clientWidth - (cat ? cat.offsetWidth + 14 : 0) - 4;
+    if(maxW <= 0) return; // pas encore mis en page
+    var key = (el.textContent||'') + '|' + maxW;
+    if(el.dataset.fitKey === key) return;
+    el.dataset.fitKey = key;
+    el.style.whiteSpace = 'nowrap';
+    el.style.fontSize = '';                 // repartir de la taille CSS (clamp)
+    var size = parseFloat(getComputedStyle(el).fontSize) || 40, g = 0;
+    while(el.scrollWidth > maxW && size > 12 && g < 80){ size -= 1; el.style.fontSize = size + 'px'; g++; }
+  }
+  function fitMov(row){
+    if(!row) return;
+    if(!('movSrc' in row.dataset)) row.dataset.movSrc = row.innerHTML; // état pristine (nœud neuf à chaque rendu)
+    var w = row.clientWidth; if(w <= 0) return;
+    var key = w + '|' + row.dataset.movSrc.length;
+    if(row.dataset.fitKey === key) return;
+    row.dataset.fitKey = key;
+    row.innerHTML = row.dataset.movSrc;     // restaurer avant de re-mesurer
+    row.style.fontSize = '';
+    var size = parseFloat(getComputedStyle(row).fontSize) || 20, g = 0;
+    while(row.scrollWidth > row.clientWidth && size > 10 && g < 60){ size -= 1; row.style.fontSize = size + 'px'; g++; }
+    if(row.scrollWidth > row.clientWidth){
+      var movs = Array.prototype.slice.call(row.querySelectorAll('.mov'));
+      var hidden = 0;
+      var more = document.createElement('div');
+      more.className = 'mov mov-more';
+      more.innerHTML = '<span class="mov-q">+0</span>';
+      row.appendChild(more);
+      for(var i = movs.length - 1; i >= 0; i--){
+        if(row.scrollWidth <= row.clientWidth) break;
+        movs[i].style.display = 'none'; hidden++;
+        more.firstChild.textContent = '+' + hidden;
+      }
+      if(hidden === 0){ more.remove(); }
+    }
+  }
+  function fitAll(){
+    var noms = document.querySelectorAll('.wod-nom'); for(var i=0;i<noms.length;i++) fitNom(noms[i]);
+    var rows = document.querySelectorAll('.mov-row'); for(var j=0;j<rows.length;j++) fitMov(rows[j]);
+  }
+  var raf = null;
+  function schedule(){ if(raf) return; raf = requestAnimationFrame(function(){ raf = null; fitAll(); }); }
+  window.addEventListener('resize', schedule);
+  try{
+    new MutationObserver(schedule).observe(document.body, {childList:true, subtree:true});
+  }catch(e){}
+  setInterval(fitAll, 1200);              // filet de sécurité
+  window.addEventListener('DOMContentLoaded', fitAll);
+  setTimeout(fitAll, 400);
+})();
 </script>
 </body>
 </html>
