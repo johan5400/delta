@@ -8747,7 +8747,10 @@ function moveCatOrder(catId, dir){
 }
 
 function deleteCat(id){
-  // suppression directe sans confirm
+  // ★ Garde-fou : confirmation avant suppression (efface aussi les heats Firebase, irréversible)
+  var _dc = CATEGORIES.find(function(c){return c.id===id;});
+  var _dcNom = _dc ? _dc.nom : '';
+  if(!confirm('Supprimer la catégorie « '+_dcNom+' » et ses heats ?\nCette action est irréversible.')) return;
   var delIdStr = String(id);
   CATEGORIES = CATEGORIES.filter(function(c){return c.id!==id;});
   if(_activeCatId===id){ var rem=CATEGORIES.slice().sort(function(a,b){return a.ordre-b.ordre;}); _activeCatId=rem.length?rem[0].id:null; }
@@ -8904,6 +8907,9 @@ function moveOrderCat(id, dir){
 function deleteTeam(catId, teamId){
   var cat = CATEGORIES.find(function(c){return c.id===catId;});
   if(!cat) return;
+  // ★ Garde-fou : confirmation avant suppression
+  var _dt = cat.teams.find(function(t){return t.id===teamId;});
+  if(!confirm('Supprimer l\'équipe « '+(_dt&&_dt.nom?_dt.nom:'')+' » ?')) return;
   cat.teams = cat.teams.filter(function(t){return t.id!==teamId;});
   renderCategories(); if(typeof autoSave==='function')autoSave();
   if(typeof generateHeats==='function')generateHeats();
@@ -11666,7 +11672,7 @@ function renderProgWodsList() {
         + '<div style="display:grid;grid-template-columns:1fr;gap:10px;margin-bottom:10px">'
         +   '<div><label style="'+LABEL+'">Score principal</label>'
         +   '<select onchange="updateWodProg('+w.id+',\'scoreType\',this.value)" style="'+SEL+'" onclick="event.stopPropagation()">'
-        +   ['reps','load','dist','time','cal','points','rounds'].map(function(v){var l={reps:'🔢 Reps',load:'🏋️ Charge (kg)',dist:'🚣 Distance (m)',time:'⏱ Temps',cal:'🔥 Calories',points:'⭐ Points',rounds:'🔄 Rounds+Reps'}[v];return'<option value="'+v+'"'+(w.scoreType===v?' selected':'')+'>'+l+'</option>';}).join('')
+        +   ['reps','load','dist','time','cal'].map(function(v){var l={reps:'🔢 Reps',load:'🏋️ Charge (kg)',dist:'🚣 Distance (m)',time:'⏱ Temps',cal:'🔥 Calories',points:'⭐ Points',rounds:'🔄 Rounds+Reps'}[v];return'<option value="'+v+'"'+(w.scoreType===v?' selected':'')+'>'+l+'</option>';}).join('')
         +   '</select></div>'
         + '</div>'
         + '<div style="margin-bottom:12px"><label style="'+LABEL+'">Champs scorecard</label>'
