@@ -6227,9 +6227,20 @@ function safeTeamName(team){
 }
 
 if(typeof fbBuildWodInfo !== 'function'){
+  // ★ TOURS PERSO : liste de mouvements EFFECTIVE (tous les tours aplatis si mode
+  //   custom, sinon wod.mouvements). Source unique pour juge/live/TK.
+  function _wodEffMovs(w){
+    if(w && w.toursMode==='custom' && Array.isArray(w.toursPerso) && w.toursPerso.length>0){
+      var out=[];
+      w.toursPerso.forEach(function(tp){ (tp&&Array.isArray(tp.mouvements)?tp.mouvements:[]).forEach(function(m){ out.push(m); }); });
+      return out;
+    }
+    return (w && (w.mouvements||w.movements)) || [];
+  }
   function fbBuildWodInfo(wod){
     if(!wod) return {};
-    var movs = wod.mouvements || wod.movements || [];
+    var _tcustom = !!(wod.toursMode==='custom' && Array.isArray(wod.toursPerso) && wod.toursPerso.length>0);
+    var movs = _wodEffMovs(wod);
     if(!Array.isArray(movs)) movs = [];
     var capMinutes = parseInt(wod.capMinutes,10);
     if(!(capMinutes>=0)){
@@ -6282,7 +6293,7 @@ if(typeof fbBuildWodInfo !== 'function'){
       tiebreakDesc: wod.tiebreakDesc||'',
       tiebreakReps: (wod.tiebreakReps!=null)?parseInt(wod.tiebreakReps):null,
       tbCfg: wod.tbCfg||{},  // ★ Nouveau format multi-TB par catégorie
-      rounds: wod.rounds||1,
+      rounds: _tcustom ? 1 : (wod.rounds||1),
       toursMode: wod.toursMode||'identical',
       pauseEntreToursActive: !!wod.pauseEntreToursActive,
       pauseEntreToursSec: parseInt(wod.pauseEntreToursSec||0)||0,
@@ -6802,7 +6813,7 @@ function syncWodsToFirebase(){
       pauseEntreToursSec: parseInt(w.pauseEntreToursSec||0,10)||0,
       scorecardRows: w.scorecardRows||'',
       scParCat: w.scParCat||{},
-      mouvements: (w.mouvements||[]).map(function(m){
+      mouvements: (_wodEffMovs(w)).map(function(m){
         return {
           nom: m.nom||'', qty: parseInt(m.qty||0,10)||0,
           type: m.type||'reps', ergoTarget: m.ergoTarget||0,
@@ -11606,7 +11617,7 @@ function renderProgWodsList() {
         + '<div style="border-top:1px solid var(--brd);padding:16px;background:#F5F8FF">'
 
         // ══ SECTION 1 : IDENTITÉ ══
-        + '<div style="font-size:9px;font-weight:900;color:var(--ink3);text-transform:uppercase;letter-spacing:2px;margin-bottom:8px">📋 Identité</div>'
+        + '<div style="font-size:11.5px;font-weight:900;color:#12395F;text-transform:uppercase;letter-spacing:1px;margin:0 0 13px;padding:8px 12px;background:linear-gradient(90deg,rgba(30,136,229,.13),rgba(30,136,229,.015));border-left:3px solid #1E88E5;border-radius:0 8px 8px 0">📋 Identité</div>'
         + '<div style="display:grid;grid-template-columns:1fr auto auto;gap:10px;margin-bottom:6px;align-items:end">'
         +   '<div><label style="'+LABEL+'">Nom du WOD</label>'
         +     '<input value="'+escHtml(w.nom||'')+'" onchange="updateWodProg('+w.id+',\'nom\',this.value)" placeholder="Ex: Chipper Ouf" style="'+IS+'" onclick="event.stopPropagation()"></div>'
@@ -11633,8 +11644,8 @@ function renderProgWodsList() {
 
 
         // ══ SECTION 2 : TIMING ══
-        + '<div style="border-top:1px dashed var(--brd2);margin-bottom:12px"></div>'
-        + '<div style="font-size:9px;font-weight:900;color:var(--ink3);text-transform:uppercase;letter-spacing:2px;margin-bottom:8px">⏱ Timing</div>'
+        + '<div style="border-top:1px solid var(--brd2);margin:24px 0 16px"></div>'
+        + '<div style="font-size:11.5px;font-weight:900;color:#12395F;text-transform:uppercase;letter-spacing:1px;margin:0 0 13px;padding:8px 12px;background:linear-gradient(90deg,rgba(30,136,229,.13),rgba(30,136,229,.015));border-left:3px solid #1E88E5;border-radius:0 8px 8px 0">⏱ Timing</div>'
         + '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px">'
         +   timingField('⏱','Durée WOD',w.id,'duree',w.duree,1,120,'#1E88E5',IS)
         +   timingField('🔁','Inter-heat',w.id,'interHeat',w.interHeat,0,30,'#7C3AED',IS)
@@ -11647,8 +11658,8 @@ function renderProgWodsList() {
           : '')
 
         // ══ SECTION 3 : FORMAT ══
-        + '<div style="border-top:1px dashed var(--brd2);margin-bottom:12px"></div>'
-        + '<div style="font-size:9px;font-weight:900;color:var(--ink3);text-transform:uppercase;letter-spacing:2px;margin-bottom:8px">📱 Format & Score</div>'
+        + '<div style="border-top:1px solid var(--brd2);margin:24px 0 16px"></div>'
+        + '<div style="font-size:11.5px;font-weight:900;color:#12395F;text-transform:uppercase;letter-spacing:1px;margin:0 0 13px;padding:8px 12px;background:linear-gradient(90deg,rgba(30,136,229,.13),rgba(30,136,229,.015));border-left:3px solid #1E88E5;border-radius:0 8px 8px 0">📱 Format & Score</div>'
         + '<div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px;margin-bottom:10px">'
         +   '<div><label style="'+LABEL+'">Format</label>'
         +   '<select onchange="updateWodFmt('+w.id+',this.value)" style="'+SEL+'" onclick="event.stopPropagation()">'
@@ -11687,8 +11698,8 @@ function renderProgWodsList() {
         + '</div></div>'
 
         // ══ SECTION 4 : TOURS & MOUVEMENTS ══
-        + '<div style="border-top:1px dashed var(--brd2);margin-bottom:12px"></div>'
-        + '<div style="font-size:9px;font-weight:900;color:var(--ink3);text-transform:uppercase;letter-spacing:2px;margin-bottom:8px">🔁 Tours & Mouvements</div>'
+        + '<div style="border-top:1px solid var(--brd2);margin:24px 0 16px"></div>'
+        + '<div style="font-size:11.5px;font-weight:900;color:#12395F;text-transform:uppercase;letter-spacing:1px;margin:0 0 13px;padding:8px 12px;background:linear-gradient(90deg,rgba(30,136,229,.13),rgba(30,136,229,.015));border-left:3px solid #1E88E5;border-radius:0 8px 8px 0">🔁 Tours & Mouvements</div>'
         + (function(){
             var IS2='background:#EBF0FA;border:1px solid var(--brd2);border-radius:7px;padding:5px 8px;font-size:13px;font-weight:800;color:var(--blue);outline:none;font-family:inherit;width:60px;box-sizing:border-box;';
             var pauseBlock = '<div style="background:#F0FDF4;border:1px solid rgba(5,150,105,.25);border-radius:8px;padding:8px 10px;margin-top:8px">'
@@ -11791,8 +11802,8 @@ function renderProgWodsList() {
                   + catHdr + movRows + '</div>';
               }).join('') + '<div style="font-size:9px;color:var(--mid);margin-top:2px">Vide = valeur globale du mouvement.</div>';
             }
-            return '<div style="border-top:1px dashed var(--brd2);margin-bottom:12px"></div>'
-              + '<div style="font-size:9px;font-weight:900;color:var(--ink3);text-transform:uppercase;letter-spacing:2px;margin-bottom:8px">\u2699\ufe0f Adaptation par cat\u00e9gorie</div>'
+            return '<div style="border-top:1px solid var(--brd2);margin:24px 0 16px"></div>'
+              + '<div style="font-size:11.5px;font-weight:900;color:#12395F;text-transform:uppercase;letter-spacing:1px;margin:0 0 13px;padding:8px 12px;background:linear-gradient(90deg,rgba(30,136,229,.13),rgba(30,136,229,.015));border-left:3px solid #1E88E5;border-radius:0 8px 8px 0">\u2699\ufe0f Adaptation par cat\u00e9gorie</div>'
               + '<div style="background:#F5F0FF;border:1px solid rgba(124,58,237,.2);border-radius:10px;padding:10px 12px;margin-bottom:10px">'
               + inner + '</div>';
           })()
@@ -17592,7 +17603,7 @@ function saveWodEdit(){
       var wodInfo={
         nom:w.nom, wodFormat:w.format, type:w.format,
         duree:(w.duree||15)*60, capSec:(w.duree||15)*60, capMinutes:w.duree,
-        mouvements:w.mouvements||[], scoreFinale:w.score,
+        mouvements:_wodEffMovs(w), scoreFinale:w.score,
         interHeat:w.interHeat||90, coupureApres:w.coupureApres||0
       };
       updates['heats/'+h.fbHeatId+'/wodInfo']=wodInfo;
@@ -18237,16 +18248,23 @@ function tbCountTotal(wod){
 
 // Récupère les mouvements adaptés à une catégorie pour un WOD donné
 function tbMovesForCat(wod, catId){
-  if(!wod || !wod.mouvements) return [];
+  if(!wod) return [];
+  var _mvs = _wodEffMovs(wod);
+  if(!_mvs.length) return [];
   var c = String(catId||'');
-  return wod.mouvements.map(function(m, i){
+  // ★ Traçage du tour de chaque mouvement (mode perso) pour un libellé clair
+  var _tourOf = [];
+  if(wod.toursMode==='custom' && Array.isArray(wod.toursPerso)){
+    wod.toursPerso.forEach(function(tp,ti){ (tp&&Array.isArray(tp.mouvements)?tp.mouvements:[]).forEach(function(){ _tourOf.push(ti+1); }); });
+  }
+  return _mvs.map(function(m, i){
     var nom = m.nom || m.name || ('Mouvement '+(i+1));
     var qty = parseInt(m.qty||m.reps||0,10)||0;
     if(c){
       if(m.nomParCat && m.nomParCat[c]!=null && m.nomParCat[c]!=='') nom = m.nomParCat[c];
       if(m.qtyParCat && m.qtyParCat[c]!=null && m.qtyParCat[c]!=='') qty = parseInt(m.qtyParCat[c],10)||qty;
     }
-    return {idx:i, nom:nom, qty:qty, type:m.type||'reps'};
+    return {idx:i, nom:nom, qty:qty, type:m.type||'reps', tour:_tourOf[i]||null};
   });
 }
 
@@ -18321,7 +18339,7 @@ function renderTbCatPanel(w, cat){
   var catIdSafe = catIdStr.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
   var hasToursPerso = (w.toursMode==='custom') && Array.isArray(w.toursPerso) && w.toursPerso.length>0;
   var maxTours = hasToursPerso ? w.toursPerso.length : (parseInt(w.rounds||1,10)||1);
-  var multiTour = hasToursPerso || maxTours>1;
+  var multiTour = (!hasToursPerso) && maxTours>1;
 
   var html = '';
 
@@ -18363,7 +18381,7 @@ function renderTbCatPanel(w, cat){
       mvSel += '<option value="">— Fin du WOD —</option>';
       moves.forEach(function(m){
         var sel = tb.moveIdx!=null && parseInt(tb.moveIdx,10)===m.idx ? ' selected' : '';
-        mvSel += '<option value="'+m.idx+'"'+sel+'>'+(m.idx+1)+' · '+escHtml(m.nom)+(m.qty>0?' ×'+m.qty:'')+'</option>';
+        mvSel += '<option value="'+m.idx+'"'+sel+'>'+(m.idx+1)+' · '+escHtml(m.nom)+(m.qty>0?' ×'+m.qty:'')+(m.tour?' — Tour '+m.tour:'')+'</option>';
       });
       mvSel += '</select>';
 
