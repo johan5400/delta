@@ -20413,9 +20413,8 @@ function lsBuildScorecardHTML(heat, slot, wod, sc, nomEv, timeStr) {
     }
     return null;
   }
-  var rows = [];
-  if (wod.mouvements && wod.mouvements.length) {
-    rows = wod.mouvements.map(function(m){
+  function _mkRows(movsArr){
+    return (movsArr||[]).map(function(m){
       var nom = _getCatVal(m.nomParCat) || m.nom || '?';
       if (m.type==='load') return 'Max Load - '+nom;
       if (m.type==='ergo') {
@@ -20431,9 +20430,21 @@ function lsBuildScorecardHTML(heat, slot, wod, sc, nomEv, timeStr) {
       var t=_getCatVal(m.timeParCat)||'';
       if(p)lbl+=' · '+p; if(t)lbl+=' · '+t; return lbl;
     });
-  } else if ((wod.scorecardRows||'').trim()) {
-    rows = wod.scorecardRows.trim().split('\n').filter(function(r){return r.trim();});
   }
+  // ★ MULTI-TOURS : repeter le bloc de mouvements pour chaque tour
+  var _scRounds = parseInt(wod.rounds||1,10) || 1;
+  var _scCustom = (wod.toursMode==='custom') && Array.isArray(wod.toursPerso) && wod.toursPerso.length>0;
+  var blocks = [];
+  if (_scCustom) {
+    wod.toursPerso.forEach(function(tp,ti){ blocks.push({label:'TOUR '+(ti+1), rows:_mkRows(tp.mouvements)}); });
+  } else if (wod.mouvements && wod.mouvements.length) {
+    var _baseRows = _mkRows(wod.mouvements);
+    if (_scRounds>1){ for(var _r=1;_r<=_scRounds;_r++) blocks.push({label:'TOUR '+_r, rows:_baseRows}); }
+    else blocks.push({label:'', rows:_baseRows});
+  } else if ((wod.scorecardRows||'').trim()) {
+    blocks.push({label:'', rows: wod.scorecardRows.trim().split('\n').filter(function(r){return r.trim();})});
+  }
+  var rows = blocks.reduce(function(a,b){return a.concat(b.rows);},[]);
 
   var wodFmt   = (wod.wodFormat||wod.type||'amrap').toLowerCase();
   var fmtLabels= {amrap:'AMRAP',fortime:'FOR TIME',emom:'EMOM',rounds:'ROUNDS',maxload:'MAX LOAD',tabata:'TABATA'};
@@ -20445,16 +20456,22 @@ function lsBuildScorecardHTML(heat, slot, wod, sc, nomEv, timeStr) {
   // \u2500\u2500 Tableau mouvements \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
   var tableHtml = '';
   if (rows.length) {
-    var cumul=0;
-    var tableRows = rows.map(function(row) {
-      var match=row.match(/^(\d+)/); var qty=match?parseInt(match[1]):0; cumul+=qty;
-      return '<tr>'
+    var tableRows = '';
+    blocks.forEach(function(blk){
+      if(blk.label){
+        tableRows += '<tr><td colspan="3" style="padding:6px 9px;font-size:9px;font-weight:900;background:'+catColor+';color:#fff;text-transform:uppercase;letter-spacing:1.5px">🔄 '+blk.label+'</td></tr>';
+      }
+      var cumul=0;
+      blk.rows.forEach(function(row) {
+        var match=row.match(/^(\d+)/); var qty=match?parseInt(match[1]):0; cumul+=qty;
+        tableRows += '<tr>'
         + '<td style="padding:5px 9px;font-size:11px;font-weight:700;border-bottom:1px solid #E2E8F0;background:#fff">'+row.trim()+'</td>'
         + '<td style="padding:5px 9px;font-size:10px;color:var(--ink2);border-bottom:1px solid #E2E8F0;text-align:right;background:#F8FAFC;white-space:nowrap">'+(qty?cumul:'')+'</td>'
         + '<td style="padding:5px 9px;border-bottom:1px solid #E2E8F0;background:#F1F5F9;min-width:64px;vertical-align:bottom">'
         +   '<div style="font-size:8px;font-weight:800;color:var(--ink2);text-transform:uppercase;letter-spacing:1px;text-align:center;padding-bottom:10px;border-bottom:1.5px solid #CBD5E1">TIME</div>'
         + '</td></tr>';
-    }).join('');
+      });
+    });
     tableRows += '<tr><td colspan="2" style="padding:4px 9px;background:#F8FAFC;border-top:2px solid #CBD5E1"></td>'
       + '<td style="padding:5px 9px;text-align:center;background:#F1F5F9;border-top:2px solid #CBD5E1"><span style="font-size:8px;font-weight:900;color:var(--ink);text-transform:uppercase;letter-spacing:1px">FINISH</span></td></tr>';
     tableHtml = '<table style="width:100%;border-collapse:collapse">'
