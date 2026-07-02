@@ -11260,6 +11260,9 @@ function updateWodFmt(id, fmt) {
   if(!w) return;
   w.wodFormat = fmt;
   w.validated = false;
+  // ★ Score auto : For Time → temps ; sinon corrige un score 'temps' devenu invalide
+  if(fmt==='fortime') w.scoreType='time';
+  else if(w.scoreType==='time') w.scoreType='reps';
   // Sync judgeMode legacy
   if(fmt==='maxload') w.judgeMode='maxload';
   else if(fmt==='open'){ w.judgeMode='movements'; w.hasTiebreak=true; w.scoreType='reps'; }
@@ -11363,7 +11366,7 @@ function renderToursPerso(w) {
     });
     html += '</div>';
   });
-  html += '<button onclick="event.stopPropagation();addTour('+w.id+')" style="width:100%;background:rgba(124,58,237,.12);color:#A78BFA;border:1px solid rgba(124,58,237,.3);border-radius:7px;padding:6px;font-size:10px;font-weight:800;cursor:pointer;font-family:inherit">+ Ajouter un tour</button>';
+  html += '<button onclick="event.stopPropagation();addTour('+w.id+')" style="width:100%;background:linear-gradient(135deg,#12395F,#1E5A8E);color:#fff;border:none;border-radius:9px;padding:10px;font-size:11.5px;font-weight:900;cursor:pointer;font-family:inherit;letter-spacing:.3px;box-shadow:0 1px 4px rgba(18,57,95,.25)">➕ Ajouter un tour</button>';
   html += '</div>';
   return html;
 }
@@ -11558,311 +11561,349 @@ function renderProgWodsList() {
   var LABEL = 'font-size:10px;font-weight:800;color:var(--ink2);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:4px';
 
   el.innerHTML = WODS.map(function(w, i) {
-    // ★ Nombre de heats RÉELLEMENT planifiés pour CE WOD précis (pas le total compèt')
-    // Z1+Z2 : les heats des deux zones tournent EN PARALLÈLE → on prend le max par zone
-    // Sinon : juste le nombre de heats de la zone du WOD
+    // ★ Nombre de heats planifiés pour CE WOD (Z1+Z2 = max par zone, parallèle)
     var nbHeats = 0;
     if(HEATS_RESULT && HEATS_RESULT.length){
       var wodHeats = HEATS_RESULT.filter(function(h){ return h.wodId === w.id; });
       if(String(w.zone||'1') === '12'){
-        // Z1 + Z2 simultané : compter le max des deux zones
         var z1 = wodHeats.filter(function(h){ return parseInt(h.catZone||1,10) === 1; }).length;
         var z2 = wodHeats.filter(function(h){ return parseInt(h.catZone||1,10) === 2; }).length;
         nbHeats = Math.max(z1, z2);
-      } else {
-        nbHeats = wodHeats.length;
-      }
+      } else { nbHeats = wodHeats.length; }
     }
-    // Calcul du bloc : (durée × nbHeats) + (interHeat × (nbHeats-1)) + coupure éventuelle
     var blocSec = null;
     if(nbHeats > 0){
       blocSec = nbHeats * (parseInt(w.duree,10)||0)
               + Math.max(0, nbHeats - 1) * (parseInt(w.interHeat,10)||0)
               + (parseInt(w.coupureApres,10)||0);
     }
-    var blocMin = blocSec; // alias conservé pour compat
     var expanded = !!_wodExpanded[w.id];
+    var acc = _wodAcc[w.id] || (_wodAcc[w.id] = {mvts:true, timing:false, textes:false});
     var jourColor = w.jour === 2 ? '#E65100' : '#1565C0';
     var jourBg    = w.jour === 2 ? '#FFF3E0' : '#E3F2FD';
     var vs = wodValidationStatus(w);
+    syncScoreFields(w);
     var validBadge = vs.ok
       ? (w.validated
           ? '<span title="WOD validé et prêt pour les juges" style="background:rgba(0,229,160,.12);border:1px solid rgba(0,229,160,.3);color:#00E5A0;border-radius:20px;padding:3px 9px;font-size:10px;font-weight:800;white-space:nowrap;flex-shrink:0">✓ VALIDÉ</span>'
           : '<span title="WOD complet, prêt à valider" style="background:rgba(77,166,255,.12);border:1px solid rgba(77,166,255,.28);color:#1E88E5;border-radius:20px;padding:3px 9px;font-size:10px;font-weight:800;white-space:nowrap;flex-shrink:0">• PRÊT</span>')
       : '<span title="'+vs.missing.join(' · ')+'" style="background:rgba(255,176,32,.10);border:1px solid rgba(255,176,32,.3);color:#FFB020;border-radius:20px;padding:3px 9px;font-size:10px;font-weight:800;white-space:nowrap;flex-shrink:0;cursor:help">⚠ '+vs.missing.length+' manque'+(vs.missing.length>1?'nt':'')+'</span>';
 
-    // ─── Compact summary chips ───
-    function fmtSec(s) {
-      s = Math.max(0, Math.round(s||0));
-      var m = Math.floor(s/60), ss = s%60;
+    function fmtSec(s2) {
+      s2 = Math.max(0, Math.round(s2||0));
+      var m = Math.floor(s2/60), ss = s2%60;
       return ss > 0 ? m + 'min' + ss + 's' : m + 'min';
     }
-    var chips = ''
-      + chip('rgba(78,159,255,.1)','#4E9FFF', '⏱ ' + fmtSec(w.duree))
-      + chip('rgba(6,214,160,.08)','#06D6A0', '🔁 ' + fmtSec(w.interHeat) + ' inter')
-      + (w.coupureApres > 0 ? chip('rgba(245,166,35,.1)','#F5A623', '✂️ ' + fmtSec(w.coupureApres) + ' pause') : '')
-      + (blocSec ? chip('rgba(167,139,250,.1)','#A78BFA', '📦 ' + fmtSec(blocSec) + ' bloc (' + nbHeats + ' heat' + (nbHeats>1?'s':'') + ')') : '');
-
     function chip(bg,col,txt){
-      return '<span style="background:'+bg+';color:'+col+';border-radius:20px;padding:3px 10px;font-size:10px;font-weight:700;white-space:nowrap">'+txt+'</span>';
+      return '<span style="background:'+bg+';color:'+col+';border-radius:20px;padding:3px 10px;font-size:10px;font-weight:800;white-space:nowrap">'+txt+'</span>';
     }
 
+    // ─── Résumé riche (carte repliée) ───
+    var _cust = (w.toursMode==='custom') && Array.isArray(w.toursPerso) && w.toursPerso.length>0;
+    var nT = _cust ? w.toursPerso.length : (parseInt(w.rounds||1,10)||1);
+    var nM = _cust ? w.toursPerso.reduce(function(a,tp){return a+((tp&&tp.mouvements)?tp.mouvements.length:0);},0) : (w.mouvements||[]).length;
+    var FMTL = {amrap:'AMRAP',fortime:'FOR TIME',open:'OPEN',rounds:'ROUNDS',emom:'EMOM',tabata:'TABATA'};
+    var SCL  = {reps:'reps',load:'kg',dist:'m',time:'temps',cal:'cal'};
+    var nTb  = tbCountTotal(w);
+    var chips = ''
+      + chip('rgba(124,58,237,.10)','#6D28D9', (FMTL[w.wodFormat||'amrap']||'AMRAP')+' '+fmtSec(w.duree))
+      + chip('rgba(78,159,255,.10)','#1D4ED8', '🔁 '+nT+' tour'+(nT>1?'s':'')+(_cust?' perso':'')+' · '+nM+' mvt'+(nM>1?'s':''))
+      + chip('rgba(6,214,160,.08)','#059669', '🏅 '+(SCL[w.scoreType]||'reps'))
+      + (nTb>0 ? chip('rgba(245,158,11,.12)','#B45309','🎯 '+nTb+' TB') : '')
+      + (blocSec ? chip('rgba(167,139,250,.1)','#7C3AED', '📦 '+fmtSec(blocSec)+' ('+nbHeats+' heat'+(nbHeats>1?'s':'')+')') : '');
+
+    // ─── Accordéon helper ───
+    function accSection(key, icon, titre, meta, inner){
+      var open = !!acc[key];
+      return '<div style="border:1px solid var(--brd2);border-radius:11px;margin-bottom:9px;overflow:hidden;background:#fff">'
+        + '<div onclick="event.stopPropagation();toggleWodAcc('+w.id+',\''+key+'\')" style="display:flex;align-items:center;gap:9px;padding:10px 13px;cursor:pointer;user-select:none;background:'+(open?'#F5F9FF':'#fff')+'">'
+        +   '<span style="font-size:11px;font-weight:900;color:#12395F;text-transform:uppercase;letter-spacing:.8px;border-left:3px solid #1E88E5;padding-left:9px;flex:1">'+icon+' '+titre+'</span>'
+        +   '<span style="font-size:9.5px;color:var(--ink2);font-weight:700">'+meta+'</span>'
+        +   '<span style="font-size:11px;color:var(--ink2);transform:rotate('+(open?'90':'0')+'deg);transition:transform .15s">▶</span>'
+        + '</div>'
+        + (open ? '<div style="padding:4px 13px 13px;border-top:1px solid var(--brd)">'+inner+'</div>' : '')
+        + '</div>';
+    }
+
+    // ═══════════ CARTE ═══════════
     return '<div id="wod-card-'+w.id+'" draggable="true"'
       + ' ondragstart="wodDragStart(event,'+w.id+')"'
       + ' ondragover="wodDragOver(event)"'
       + ' ondrop="wodDrop(event,'+w.id+')"'
-      + ' style="background:#FFFFFF;border:1.5px solid var(--brd2);border-radius:14px;overflow:hidden;transition:opacity .15s">'
+      + ' style="background:#FFFFFF;border:1.5px solid '+(expanded?'#93C5FD':'var(--brd2)')+';border-radius:14px;overflow:hidden;transition:opacity .15s'+(expanded?';box-shadow:0 2px 12px rgba(30,136,229,.13)':'')+'">'
 
-      // ── Card Header ──
-      + '<div style="display:flex;align-items:center;gap:10px;padding:11px 14px;background:#FFFFFF;cursor:pointer;user-select:none" onclick="toggleWodExpand('+w.id+')">'
+      // ── En-tête (repliée = résumé riche) ──
+      + '<div style="display:flex;align-items:center;gap:9px;padding:11px 14px;background:#FFFFFF;cursor:pointer;user-select:none;flex-wrap:wrap" onclick="toggleWodExpand('+w.id+')">'
       +   '<span style="color:#bbb;font-size:18px;cursor:grab;flex-shrink:0" title="Glisser pour réordonner">⠿</span>'
       +   '<div style="background:#1E88E5;color:#fff;border-radius:6px;padding:3px 10px;font-size:11px;font-weight:900;flex-shrink:0">WOD '+(i+1)+'</div>'
       +   '<div style="background:'+jourBg+';color:'+jourColor+';border-radius:6px;padding:3px 9px;font-size:10px;font-weight:900;flex-shrink:0">'+(w.jour===2?'J2':'J1')+'</div>'
-      +'<div style="background:'+(w.zone==='2'?'#E8F5E9':w.zone==='12'?'#F3E5F5':'#E3F2FD')+';color:'+(w.zone==='2'?'#2E7D32':w.zone==='12'?'#6A1B9A':'#1565C0')+';border-radius:6px;padding:3px 9px;font-size:10px;font-weight:900;flex-shrink:0">'+(w.zone==='2'?'Z2':w.zone==='12'?'Z1+2':'Z1')+'</div>'
+      +   '<div style="background:'+(w.zone==='2'?'#E8F5E9':w.zone==='12'?'#F3E5F5':'#E3F2FD')+';color:'+(w.zone==='2'?'#2E7D32':w.zone==='12'?'#6A1B9A':'#1565C0')+';border-radius:6px;padding:3px 9px;font-size:10px;font-weight:900;flex-shrink:0">'+(w.zone==='2'?'Z2':w.zone==='12'?'Z1+2':'Z1')+'</div>'
       +   validBadge
-      +   '<input type="text" value="'+escHtml(w.nom||'')+'" onclick="event.stopPropagation()" onchange="updateWodProg('+w.id+',\'nom\',this.value);renderProgWodsList()" placeholder="Nom du WOD" title="Cliquer pour renommer" style="flex:1;min-width:0;font-size:13px;font-weight:800;color:var(--ink);background:transparent;border:1px solid transparent;border-radius:6px;padding:4px 8px;outline:none;font-family:inherit;cursor:text" onmouseover="this.style.background=\'#F5F8FF\';this.style.borderColor=\'var(--brd)\'" onmouseout="if(document.activeElement!==this){this.style.background=\'transparent\';this.style.borderColor=\'transparent\'}" onfocus="this.style.background=\'#fff\';this.style.borderColor=\'#1E88E5\';this.select()" onblur="this.style.background=\'transparent\';this.style.borderColor=\'transparent\'">'
-      +   '<div style="display:flex;gap:5px;flex-wrap:wrap;flex:2">' + chips + '</div>'
+      +   '<input type="text" value="'+escHtml(w.nom||'')+'" onclick="event.stopPropagation()" onchange="updateWodProg('+w.id+',\'nom\',this.value);renderProgWodsList()" placeholder="Nom du WOD" title="Cliquer pour renommer" style="flex:1;min-width:110px;font-size:13px;font-weight:800;color:var(--ink);background:transparent;border:1px solid transparent;border-radius:6px;padding:4px 8px;outline:none;font-family:inherit;cursor:text" onmouseover="this.style.background=\'#F5F8FF\';this.style.borderColor=\'var(--brd)\'" onmouseout="if(document.activeElement!==this){this.style.background=\'transparent\';this.style.borderColor=\'transparent\'}" onfocus="this.style.background=\'#fff\';this.style.borderColor=\'#1E88E5\';this.select()" onblur="this.style.background=\'transparent\';this.style.borderColor=\'transparent\'">'
+      +   '<div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end;flex:2;min-width:0">'+chips+'</div>'
       +   '<div style="display:flex;gap:4px;flex-shrink:0">'
       +     (vs.ok && !w.validated
               ? '<button onclick="event.stopPropagation();validateWod('+w.id+')" style="background:#059669;border:none;color:#fff;cursor:pointer;border-radius:7px;padding:5px 10px;font-size:11px;font-weight:800" title="Valider ce WOD pour le rendre prêt côté juges">✅ Valider</button>'
               : '')
-      +     '<button onclick="event.stopPropagation();printScorecardWod('+w.id+')" style="background:#1D4ED8;border:none;color:#fff;cursor:pointer;border-radius:7px;padding:5px 10px;font-size:11px;font-weight:800" title="Imprimer scorecards de ce WOD">🖨️ Scorecard</button>'
-      +     '<button onclick="event.stopPropagation();openTbForWod('+w.id+')" style="background:'+(tbCountTotal(w)>0?'linear-gradient(135deg,#F59E0B,#FFB020)':'rgba(245,158,11,.12)')+';border:none;color:'+(tbCountTotal(w)>0?'#fff':'#92400E')+';cursor:pointer;border-radius:7px;padding:5px 10px;font-size:11px;font-weight:800;display:inline-flex;align-items:center;gap:5px" title="Configurer les tiebreaks de ce WOD">🎯 TB'+(tbCountTotal(w)>0?' <span style="background:rgba(255,255,255,.3);padding:1px 6px;border-radius:8px;font-size:10px;font-weight:900">'+tbCountTotal(w)+'</span>':'')+'</button>'
-      +     '<button onclick="event.stopPropagation();duplicateWodProg('+w.id+')" style="background:rgba(30,136,229,.1);border:none;color:#1565C0;cursor:pointer;border-radius:7px;padding:5px 9px;font-size:13px;font-weight:900" title="Dupliquer ce WOD">📋</button>'
+      +     '<button onclick="event.stopPropagation();printScorecardWod('+w.id+')" style="background:#1D4ED8;border:none;color:#fff;cursor:pointer;border-radius:7px;padding:5px 10px;font-size:11px;font-weight:800" title="Imprimer scorecards de ce WOD">🖨️</button>'
+      +     '<button onclick="event.stopPropagation();openTbForWod('+w.id+')" style="background:'+(nTb>0?'linear-gradient(135deg,#F59E0B,#FFB020)':'rgba(245,158,11,.12)')+';border:none;color:'+(nTb>0?'#fff':'#92400E')+';cursor:pointer;border-radius:7px;padding:5px 10px;font-size:11px;font-weight:800;display:inline-flex;align-items:center;gap:5px" title="Configurer les tiebreaks">🎯'+(nTb>0?' <span style="background:rgba(255,255,255,.3);padding:1px 6px;border-radius:8px;font-size:10px;font-weight:900">'+nTb+'</span>':'')+'</button>'
+      +     '<button onclick="event.stopPropagation();duplicateWodProg('+w.id+')" style="background:rgba(30,136,229,.1);border:none;color:#1565C0;cursor:pointer;border-radius:7px;padding:5px 9px;font-size:13px;font-weight:900" title="Dupliquer">📋</button>'
       +     '<button onclick="event.stopPropagation();deleteWodProg('+w.id+')" style="background:rgba(255,59,92,.08);border:none;color:#DC2626;cursor:pointer;border-radius:7px;padding:5px 9px;font-size:13px;font-weight:900" title="Supprimer">✕</button>'
       +     '<div style="background:#F1F5F9;border-radius:7px;padding:5px 9px;font-size:11px;color:var(--ink2);font-weight:700;min-width:22px;text-align:center">'+(expanded?'▲':'▼')+'</div>'
       +   '</div>'
       + '</div>'
 
-      // ── Expanded body ──
-      // ── Expanded body ──
+      // ── Corps déplié ──
       + (expanded ? ''
 
-        + '<div style="border-top:1px solid var(--brd);padding:16px;background:#F5F8FF">'
-
-        // ══ SECTION 1 : IDENTITÉ ══
-        + '<div style="font-size:11.5px;font-weight:900;color:#12395F;text-transform:uppercase;letter-spacing:1px;margin:0 0 13px;padding:8px 12px;background:linear-gradient(90deg,rgba(30,136,229,.13),rgba(30,136,229,.015));border-left:3px solid #1E88E5;border-radius:0 8px 8px 0">📋 Identité</div>'
-        + '<div style="display:grid;grid-template-columns:1fr auto auto;gap:10px;margin-bottom:6px;align-items:end">'
-        +   '<div><label style="'+LABEL+'">Nom du WOD</label>'
-        +     '<input value="'+escHtml(w.nom||'')+'" onchange="updateWodProg('+w.id+',\'nom\',this.value)" placeholder="Ex: Chipper Ouf" style="'+IS+'" onclick="event.stopPropagation()"></div>'
+        // ═ BANDEAU ESSENTIEL ═
+        + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;padding:12px 14px;background:linear-gradient(180deg,#F0F7FF,#F8FBFF);border-top:1px solid var(--brd)">'
         +   '<div><label style="'+LABEL+'">Jour</label>'
-        +     '<div style="display:flex;border:1px solid var(--brd2);border-radius:8px;overflow:hidden">'
-        +       '<button onclick="event.stopPropagation();updateWodProg('+w.id+',\'jour\',1)" style="padding:9px 16px;font-size:12px;font-weight:900;border:none;cursor:pointer;'+(w.jour===1?'background:#1E88E5;color:#fff':'background:#EBF0FA;color:var(--mid)')+'">J1</button>'
-        +       '<button onclick="event.stopPropagation();updateWodProg('+w.id+',\'jour\',2)" style="padding:9px 16px;font-size:12px;font-weight:900;border:none;cursor:pointer;'+(w.jour===2?'background:#E65100;color:#fff':'background:#EBF0FA;color:var(--mid)')+'">J2</button>'
+        +     '<div style="display:flex;border:1.5px solid #BFDBFE;border-radius:8px;overflow:hidden">'
+        +       '<button onclick="event.stopPropagation();updateWodProg('+w.id+',\'jour\',1)" style="flex:1;padding:7px 0;font-size:11px;font-weight:900;border:none;cursor:pointer;'+(w.jour===1?'background:#1E88E5;color:#fff':'background:#fff;color:var(--mid)')+'">J1</button>'
+        +       '<button onclick="event.stopPropagation();updateWodProg('+w.id+',\'jour\',2)" style="flex:1;padding:7px 0;font-size:11px;font-weight:900;border:none;cursor:pointer;'+(w.jour===2?'background:#E65100;color:#fff':'background:#fff;color:var(--mid)')+'">J2</button>'
         +     '</div></div>'
         +   '<div><label style="'+LABEL+'">Zone</label>'
-        +     '<select onchange="updateWodProg('+w.id+',\'zone\',this.value);renderZonesSynoptic()" style="'+IS+'" onclick="event.stopPropagation()">'
+        +     '<select onchange="updateWodProg('+w.id+',\'zone\',this.value);renderZonesSynoptic()" style="'+IS+';border:1.5px solid #BFDBFE;background:#fff;padding:7px 8px;font-size:11px" onclick="event.stopPropagation()">'
         +       '<option value="1"'+((!w.zone||w.zone==="1")?" selected":"")+'>🔵 Zone 1</option>'
         +       '<option value="12"'+(w.zone==="12"?" selected":"")+'>🟣 Z1+Z2</option>'
         +       '<option value="2"'+(w.zone==="2"?" selected":"")+'>🟢 Zone 2</option>'
         +     '</select></div>'
-        + '</div>'
-        + '<div style="margin-bottom:10px"><label style="'+LABEL+'">Titre court (résumé)</label>'
-        +   '<input value="'+escHtml(w.desc||'')+'" onchange="updateWodProg('+w.id+',\'desc\',this.value)" placeholder="Ex: For Time 15\'·Ergs" style="'+IS+'" onclick="event.stopPropagation()"></div>'
-        + '<div style="margin-bottom:10px"><label style="'+LABEL+'">Description complète du WOD</label>'
-        +   '<textarea rows="6" onchange="updateWodProg('+w.id+',\'descComplete\',this.value)" onclick="event.stopPropagation()" onfocus="event.stopPropagation()" placeholder="Colle ici le WOD complet\nEx: AMRAP 5\' · 12 soulevé de terre synchro · 9 épaulé · 6 épaule au-dessus" style="'+IS+';height:auto;resize:vertical;line-height:1.6;font-weight:400">'+escHtml(w.descComplete||'')+'</textarea>'
-        + '</div>'
-        + '<div style="margin-bottom:10px"><label style="'+LABEL+'">Conditions / Règles de partage</label>'
-        +   '<textarea rows="2" onchange="updateWodProg('+w.id+',\'conditions\',this.value)" onclick="event.stopPropagation()" onfocus="event.stopPropagation()" placeholder="Ex: Un seul erg en binôme, les deux autres solo." style="'+IS+';height:auto;resize:vertical;font-weight:400">'+escHtml(w.conditions||'')+'</textarea>'
-        + '</div>'
-
-
-        // ══ SECTION 2 : TIMING ══
-        + '<div style="border-top:1px solid var(--brd2);margin:24px 0 16px"></div>'
-        + '<div style="font-size:11.5px;font-weight:900;color:#12395F;text-transform:uppercase;letter-spacing:1px;margin:0 0 13px;padding:8px 12px;background:linear-gradient(90deg,rgba(30,136,229,.13),rgba(30,136,229,.015));border-left:3px solid #1E88E5;border-radius:0 8px 8px 0">⏱ Timing</div>'
-        + '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px">'
-        +   timingField('⏱','Durée WOD',w.id,'duree',w.duree,1,120,'#1E88E5',IS)
-        +   timingField('🔁','Inter-heat',w.id,'interHeat',w.interHeat,0,30,'#7C3AED',IS)
-        +   timingField('✂️','Coupure après',w.id,'coupureApres',w.coupureApres,0,180,'#E65100',IS)
-        + '</div>'
-        + (w.coupureApres>0
-          ? '<div style="margin-bottom:12px"><label style="'+LABEL+'">📋 Raison coupure</label>'
-          +   '<input value="'+escHtml(w.coupureJustif||'')+'" onchange="updateWodProg('+w.id+',\'coupureJustif\',this.value)" placeholder="Ex: Pause déjeuner · Cérémonie"'
-          +   ' style="'+IS+';background:rgba(245,166,35,.08);border-color:rgba(245,166,35,.25);color:var(--amber)" onclick="event.stopPropagation()"></div>'
-          : '')
-
-        // ══ SECTION 3 : FORMAT ══
-        + '<div style="border-top:1px solid var(--brd2);margin:24px 0 16px"></div>'
-        + '<div style="font-size:11.5px;font-weight:900;color:#12395F;text-transform:uppercase;letter-spacing:1px;margin:0 0 13px;padding:8px 12px;background:linear-gradient(90deg,rgba(30,136,229,.13),rgba(30,136,229,.015));border-left:3px solid #1E88E5;border-radius:0 8px 8px 0">📱 Format & Score</div>'
-        + '<div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px;margin-bottom:10px">'
         +   '<div><label style="'+LABEL+'">Format</label>'
-        +   '<select onchange="updateWodFmt('+w.id+',this.value)" style="'+SEL+'" onclick="event.stopPropagation()">'
-        +   [{v:'amrap',l:'⏱ AMRAP'},{v:'fortime',l:'🏁 For Time'},{v:'open',l:'🏅 Open (reps+TB)'},{v:'rounds',l:'🔄 Rounds ON/OFF'},{v:'emom',l:'📡 EMOM'},{v:'tabata',l:'💥 Tabata'}]
-              .map(function(o){return '<option value="'+o.v+'"'+((w.wodFormat||'amrap')===o.v?' selected':'')+'>'+o.l+'</option>';}).join('')
-        +   '</select></div>'
-        +   '<div><label style="'+LABEL+'">Travail (mm:ss)</label>'
-        +   '<input type="text" inputmode="numeric" pattern="[0-9:]*" placeholder="mm:ss" value="'+secToMmss(w.workMin||w.duree||600)+'"'
-        +   ' onchange="event.stopPropagation();updateWodProg('+w.id+',\'workMin\',mmssToSec(this.value))"'
-        +   ' onblur="event.stopPropagation();this.value=secToMmss(mmssToSec(this.value));updateWodProg('+w.id+',\'workMin\',mmssToSec(this.value))"'
-        +   ' onclick="event.stopPropagation()" onfocus="event.stopPropagation()"'
-        +   ' style="'+IS+';color:var(--blue);font-size:16px;text-align:center;letter-spacing:1px"></div>'
-        +   '<div style="'+(['rounds','tabata','emom'].indexOf(w.wodFormat||'amrap')>=0?'':'opacity:.35;pointer-events:none')+'">'
-        +   '<label style="'+LABEL+'">Repos (mm:ss)</label>'
-        +   '<input type="text" inputmode="numeric" pattern="[0-9:]*" placeholder="mm:ss" value="'+secToMmss(w.restMin||0)+'"'
-        +   ' onchange="event.stopPropagation();updateWodProg('+w.id+',\'restMin\',mmssToSec(this.value))"'
-        +   ' onblur="event.stopPropagation();this.value=secToMmss(mmssToSec(this.value));updateWodProg('+w.id+',\'restMin\',mmssToSec(this.value))"'
-        +   ' onclick="event.stopPropagation()" onfocus="event.stopPropagation()"'
-        +   ' style="'+IS+';color:var(--purple);font-size:16px;text-align:center;letter-spacing:1px"></div>'
-        + '</div>'
-        + '<div style="display:grid;grid-template-columns:1fr;gap:10px;margin-bottom:10px">'
-        +   '<div><label style="'+LABEL+'">Score principal</label>'
-        +   '<select onchange="updateWodProg('+w.id+',\'scoreType\',this.value)" style="'+SEL+'" onclick="event.stopPropagation()">'
-        +   ['reps','load','dist','time','cal'].map(function(v){var l={reps:'🔢 Reps',load:'🏋️ Charge (kg)',dist:'🚣 Distance (m)',time:'⏱ Temps',cal:'🔥 Calories',points:'⭐ Points',rounds:'🔄 Rounds+Reps'}[v];return'<option value="'+v+'"'+(w.scoreType===v?' selected':'')+'>'+l+'</option>';}).join('')
-        +   '</select></div>'
-        + '</div>'
-        + '<div style="margin-bottom:12px"><label style="'+LABEL+'">Champs scorecard</label>'
-        + '<div style="display:flex;flex-wrap:wrap;gap:5px">'
-        + ['reps','load','dist','time','tiebreak','notes'].map(function(f){
-            var icons={reps:'Reps',load:'Poids',dist:'Distance',time:'Temps',tiebreak:'Tiebreak',notes:'Notes'};
-            var chk=(w.scoreFields||['reps']).indexOf(f)>=0;
-            return '<label style="display:flex;align-items:center;gap:4px;background:'+(chk?'#E3F2FD':'#F5F9FF')+';border:1.5px solid '+(chk?'#1E88E5':'#d0e4ff')+';border-radius:20px;padding:4px 10px;cursor:pointer;font-size:10px;font-weight:700;color:'+(chk?'#1E88E5':'#94A3B8')+';">'
-              +'<input type="checkbox" '+(chk?'checked':'')+' onchange="toggleWodField('+w.id+',\''+f+'\',this.checked)" style="cursor:pointer;width:12px;height:12px" onclick="event.stopPropagation()">'
-              +icons[f]+'</label>';
-          }).join('')
-        + '</div></div>'
-
-        // ══ SECTION 4 : TOURS & MOUVEMENTS ══
-        + '<div style="border-top:1px solid var(--brd2);margin:24px 0 16px"></div>'
-        + '<div style="font-size:11.5px;font-weight:900;color:#12395F;text-transform:uppercase;letter-spacing:1px;margin:0 0 13px;padding:8px 12px;background:linear-gradient(90deg,rgba(30,136,229,.13),rgba(30,136,229,.015));border-left:3px solid #1E88E5;border-radius:0 8px 8px 0">🔁 Tours & Mouvements</div>'
-        + (function(){
-            var IS2='background:#EBF0FA;border:1px solid var(--brd2);border-radius:7px;padding:5px 8px;font-size:13px;font-weight:800;color:var(--blue);outline:none;font-family:inherit;width:60px;box-sizing:border-box;';
-            var pauseBlock = '<div style="background:#F0FDF4;border:1px solid rgba(5,150,105,.25);border-radius:8px;padding:8px 10px;margin-top:8px">'
-              + '<div style="display:flex;align-items:center;justify-content:space-between">'
-              + '<span style="font-size:10px;font-weight:900;color:#059669;text-transform:uppercase;letter-spacing:.4px">☕ Pause entre les tours</span>'
-              + '<label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:11px;font-weight:700;color:#059669">'
-              + '<input type="checkbox" '+(w.pauseEntreToursActive?'checked':'')+' onchange="updateWodProg('+w.id+',\'pauseEntreToursActive\',this.checked);renderProgWodsList()" onclick="event.stopPropagation()" style="cursor:pointer;width:14px;height:14px;accent-color:#059669">'
-              + (w.pauseEntreToursActive?'Oui':'Non')+'</label>'
-              + '</div>'
-              + (w.pauseEntreToursActive
-                ? '<div style="display:flex;align-items:center;gap:8px;margin-top:8px">'
-                  + '<label style="font-size:10px;font-weight:700;color:#047857;white-space:nowrap">Durée :</label>'
-                  + '<input type="text" inputmode="numeric" pattern="[0-9:]*" placeholder="mm:ss" value="'+secToMmss(w.pauseEntreToursSec||30)+'"'
-                  + ' onchange="event.stopPropagation();updateWodProg('+w.id+',\'pauseEntreToursSec\',mmssToSec(this.value))"'
-                  + ' onblur="event.stopPropagation();this.value=secToMmss(mmssToSec(this.value));updateWodProg('+w.id+',\'pauseEntreToursSec\',mmssToSec(this.value))"'
-                  + ' onclick="event.stopPropagation()" onfocus="event.stopPropagation()"'
-                  + ' style="background:#EBF0FA;border:1px solid rgba(5,150,105,.3);border-radius:7px;padding:5px 8px;font-size:14px;font-weight:900;color:#059669;width:80px;text-align:center;outline:none;font-family:inherit;letter-spacing:1px">'
-                  + '<span style="font-size:10px;color:#6A84A0;font-weight:700">mm:ss</span>'
-                  + '</div>'
-                : '')
-              + '</div>';
-            return '<div style="background:#F5F8FF;border:1px solid rgba(96,165,250,.2);border-radius:10px;padding:10px 12px;margin-bottom:10px">'
-              + '<div style="display:flex;gap:8px;margin-bottom:8px">'
-              + '<label style="display:flex;align-items:center;gap:5px;font-size:11px;font-weight:700;color:var(--blue);cursor:pointer">'
-              + '<input type="radio" name="tours_'+w.id+'" value="identical" '+( (!w.toursMode||w.toursMode==='identical')?'checked':'')+' onchange="updateWodProg('+w.id+',\'toursMode\',\'identical\')" onclick="event.stopPropagation()"> Tours identiques</label>'
-              + '<label style="display:flex;align-items:center;gap:5px;font-size:11px;font-weight:700;color:var(--purple);cursor:pointer">'
-              + '<input type="radio" name="tours_'+w.id+'" value="custom" '+(w.toursMode==='custom'?'checked':'')+' onchange="updateWodProg('+w.id+',\'toursMode\',\'custom\')" onclick="event.stopPropagation()"> Tours personnalisés</label>'
-              + '</div>'
-              + (w.toursMode==='custom'
-                ? renderToursPerso(w)
-                : '<div style="display:flex;align-items:center;gap:8px"><label style="font-size:10px;font-weight:700;color:#1E40AF">Nb de tours :</label>'
-                  + '<input type="number" min="1" max="10" value="'+(w.rounds||1)+'" onchange="updateWodProg('+w.id+',\'rounds\',parseInt(this.value)||1)" onclick="event.stopPropagation()" style="'+IS2+'">'
-                  + '</div>'
-                )
-              + pauseBlock
-              + '</div>';
-          })()
-        + '<div style="margin-bottom:10px">'
-        + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:7px">'
-        + '<label style="'+LABEL+'">Mouvements (ordre de saisie juge)</label>'
-        + '<button onclick="event.stopPropagation();addMouvement('+w.id+')" style="background:#7C3AED;color:#fff;border:none;border-radius:7px;padding:4px 12px;font-size:10px;font-weight:800;cursor:pointer;font-family:inherit">+ Ajouter</button>'
-        + '</div>'
-        + '<div id="mvts_'+w.id+'">' + renderMouvements(w) + '</div>'
+        +     '<select onchange="updateWodFmt('+w.id+',this.value)" style="'+IS+';border:1.5px solid #BFDBFE;background:#fff;padding:7px 8px;font-size:11px" onclick="event.stopPropagation()">'
+        +     [{v:'amrap',l:'⏱ AMRAP'},{v:'fortime',l:'🏁 For Time'},{v:'open',l:'🏅 Open'},{v:'rounds',l:'🔄 Rounds'},{v:'emom',l:'📡 EMOM'},{v:'tabata',l:'💥 Tabata'}]
+            .map(function(o){return '<option value="'+o.v+'"'+((w.wodFormat||'amrap')===o.v?' selected':'')+'>'+o.l+'</option>';}).join('')
+        +     '</select></div>'
+        +   '<div><label style="'+LABEL+'">Score</label>'
+        +     '<select onchange="updateWodProg('+w.id+',\'scoreType\',this.value)" style="'+IS+';border:1.5px solid #BFDBFE;background:#fff;padding:7px 8px;font-size:11px" onclick="event.stopPropagation()">'
+        +     ['reps','load','dist','time','cal'].map(function(v){var l={reps:'🔢 Reps',load:'🏋️ Charge',dist:'🚣 Distance',time:'⏱ Temps',cal:'🔥 Calories'}[v];return'<option value="'+v+'"'+(w.scoreType===v?' selected':'')+'>'+l+'</option>';}).join('')
+        +     '</select></div>'
+        +   '<div><label style="'+LABEL+'">Durée</label>'
+        +     '<input type="text" inputmode="numeric" pattern="[0-9:]*" placeholder="mm:ss" value="'+secToMmss(w.duree||600)+'"'
+        +     ' onchange="event.stopPropagation();updateWodProg('+w.id+',\'duree\',mmssToSec(this.value));renderProgWodsList()"'
+        +     ' onclick="event.stopPropagation()" onfocus="event.stopPropagation()"'
+        +     ' style="'+IS+';border:1.5px solid #BFDBFE;background:#fff;padding:7px 8px;font-size:12px;text-align:center;color:var(--blue);letter-spacing:1px"></div>'
+        +   '<div><label style="'+LABEL+'">Tours</label>'
+        +     (_cust
+              ? '<div style="border:1.5px solid #C4B5FD;background:#FAF5FF;border-radius:8px;padding:7px 8px;font-size:11px;font-weight:900;color:#6D28D9;text-align:center">'+nT+' · perso</div>'
+              : '<input type="number" min="1" max="20" value="'+(w.rounds||1)+'" onchange="updateWodProg('+w.id+',\'rounds\',parseInt(this.value)||1);renderProgWodsList()" onclick="event.stopPropagation()" style="'+IS+';border:1.5px solid #BFDBFE;background:#fff;padding:7px 8px;font-size:12px;text-align:center;font-weight:900">')
+        +   '</div>'
         + '</div>'
 
-        // ══ SECTION 5 : ADAPTATION PAR CATÉGORIE ══
-        + (function(){
-            var cats = CATEGORIES || [];
-            var movs = w.mouvements || [];
-            var INP = 'background:#EBF0FA;border:1px solid var(--brd2);border-radius:5px;padding:4px 6px;font-size:11px;font-weight:700;outline:none;font-family:inherit;text-align:center;width:100%;box-sizing:border-box;';
-            var INPM = 'background:#EBF0FA;border:1px solid var(--brd2);border-radius:5px;padding:4px 8px;font-size:11px;font-weight:800;outline:none;font-family:inherit;width:100%;box-sizing:border-box;color:var(--ink);';
-            var inner = '';
-            if(!cats.length){
-              inner = '<div style="font-size:11px;color:var(--mid);text-align:center;padding:8px">Configure tes cat\u00e9gories dans l\u2019onglet Cat\u00e9gories.</div>';
-            } else if(!movs.length){
-              inner = '<div style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:8px">'
-                + '<div style="font-size:11px;color:var(--mid);text-align:center">Aucun mouvement \u2014 ajoutes-en ci-dessus.</div>'
-                + '<button onclick="event.stopPropagation();addMouvement('+w.id+')" style="background:#7C3AED;color:#fff;border:none;border-radius:7px;padding:6px 16px;font-size:11px;font-weight:800;cursor:pointer;font-family:inherit">+ Ajouter un mouvement</button>'
-                + '</div>';
-            } else {
-              inner = cats.map(function(cat){
-                var catKey = String(cat.id || cat.nom);
-                var catHdr = '<div style="font-size:10px;font-weight:900;color:var(--ink);margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid rgba(124,58,237,.15)">'+escHtml(cat.nom||catKey)+'</div>';
-                var movRows = movs.map(function(m, mi){
-                  var isErgo = m.type==='ergo';
-                  var catQty   = (m.qtyParCat  && m.qtyParCat[catKey]  != null) ? m.qtyParCat[catKey]  : '';
-                  var catPoids = (m.poids       && m.poids[catKey])      || '';
-                  var catDist  = (m.distParCat  && m.distParCat[catKey]  != null) ? m.distParCat[catKey] : '';
-                  var catTime  = (m.timeParCat  && m.timeParCat[catKey]) || '';
-                  var catNomMov = (m.nomParCat && m.nomParCat[catKey]) || m.nom || ('Mouv '+(mi+1));
-                  var row = '<div style="margin-bottom:6px;padding:6px 8px;background:#fff;border:1px solid rgba(124,58,237,.1);border-radius:6px">'
-                    + '<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">'
-                    + '<input value="'+escHtml(catNomMov)+'" placeholder="Nom pour cette catégorie" onchange="updateMouvementCatField('+w.id+','+mi+',\''+catKey+'\',\'nomParCat\',this.value)" onclick="event.stopPropagation()" style="'+INPM+'margin-bottom:0;flex:1">'
-                    + '<button onclick="event.stopPropagation();deleteMouvement('+w.id+','+mi+')" title="Supprimer ce mouvement" style="background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.2);border-radius:6px;color:#FF4757;font-size:10px;font-weight:900;cursor:pointer;padding:6px 10px;white-space:nowrap">SUPPR</button>'
+        + '<div style="padding:12px 14px;background:#F5F8FF;border-top:1px solid var(--brd)">'
+
+        // ═ ACCORDÉON 1 : TOURS & MOUVEMENTS ═
+        + accSection('mvts','🔁','Tours & Mouvements', nM+' mvt'+(nM>1?'s':'')+' · '+nT+' tour'+(nT>1?'s':'')+(nTb>0?' · 🎯 '+nTb:''),
+            (function(){
+              var IS2='background:#EBF0FA;border:1px solid var(--brd2);border-radius:7px;padding:5px 8px;font-size:13px;font-weight:800;color:var(--blue);outline:none;font-family:inherit;width:60px;box-sizing:border-box;';
+              var pauseBlock = '<div style="background:#F0FDF4;border:1px solid rgba(5,150,105,.25);border-radius:8px;padding:8px 10px;margin-top:8px">'
+                + '<div style="display:flex;align-items:center;justify-content:space-between">'
+                + '<span style="font-size:10px;font-weight:900;color:#059669;text-transform:uppercase;letter-spacing:.4px">☕ Pause entre les tours</span>'
+                + '<label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:11px;font-weight:700;color:#059669">'
+                + '<input type="checkbox" '+(w.pauseEntreToursActive?'checked':'')+' onchange="updateWodProg('+w.id+',\'pauseEntreToursActive\',this.checked);renderProgWodsList()" onclick="event.stopPropagation()" style="cursor:pointer;width:14px;height:14px;accent-color:#059669">'
+                + (w.pauseEntreToursActive?'Oui':'Non')+'</label>'
+                + '</div>'
+                + (w.pauseEntreToursActive
+                  ? '<div style="display:flex;align-items:center;gap:8px;margin-top:8px">'
+                    + '<label style="font-size:10px;font-weight:700;color:#047857;white-space:nowrap">Durée :</label>'
+                    + '<input type="text" inputmode="numeric" pattern="[0-9:]*" placeholder="mm:ss" value="'+secToMmss(w.pauseEntreToursSec||30)+'"'
+                    + ' onchange="event.stopPropagation();updateWodProg('+w.id+',\'pauseEntreToursSec\',mmssToSec(this.value))"'
+                    + ' onblur="event.stopPropagation();this.value=secToMmss(mmssToSec(this.value));updateWodProg('+w.id+',\'pauseEntreToursSec\',mmssToSec(this.value))"'
+                    + ' onclick="event.stopPropagation()" onfocus="event.stopPropagation()"'
+                    + ' style="background:#EBF0FA;border:1px solid rgba(5,150,105,.3);border-radius:7px;padding:5px 8px;font-size:14px;font-weight:900;color:#059669;width:80px;text-align:center;outline:none;font-family:inherit;letter-spacing:1px">'
+                    + '<span style="font-size:10px;color:#6A84A0;font-weight:700">mm:ss</span>'
                     + '</div>'
-                    + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px">';
-                  if(!isErgo){
-                    row += '<div><div style="font-size:8px;color:var(--blue);font-weight:800;margin-bottom:2px">Reps</div>'
-                      + '<input type="number" min="0" placeholder="\u2014" value="'+escHtml(String(catQty))+'"'
-                      + ' onchange="updateMouvementCatField('+w.id+','+mi+',\''+catKey+'\',\'qtyParCat\',parseInt(this.value)||0)" onclick="event.stopPropagation()"'
-                      + ' style="'+INP+'color:var(--blue)"></div>';
-                  } else {
-                    row += '<div><div style="font-size:8px;color:#E65100;font-weight:800;margin-bottom:2px">Distance</div>'
-                      + '<input type="number" min="0" placeholder="\u2014" value="'+escHtml(String(catDist))+'"'
-                      + ' onchange="updateMouvementCatField('+w.id+','+mi+',\''+catKey+'\',\'distParCat\',parseInt(this.value)||0)" onclick="event.stopPropagation()"'
-                      + ' style="'+INP+'color:#E65100"></div>';
-                  }
-                  row += '<div><div style="font-size:8px;color:var(--purple);font-weight:800;margin-bottom:2px">Poids</div>'
-                    + '<input type="text" placeholder="ex: 60kg" value="'+escHtml(catPoids)+'"'
-                    + ' onchange="updateMouvementCatField('+w.id+','+mi+',\''+catKey+'\',\'poids\',this.value)" onclick="event.stopPropagation()"'
-                    + ' style="'+INP+'color:var(--purple)"></div>';
-                  row += '<div><div style="font-size:8px;color:#059669;font-weight:800;margin-bottom:2px">Temps</div>'
-                    + '<input type="text" placeholder="mm:ss" value="'+escHtml(catTime)+'"'
-                    + ' onchange="updateMouvementCatField('+w.id+','+mi+',\''+catKey+'\',\'timeParCat\',this.value)" onclick="event.stopPropagation()"'
-                    + ' style="'+INP+'color:#059669"></div>';
-                  row += '</div></div>';
-                  return row;
-                }).join('');
-                return '<div style="margin-bottom:8px;background:#FAF5FF;border:1px solid rgba(124,58,237,.15);border-radius:8px;padding:8px">'
-                  + catHdr + movRows + '</div>';
-              }).join('') + '<div style="font-size:9px;color:var(--mid);margin-top:2px">Vide = valeur globale du mouvement.</div>';
-            }
-            return '<div style="border-top:1px solid var(--brd2);margin:24px 0 16px"></div>'
-              + '<div style="font-size:11.5px;font-weight:900;color:#12395F;text-transform:uppercase;letter-spacing:1px;margin:0 0 13px;padding:8px 12px;background:linear-gradient(90deg,rgba(30,136,229,.13),rgba(30,136,229,.015));border-left:3px solid #1E88E5;border-radius:0 8px 8px 0">\u2699\ufe0f Adaptation par cat\u00e9gorie</div>'
-              + '<div style="background:#F5F0FF;border:1px solid rgba(124,58,237,.2);border-radius:10px;padding:10px 12px;margin-bottom:10px">'
-              + inner + '</div>';
-          })()
+                  : '')
+                + '</div>';
+              var modeSeg = '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:#F0F7FF;border:1px solid #BFDBFE;border-radius:9px;padding:8px 10px;margin-bottom:10px">'
+                + '<span style="font-size:9px;font-weight:900;color:var(--ink2);text-transform:uppercase;letter-spacing:.6px">Tours :</span>'
+                + '<div style="display:flex;border:1.5px solid #BFDBFE;border-radius:8px;overflow:hidden">'
+                +   '<button onclick="event.stopPropagation();updateWodProg('+w.id+',\'toursMode\',\'identical\');renderProgWodsList()" style="padding:6px 13px;font-size:10px;font-weight:800;border:none;cursor:pointer;'+((!w.toursMode||w.toursMode==='identical')?'background:#1E88E5;color:#fff':'background:#fff;color:var(--ink2)')+'">Identiques</button>'
+                +   '<button onclick="event.stopPropagation();updateWodProg('+w.id+',\'toursMode\',\'custom\');renderProgWodsList()" style="padding:6px 13px;font-size:10px;font-weight:800;border:none;cursor:pointer;'+(w.toursMode==='custom'?'background:#7C3AED;color:#fff':'background:#fff;color:var(--ink2)')+'">Personnalisés</button>'
+                + '</div>'
+                + (w.toursMode==='custom'
+                  ? '<span style="font-size:9.5px;font-weight:700;color:#6D28D9;margin-left:auto">'+nT+' tour'+(nT>1?'s':'')+' configuré'+(nT>1?'s':'')+'</span>'
+                  : '<span style="display:flex;align-items:center;gap:6px;margin-left:auto"><label style="font-size:10px;font-weight:700;color:#1E40AF">Nb de tours :</label>'
+                    + '<input type="number" min="1" max="20" value="'+(w.rounds||1)+'" onchange="updateWodProg('+w.id+',\'rounds\',parseInt(this.value)||1);renderProgWodsList()" onclick="event.stopPropagation()" style="'+IS2+'"></span>')
+                + '</div>';
+              var movsBlock = (w.toursMode==='custom')
+                ? renderToursPerso(w)
+                : '<div>'
+                  + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:7px">'
+                  + '<label style="'+LABEL+';margin-bottom:0">Mouvements (ordre de saisie juge)</label>'
+                  + '<button onclick="event.stopPropagation();addMouvement('+w.id+')" style="background:#7C3AED;color:#fff;border:none;border-radius:7px;padding:4px 12px;font-size:10px;font-weight:800;cursor:pointer;font-family:inherit">+ Ajouter</button>'
+                  + '</div>'
+                  + '<div id="mvts_'+w.id+'">' + renderMouvements(w) + '</div>'
+                  + '</div>';
+              return modeSeg + movsBlock + pauseBlock;
+            })())
 
-        // ══ SECTION 6 : TIEBREAK (résumé + lien vers nouvel onglet) ══
+        // ═ ACCORDÉON 2 : TIMING ═
+        + accSection('timing','⏱','Timing', fmtSec(w.duree)+(w.interHeat?' · inter '+fmtSec(w.interHeat):'')+(w.coupureApres>0?' · ✂️':''),
+            '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:12px;margin-top:8px">'
+            +   timingField('🔁','Inter-heat',w.id,'interHeat',w.interHeat,0,30,'#7C3AED',IS)
+            +   timingField('✂️','Coupure après',w.id,'coupureApres',w.coupureApres,0,180,'#E65100',IS)
+            + '</div>'
+            + (w.coupureApres>0
+              ? '<div style="margin-bottom:12px"><label style="'+LABEL+'">📋 Raison coupure</label>'
+              +   '<input value="'+escHtml(w.coupureJustif||'')+'" onchange="updateWodProg('+w.id+',\'coupureJustif\',this.value)" placeholder="Ex: Pause déjeuner · Cérémonie"'
+              +   ' style="'+IS+';background:rgba(245,166,35,.08);border-color:rgba(245,166,35,.25);color:var(--amber)" onclick="event.stopPropagation()"></div>'
+              : '')
+            + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
+            +   '<div style="'+(['emom','tabata'].indexOf(w.wodFormat||'amrap')>=0?'':'opacity:.35;pointer-events:none')+'"><label style="'+LABEL+'">Travail (mm:ss)</label>'
+            +   '<input type="text" inputmode="numeric" pattern="[0-9:]*" placeholder="mm:ss" value="'+secToMmss(w.workMin||w.duree||600)+'"'
+            +   ' onchange="event.stopPropagation();updateWodProg('+w.id+',\'workMin\',mmssToSec(this.value))"'
+            +   ' onblur="event.stopPropagation();this.value=secToMmss(mmssToSec(this.value));updateWodProg('+w.id+',\'workMin\',mmssToSec(this.value))"'
+            +   ' onclick="event.stopPropagation()" onfocus="event.stopPropagation()"'
+            +   ' style="'+IS+';color:var(--blue);font-size:16px;text-align:center;letter-spacing:1px"></div>'
+            +   '<div style="'+(['emom','tabata'].indexOf(w.wodFormat||'amrap')>=0?'':'opacity:.35;pointer-events:none')+'">'
+            +   '<label style="'+LABEL+'">Repos (mm:ss)</label>'
+            +   '<input type="text" inputmode="numeric" pattern="[0-9:]*" placeholder="mm:ss" value="'+secToMmss(w.restMin||0)+'"'
+            +   ' onchange="event.stopPropagation();updateWodProg('+w.id+',\'restMin\',mmssToSec(this.value))"'
+            +   ' onblur="event.stopPropagation();this.value=secToMmss(mmssToSec(this.value));updateWodProg('+w.id+',\'restMin\',mmssToSec(this.value))"'
+            +   ' onclick="event.stopPropagation()" onfocus="event.stopPropagation()"'
+            +   ' style="'+IS+';color:var(--purple);font-size:16px;text-align:center;letter-spacing:1px"></div>'
+            + '</div>')
+
+        // ═ ACCORDÉON 3 : TEXTES & OPTIONS ═
+        + accSection('textes','📝','Textes & Options', ((w.descComplete||'').trim()?'description ✓':'description —')+' · '+((w.conditions||'').trim()?'règles ✓':'règles —'),
+            '<div style="margin:8px 0 10px"><label style="'+LABEL+'">Titre court (résumé)</label>'
+            +   '<input value="'+escHtml(w.desc||'')+'" onchange="updateWodProg('+w.id+',\'desc\',this.value)" placeholder="Ex: For Time 15\u2019·Ergs" style="'+IS+'" onclick="event.stopPropagation()"></div>'
+            + '<div style="margin-bottom:10px"><label style="'+LABEL+'">Description complète du WOD</label>'
+            +   '<textarea rows="6" onchange="updateWodProg('+w.id+',\'descComplete\',this.value)" onclick="event.stopPropagation()" onfocus="event.stopPropagation()" placeholder="Colle ici le WOD complet" style="'+IS+';height:auto;resize:vertical;line-height:1.6;font-weight:400">'+escHtml(w.descComplete||'')+'</textarea></div>'
+            + '<div style="margin-bottom:10px"><label style="'+LABEL+'">Conditions / Règles de partage</label>'
+            +   '<textarea rows="2" onchange="updateWodProg('+w.id+',\'conditions\',this.value)" onclick="event.stopPropagation()" onfocus="event.stopPropagation()" placeholder="Ex: Un seul erg en binôme, les deux autres solo." style="'+IS+';height:auto;resize:vertical;font-weight:400">'+escHtml(w.conditions||'')+'</textarea></div>'
+            + '<div><label style="'+LABEL+'">Champs scorecard</label>'
+            + '<div style="display:flex;flex-wrap:wrap;gap:5px">'
+            + ['reps','load','dist','time','tiebreak','notes'].map(function(f){
+                var icons={reps:'Reps',load:'Poids',dist:'Distance',time:'Temps',tiebreak:'Tiebreak',notes:'Notes'};
+                var chk=(w.scoreFields||['reps']).indexOf(f)>=0;
+                return '<label style="display:flex;align-items:center;gap:4px;background:'+(chk?'#E3F2FD':'#F5F9FF')+';border:1.5px solid '+(chk?'#1E88E5':'#d0e4ff')+';border-radius:20px;padding:4px 10px;cursor:pointer;font-size:10px;font-weight:700;color:'+(chk?'#1E88E5':'#94A3B8')+';">'
+                  +'<input type="checkbox" '+(chk?'checked':'')+' onchange="toggleWodField('+w.id+',\''+f+'\',this.checked)" style="cursor:pointer;width:12px;height:12px" onclick="event.stopPropagation()">'
+                  +icons[f]+'</label>';
+              }).join('')
+            + '</div></div>')
+
+        // ═ PIED : 2 GROS BOUTONS ═
         + (function(){
-            var tbStyle = 'background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.25);border-radius:10px;padding:10px 12px;margin-bottom:10px';
-            var totalTb = tbCountTotal(w);
-            var summary = '';
-            if(totalTb>0 && w.tbCfg){
-              // Petit récap par cat
-              var lines = [];
-              Object.keys(w.tbCfg).forEach(function(cid){
-                var n = (w.tbCfg[cid]||[]).length;
-                if(!n) return;
-                var c = (CATEGORIES||[]).find(function(x){return String(x.id)===String(cid);});
-                lines.push('<span style="display:inline-flex;align-items:center;gap:5px;background:#fff;border:1px solid var(--brd);border-radius:5px;padding:3px 8px;margin:2px;font-size:11px;font-weight:700"><span style="width:7px;height:7px;border-radius:50%;background:'+((c&&(c.color||c.couleur))||'#9CA3AF')+'"></span>'+escHtml((c&&(c.nom||c.name))||'?')+' <span style="color:#F59E0B;font-weight:900">'+n+'</span></span>');
-              });
-              if(lines.length) summary = '<div style="margin-top:8px">'+lines.join('')+'</div>';
-            }
-            return '<div style="'+tbStyle+'">'
-              +'<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">'
-                +'<span style="font-size:10px;font-weight:900;color:var(--amber);text-transform:uppercase;letter-spacing:.4px">🎯 Tiebreaks '+(totalTb>0?'· '+totalTb+' configuré'+(totalTb>1?'s':''):'· aucun')+'</span>'
-                +'<button onclick="event.stopPropagation();openTbForWod('+w.id+')" style="background:linear-gradient(135deg,#F59E0B,#FFB020);border:none;color:#fff;cursor:pointer;border-radius:7px;padding:6px 14px;font-size:11px;font-weight:800;font-family:inherit">'+(totalTb>0?'✏️ Modifier':'➕ Configurer')+'</button>'
-              +'</div>'
-              +summary
-              +(totalTb===0?'<div style="font-size:10px;color:var(--mid);margin-top:6px">Clique sur 🎯 pour définir un tiebreak (par catégorie, plusieurs possibles si plusieurs tours).</div>':'')
-              +'</div>';
+            var nAdapt = (CATEGORIES||[]).filter(function(c){ return _catHasAdapt(w, String(c.id||c.nom)); }).length;
+            return '<div style="display:flex;gap:9px;margin-top:2px">'
+            + '<button onclick="event.stopPropagation();openTbForWod('+w.id+')" style="flex:1;border:1.5px solid #FDBA74;background:#FFF7ED;color:#B45309;border-radius:10px;padding:10px;font-size:11.5px;font-weight:900;cursor:pointer;font-family:inherit">🎯 Tiebreaks'
+            +   '<span style="display:block;font-size:8.5px;font-weight:700;margin-top:2px;opacity:.8">'+(nTb>0?nTb+' configuré'+(nTb>1?'s':''):'aucun — configurer')+'</span></button>'
+            + '<button onclick="event.stopPropagation();openAdaptPopup('+w.id+')" style="flex:1;border:1.5px solid #C7D2FE;background:#EEF2FF;color:#4338CA;border-radius:10px;padding:10px;font-size:11.5px;font-weight:900;cursor:pointer;font-family:inherit">⚙️ Adapter par catégorie'
+            +   '<span style="display:block;font-size:8.5px;font-weight:700;margin-top:2px;opacity:.8">'+(nAdapt>0?nAdapt+' catégorie'+(nAdapt>1?'s':'')+' adaptée'+(nAdapt>1?'s':'')+' ●':'aucune adaptation')+'</span></button>'
+            + '</div>';
           })()
 
-        + '</div>' // end expanded body
+        + '</div>' // fin corps
         : '')
 
-      + '</div>'; // end card
+      + '</div>'; // fin carte
   }).join('');
+}
+
+// ★ Champs scorecard auto : le champ du score principal + tiebreak (si TB configuré)
+//   sont toujours cochés. N'enlève jamais un choix manuel (union seulement).
+function syncScoreFields(w){
+  var f = w.scoreFields || (w.scoreFields = ['reps']);
+  var map = {reps:'reps', load:'load', dist:'dist', time:'time'};
+  var need = map[w.scoreType];
+  if(need && f.indexOf(need) < 0) f.push(need);
+  if(typeof tbCountTotal==='function' && tbCountTotal(w) > 0 && f.indexOf('tiebreak') < 0) f.push('tiebreak');
+}
+
+// ═══════ Accordéons de l'éditeur WOD ═══════
+var _wodAcc = {};
+function toggleWodAcc(wid, key){
+  if(!_wodAcc[wid]) _wodAcc[wid] = {mvts:true, timing:false, textes:false};
+  _wodAcc[wid][key] = !_wodAcc[wid][key];
+  renderProgWodsList();
+}
+
+// ═══════ Popup Adaptation par catégorie ═══════
+function _catHasAdapt(w, catKey){
+  var movs = w.mouvements || [];
+  for(var i=0;i<movs.length;i++){
+    var m = movs[i];
+    if(m.qtyParCat  && m.qtyParCat[catKey]  != null && m.qtyParCat[catKey]  !== '') return true;
+    if(m.distParCat && m.distParCat[catKey] != null && m.distParCat[catKey] !== '') return true;
+    if(m.nomParCat  && m.nomParCat[catKey]) return true;
+    if(m.timeParCat && m.timeParCat[catKey]) return true;
+    if(m.poids && typeof m.poids==='object' && m.poids[catKey]) return true;
+  }
+  return false;
+}
+var _adaptWodId = null, _adaptCatKey = null;
+function openAdaptPopup(wid){
+  _adaptWodId = wid;
+  var cats = CATEGORIES || [];
+  if(!cats.length){ toast('Configure d\u2019abord tes cat\u00e9gories dans l\u2019onglet Cat\u00e9gories'); return; }
+  if(!_adaptCatKey || !cats.some(function(c){return String(c.id||c.nom)===_adaptCatKey;})) _adaptCatKey = String(cats[0].id||cats[0].nom);
+  renderAdaptPopup();
+}
+function closeAdaptPopup(){
+  var el = document.getElementById('adapt-pop');
+  if(el) el.remove();
+  _adaptWodId = null;
+  renderProgWodsList(); // rafraîchit le compteur "catégories adaptées"
+}
+function adaptSelCatKey(k){ _adaptCatKey = String(k); renderAdaptPopup(); }
+function renderAdaptPopup(){
+  var w = WODS.find(function(x){return x.id===_adaptWodId;});
+  if(!w) return;
+  var cats = CATEGORIES || [];
+  var movs = w.mouvements || [];
+  var INP = 'background:#F8FAFC;border:1px solid var(--brd2);border-radius:6px;padding:5px 6px;font-size:11px;font-weight:700;outline:none;font-family:inherit;text-align:center;width:100%;box-sizing:border-box;';
+  var chips = cats.map(function(c){
+    var k = String(c.id||c.nom);
+    var on = k===_adaptCatKey;
+    var dot = _catHasAdapt(w,k) ? '<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#16A34A;margin-left:5px;vertical-align:1px"></span>' : '';
+    return '<span onclick="adaptSelCatKey(\''+k.replace(/'/g,"\\'")+'\')" style="font-size:10px;font-weight:800;padding:6px 11px;border-radius:20px;cursor:pointer;border:1.5px solid '+(on?'#1E88E5':'var(--brd2)')+';background:'+(on?'#E0F0FE':'#fff')+';color:'+(on?'#12395F':'var(--ink2)')+'">'+escHtml(c.nom||k)+dot+'</span>';
+  }).join('');
+  var body;
+  if(!movs.length){
+    body = '<div style="font-size:11px;color:var(--mid);text-align:center;padding:14px">Aucun mouvement dans la liste \u2014 ajoute des mouvements d\u2019abord.'
+      + (w.toursMode==='custom' ? '<br><span style="font-size:10px">En tours personnalis\u00e9s, adapte reps/charges directement dans chaque tour.</span>' : '') + '</div>';
+  } else {
+    var k = _adaptCatKey;
+    body = '<div style="display:grid;grid-template-columns:1fr 64px 72px 64px;gap:6px;font-size:8px;font-weight:900;color:var(--ink2);text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px"><span>Mouvement</span><span style="text-align:center">Reps/Dist</span><span style="text-align:center">Poids</span><span style="text-align:center">Temps</span></div>'
+    + movs.map(function(m, mi){
+      var isErgo = m.type==='ergo';
+      var catQty   = (m.qtyParCat  && m.qtyParCat[k]  != null) ? m.qtyParCat[k]  : '';
+      var catDist  = (m.distParCat && m.distParCat[k] != null) ? m.distParCat[k] : '';
+      var catPoids = (m.poids && typeof m.poids==='object' && m.poids[k]) || '';
+      var catTime  = (m.timeParCat && m.timeParCat[k]) || '';
+      var catNom   = (m.nomParCat && m.nomParCat[k]) || '';
+      var global   = isErgo ? (m.ergoTarget||'') : (m.qty||0);
+      var q1 = isErgo
+        ? '<input type="number" min="0" placeholder="'+escHtml(String(global))+'" value="'+escHtml(String(catDist))+'" onchange="updateMouvementCatField('+w.id+','+mi+',\''+k.replace(/'/g,"\\'")+'\',\'distParCat\',parseInt(this.value)||0);renderAdaptPopup()" style="'+INP+'color:#E65100">'
+        : '<input type="number" min="0" placeholder="'+escHtml(String(global))+'" value="'+escHtml(String(catQty))+'" onchange="updateMouvementCatField('+w.id+','+mi+',\''+k.replace(/'/g,"\\'")+'\',\'qtyParCat\',parseInt(this.value)||0);renderAdaptPopup()" style="'+INP+'color:var(--blue)'+(catQty!==''?';border-color:#86EFAC;background:#F0FDF4':'')+'">';
+      return '<div style="display:grid;grid-template-columns:1fr 64px 72px 64px;gap:6px;align-items:center;margin-bottom:6px">'
+        + '<input type="text" placeholder="'+escHtml(m.nom||('Mouv '+(mi+1)))+' ('+global+(isErgo?(m.ergoUnit||'m'):'')+')" value="'+escHtml(catNom)+'" title="Nom pour cette cat\u00e9gorie (vide = nom global)" onchange="updateMouvementCatField('+w.id+','+mi+',\''+k.replace(/'/g,"\\'")+'\',\'nomParCat\',this.value);renderAdaptPopup()" style="'+INP+'text-align:left;font-weight:800'+(catNom?';border-color:#86EFAC;background:#F0FDF4':'')+'">'
+        + q1
+        + '<input type="text" placeholder="\u2014" value="'+escHtml(catPoids)+'" onchange="updateMouvementCatField('+w.id+','+mi+',\''+k.replace(/'/g,"\\'")+'\',\'poids\',this.value);renderAdaptPopup()" style="'+INP+'color:var(--purple)'+(catPoids?';border-color:#86EFAC;background:#F0FDF4':'')+'">'
+        + '<input type="text" placeholder="\u2014" value="'+escHtml(catTime)+'" onchange="updateMouvementCatField('+w.id+','+mi+',\''+k.replace(/'/g,"\\'")+'\',\'timeParCat\',this.value);renderAdaptPopup()" style="'+INP+'color:#059669'+(catTime?';border-color:#86EFAC;background:#F0FDF4':'')+'">'
+        + '</div>';
+    }).join('')
+    + '<div style="font-size:9px;color:var(--mid);margin-top:4px">Vide = valeur globale du mouvement. Champs verts = surcharg\u00e9s pour cette cat\u00e9gorie.</div>';
+  }
+  var html = '<div id="adapt-pop" onclick="if(event.target===this)closeAdaptPopup()" style="position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:9000;padding:18px;overflow:auto;display:flex;align-items:flex-start;justify-content:center">'
+    + '<div style="background:#fff;border-radius:14px;max-width:620px;width:100%;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.35);margin-top:24px" onclick="event.stopPropagation()">'
+    +   '<div style="display:flex;align-items:center;justify-content:space-between;padding:13px 16px;background:#12395F;color:#fff">'
+    +     '<div><div style="font-size:13px;font-weight:900">\u2699\ufe0f Adaptation par cat\u00e9gorie</div>'
+    +     '<div style="font-size:9px;font-weight:600;opacity:.75;margin-top:1px">'+escHtml(w.nom||'WOD')+' \u00b7 vide = valeur globale du mouvement</div></div>'
+    +     '<div onclick="closeAdaptPopup()" style="font-size:16px;cursor:pointer;background:rgba(255,255,255,.14);border-radius:7px;width:28px;height:28px;display:flex;align-items:center;justify-content:center">\u2715</div>'
+    +   '</div>'
+    +   '<div style="display:flex;gap:6px;padding:11px 14px;background:#F8FAFC;border-bottom:1px solid var(--brd);flex-wrap:wrap">'+chips+'</div>'
+    +   '<div style="padding:13px 16px;max-height:56vh;overflow:auto">'+body+'</div>'
+    +   '<div style="display:flex;justify-content:space-between;align-items:center;padding:11px 16px;border-top:1px solid var(--brd);background:#F8FAFC">'
+    +     '<span style="font-size:9.5px;color:var(--ink2)">\u25cf = cat\u00e9gorie avec au moins une surcharge</span>'
+    +     '<span onclick="closeAdaptPopup()" style="font-size:11px;font-weight:800;background:#1E88E5;color:#fff;border-radius:8px;padding:8px 18px;cursor:pointer">Fermer</span>'
+    +   '</div>'
+    + '</div></div>';
+  var old = document.getElementById('adapt-pop');
+  if(old) old.remove();
+  document.body.insertAdjacentHTML('beforeend', html);
 }
 
 
