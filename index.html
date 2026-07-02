@@ -6294,6 +6294,7 @@ if(typeof fbBuildWodInfo !== 'function'){
       tiebreakReps: (wod.tiebreakReps!=null)?parseInt(wod.tiebreakReps):null,
       tbCfg: wod.tbCfg||{},  // ★ Nouveau format multi-TB par catégorie
       rounds: _tcustom ? 1 : (wod.rounds||1),
+      toursCount: _tcustom ? wod.toursPerso.length : (parseInt(wod.rounds||1,10)||1),
       toursMode: wod.toursMode||'identical',
       pauseEntreToursActive: !!wod.pauseEntreToursActive,
       pauseEntreToursSec: parseInt(wod.pauseEntreToursSec||0)||0,
@@ -11129,7 +11130,23 @@ function lsRefreshScorecardIfVisible(wid) {
 }
 
 function buildScPreviewFromMovs(wod, catKey, catColor) {
-  var movs = wod.mouvements || [];
+  // ★ MULTI-TOURS : sequence avec en-tetes de tour (perso OU identiques>1)
+  var movs = [];
+  var _pvCustom = (wod.toursMode==='custom') && Array.isArray(wod.toursPerso) && wod.toursPerso.length>0;
+  var _pvRounds = parseInt(wod.rounds||1,10)||1;
+  if (_pvCustom) {
+    wod.toursPerso.forEach(function(tp,ti){
+      movs.push({__tourHdr:ti+1});
+      (tp&&Array.isArray(tp.mouvements)?tp.mouvements:[]).forEach(function(m){ movs.push(m); });
+    });
+  } else if (_pvRounds>1 && (wod.mouvements||[]).length) {
+    for (var _r=1;_r<=_pvRounds;_r++){
+      movs.push({__tourHdr:_r});
+      wod.mouvements.forEach(function(m){ movs.push(m); });
+    }
+  } else {
+    movs = wod.mouvements || [];
+  }
   var color = catColor || '#7C3AED';
   if (!movs.length) {
     return '<div style="font-size:10px;color:#94A3B8;padding:4px 0;font-style:italic">Aucun mouvement configuré.</div>';
@@ -11137,6 +11154,7 @@ function buildScPreviewFromMovs(wod, catKey, catColor) {
   var cumul = 0;
   var hasCustom = false;
   var rows = movs.map(function(m) {
+    if (m.__tourHdr) return { label: '', qty: 0, tourHdr: m.__tourHdr };
     var isErgo = m.type === 'ergo';
     var isLoad = m.type === 'load';
     var nom = m.nom || '?';
@@ -11168,7 +11186,13 @@ function buildScPreviewFromMovs(wod, catKey, catColor) {
     + '<th style="padding:3px 8px;font-size:8px;background:'+color+';color:#fff;text-align:right;white-space:nowrap">Cumul</th>'
     + '</tr></thead><tbody>';
   var c = 0;
-  rows.forEach(function(r) { c += r.qty;
+  rows.forEach(function(r) {
+    if (r.tourHdr) {
+      c = 0;
+      html += '<tr><td colspan="2" style="padding:3px 8px;font-size:9px;font-weight:900;background:'+color+'22;color:'+color+';text-transform:uppercase;letter-spacing:1px">\ud83d\udd04 TOUR '+r.tourHdr+'</td></tr>';
+      return;
+    }
+    c += r.qty;
     html += '<tr>'
       + '<td style="padding:2px 8px;font-size:11px;font-weight:600;border-bottom:1px solid #E2E8F0;background:#fff">'+r.label+'</td>'
       + '<td style="padding:2px 8px;font-size:10px;color:#64748B;border-bottom:1px solid #E2E8F0;text-align:right;background:#F8FAFC;white-space:nowrap">'+(r.qty?c:'')+'</td>'
@@ -20647,6 +20671,9 @@ function printScorecardWod(wodId) {
       if (!rows.length) return '<div style="padding:14px;text-align:center;font-size:11px;color:var(--ink2);background:#F8FAFC">Aucun mouvement — configurez les mouvements dans Programme</div>';
       // ★ Colonnes Cumul et Heure supprimées — uniquement le mouvement
       var tbRows = rows.map(function(row) {
+        if (String(row).indexOf('§TOUR§')===0) {
+          return '<tr><td style="padding:6px 12px;font-size:10px;font-weight:900;background:#1E3A5F;color:#fff;text-transform:uppercase;letter-spacing:1.5px">\ud83d\udd04 TOUR ' + String(row).slice(6) + '</td></tr>';
+        }
         return '<tr>'
           + '<td style="padding:8px 12px;font-size:12px;font-weight:600;border-bottom:1px solid #E2E8F0">' + row.trim() + '</td>'
           + '</tr>';
@@ -20771,9 +20798,7 @@ function printScorecardWod(wodId) {
         }
         return null;
       }
-      var adaptRows = [];
-      if (wod.mouvements && wod.mouvements.length) {
-        adaptRows = wod.mouvements.map(function(m){
+      function _mapMov(m){
           var nom=_cv2(m.nomParCat)||m.nom||'?';
           if(m.type==='load') return 'Max Load - '+nom;
           if(m.type==='ergo'){
@@ -20788,7 +20813,20 @@ function printScorecardWod(wodId) {
           var p=_cv2(m.poids)||(typeof m.poids==='string'?m.poids:'');
           var t=_cv2(m.timeParCat)||'';
           if(p)lbl+=' · '+p; if(t)lbl+=' · '+t; return lbl;
+      }
+      // ★ MULTI-TOURS : un bloc par tour (perso OU identiques>1), marqueur §TOUR§
+      var adaptRows = [];
+      var _pcCustom = (wod.toursMode==='custom') && Array.isArray(wod.toursPerso) && wod.toursPerso.length>0;
+      var _pcRounds = parseInt(wod.rounds||1,10)||1;
+      if (_pcCustom) {
+        wod.toursPerso.forEach(function(tp,ti){
+          adaptRows.push('§TOUR§'+(ti+1));
+          (tp&&Array.isArray(tp.mouvements)?tp.mouvements:[]).forEach(function(m){ adaptRows.push(_mapMov(m)); });
         });
+      } else if (wod.mouvements && wod.mouvements.length) {
+        var _base = wod.mouvements.map(_mapMov);
+        if (_pcRounds>1) { for(var _r2=1;_r2<=_pcRounds;_r2++){ adaptRows.push('§TOUR§'+_r2); adaptRows = adaptRows.concat(_base); } }
+        else adaptRows = _base;
       } else { adaptRows = rows; }
       var adaptLabel = capLabel;
 

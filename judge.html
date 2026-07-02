@@ -1167,6 +1167,8 @@ function wodToScenario(wod){
     cap: cap,
     moves: moves,
     rounds: parseInt(wod.rounds||1)||1,
+    toursCount: parseInt(wod.toursCount||wod.rounds||1,10)||1,
+    toursMode: wod.toursMode||'identical',
     pauseEntreToursActive: !!wod.pauseEntreToursActive,
     pauseEntreToursSec: parseInt(wod.pauseEntreToursSec||0)||0,
     hasTiebreak: hasTB,
@@ -1642,7 +1644,7 @@ function fillBriefScreen(next){
     var fmtLine='';
     if(fmt==='amrap')        fmtLine='AMRAP '+fmtT(scen.cap||0);
     else if(fmt==='fortime') fmtLine='FOR TIME · CAP '+fmtT(scen.cap||0);
-    else if(fmt==='rounds')  fmtLine=(scen.rounds||1)+' TOURS · CAP '+fmtT(scen.cap||0);
+    else if(fmt==='rounds')  fmtLine=(scen.toursCount||scen.rounds||1)+' TOURS · CAP '+fmtT(scen.cap||0);
     else if(fmt==='emom')    fmtLine='EMOM '+fmtT(scen.cap||0);
     else if(fmt==='interval')fmtLine='INTERVAL '+fmtT(scen.cap||0);
     else if(fmt==='maxload') fmtLine='MAX LOAD'+(scen.cap?' · '+fmtT(scen.cap):'');
@@ -1685,7 +1687,7 @@ function fillBriefScreen(next){
     // Note
     var notesArr=[];
     if(scen.hasTiebreak && scen.tbAuto>=0 && scen.moves[scen.tbAuto]) notesArr.push('🎯 Tiebreak auto sur '+scen.moves[scen.tbAuto].n);
-    if(scen.rounds>1) notesArr.push('🔁 '+scen.rounds+' tours à enchaîner');
+    if((scen.toursCount||scen.rounds)>1) notesArr.push('🔁 '+(scen.toursCount||scen.rounds)+' tours à enchaîner');
     var noteEl=$('brief-note');
     if(noteEl){
       if(notesArr.length){ noteEl.innerHTML=notesArr.join(' · '); noteEl.style.display='block'; }
@@ -2759,6 +2761,10 @@ function addRep(){
   if(fmt==='rounds' && m.q>0 && isLastMove && moveReps>=m.q && currentRound>=(SC.rounds||1)){
     toast('✅ '+( SC.rounds||1)+' tours terminés — appuie sur VALIDER'); vib([100,50,200]); return;
   }
+  // ★ AMRAP + tours perso : la séquence ne reboucle pas — fin après le dernier mouvement
+  if(fmt==='amrap' && SC.toursMode==='custom' && m.q>0 && isLastMove && moveReps>=m.q){
+    toast('✅ Séquence terminée — score validé au buzzer'); vib([100,50,200]); return;
+  }
 
   totalReps++; moveReps++;
   // ★ FIX TIEBREAK AUTO — DOIT être testé AVANT nextMove() / amrapLoop() /
@@ -2794,7 +2800,12 @@ function addRep(){
   // Fin de série : AMRAP → boucle infinie, Rounds → boucle si tours restants
   else if(m.q>0 && moveReps>=m.q && isLastMove){
     if(fmt==='amrap'){
-      amrapLoop();
+      if(SC.toursMode==='custom'){
+        // ★ tours perso : fin de séquence, pas de reboucle
+        toast('✅ Séquence terminée — score validé au buzzer'); vib([100,50,200]);
+      } else {
+        amrapLoop();
+      }
     } else if(fmt==='rounds' && currentRound<(SC.rounds||1)){
       roundsLoop();
     }
