@@ -1128,7 +1128,8 @@ function wodToScenario(wod){
       ergoUnit: m.ergoUnit||'m',
       qui: m.qui||'',
       comment: m.comment||'',
-      note: m.note||''
+      note: m.note||'',
+      tour: parseInt(m.tour||0,10)||0
     };
   });
   if(!moves.length) moves = [{n: wod.description||wod.desc||'Reps', q:0, type:'reps', poids:'', temps:''}];
@@ -1659,6 +1660,11 @@ function fillBriefScreen(next){
     var wfEl=$('brief-wod-fmt'); if(wfEl) wfEl.textContent=fmtLine;
 
     var movesHtml = scen.moves.map(function(m,i){
+      // ★ TOURS PERSO : séparateur quand on change de tour
+      var sep='';
+      if(m.tour>0 && (i===0 || (scen.moves[i-1]||{}).tour!==m.tour)){
+        sep='<div style="background:linear-gradient(90deg,rgba(255,138,0,.30),rgba(255,138,0,.05));border:1px solid rgba(255,138,0,.4);border-radius:12px;padding:7px 16px;font-family:var(--ff);font-size:16px;letter-spacing:2.5px;color:#FFC078">\ud83d\udd04 TOUR '+m.tour+'</div>';
+      }
       var qStr='';
       if(m.type==='ergo' && m.ergoTarget) qStr=m.ergoTarget+(m.ergoUnit||'m');
       else if(m.q>0) qStr='×'+m.q;
@@ -1673,7 +1679,7 @@ function fillBriefScreen(next){
       if(m.note) tags.push('<span style="color:#C8D2E0;font-size:13px;font-family:var(--fc)">📝 '+escH(m.note)+'</span>');
       var tagsHtml = tags.length ? '<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:6px">'+tags.join('')+'</div>' : '';
 
-      return '<div style="padding:14px 16px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:14px">'
+      return sep+'<div style="padding:14px 16px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:14px">'
         +'<div style="display:flex;align-items:center;gap:14px">'
         +'<div style="background:var(--fire);color:#fff;width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--ff);font-size:18px;flex-shrink:0">'+(i+1)+'</div>'
         +'<div style="flex:1;font-size:18px;font-weight:800;color:#fff">'+escH(m.n||'Mouv '+(i+1))+poidsStr+'</div>'

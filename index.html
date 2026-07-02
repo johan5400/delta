@@ -6232,7 +6232,7 @@ if(typeof fbBuildWodInfo !== 'function'){
   function _wodEffMovs(w){
     if(w && w.toursMode==='custom' && Array.isArray(w.toursPerso) && w.toursPerso.length>0){
       var out=[];
-      w.toursPerso.forEach(function(tp){ (tp&&Array.isArray(tp.mouvements)?tp.mouvements:[]).forEach(function(m){ out.push(m); }); });
+      w.toursPerso.forEach(function(tp,_ti){ (tp&&Array.isArray(tp.mouvements)?tp.mouvements:[]).forEach(function(m){ out.push(Object.assign({},m,{tour:_ti+1})); }); });
       return out;
     }
     return (w && (w.mouvements||w.movements)) || [];
@@ -6275,6 +6275,7 @@ if(typeof fbBuildWodInfo !== 'function'){
           nom:m.nom||m.name||'—',
           qty:parseInt(m.qty||m.reps||0),
           type:m.type||'reps',
+          tour:parseInt(m.tour||0,10)||0,
           ergoTarget:m.ergoTarget||0,
           ergoUnit:m.ergoUnit||m.unit||'m',
           // Adaptation par catégorie — inclus complets

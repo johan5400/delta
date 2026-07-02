@@ -354,12 +354,13 @@ function renderMovs(z, wod){
   var movs=(wod&&wod.mouvements)||[];
   if(!movs.length){ box.style.display='none'; box.innerHTML=''; return; }
   var qLabels={A:'A',B:'B',A_B:'A+B','A+B':'A+B',ALT:'ALT'};
-  var html=movs.map(function(m){
+  var html=movs.map(function(m,_i){
+    var _tb=(m.tour>0&&(_i===0||(movs[_i-1]||{}).tour!==m.tour))?'<span style="background:rgba(255,209,102,.16);color:#FFD166;border:1px solid rgba(255,209,102,.4);border-radius:4px;padding:0 6px;font-size:10px;font-weight:900;display:inline-flex;align-items:center;flex-shrink:0">T'+m.tour+'</span>':'';
     var nom=m.nom||m.name||'?';
     var q=parseInt(m.qty||m.ergoTarget||0)||0;
     var p=(typeof m.poids==='string')?m.poids:(m.poids&&typeof m.poids==='object'?Object.values(m.poids).filter(Boolean)[0]||'':'');
     var who=m.qui?'<span class="mov-who">'+(qLabels[m.qui]||m.qui)+'</span>':'';
-    return '<div class="mov-pill"><span class="mov-q">×'+q+'</span><span class="mov-n">'+escH(nom)+'</span>'+(p?'<span class="mov-p">'+escH(p)+'</span>':'')+who+'</div>';
+    return _tb+'<div class="mov-pill"><span class="mov-q">×'+q+'</span><span class="mov-n">'+escH(nom)+'</span>'+(p?'<span class="mov-p">'+escH(p)+'</span>':'')+who+'</div>';
   }).join('');
   box.style.display='flex';
   box.innerHTML=html;

@@ -1968,7 +1968,7 @@ function zoneCardMainLabel(hid,h){h=h||HD[hid]||{};var wod=(h.wodInfo||{});retur
 function zoneCardSubLabel(hid,h){h=h||HD[hid]||{};var parts=[];if(h.catName)parts.push(h.catName);if(h.catHeatNum!=null)parts.push('Heat '+h.catHeatNum);else if(hid)parts.push('H'+hid);return parts.join(' · ')||'—';}
 function movementWhoMeta(val){var key=String(val||'A+B');if(key==='A')return{text:'Athlète A',cls:'who-a'};if(key==='B')return{text:'Athlète B',cls:'who-b'};if(key==='relay')return{text:'Relais A/B',cls:'who-relay'};return{text:'A + B',cls:'who-both'};}
 function movementHowLabel(val){var map={'synchro':'Synchro','solo':'Solo','share':'Partage libre','relay':'Relais','alt':'Alterné'};return map[String(val||'')]||'';}
-function renderZonePhaseGuide(zone,hid,h){var box=g('z'+zone+'PhaseGuide'),whoEl=g('z'+zone+'PhaseWho'),mainEl=g('z'+zone+'PhaseMain'),subEl=g('z'+zone+'PhaseSub'),trackEl=g('z'+zone+'PhaseTrack');if(!box||!whoEl||!mainEl||!subEl||!trackEl)return;h=h||HD[hid]||{};var movs=((h.wodInfo||{}).mouvements)||[];if(!movs.length){box.style.display='none';return;}var idx=Math.max(0,getZoneCurrentMovementIndex(hid,h));var current=movs[Math.min(idx,movs.length-1)]||{};var who=movementWhoMeta(current.qui);var how=movementHowLabel(current.comment);var parts=[];if(how)parts.push(how);if(current.note)parts.push(current.note);if(current.qty)parts.push(String(current.qty)+' reps');if(current.ergoTarget)parts.push(String(current.ergoTarget)+(current.ergoUnit||'m'));box.style.display='grid';whoEl.className='phase-pill '+who.cls;whoEl.textContent=who.text;mainEl.textContent=(current.nom||('Mouvement '+(idx+1))).trim();subEl.textContent=parts.join(' · ')||'Repère de phase en cours';trackEl.innerHTML=movs.slice(0,10).map(function(m,i){var cls=i<idx?'done':i===idx?'active':'upcoming';var label=(m.qui||'A+B');return '<span class=\"phase-step '+cls+'\" title=\"'+esc((m.nom||('Mouvement '+(i+1)))+' · '+label)+'\">'+(i+1)+'</span>';}).join('');}
+function renderZonePhaseGuide(zone,hid,h){var box=g('z'+zone+'PhaseGuide'),whoEl=g('z'+zone+'PhaseWho'),mainEl=g('z'+zone+'PhaseMain'),subEl=g('z'+zone+'PhaseSub'),trackEl=g('z'+zone+'PhaseTrack');if(!box||!whoEl||!mainEl||!subEl||!trackEl)return;h=h||HD[hid]||{};var movs=((h.wodInfo||{}).mouvements)||[];if(!movs.length){box.style.display='none';return;}var idx=Math.max(0,getZoneCurrentMovementIndex(hid,h));var current=movs[Math.min(idx,movs.length-1)]||{};var who=movementWhoMeta(current.qui);var how=movementHowLabel(current.comment);var parts=[];if(how)parts.push(how);if(current.note)parts.push(current.note);if(current.qty)parts.push(String(current.qty)+' reps');if(current.ergoTarget)parts.push(String(current.ergoTarget)+(current.ergoUnit||'m'));box.style.display='grid';whoEl.className='phase-pill '+who.cls;whoEl.textContent=who.text;mainEl.textContent=((current.tour>0?('T'+current.tour+' · '):'')+(current.nom||('Mouvement '+(idx+1)))).trim();subEl.textContent=parts.join(' · ')||'Repère de phase en cours';trackEl.innerHTML=movs.slice(0,20).map(function(m,i){var cls=i<idx?'done':i===idx?'active':'upcoming';var label=(m.qui||'A+B');return '<span class=\"phase-step '+cls+'\" title=\"'+esc((m.nom||('Mouvement '+(i+1)))+' · '+label)+'\">'+(i+1)+'</span>';}).join('')+(movs.length>20?'<span class="phase-step upcoming" title="'+(movs.length-20)+' mouvements suivants">+'+(movs.length-20)+'</span>':'');}
 function drawZone(zone){
   maybeRecoverTkSession();
   var live=currentHeat(zone), next=nextHeat(zone), hid=live||zoneSelectedHeat(zone)||next, h=HD[hid];
@@ -3440,14 +3440,16 @@ function renderLanes(zone,hid,h){
         var rep2=isDone?mq:(isActive?moveReps:0);
         var cls=isDone?'mv-chip done':isActive?'mv-chip active':'mv-chip pending';
         var txt=(m.nom||'M'+(i+1))+(mq?' '+rep2+'/'+mq:'')+(poidsLabel?' · '+poidsLabel:'');
+        if(m.tour>0&&(i===0||(movs[i-1]||{}).tour!==m.tour)) txt='T'+m.tour+'· '+txt;
         return '<span class="'+cls+'">'+txt+'</span>';
       }).join('');
     } else if(movs.length){
       var _catId2=String(h.catId||'');
-      moveChips=movs.map(function(m){
+      moveChips=movs.map(function(m,_i2){
         var mq=((_catId2&&m.qtyParCat&&m.qtyParCat[_catId2]!=null)?parseInt(m.qtyParCat[_catId2]):parseInt(m.qty||0))||0;
         var poidsLabel=(_catId2&&m.poids&&m.poids[_catId2])?m.poids[_catId2]:'';
-        return '<span class="mv-chip pending">'+(m.nom||'Mvt')+(mq?' 0/'+mq:'')+(poidsLabel?' · '+poidsLabel:'')+'</span>';
+        var _tp=(m.tour>0&&(_i2===0||(movs[_i2-1]||{}).tour!==m.tour))?('T'+m.tour+'· '):'';
+        return '<span class="mv-chip pending">'+_tp+(m.nom||'Mvt')+(mq?' 0/'+mq:'')+(poidsLabel?' · '+poidsLabel:'')+'</span>';
       }).join('');
     }
 

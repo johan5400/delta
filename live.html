@@ -1919,6 +1919,7 @@ function renderRankCards(rows,w,st,showLiveChips,h,catId,catLeader){
       chipsHtml='<div class="chips">'+(w.mouvements||[]).map(function(m,mi){
         var q=adaptedQtyForMove(m,catId);
         var cl='chip',lb=esc(m.nom||'')+(q?' ×'+q:'');
+      if(m.tour>0&&(mi===0||((w.mouvements||[])[mi-1]||{}).tour!==m.tour)) lb='T'+m.tour+'· '+lb;
         if(mi<ci){cl+=' d';lb='✓ '+lb;}else if(mi===ci){cl+=' a';lb='▶ '+lb+(q>0?' ('+(cr||0)+'/'+q+')':'');}
         return '<span class="'+cl+'">'+lb+'</span>';
       }).join('')+'</div>';
@@ -2056,15 +2057,16 @@ function renderZone(zone){
   var movDefs=moves.map(function(m){
     var q=(catId&&m.qtyParCat&&m.qtyParCat[catId]!=null&&m.qtyParCat[catId]!=='')?parseInt(m.qtyParCat[catId])||0:parseInt(m.qty||m.ergoTarget||0)||0;
     var pw=(catId&&m.poids&&typeof m.poids==='object'&&m.poids[catId])?m.poids[catId]:(typeof m.poids==='string'?m.poids:'');
-    return{nom:m.nom||'',q:q,poids:pw,qui:m.qui||'',comment:m.comment||'',note:m.note||''};
+    return{nom:m.nom||'',q:q,poids:pw,qui:m.qui||'',comment:m.comment||'',note:m.note||'',tour:parseInt(m.tour||0,10)||0};
   });
   var QLBLS={'A':'A','B':'B','A+B':'A+B','relay':'Relais','both':'x2'};
   var CLBLS={'synchro':'sync','solo':'solo','share':'libre','relay':'relais','alt':'alt'};
-  var movsHtml=movDefs.map(function(m){
+  var movsHtml=movDefs.map(function(m,_i){
+    var _tb=(m.tour>0&&(_i===0||(movDefs[_i-1]||{}).tour!==m.tour))?'<span style="background:rgba(255,209,102,.16);color:#FFD166;border:1px solid rgba(255,209,102,.4);border-radius:4px;padding:0 6px;font-size:10px;font-weight:900;letter-spacing:.5px;display:flex;align-items:center;flex-shrink:0">T'+m.tour+'</span>':'';
     var tags='';
     if(m.qui) tags+='<span style="background:rgba(45,156,255,.2);color:#93C5FD;border-radius:3px;padding:0 5px;font-size:10px;font-weight:700;margin-left:3px">'+(QLBLS[m.qui]||esc(m.qui))+'</span>';
     if(m.comment) tags+='<span style="background:rgba(5,150,105,.18);color:#6EE7B7;border-radius:3px;padding:0 5px;font-size:10px;margin-left:2px">'+(CLBLS[m.comment]||esc(m.comment))+'</span>';
-    return '<div class="mov"><span class="mov-q">×'+m.q+'</span><span class="mov-n">'+esc(m.nom)+'</span>'+(m.poids?'<span class="mov-p">'+esc(m.poids)+'</span>':'')+tags+'</div>';
+    return _tb+'<div class="mov"><span class="mov-q">×'+m.q+'</span><span class="mov-n">'+esc(m.nom)+'</span>'+(m.poids?'<span class="mov-p">'+esc(m.poids)+'</span>':'')+tags+'</div>';
   }).join('');
   var ST={'live':'LIVE','timecap':'TIMECAP','pre':'PRÊT','done':'TERMINÉ','pending':'ATTENTE'};
   var catLeaders=getLeaders();
@@ -2093,13 +2095,14 @@ function renderZone(zone){
     var _hdrMoves=(_hdrW.mouvements||[]).map(function(m){
       var q=(displayCatId&&m.qtyParCat&&m.qtyParCat[displayCatId]!=null&&m.qtyParCat[displayCatId]!=='')?parseInt(m.qtyParCat[displayCatId])||0:parseInt(m.qty||m.ergoTarget||0)||0;
       var pw=(displayCatId&&m.poids&&typeof m.poids==='object'&&m.poids[displayCatId])?m.poids[displayCatId]:(typeof m.poids==='string'?m.poids:'');
-      return{nom:m.nom||'',q:q,poids:pw,qui:m.qui||'',comment:m.comment||''};
+      return{nom:m.nom||'',q:q,poids:pw,qui:m.qui||'',comment:m.comment||'',tour:parseInt(m.tour||0,10)||0};
     });
-    _hdrMovsHtml = _hdrMoves.map(function(m){
+    _hdrMovsHtml = _hdrMoves.map(function(m,_i){
+      var _tb=(m.tour>0&&(_i===0||(_hdrMoves[_i-1]||{}).tour!==m.tour))?'<span style="background:rgba(255,209,102,.16);color:#FFD166;border:1px solid rgba(255,209,102,.4);border-radius:4px;padding:0 6px;font-size:10px;font-weight:900;letter-spacing:.5px;display:flex;align-items:center;flex-shrink:0">T'+m.tour+'</span>':'';
       var tags='';
       if(m.qui) tags+='<span style="background:rgba(45,156,255,.2);color:#93C5FD;border-radius:3px;padding:0 5px;font-size:10px;font-weight:700;margin-left:3px">'+(QLBLS[m.qui]||esc(m.qui))+'</span>';
       if(m.comment) tags+='<span style="background:rgba(5,150,105,.18);color:#6EE7B7;border-radius:3px;padding:0 5px;font-size:10px;margin-left:2px">'+(CLBLS[m.comment]||esc(m.comment))+'</span>';
-      return '<div class="mov"><span class="mov-q">×'+m.q+'</span><span class="mov-n">'+esc(m.nom)+'</span>'+(m.poids?'<span class="mov-p">'+esc(m.poids)+'</span>':'')+tags+'</div>';
+      return _tb+'<div class="mov"><span class="mov-q">×'+m.q+'</span><span class="mov-n">'+esc(m.nom)+'</span>'+(m.poids?'<span class="mov-p">'+esc(m.poids)+'</span>':'')+tags+'</div>';
     }).join('');
   }
 
@@ -2202,14 +2205,15 @@ function startTeamBandIH(zone,ihTarget,doneHid,doneH,doneW,catId,catLeader){
   //   prochain en même temps. Le header devient le miroir de la teams-band.
   function _renderMovsFor(w, _catId){
     var moves=(w&&w.mouvements)||[];
-    return moves.map(function(m){
+    return moves.map(function(m,_i){
+      var _tb=(m.tour>0&&(_i===0||(moves[_i-1]||{}).tour!==m.tour))?'<span style="background:rgba(255,209,102,.16);color:#FFD166;border:1px solid rgba(255,209,102,.4);border-radius:4px;padding:0 6px;font-size:10px;font-weight:900;letter-spacing:.5px;display:flex;align-items:center;flex-shrink:0">T'+m.tour+'</span>':'';
       var q=(_catId&&m.qtyParCat&&m.qtyParCat[_catId]!=null&&m.qtyParCat[_catId]!=='')?parseInt(m.qtyParCat[_catId])||0:parseInt(m.qty||m.ergoTarget||0)||0;
       var pw=(_catId&&m.poids&&typeof m.poids==='object'&&m.poids[_catId])?m.poids[_catId]:(typeof m.poids==='string'?m.poids:'');
       var qLbl=m.qui||'', cLbl=m.comment||'';
       var tags='';
       if(qLbl) tags+='<span style="background:rgba(45,156,255,.2);color:#93C5FD;border-radius:3px;padding:0 5px;font-size:10px;font-weight:700;margin-left:3px">'+esc(qLbl)+'</span>';
       if(cLbl) tags+='<span style="background:rgba(5,150,105,.18);color:#6EE7B7;border-radius:3px;padding:0 5px;font-size:10px;margin-left:2px">'+esc(cLbl)+'</span>';
-      return '<div class="mov"><span class="mov-q">×'+q+'</span><span class="mov-n">'+esc(m.nom||'')+'</span>'+(pw?'<span class="mov-p">'+esc(pw)+'</span>':'')+tags+'</div>';
+      return _tb+'<div class="mov"><span class="mov-q">×'+q+'</span><span class="mov-n">'+esc(m.nom||'')+'</span>'+(pw?'<span class="mov-p">'+esc(pw)+'</span>':'')+tags+'</div>';
     }).join('');
   }
   function syncHeader(mode){
