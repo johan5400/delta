@@ -11374,25 +11374,25 @@ function addTour(wid){
   var w=WODS.find(function(x){return x.id===wid;});if(!w)return;
   if(!w.toursPerso)w.toursPerso=[];
   w.toursPerso.push({mouvements:[{type:'reps',nom:'',qty:10}]});
-  var el=document.getElementById('mvts_'+wid);if(el)el.innerHTML=renderMouvements(w);
+  renderProgWodsList();
   autoSave();
 }
 function deleteTour(wid,ti){
   var w=WODS.find(function(x){return x.id===wid;});if(!w||!w.toursPerso)return;
   w.toursPerso.splice(ti,1);
-  var el=document.getElementById('mvts_'+wid);if(el)el.innerHTML=renderMouvements(w);
+  renderProgWodsList();
   autoSave();
 }
 function addMouvTour(wid,ti){
   var w=WODS.find(function(x){return x.id===wid;});if(!w||!w.toursPerso||!w.toursPerso[ti])return;
   w.toursPerso[ti].mouvements.push({type:'reps',nom:'',qty:10});
-  var el=document.getElementById('mvts_'+wid);if(el)el.innerHTML=renderMouvements(w);
+  renderProgWodsList();
   autoSave();
 }
 function deleteMouvTour(wid,ti,mi){
   var w=WODS.find(function(x){return x.id===wid;});if(!w||!w.toursPerso||!w.toursPerso[ti])return;
   w.toursPerso[ti].mouvements.splice(mi,1);
-  var el=document.getElementById('mvts_'+wid);if(el)el.innerHTML=renderMouvements(w);
+  renderProgWodsList();
   autoSave();
 }
 function updateMouvTour(wid,ti,mi,field,val){
