@@ -809,6 +809,14 @@ var SC=null, moveIdx=0, moveReps=0, totalReps=0, noReps=0, currentRound=1;
 var _preShown=false; // guard anti-double "je suis prêt"
 var _scoreValidated=false; // ★ le récap "prochain passage" ne s'affiche qu'une fois ce flag armé (à la validation du score)
 var tbTs=null, tbPhase=0, tbCapTs=null, tbIv=null;
+// ★ MULTI-TB : tableau de TOUS les tiebreaks capturés (trié par ordre de config)
+function _tbPushArr(){
+  var a=(typeof _tbCaptured!=='undefined'&&_tbCaptured?_tbCaptured:[]).slice()
+    .sort(function(x,y){return (x.listIdx||0)-(y.listIdx||0);})
+    .map(function(c){return {ts:c.ts||0, listIdx:c.listIdx||0, moveIdx:c.moveIdx||0, tour:c.tour||0, rep:c.rep||0};});
+  if(!a.length && tbTs) a=[{ts:tbTs, listIdx:0, moveIdx:0, tour:0, rep:0}];
+  return a;
+}
 var startTs=null, elapsed=0, timerIv=null, done=false, endWarned=false;
 var mlAttempts=[];
 var emomRound=1, emomIsWork=true;
@@ -2968,6 +2976,7 @@ function validate(ergoVal){
       payload.reps=totalReps;
     }
     payload.tiebreak=tbTs||0;
+    payload.tiebreaks=_tbPushArr();
     pushScoreFinal(payload);
   }
   // Fenêtre post-heat 20s pour tous les formats
@@ -4010,7 +4019,7 @@ function pushScoreLive(){
     reps:totalReps, noReps:noReps,
     curMoveIdx:moveIdx, moveReps:moveReps, currentRound:currentRound,
     judgePrenom:FB_JUGE_PRENOM, judgeName:FB_JUGE_PRENOM+' '+FB_JUGE_NOM,
-    judgeOk:!!done, tiebreak:tbTs||0,
+    judgeOk:!!done, tiebreak:tbTs||0, tiebreaks:_tbPushArr(),
     tiebreaks:_tbCaptured.map(function(c){return {ts:c.ts,moveIdx:c.moveIdx,rep:c.rep,tour:c.tour,desc:c.desc};}),
     _src:'judge', _priority:80, ts:Date.now(), _token:typeof WRITE_TOKEN!=='undefined'?WRITE_TOKEN:''
   };
@@ -4044,7 +4053,7 @@ function pushScoreFinal(scorePayload){
     laneNum:parseInt(FB_LANE)||0,
     teamName:(SC&&SC.team)||'',
     judgePrenom:FB_JUGE_PRENOM, judgeName:FB_JUGE_PRENOM+' '+FB_JUGE_NOM,
-    judgeOk:true, tiebreak:tbTs||0,
+    judgeOk:true, tiebreak:tbTs||0, tiebreaks:_tbPushArr(),
     tiebreaks:_tbCaptured.map(function(c){return {ts:c.ts,moveIdx:c.moveIdx,rep:c.rep,tour:c.tour,desc:c.desc};}),
     finishTs:(parseInt(scorePayload&&scorePayload.finalTime||0,10)>0)?serverNow():0,
     _src:'judge', _priority:90, ts:Date.now(), _token:typeof WRITE_TOKEN!=='undefined'?WRITE_TOKEN:''

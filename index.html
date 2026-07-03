@@ -18270,6 +18270,30 @@ function renderTbModal(){
 }
 
 // Construit la config TB d'un WOD/cat depuis w.tbCfg (nouveau format)
+// ★ MULTI-TB : lignes de tiebreak pour la scorecard (une par TB configuré)
+function _tbLinesForScorecard(wod, catId){
+  var cid = String(catId||'');
+  var cfg = (typeof tbGetCfg==='function') ? tbGetCfg(wod, cid) : [];
+  if(!cfg.length && wod && wod.tbCfg){
+    var ks = Object.keys(wod.tbCfg);
+    for(var i=0;i<ks.length;i++){
+      if(Array.isArray(wod.tbCfg[ks[i]]) && wod.tbCfg[ks[i]].length){ cfg = wod.tbCfg[ks[i]]; cid = ks[i]; break; }
+    }
+  }
+  if(!cfg.length) return [];
+  var moves = (typeof tbMovesForCat==='function') ? tbMovesForCat(wod, cid) : [];
+  return cfg.map(function(tb, i){
+    var det='';
+    if(tb.moveIdx!=null && tb.moveIdx!==''){
+      var mv = moves[parseInt(tb.moveIdx,10)];
+      if(mv){ det = (mv.nom||'Mvt '+(parseInt(tb.moveIdx,10)+1)) + (mv.tour?(' — Tour '+mv.tour):''); }
+      else det = 'Mouvement '+(parseInt(tb.moveIdx,10)+1);
+    } else det = 'Fin du WOD';
+    if(tb.tour!=null && tb.tour!=='' && det.indexOf('Tour')<0) det += ' — Tour '+tb.tour;
+    if(tb.rep!=null && tb.rep!=='') det += ' · rep '+tb.rep;
+    return {detail: det};
+  });
+}
 function tbGetCfg(wod, catId){
   if(!wod || !wod.tbCfg) return [];
   var arr = wod.tbCfg[String(catId)];
@@ -20615,7 +20639,18 @@ function lsBuildScorecardHTML(heat, slot, wod, sc, nomEv, timeStr) {
     + _buildTiebreakAdaptationsHTML(wod, {compact:true})
     +'<div style="display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid #E2E8F0">'
     +  '<div style="padding:9px 12px;border-right:1px solid #E2E8F0"><div style="font-size:8px;font-weight:900;color:var(--ink);text-transform:uppercase;letter-spacing:1px;margin-bottom:2px">TIEBREAK TIME</div>'
-    +  (sc.tiebreak>0?'<div style="font-size:18px;font-weight:900;color:'+catColor+'">'+fmtT(sc.tiebreak)+'</div>':'<div style="height:22px;border-bottom:1.5px solid #CBD5E1"></div>')+'</div>'
+    +  (function(){
+         var _lines=_tbLinesForScorecard(wod, h.catId);
+         if(_lines.length<=1){
+           var _d=_lines.length?'<div style="font-size:7.5px;color:var(--ink2);font-style:italic;margin-bottom:2px">'+escHtml(_lines[0].detail)+'</div>':'';
+           return _d+(sc.tiebreak>0?'<div style="font-size:18px;font-weight:900;color:'+catColor+'">'+fmtT(sc.tiebreak)+'</div>':'<div style="height:22px;border-bottom:1.5px solid #CBD5E1"></div>');
+         }
+         return _lines.map(function(L,i){
+           var _v=(sc.tiebreaks&&sc.tiebreaks[i]&&sc.tiebreaks[i].ts>0)?fmtT(sc.tiebreaks[i].ts):((i===0&&sc.tiebreak>0)?fmtT(sc.tiebreak):null);
+           return '<div style="margin-bottom:5px"><div style="font-size:7.5px;font-weight:800;color:var(--ink2)">TB'+(i+1)+' — '+escHtml(L.detail)+'</div>'
+             +(_v?'<div style="font-size:15px;font-weight:900;color:'+catColor+'">'+_v+'</div>':'<div style="height:16px;border-bottom:1.5px solid #CBD5E1"></div>')+'</div>';
+         }).join('');
+       })()+'</div>'
     +  '<div style="padding:9px 12px"><div style="font-size:8px;font-weight:900;color:var(--ink);text-transform:uppercase;letter-spacing:1px;margin-bottom:2px">'+(isTime?'TEMPS CAP':'REPS \u00c0 '+fmtT(wod.duree||0))+'</div>'
     +  '<div style="font-size:8px;color:var(--ink2);font-style:italic;margin-bottom:3px">Score si timecap atteint</div>'
     +  (sc.reps>0?'<div style="font-size:18px;font-weight:900;color:'+catColor+'">'+sc.reps+'</div>':'<div style="height:22px;border-bottom:1.5px solid #CBD5E1"></div>')+'</div>'
@@ -20750,10 +20785,22 @@ function printScorecardWod(wodId) {
       html += '<div style="display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid #E2E8F0">'
         + '<div style="padding:10px 14px;border-right:1px solid #E2E8F0">'
         +   '<div style="font-size:9px;font-weight:900;color:var(--ink);text-transform:uppercase;letter-spacing:1px;margin-bottom:2px">TIEBREAK TIME</div>'
-        +   (hasTB && wod.tiebreakDesc ? '<div style="font-size:8px;color:var(--ink2);font-style:italic;margin-bottom:5px">'+wod.tiebreakDesc+'</div>' : '<div style="margin-bottom:5px"></div>')
-        +   (tbVal
-            ? '<div style="font-size:20px;font-weight:900;color:#1E40AF">'+tbVal+'</div>'
-            : '<div style="height:24px;border-bottom:1.5px solid #CBD5E1"></div>')
+        +   (function(){
+              var _lines=_tbLinesForScorecard(wod, _catIdForTB||'');
+              if(_lines.length<=1){
+                var _d=_lines.length
+                  ? '<div style="font-size:8px;color:var(--ink2);font-style:italic;margin-bottom:5px">'+escHtml(_lines[0].detail)+'</div>'
+                  : (hasTB && wod.tiebreakDesc ? '<div style="font-size:8px;color:var(--ink2);font-style:italic;margin-bottom:5px">'+wod.tiebreakDesc+'</div>' : '<div style="margin-bottom:5px"></div>');
+                return _d+(tbVal
+                  ? '<div style="font-size:20px;font-weight:900;color:#1E40AF">'+tbVal+'</div>'
+                  : '<div style="height:24px;border-bottom:1.5px solid #CBD5E1"></div>');
+              }
+              return _lines.map(function(L,i){
+                var _v=(sc&&sc.tiebreaks&&sc.tiebreaks[i]&&sc.tiebreaks[i].ts>0)?fmtT(sc.tiebreaks[i].ts):((i===0&&tbVal)?tbVal:null);
+                return '<div style="margin-bottom:6px"><div style="font-size:8px;font-weight:800;color:var(--ink2)">TB'+(i+1)+' — '+escHtml(L.detail)+'</div>'
+                  +(_v?'<div style="font-size:16px;font-weight:900;color:#1E40AF">'+_v+'</div>':'<div style="height:18px;border-bottom:1.5px solid #CBD5E1"></div>')+'</div>';
+              }).join('');
+            })()
         + '</div>'
         + '<div style="padding:10px 14px">'
         +   '<div style="font-size:9px;font-weight:900;color:var(--ink);text-transform:uppercase;letter-spacing:1px;margin-bottom:2px">'+(isTime?'TEMPS CAP':'REPS À '+fmtT(wod.duree||0))+'</div>'

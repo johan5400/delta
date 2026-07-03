@@ -3579,6 +3579,7 @@ function renderLanes(zone,hid,h){
       reps:parseInt(sc.reps||0,10)||0,
       noReps:parseInt(sc.noReps||0,10)||0,
       tiebreak:sc.tiebreak>0?parseInt(sc.tiebreak):0,
+      tbs:(sc.tiebreaks&&Array.isArray(sc.tiebreaks)&&sc.tiebreaks.length>0)?sc.tiebreaks.map(function(t){return parseInt(t.ts||t.val||0,10)||0;}):(sc.tiebreak>0?[parseInt(sc.tiebreak,10)]:[]),
       ok:judgeOk, sortVal:sortVal, isLive:isLive,
       isGuest:!!lane.isGuest,
       guestCatName:lane.teamCatName||'',
@@ -3593,8 +3594,14 @@ function renderLanes(zone,hid,h){
     if(a.ok&&!b.ok) return -1;
     if(!a.ok&&b.ok) return 1;
     if(b.sortVal!==a.sortVal) return b.sortVal-a.sortVal;
-    // Tiebreak pour fortime
-    if(a.tiebreak&&b.tiebreak&&a.tiebreak!==b.tiebreak) return a.tiebreak-b.tiebreak;
+    // ★ Multi-TB en cascade (TB1, puis TB2, ...)
+    var aT=a.tbs||(a.tiebreak>0?[a.tiebreak]:[]), bT=b.tbs||(b.tiebreak>0?[b.tiebreak]:[]);
+    for(var ti=0;ti<Math.max(aT.length,bT.length);ti++){
+      var at=aT[ti]||0, bt=bT[ti]||0;
+      if(at>0&&bt>0&&at!==bt) return at-bt;
+      if(at>0&&bt===0) return -1;
+      if(at===0&&bt>0) return 1;
+    }
     return a.team.localeCompare(b.team);
   });
 
