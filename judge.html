@@ -4983,6 +4983,28 @@ function listenHeatStatus(){
     triggerFBCountdown(cd.target);
   });
 
+  // ★ Décompte de reprise 3-2-1 (piloté par le TK via system/resumeCountdown)
+  db.ref('system/resumeCountdown').on('value',function(snap){
+    var u=snap.val()||{};
+    var ov=document.getElementById('resume-cd');
+    if(!ov){
+      ov=document.createElement('div'); ov.id='resume-cd';
+      ov.style.cssText='display:none;position:fixed;inset:0;z-index:1000;background:rgba(6,20,14,.96);flex-direction:column;align-items:center;justify-content:center;gap:10px';
+      ov.innerHTML='<div style="font-size:16px;font-weight:800;letter-spacing:3px;color:#00E5A0;text-transform:uppercase">Reprise dans</div><div id="resume-cd-n" style="font-size:150px;font-weight:900;line-height:1;color:#fff;font-family:var(--fm,sans-serif)">3</div>';
+      document.body.appendChild(ov);
+    }
+    if(ov._iv){ clearInterval(ov._iv); ov._iv=null; }
+    if(!u.active||!u.goAt){ ov.style.display='none'; return; }
+    ov.style.display='flex';
+    function upd(){
+      var rem=Math.ceil((u.goAt - (typeof serverNow==='function'?serverNow():Date.now()))/1000);
+      var nEl=document.getElementById('resume-cd-n');
+      if(rem>0){ if(nEl) nEl.textContent=rem; }
+      else { if(nEl) nEl.textContent='GO !'; setTimeout(function(){ov.style.display='none';},600); clearInterval(ov._iv); ov._iv=null; }
+    }
+    upd(); ov._iv=setInterval(upd,200);
+  });
+
   _urgenceRef=db.ref('system/urgence');
   _urgenceRef.on('value',function(snap){
     var u=snap.val()||{};

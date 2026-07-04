@@ -398,8 +398,8 @@ body::before{
         <option value="resume_exact">Reprendre temps exact</option>
         <option value="resume_countdown">Reprendre avec countdown</option>
       </select>
-      <button class="btn auto" onclick="applyUrgence()">GELER</button>
-      <button class="btn start" onclick="resumeUrgence()">REPRENDRE</button>
+      <button class="btn auto" id="btn-urg-freeze" onclick="applyUrgence()">GELER</button>
+      <button class="btn start" id="btn-urg-resume" onclick="openResumeChoice()" style="display:none">REPRENDRE ▸</button>
     </div>
   </div>
 </div>
@@ -1198,7 +1198,7 @@ if(db){
     refreshAll();
   });
 
-  dbRef('system/urgence').on('value',function(s){var u=s.val()||{}; urgence.active=!!u.active; urgence.ts=u.ts||null; urgence.delay=parseInt(u.delay||10,10)||10; urgence.mode=u.resumeMode||'resume_exact'; g('urgenceBanner').classList.toggle('show',urgence.active); if(urgence.active)startUrgenceTicker(); else {clearInterval(urgence.iv); urgence.iv=null;}});
+  dbRef('system/urgence').on('value',function(s){var u=s.val()||{}; urgence.active=!!u.active; urgence.ts=u.ts||null; urgence.delay=parseInt(u.delay||10,10)||10; urgence.mode=u.resumeMode||'resume_exact'; g('urgenceBanner').classList.toggle('show',urgence.active); var _bf=g('btn-urg-freeze'), _br=g('btn-urg-resume'); if(_bf)_bf.style.display=urgence.active?'none':''; if(_br)_br.style.display=urgence.active?'':'none'; if(urgence.active)startUrgenceTicker(); else {clearInterval(urgence.iv); urgence.iv=null;}});
 
   // Listener Appel Head Juge
   var _lastHJTs=0;
@@ -1843,6 +1843,84 @@ function resumeUrgence(){
   }
   dbRef('system/urgence').set({active:false,ts:serverNow(),token:'foc2026zk'});
 }
+
+// ═══════ POPUP DE REPRISE : 3 choix (temps exact / décompte 3-2-1 / recommencer) ═══════
+function openResumeChoice(){
+  if(document.getElementById('resume-pop')) return;
+  var pausedS = urgence.ts ? Math.floor(Math.max(0, Date.now()-urgence.ts)/1000) : 0;
+  var pm = Math.floor(pausedS/60), ps = pausedS%60;
+  var liveHeats = [];
+  Object.keys(HD||{}).forEach(function(hid){ if(HD[hid] && String(HD[hid].status||'')==='live') liveHeats.push(hid); });
+  var ctx = liveHeats.length
+    ? ('Heat'+(liveHeats.length>1?'s':'')+' en cours : '+liveHeats.map(function(h){return 'H'+h;}).join(', ')+' \u00b7 pause '+pm+':'+(ps<10?'0':'')+ps)
+    : ('Aucun heat en cours \u00b7 pause '+pm+':'+(ps<10?'0':'')+ps);
+  function opt(id,ico,titre,desc,col){
+    return '<div onclick="'+id+'()" style="display:flex;gap:12px;align-items:flex-start;padding:14px;border:1.5px solid '+col+'44;background:'+col+'0e;border-radius:12px;cursor:pointer;margin-bottom:10px" '
+      +'onmouseover="this.style.background=\''+col+'22\'" onmouseout="this.style.background=\''+col+'0e\'">'
+      +'<div style="font-size:26px;flex-shrink:0">'+ico+'</div>'
+      +'<div><div style="font-size:14px;font-weight:900;color:'+col+';margin-bottom:2px">'+titre+'</div>'
+      +'<div style="font-size:11px;color:var(--muted);line-height:1.45">'+desc+'</div></div></div>';
+  }
+  var html = '<div id="resume-pop" onclick="if(event.target===this)closeResumeChoice()" '
+    +'style="position:fixed;inset:0;z-index:9500;background:rgba(6,9,16,.8);display:flex;align-items:center;justify-content:center;padding:22px">'
+    +'<div style="background:#0f1420;border:1px solid rgba(255,255,255,.12);border-radius:16px;max-width:440px;width:100%;overflow:hidden;box-shadow:0 24px 70px rgba(0,0,0,.5)" onclick="event.stopPropagation()">'
+    +'<div style="padding:15px 18px;background:linear-gradient(90deg,#7a1010,#b91c1c);color:#fff">'
+    +'<div style="font-size:15px;font-weight:900;letter-spacing:.5px">\u25b6 REPRISE APR\u00c8S URGENCE</div>'
+    +'<div style="font-size:11px;opacity:.85;margin-top:2px">'+ctx+'</div></div>'
+    +'<div style="padding:16px 18px">'
+    + opt('resumeExact','\u25b6','Reprendre au temps exact','Le chrono repart pile o\u00f9 il s\'est arr\u00eat\u00e9. Scores conserv\u00e9s. Reprise imm\u00e9diate.','#00E5A0')
+    + opt('resumeCountdown','\u23f1\ufe0f','Reprendre avec d\u00e9compte 3-2-1','Un d\u00e9compte synchronis\u00e9 s\'affiche sur les juges et le live, puis le chrono repart. Id\u00e9al pour relancer les athl\u00e8tes ensemble.','#4DA6FF')
+    + opt('restartCurrentHeat','\u21ba','Recommencer le heat','Remet le(s) heat(s) en cours \u00e0 z\u00e9ro : chrono \u00e0 0 et <b>scores annul\u00e9s</b>, puis relance avec d\u00e9compte. \u00c0 utiliser si le WOD doit \u00eatre refait.','#FFB020')
+    +'<div onclick="closeResumeChoice()" style="text-align:center;font-size:11px;font-weight:700;color:var(--muted);padding:8px;cursor:pointer;margin-top:2px">Annuler</div>'
+    +'</div></div></div>';
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+function closeResumeChoice(){ var el=document.getElementById('resume-pop'); if(el) el.remove(); }
+
+// 1) Temps exact (comportement existant)
+function resumeExact(){ closeResumeChoice(); resumeUrgence(); }
+
+// 2) Décompte 3-2-1 synchronisé puis reprise au temps exact
+function resumeCountdown(){
+  closeResumeChoice();
+  var pausedMs = urgence.ts ? Math.max(0, Date.now()-urgence.ts) : 0;
+  var CD = 3;
+  var goAt = Math.round((serverNow()+ (CD+0.4)*1000)/1000)*1000; // instant de reprise, arrondi seconde
+  // Diffuser un décompte visible partout (juges + live écoutent system/resumeCountdown)
+  dbRef('system/resumeCountdown').set({active:true, goAt:goAt, secs:CD, ts:serverNow(), token:'foc2026zk'});
+  dbRef('system/broadcast').set({target:'all',message:'Reprise dans '+CD+'\u2026 tenez-vous pr\u00eats !',ts:Date.now(),source:'tkx',token:'foc2026zk'});
+  // À goAt : décaler les heats live du temps de pause (temps exact) + lever l'urgence
+  var wait = Math.max(0, goAt - serverNow());
+  setTimeout(function(){
+    if(pausedMs > 1500){
+      Object.keys(HD||{}).forEach(function(hid){
+        var h=HD[hid]; if(h && String(h.status||'')==='live' && h.startTimestamp)
+          dbRef('heats/'+hid+'/startTimestamp').set(parseInt(h.startTimestamp,10)+pausedMs);
+      });
+    }
+    dbRef('system/urgence').set({active:false,ts:serverNow(),token:'foc2026zk'});
+    dbRef('system/resumeCountdown').set({active:false,ts:serverNow(),token:'foc2026zk'});
+  }, wait);
+}
+
+// 3) Recommencer le/les heat(s) en cours : reset scores + relance avec décompte de départ
+function restartCurrentHeat(){
+  if(!confirm('\u21ba RECOMMENCER LE HEAT ?\n\nLe chrono est remis \u00e0 z\u00e9ro et TOUS LES SCORES du/des heat(s) en cours sont ANNUL\u00c9S. Cette action est irr\u00e9versible.')) return;
+  closeResumeChoice();
+  var liveZones = [];
+  [1,2].forEach(function(z){ var hid=currentHeat(z); if(hid && String((HD[hid]||{}).status||'')==='live') liveZones.push({z:z,hid:hid}); });
+  // reset chaque heat live (zoneReset vide les scores + repasse en pending)
+  liveZones.forEach(function(o){ zoneReset(o.z); });
+  // lever l'urgence, puis relancer chaque zone avec un vrai décompte de départ
+  dbRef('system/urgence').set({active:false,ts:serverNow(),token:'foc2026zk'});
+  dbRef('system/resumeCountdown').set({active:false,ts:serverNow(),token:'foc2026zk'});
+  var goAt = Math.round((serverNow()+3.4*1000)/1000)*1000;
+  dbRef('system/resumeCountdown').set({active:true,goAt:goAt,secs:3,ts:serverNow(),token:'foc2026zk'});
+  setTimeout(function(){
+    liveZones.forEach(function(o){ if(typeof launchHeatDirectAt==='function') launchHeatDirectAt(o.z,o.hid,serverNow()); });
+    dbRef('system/resumeCountdown').set({active:false,ts:serverNow(),token:'foc2026zk'});
+  }, Math.max(0, goAt-serverNow()));
+}
 function launchMorningCD(){
   // ★ FIX : lire la durée configurée (admin → morningCdConfig.day1/day2)
   //   au lieu des 60 secondes codées en dur.
@@ -2296,6 +2374,7 @@ function showTKCountdown(zone, hid, seconds, target, onDone){
     } else {
       clearInterval(zoneState[zone].timerIv);
       zoneState[zone].counting=false;
+      if(urgence && urgence.active){ if(el){ el.textContent='⏸'; } if(mainBtn){ mainBtn.textContent='PAUSE'; } return; }  // ★ URGENCE : départ annulé
       if(el){ el.textContent='GO !'; el.className='timer'; }
       if(mainBtn){ mainBtn.textContent='EN COURS'; mainBtn.className='mainbtn live'; }
       onDone();
@@ -2377,6 +2456,7 @@ function launchBothZones(){
     });
     if(rem>0) return;
     clearInterval(syncIv);
+    if(urgence && urgence.active){ return; }  // ★ URGENCE : lancement sync annulé
     [1,2].forEach(function(z){
       var hid = z===1?h1id:h2id;
       setStatus(hid,'live',{startTimestamp:ts_go,countdownTarget:ts_go,curRound:1,roundPhase:'work',_src:'tkx_sync'});
@@ -2507,6 +2587,7 @@ function startJudgeTimeout(zone, hid){
   var subEl=g('z'+zone+'StatusSub');
   zoneState[zone].jtIv=setInterval(function(){
     if(!AUTO){ clearInterval(zoneState[zone].jtIv); zoneState[zone].jtIv=null; if(subEl) subEl.textContent=''; return; }
+    if(urgence && urgence.active){ if(subEl) subEl.textContent='⏸ En pause (arrêt urgence)'; return; }  // ★ URGENCE : pas de forçage de scores
     var rem=Math.max(0,Math.ceil((deadline-Date.now())/1000));
     if(subEl) subEl.textContent='⏳ Forçage scores dans '+rem+'s';
     if(rem<=0){
@@ -2890,6 +2971,7 @@ function startInterheat(zone, seconds, type, label){
     var rem=Math.max(0,Math.ceil((target-serverNow())/1000));
     renderInterheat(rem);
 
+    if(urgence && urgence.active){ return; }  // ★ URGENCE : gel de l'inter-heat, pas de lancement auto
     if(rem<=0){
       clearInterval(zoneState[zone].ihIv);
       zoneState[zone].ihIv=null;
