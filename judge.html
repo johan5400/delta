@@ -2637,6 +2637,7 @@ function addAttempt(valid){
   mlAttempts.push({kg:val,ok:valid}); inp.value=''; inp.focus();
   renderAttempts();
   toast(valid?'✅ '+val+'kg validé':'✕ '+val+'kg — échec');
+  try{ if(typeof pushScoreLive==='function') pushScoreLive(); }catch(e){}
 }
 function renderAttempts(){
   var best=0; mlAttempts.forEach(function(a){if(a.ok&&a.kg>best)best=a.kg;});
@@ -2962,6 +2963,7 @@ function validate(ergoVal){
   if(db){
     clearInterval(_scoreIv);
     var payload={reps:0,finalTime:0,load:0,dist:0,noReps:noReps};
+  payload.attempts=mlAttempts.map(function(a){return {kg:a.kg,ok:!!a.ok};});
     var fmt2=(SC.fmt||'').toLowerCase();
     if(fmt2==='maxload'){
       var best2=0; mlAttempts.forEach(function(a){if(a.ok&&a.kg>best2)best2=a.kg;});
@@ -4017,6 +4019,8 @@ function pushScoreLive(){
     laneNum:parseInt(FB_LANE)||0,
     teamName:(SC&&SC.team)||'',
     reps:totalReps, noReps:noReps,
+    load:(function(){var b=0;mlAttempts.forEach(function(a){if(a.ok&&a.kg>b)b=a.kg;});return b;})(),
+    attempts:mlAttempts.map(function(a){return {kg:a.kg,ok:!!a.ok};}),
     curMoveIdx:moveIdx, moveReps:moveReps, currentRound:currentRound,
     judgePrenom:FB_JUGE_PRENOM, judgeName:FB_JUGE_PRENOM+' '+FB_JUGE_NOM,
     judgeOk:!!done, tiebreak:tbTs||0, tiebreaks:_tbPushArr(),

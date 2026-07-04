@@ -209,6 +209,12 @@ body{height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-fami
 .chrono-val.idle{color:var(--ink3)}
 
 /* Teams band */
+.attempts{display:flex;gap:4px;flex-wrap:wrap;margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,.06);align-items:center}
+.att-lbl{font-size:.5em;font-weight:900;letter-spacing:1px;color:#5a6a80;text-transform:uppercase;margin-right:2px}
+.att{font-family:var(--fm);font-size:.85em;font-weight:700;padding:1px 7px;border-radius:5px;letter-spacing:.5px;white-space:nowrap}
+.att.ok{background:rgba(0,229,160,.12);color:#00E5A0;border:1px solid rgba(0,229,160,.3)}
+.att.best{background:rgba(0,229,160,.22);color:#00E5A0;border:1px solid #00E5A0}
+.att.fail{background:rgba(255,59,92,.1);color:#FF5A6E;border:1px solid rgba(255,59,92,.28);text-decoration:line-through;text-decoration-thickness:2px}
 .teams-band{flex:1;min-height:0;overflow-y:auto;padding:6px 10px 8px;display:flex;flex-direction:column;gap:4px}
 .teams-band::-webkit-scrollbar{width:3px}
 .teams-band::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:99px}
@@ -1741,6 +1747,26 @@ function tbArr(sc){
   if(sc.tiebreak && sc.tiebreak>0) return [parseInt(sc.tiebreak,10)];
   return [];
 }
+function attemptsArr(sc){
+  if(sc && sc.attempts && Array.isArray(sc.attempts) && sc.attempts.length>0){
+    return sc.attempts.map(function(a){return {kg:parseFloat(a.kg)||0, ok:!!a.ok};}).filter(function(a){return a.kg>0;});
+  }
+  return [];
+}
+function attemptsRowHtml(sc, wodInfo){
+  var jm=String((wodInfo&&(wodInfo.judgeMode||wodInfo.format))||'').toLowerCase();
+  var sf=String((wodInfo&&wodInfo.scoreFinale)||'').toLowerCase();
+  if(jm!=='maxload' && sf!=='load') return '';
+  var A=attemptsArr(sc);
+  if(!A.length) return '';
+  var best=0; A.forEach(function(a){if(a.ok&&a.kg>best)best=a.kg;});
+  var pills=A.map(function(a){
+    if(a.ok && a.kg===best) return '<span class="att best">\uD83C\uDFC6'+a.kg+'</span>';
+    if(a.ok) return '<span class="att ok">\u2713'+a.kg+'</span>';
+    return '<span class="att fail">'+a.kg+'</span>';
+  }).join('');
+  return '<div class="attempts"><span class="att-lbl">Essais</span>'+pills+'</div>';
+}
 function compareScores(a,b,w){
   if(a.ok&&!b.ok)return -1;
   if(!a.ok&&b.ok)return 1;
@@ -1955,7 +1981,8 @@ function renderRankCards(rows,w,st,showLiveChips,h,catId,catLeader){
           +(i>0&&repGap&&gapCls==='gap'?'<div style="font-size:1.18em;color:rgba(255,140,0,.98);font-family:var(--fm);text-align:right;font-weight:900;margin-top:3px;letter-spacing:.5px">'+repGap+'</div>':'')
         +'</div>'
       +'</div>'
-      +chipsHtml  
+      +chipsHtml
+      +attemptsRowHtml(sc, w)
       +'</div>';
   }).join('');
 }
