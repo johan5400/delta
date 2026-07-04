@@ -3052,6 +3052,34 @@ setInterval(scheduleRender,5000);
   window.addEventListener('DOMContentLoaded', fitAll);
   setTimeout(fitAll, 400);
 })();
+
+// ★ ARRET D'URGENCE : overlay plein ecran sur l'affichage public
+(function(){
+  if(typeof db==='undefined'||!db) return;
+  var ov=document.createElement('div');
+  ov.id='urg-ov';
+  ov.style.cssText='display:none;position:fixed;inset:0;z-index:9999;background:rgba(153,27,27,.97);flex-direction:column;align-items:center;justify-content:center;gap:18px;text-align:center;padding:30px';
+  ov.innerHTML='<div style="font-size:64px">🚨</div>'
+    +'<div style="font-size:44px;font-weight:900;letter-spacing:3px;color:#fff">COMP\u00c9TITION EN PAUSE</div>'
+    +'<div id="urg-ov-sub" style="font-size:22px;font-weight:700;color:rgba(255,255,255,.85)">Attendre les consignes de l\'organisation</div>';
+  document.body.appendChild(ov);
+  var iv=null, uts=null, udelay=0;
+  function tick(){
+    var el=document.getElementById('urg-ov-sub'); if(!el) return;
+    if(udelay>0 && uts){
+      var rem=Math.max(0, udelay*60 - Math.floor((Date.now()-uts)/1000));
+      var m=Math.floor(rem/60), s2=rem%60;
+      el.textContent='Reprise estimee dans '+m+':'+(s2<10?'0':'')+s2;
+    } else el.textContent='Attendre les consignes de l\'organisation';
+  }
+  db.ref('system/urgence').on('value',function(snap){
+    var u=snap.val()||{};
+    uts=u.ts||null; udelay=parseInt(u.delay||0,10)||0;
+    ov.style.display=u.active?'flex':'none';
+    clearInterval(iv); iv=null;
+    if(u.active){ tick(); iv=setInterval(tick,500); }
+  });
+})();
 </script>
 </body>
 </html>

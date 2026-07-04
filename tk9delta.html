@@ -1825,8 +1825,24 @@ function forceLaunch(zone){
 
 function toggleAuto(){AUTO=!AUTO;}
 function openUrgence(){g('urgenceBanner').classList.add('show');}
-function applyUrgence(){var delay=parseInt(g('urgenceDelay').value,10)||10; var mode=g('urgenceMode').value; [1,2].forEach(function(z){ clearInterval(zoneState[z].jtIv); var subEl=g('z'+z+'StatusSub'); if(subEl&&(subEl.textContent||'').indexOf('Forçage')!==-1)subEl.textContent=''; }); dbRef('system/urgence').set({active:true,ts:Date.now(),delay:delay,resumeMode:mode,token:'foc2026zk'}); dbRef('system/broadcast').set({target:'all',message:'Compétition suspendue. Attendre les consignes du Timekeeper.',ts:Date.now(),source:'tkx',token:'foc2026zk'});}
-function resumeUrgence(){dbRef('system/urgence').set({active:false,ts:serverNow(),token:'foc2026zk'});}
+function applyUrgence(){
+  if(!confirm('🚨 GELER LA COMPETITION ?\n\nTous les ecrans (juges, live, speaker) passent en pause et un message est diffuse a tous.')) return;
+  var delay=parseInt(g('urgenceDelay').value,10)||10; var mode=g('urgenceMode').value; [1,2].forEach(function(z){ clearInterval(zoneState[z].jtIv); var subEl=g('z'+z+'StatusSub'); if(subEl&&(subEl.textContent||'').indexOf('Forçage')!==-1)subEl.textContent=''; }); dbRef('system/urgence').set({active:true,ts:Date.now(),delay:delay,resumeMode:mode,token:'foc2026zk'}); dbRef('system/broadcast').set({target:'all',message:'Compétition suspendue. Attendre les consignes du Timekeeper.',ts:Date.now(),source:'tkx',token:'foc2026zk'});}
+function resumeUrgence(){
+  // ★ GEL REEL DU CHRONO : tous les ecrans calculent le temps ecoule depuis
+  //   heats/{id}/startTimestamp -> on decale le depart des heats LIVE du temps
+  //   de pause pour que « Reprendre temps exact » soit vrai partout.
+  var pausedMs = urgence.ts ? Math.max(0, Date.now() - urgence.ts) : 0;
+  if(pausedMs > 1500){
+    Object.keys(HD||{}).forEach(function(hid){
+      var h = HD[hid]; if(!h) return;
+      if(String(h.status||'')==='live' && h.startTimestamp){
+        dbRef('heats/'+hid+'/startTimestamp').set(parseInt(h.startTimestamp,10)+pausedMs);
+      }
+    });
+  }
+  dbRef('system/urgence').set({active:false,ts:serverNow(),token:'foc2026zk'});
+}
 function launchMorningCD(){
   // ★ FIX : lire la durée configurée (admin → morningCdConfig.day1/day2)
   //   au lieu des 60 secondes codées en dur.
