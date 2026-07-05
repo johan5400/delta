@@ -215,6 +215,10 @@ body{height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-fami
 .att.ok{background:rgba(0,229,160,.12);color:#00E5A0;border:1px solid rgba(0,229,160,.3)}
 .att.best{background:rgba(0,229,160,.22);color:#00E5A0;border:1px solid #00E5A0}
 .att.fail{background:rgba(255,59,92,.1);color:#FF5A6E;border:1px solid rgba(255,59,92,.28);text-decoration:line-through;text-decoration-thickness:2px}
+.livecat-sep{display:flex;align-items:center;gap:10px;margin:4px 0 8px}
+.livecat-lbl{font-family:var(--fm,sans-serif);font-size:clamp(13px,1.6vw,20px);font-weight:700;letter-spacing:1.5px;text-transform:uppercase;display:flex;align-items:center;gap:7px;white-space:nowrap}
+.livecat-dot{width:11px;height:11px;border-radius:50%;flex-shrink:0;display:inline-block}
+.livecat-line{flex:1;height:2px;border-radius:2px}
 .teams-band{flex:1;min-height:0;overflow-y:auto;padding:6px 10px 8px;display:flex;flex-direction:column;gap:4px}
 .teams-band::-webkit-scrollbar{width:3px}
 .teams-band::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:99px}
@@ -1800,7 +1804,30 @@ function rankHeatEntries(hid,h,w){
     });
   });
   rows.sort(function(a,b){return compareScores(a,b,w);});
-  return rows;
+  // ★ Regroupement par catégorie : équipes de la catégorie du heat d'abord,
+  //   puis les invités regroupés par leur catégorie d'origine. Tri par score DANS chaque groupe.
+  var hostCat=(h&&(h.catName||h.catNom))||'';
+  function grpKey(r){ return (r.isGuest && r.guestCatName) ? r.guestCatName : hostCat; }
+  var groups={}, order=[];
+  rows.forEach(function(r){
+    var k=grpKey(r);
+    if(!groups[k]){ groups[k]=[]; order.push(k); }
+    groups[k].push(r);
+  });
+  // la catégorie hôte toujours en premier, les invités ensuite (ordre d'apparition)
+  order.sort(function(a,b){ if(a===hostCat)return -1; if(b===hostCat)return 1; return 0; });
+  var out=[];
+  order.forEach(function(k){
+    groups[k].forEach(function(r,idx){
+      r._catGroup=k;
+      r._catColor=(r.isGuest && r.guestCatColor)?r.guestCatColor:(rows._hostColor||'');
+      r._groupFirst=(idx===0);
+      r._isGuestGroup=(k!==hostCat);
+      out.push(r);
+    });
+  });
+  out._hasGroups=(order.length>1); // séparateurs seulement s'il y a plusieurs catégories
+  return out;
 }
 function rankWodEntries(zone,h,w){
   var catId=String(h.catId||''),wodName=String((w&&w.nom)||'');
@@ -1870,6 +1897,15 @@ function renderRankCards(rows,w,st,showLiveChips,h,catId,catLeader){
   var lead=rows[0]||null;
   return rows.map(function(e,i){
     var sc=e.sc||{},val=!!e.ok;
+    // ★ Séparateur de catégorie : affiché au 1er de chaque groupe SI le heat mélange plusieurs catégories
+    var _catSep='';
+    if(rows._hasGroups && e._groupFirst){
+      var _col=e._catColor||(e._isGuestGroup?'#FFB020':'#4DA6FF');
+      _catSep='<div class="livecat-sep"'+(i>0?' style="margin-top:14px"':'')+'>'
+        +'<span class="livecat-lbl" style="color:'+_col+'"><span class="livecat-dot" style="background:'+_col+'"></span>'+esc(e._catGroup||'')+'</span>'
+        +'<span class="livecat-line" style="background:linear-gradient(90deg,'+_col+',transparent)"></span>'
+        +'</div>';
+    }
     // Affichage aligné avec le juge : moveReps / quota + mouvement + tour
     var _cr=parseInt(sc.moveReps)||0;
     var _ci=parseInt(sc.curMoveIdx)||0;
@@ -1962,7 +1998,7 @@ function renderRankCards(rows,w,st,showLiveChips,h,catId,catLeader){
     //   Pendant live/pre/timecap : classement dynamique → on garde un chiffre lisible.
     var _isFinal = (st==='done');
     var _rkBadge = _isFinal ? (MEDALS[i]||String(i+1)) : String(i+1);
-    return '<div class="tc'+(val?' ok':'')+(i===0?' lead':'')+'">'
+    return _catSep+'<div class="tc'+(val?' ok':'')+(i===0?' lead':'')+'">'
       +'<div class="tm">'
         +'<div class="rk'+(i<3?' r'+(i+1):'')+(_isFinal?' final':' dyn')+'">'+_rkBadge+'</div>'
         +'<div class="tcol">'

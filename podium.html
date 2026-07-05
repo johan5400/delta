@@ -369,6 +369,14 @@ function heatZone(h){
   z=parseInt(z,10);
   return (z===1||z===2)?z:null;
 }
+// ★ ÉQUIPES INVITÉES : catégorie effective d'une lane (invité → sa catégorie d'origine).
+function laneEffCatName(lane, h){
+  if(lane && lane.isGuest && lane.teamCatName) return lane.teamCatName;
+  return (h && (h.catName||h.catNom)) || '';
+}
+function laneBelongsToCat(lane, h, catName){
+  return laneEffCatName(lane, h) === catName;
+}
 function zoneMatch(h, zone){
   if(zone===undefined||zone===null||zone==='all') return true;
   return heatZone(h)===parseInt(zone,10);
@@ -378,7 +386,12 @@ function categories(zone){
   var out={};
   Object.values(HEATS).forEach(function(h){
     if(!h||!h.catName||!zoneMatch(h, zone))return;
-    out[h.catName]=true;
+    var lanes=h.lanes||{}, found=false;
+    Object.keys(lanes).forEach(function(ln){
+      var lane=lanes[ln]; if(!lane||!lane.teamName)return;
+      out[laneEffCatName(lane,h)]=true; found=true;
+    });
+    if(!found) out[h.catName]=true;
   });
   return Object.keys(out);
 }
@@ -386,7 +399,10 @@ function categories(zone){
 function wodsForCat(catName, zone){
   var out={};
   Object.values(HEATS).forEach(function(h){
-    if(!h||h.catName!==catName||!zoneMatch(h, zone))return;
+    if(!h||!zoneMatch(h, zone))return;
+    var lns=h.lanes||{}, concerne=false;
+    Object.keys(lns).forEach(function(ln){ var la=lns[ln]; if(la&&la.teamName&&laneEffCatName(la,h)===catName) concerne=true; });
+    if(!concerne) return;
     var wod=h.wodInfo||{};
     out[wod.nom||'WOD']=wod;
   });
@@ -397,13 +413,14 @@ function rankWod(catName,wodName,zone){
   var entries=[];
   Object.keys(HEATS).forEach(function(hid){
     var h=HEATS[hid];
-    if(!h||h.catName!==catName||!zoneMatch(h, zone))return;
+    if(!h||!zoneMatch(h, zone))return;
     var wod=h.wodInfo||{};
     if((wod.nom||'WOD')!==wodName)return;
     var hidNum=parseInt(String(hid).replace(/\D/g,''))||0;
     Object.keys(h.lanes||{}).forEach(function(ln){
       var lane=h.lanes[ln];
       if(!lane||!lane.teamName)return;
+      if(!laneBelongsToCat(lane,h,catName))return; // ★ invité → sa catégorie
       var sc=SCORES[hid+'_'+ln]||SCORES[hidNum+'_'+ln]||((h.scores||{})[ln])||{};
       entries.push({teamName:lane.teamName,heat:hid,lane:ln,sc:sc,wod:wod,h:h,val:scoreVal(sc,wod,h,hid)});
     });
@@ -440,7 +457,10 @@ function totalRanking(catName,zone){
   var finalWodNames={};
   var finalMultipliers={};
   Object.values(HEATS).forEach(function(h){
-    if(!h||h.catName!==catName||!zoneMatch(h, zone)) return;
+    if(!h||!zoneMatch(h, zone)) return;
+    var lns=h.lanes||{}, concerne=false;
+    Object.keys(lns).forEach(function(ln){ var la=lns[ln]; if(la&&la.teamName&&laneEffCatName(la,h)===catName) concerne=true; });
+    if(!concerne) return;
     var wod=h.wodInfo||{};
     var wname=wod.nom||'WOD';
     if(wod.isFinal||h.isFinal){
@@ -451,10 +471,11 @@ function totalRanking(catName,zone){
 
   var teams={};
   Object.values(HEATS).forEach(function(h){
-    if(!h||h.catName!==catName||!zoneMatch(h, zone))return;
+    if(!h||!zoneMatch(h, zone))return;
     Object.keys(h.lanes||{}).forEach(function(ln){
       var lane=h.lanes[ln];
       if(!lane||!lane.teamName)return;
+      if(!laneBelongsToCat(lane,h,catName))return; // ★ invité → sa catégorie
       if(!teams[lane.teamName])teams[lane.teamName]={
         teamName:lane.teamName,points:{},total:0,
         podiums:{p1:0,p2:0,p3:0},bestTiebreak:null,tiebreakSum:0,rawScore:0
