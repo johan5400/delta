@@ -2964,18 +2964,18 @@ function checkPassword(){
   </div>
 
   <div class="gc warn">
-    <div class="gc-title">🗑 Les deux boutons de nettoyage — quand et comment</div>
+    <div class="gc-title">🗑 Le bouton Purger — repartir propre après les tests</div>
     <div class="gc-body">
-      Il y a <strong>deux outils différents</strong>, à ne surtout pas confondre. L'un est doux, l'autre est radical.<br><br>
+      Le bouton <strong>🗑 Firebase</strong> (dans l'admin) remet le cloud à zéro et y repousse ta version. C'est l'outil pour effacer les données de test avant la compétition.<br><br>
       <div class="gcl">
-        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>🧹 Vider les données de TEST</strong> — <strong>le doux, celui de tous les jours.</strong> Il efface <strong>uniquement les scores</strong> et remet tous les heats « en attente ». Ta <strong>configuration est conservée</strong> (WODs, équipes, bénévoles, heats). <u>Quand l'utiliser</u> : après une répétition ou un test grandeur nature, pour repartir propre <strong>sans avoir à tout reconstruire</strong>. C'est celui que tu utiliseras juste avant le vrai début de la compétition, pour effacer les scores d'essai.</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>🗑 Firebase (bouton Purger)</strong> — <strong>pour repartir propre après les tests.</strong> Quand tu as fait des saisies d'essai puis corrigé ta configuration, ce bouton <strong>efface tout le cloud et repousse ta version admin à jour</strong> à la place. C'est la façon simple de nettoyer les données de test : tu modifies ta saisie dans l'admin, tu purges, et le cloud repart sur ta version propre. <u>Quand l'utiliser</u> : <strong>avant</strong> la compétition, une fois ta config finalisée — jamais pendant.</div></div>
         <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>🗑 Firebase (purge totale)</strong> — <strong>le radical, à manier avec précaution.</strong> Il <strong>efface TOUT sur le cloud</strong> (WODs, catégories, bénévoles, heats, scores, juges, classement, statuts, system, backup) puis <strong>repousse tes données locales d'admin</strong> à la place. <u>Quand l'utiliser</u> : seulement si le cloud est <strong>dans un état incohérent</strong> (données d'un ancien événement, mélange, corruption) et que tu veux <strong>tout remettre à zéro depuis ta version admin</strong>. À faire <strong>avant</strong> la compétition, jamais pendant.</div></div>
       </div>
       <div style="margin-top:10px;padding:9px 11px;background:rgba(211,47,47,.08);border:1px solid rgba(211,47,47,.25);border-radius:8px;font-size:12px;color:#B71C1C">
         ⚠️ <strong>La purge Firebase est irréversible et concerne tout le monde.</strong> Tous les appareils connectés verront leurs données remplacées par les tiennes, et <strong>tous les scores saisis sur le terrain seront perdus</strong>. Ne jamais la lancer une fois la compétition commencée.
       </div>
       <div style="margin-top:8px"><strong>Comment ça se passe (Firebase)</strong> : le bouton demande une <strong>double confirmation</strong> — une fenêtre qui liste ce qui va être effacé, puis tu dois <strong>taper le mot <code>PURGER</code></strong> exactement pour valider. Si tu tapes autre chose, rien ne se passe. La clé de sauvegarde (JSONBin) est préservée automatiquement. À la fin, un message confirme le nombre d'éléments traités.</div>
-      <div style="margin-top:8px"><strong>Le bon réflexe</strong> : au quotidien et pour nettoyer les essais, <strong>Vider les données de TEST</strong> suffit presque toujours. Garde la <strong>purge Firebase</strong> pour les remises à zéro complètes, faites au calme avant le jour J.</div>
+      <div style="margin-top:8px"><strong>Le bon réflexe</strong> : prépare ta config tranquillement, fais tes tests, puis <strong>purge une dernière fois avant le jour J</strong> pour repartir sur des données propres. Une fois la compétition lancée, on ne purge plus.</div>
     </div>
   </div>
 
