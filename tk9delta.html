@@ -383,22 +383,10 @@ body::before{
   <div class="banner-row">
     <div>
       <div class="banner-title">COMPÉTITION EN PAUSE</div>
-      <div class="banner-sub" id="urgenceSub">Reprise dans --:--</div>
+      <div class="banner-sub" id="urgenceSub">Prêt à geler — la reprise se choisit ensuite</div>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <select id="urgenceDelay" class="chip">
-        <option value="5">5 min</option>
-        <option value="10" selected>10 min</option>
-        <option value="15">15 min</option>
-        <option value="20">20 min</option>
-        <option value="30">30 min</option>
-        <option value="0">Indéfini</option>
-      </select>
-      <select id="urgenceMode" class="chip">
-        <option value="resume_exact">Reprendre temps exact</option>
-        <option value="resume_countdown">Reprendre avec countdown</option>
-      </select>
-      <button class="btn auto" id="btn-urg-freeze" onclick="applyUrgence()">GELER</button>
+      <button class="btn auto" id="btn-urg-freeze" onclick="applyUrgence()">GELER ⏸</button>
       <button class="btn start" id="btn-urg-resume" onclick="openResumeChoice()" style="display:none">REPRENDRE ▸</button>
     </div>
   </div>
@@ -1827,7 +1815,7 @@ function toggleAuto(){AUTO=!AUTO;}
 function openUrgence(){g('urgenceBanner').classList.add('show');}
 function applyUrgence(){
   if(!confirm('🚨 GELER LA COMPETITION ?\n\nTous les ecrans (juges, live, speaker) passent en pause et un message est diffuse a tous.')) return;
-  var delay=parseInt(g('urgenceDelay').value,10)||10; var mode=g('urgenceMode').value; [1,2].forEach(function(z){ clearInterval(zoneState[z].jtIv); var subEl=g('z'+z+'StatusSub'); if(subEl&&(subEl.textContent||'').indexOf('Forçage')!==-1)subEl.textContent=''; }); dbRef('system/urgence').set({active:true,ts:Date.now(),delay:delay,resumeMode:mode,token:'foc2026zk'}); dbRef('system/broadcast').set({target:'all',message:'Compétition suspendue. Attendre les consignes du Timekeeper.',ts:Date.now(),source:'tkx',token:'foc2026zk'});}
+  [1,2].forEach(function(z){ clearInterval(zoneState[z].jtIv); var subEl=g('z'+z+'StatusSub'); if(subEl&&(subEl.textContent||'').indexOf('Forçage')!==-1)subEl.textContent=''; }); dbRef('system/urgence').set({active:true,ts:Date.now(),delay:0,resumeMode:'resume_exact',token:'foc2026zk'}); dbRef('system/broadcast').set({target:'all',message:'Compétition suspendue. Attendre les consignes du Timekeeper.',ts:Date.now(),source:'tkx',token:'foc2026zk'});}
 function resumeUrgence(){
   // ★ GEL REEL DU CHRONO : tous les ecrans calculent le temps ecoule depuis
   //   heats/{id}/startTimestamp -> on decale le depart des heats LIVE du temps
@@ -1908,7 +1896,7 @@ function restartCurrentHeat(){
   if(!confirm('\u21ba RECOMMENCER LE HEAT ?\n\nLe chrono est remis \u00e0 z\u00e9ro et TOUS LES SCORES du/des heat(s) en cours sont ANNUL\u00c9S. Cette action est irr\u00e9versible.')) return;
   closeResumeChoice();
   var liveZones = [];
-  [1,2].forEach(function(z){ var hid=currentHeat(z); if(hid && String((HD[hid]||{}).status||'')==='live') liveZones.push({z:z,hid:hid}); });
+  [1,2].forEach(function(z){ var hid=currentHeat(z); var st=String((HD[hid]||{}).status||''); if(hid && (st==='live'||st==='timecap')) liveZones.push({z:z,hid:hid}); });
   // reset chaque heat live (zoneReset vide les scores + repasse en pending)
   liveZones.forEach(function(o){ zoneReset(o.z); });
   // lever l'urgence, puis relancer chaque zone avec un vrai décompte de départ
@@ -2054,7 +2042,7 @@ if(db) dbRef('system/morningCountdown').on('value',function(s){
   }
   tick();_mcdTkIv=setInterval(tick,200);
 });
-function startUrgenceTicker(){clearInterval(urgence.iv); urgence.iv=setInterval(function(){if(!urgence.active||!urgence.ts)return; if(urgence.delay<=0){g('urgenceSub').textContent='Pause indéfinie · mode '+(urgence.mode==='resume_exact'?'temps exact':'countdown'); return;} var rem=Math.max(0,urgence.delay*60-Math.floor((Date.now()-urgence.ts)/1000)); g('urgenceSub').textContent='Reprise dans '+fmtS(rem)+' · mode '+(urgence.mode==='resume_exact'?'temps exact':'countdown');},250);}
+function startUrgenceTicker(){clearInterval(urgence.iv); urgence.iv=setInterval(function(){if(!urgence.active||!urgence.ts){var _s0=g('urgenceSub'); if(_s0)_s0.textContent='Prêt à geler — la reprise se choisit ensuite'; return;} var el=Math.max(0,Math.floor((Date.now()-urgence.ts)/1000)); var _s=g('urgenceSub'); if(_s)_s.textContent='⏸ En pause depuis '+fmtS(el)+' · reprise quand tu es prêt';},250);}
 function broadcast(zone,target){var inp=g('z'+zone+'Msg'), msg=(inp.value||'').trim(); if(!msg)return; var payload={target:target,message:msg,zone:zone,ts:Date.now(),source:'tkx',token:'foc2026zk'}; if(target==='all')dbRef('system/broadcast').set(payload); else dbRef('system/broadcast/'+target).set(payload); inp.value='';}
 function statusClass(st){if(st==='live')return 'live'; if(st==='pre')return 'pre'; if(st==='timecap')return 'tc'; return 'done';}
 function judgeCount(hid){var h=HD[hid]||{}, total=0, on=0; var _jcl=h.lanes||h.slots||{}; Object.keys(_jcl).forEach(function(ln){var lane=_jcl[ln]; if(!lane||(!lane.teamName&&!lane.nom))return; if(!lane.teamName) lane=Object.assign({},lane,{teamName:lane.nom||'Lane '+ln}); total++; var sc=scoreObj(hid,ln); if(sc.judgePrenom)on++;}); return {on:on,total:total};}
