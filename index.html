@@ -2951,6 +2951,34 @@ function checkPassword(){
     </div>
   </div>
 
+  <div class="gc tip">
+    <div class="gc-title">📺 Écran public (live) — les nouveautés</div>
+    <div class="gc-body">
+      <div class="gcl">
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Essais Max Load affichés</strong> : sur un WOD <strong>charge max</strong>, l'écran public montre la suite des essais de chaque équipe sous forme de pastilles — validés en vert, la meilleure charge avec 🏆, les essais ratés barrés (ex : <code>✓85 ✓92 🏆100 105</code>). Ça se remplit en temps réel à chaque validation du juge. Sur les autres formats (AMRAP, For Time…), rien ne s'affiche : c'est réservé au Max Load.</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Séparation par catégorie dans un heat mixte</strong> : quand un heat est complété par des <strong>équipes invitées</strong> d'une autre catégorie, l'écran public regroupe les lignes par catégorie, séparées par un <strong>trait de couleur portant le nom de la catégorie</strong> (la catégorie du heat d'abord, puis les invités regroupés dessous). Le public voit tout de suite qui joue dans quelle catégorie. Un heat <strong>sans invité</strong> s'affiche normalement, sans trait.</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Classements justes (classement &amp; podium)</strong> : dans le <strong>classement</strong> et le <strong>podium</strong>, une équipe invitée est comptée dans <strong>sa propre catégorie d'origine</strong>, jamais dans celle du heat hôte — même si sa catégorie est répartie sur plusieurs heats, tout est rassemblé correctement. Sur l'écran public, l'invité apparaît dans le <strong>heat en direct</strong>, séparé par le trait de catégorie décrit ci-dessus.</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Résistance aux coupures réseau</strong> : si la connexion abîme des données en cours de route (liste de départages ou d'essais avec un trou), les écrans <strong>ignorent le bout abîmé et continuent</strong> au lieu de planter. Les calculs restent justes.</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="gc warn">
+    <div class="gc-title">🗑 Les deux boutons de nettoyage — quand et comment</div>
+    <div class="gc-body">
+      Il y a <strong>deux outils différents</strong>, à ne surtout pas confondre. L'un est doux, l'autre est radical.<br><br>
+      <div class="gcl">
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>🧹 Vider les données de TEST</strong> — <strong>le doux, celui de tous les jours.</strong> Il efface <strong>uniquement les scores</strong> et remet tous les heats « en attente ». Ta <strong>configuration est conservée</strong> (WODs, équipes, bénévoles, heats). <u>Quand l'utiliser</u> : après une répétition ou un test grandeur nature, pour repartir propre <strong>sans avoir à tout reconstruire</strong>. C'est celui que tu utiliseras juste avant le vrai début de la compétition, pour effacer les scores d'essai.</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>🗑 Firebase (purge totale)</strong> — <strong>le radical, à manier avec précaution.</strong> Il <strong>efface TOUT sur le cloud</strong> (WODs, catégories, bénévoles, heats, scores, juges, classement, statuts, system, backup) puis <strong>repousse tes données locales d'admin</strong> à la place. <u>Quand l'utiliser</u> : seulement si le cloud est <strong>dans un état incohérent</strong> (données d'un ancien événement, mélange, corruption) et que tu veux <strong>tout remettre à zéro depuis ta version admin</strong>. À faire <strong>avant</strong> la compétition, jamais pendant.</div></div>
+      </div>
+      <div style="margin-top:10px;padding:9px 11px;background:rgba(211,47,47,.08);border:1px solid rgba(211,47,47,.25);border-radius:8px;font-size:12px;color:#B71C1C">
+        ⚠️ <strong>La purge Firebase est irréversible et concerne tout le monde.</strong> Tous les appareils connectés verront leurs données remplacées par les tiennes, et <strong>tous les scores saisis sur le terrain seront perdus</strong>. Ne jamais la lancer une fois la compétition commencée.
+      </div>
+      <div style="margin-top:8px"><strong>Comment ça se passe (Firebase)</strong> : le bouton demande une <strong>double confirmation</strong> — une fenêtre qui liste ce qui va être effacé, puis tu dois <strong>taper le mot <code>PURGER</code></strong> exactement pour valider. Si tu tapes autre chose, rien ne se passe. La clé de sauvegarde (JSONBin) est préservée automatiquement. À la fin, un message confirme le nombre d'éléments traités.</div>
+      <div style="margin-top:8px"><strong>Le bon réflexe</strong> : au quotidien et pour nettoyer les essais, <strong>Vider les données de TEST</strong> suffit presque toujours. Garde la <strong>purge Firebase</strong> pour les remises à zéro complètes, faites au calme avant le jour J.</div>
+    </div>
+  </div>
+
   <div class="gc warn">
     <div class="gc-title">▶️ « Je clique une fois, je ne touche plus à rien »</div>
     <div class="gc-body">
