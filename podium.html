@@ -326,7 +326,7 @@ function scoreVal(sc,wod,h,hid){
 
 function tbArrCl(sc){
   if(sc&&sc.tiebreaks&&Array.isArray(sc.tiebreaks)&&sc.tiebreaks.length>0){
-    return sc.tiebreaks.map(function(t){return parseInt(t.ts||t.val||0,10)||0;}).filter(function(t){return t>0;});
+    return sc.tiebreaks.map(function(t){return (t&&(parseInt(t.ts||t.val||0,10)||0))||0;}).filter(function(t){return t>0;});
   }
   if(sc&&sc.tiebreak&&sc.tiebreak>0) return [parseInt(sc.tiebreak,10)];
   return [];

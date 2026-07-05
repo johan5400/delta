@@ -3677,7 +3677,7 @@ function renderLanes(zone,hid,h){
       reps:parseInt(sc.reps||0,10)||0,
       noReps:parseInt(sc.noReps||0,10)||0,
       tiebreak:sc.tiebreak>0?parseInt(sc.tiebreak):0,
-      tbs:(sc.tiebreaks&&Array.isArray(sc.tiebreaks)&&sc.tiebreaks.length>0)?sc.tiebreaks.map(function(t){return parseInt(t.ts||t.val||0,10)||0;}):(sc.tiebreak>0?[parseInt(sc.tiebreak,10)]:[]),
+      tbs:(sc.tiebreaks&&Array.isArray(sc.tiebreaks)&&sc.tiebreaks.length>0)?sc.tiebreaks.map(function(t){return (t&&(parseInt(t.ts||t.val||0,10)||0))||0;}):(sc.tiebreak>0?[parseInt(sc.tiebreak,10)]:[]),
       ok:judgeOk, sortVal:sortVal, isLive:isLive,
       isGuest:!!lane.isGuest,
       guestCatName:lane.teamCatName||'',

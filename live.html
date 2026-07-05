@@ -1746,14 +1746,14 @@ function etaInfoForRow(row,w,h,catId){
 function tbArr(sc){
   // Retourne la liste des tiebreaks en ordre (nouveau format ou legacy)
   if(sc.tiebreaks && Array.isArray(sc.tiebreaks) && sc.tiebreaks.length>0){
-    return sc.tiebreaks.map(function(t){return parseInt(t.ts||t.val||0,10)||0;});
+    return sc.tiebreaks.map(function(t){return (t&&(parseInt(t.ts||t.val||0,10)||0))||0;});
   }
   if(sc.tiebreak && sc.tiebreak>0) return [parseInt(sc.tiebreak,10)];
   return [];
 }
 function attemptsArr(sc){
   if(sc && sc.attempts && Array.isArray(sc.attempts) && sc.attempts.length>0){
-    return sc.attempts.map(function(a){return {kg:parseFloat(a.kg)||0, ok:!!a.ok};}).filter(function(a){return a.kg>0;});
+    return sc.attempts.map(function(a){return {kg:(a&&parseFloat(a.kg))||0, ok:!!(a&&a.ok)};}).filter(function(a){return a.kg>0;});
   }
   return [];
 }
