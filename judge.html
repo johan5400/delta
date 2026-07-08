@@ -2363,9 +2363,10 @@ function armReadyLiveWatch(){
         HEAT_STATUS=(st==='timecap')?'timecap':'live';
         stopReadyLiveWatch();
         refreshJudgeLockUI();
+        if(heat.startTimestamp){ HEAT_START_TS=heat.startTimestamp; startTs=heat.startTimestamp; }
         // ★ FIX REPRISE : passer par la restauration (heat déjà en cours =
         //   un score peut déjà exister pour cette lane).
-        _judgeRestoreThenStart();
+        _judgeRestoreThenStart(heat.startTimestamp||0);
         return;
       }
       // ★ Ne PLUS couper le watch après 20s : sur le 1er heat, le juge peut
@@ -3572,9 +3573,16 @@ function loadHeatLane(heatId, lane, onDone){
    2) Score juge en cours (reps>0) → reprise exacte : mouvement, reps, tour,
       no-reps, tiebreaks.
    3) Rien → départ normal à zéro. */
-function _judgeRestoreFromScore(sc){
+function _judgeRestoreFromScore(sc, runTs){
   if(!sc || typeof sc!=='object') return false;
   if(String(sc._src||'')!=='judge') return false; // ne restaurer que ce qu'un juge a poussé
+  // ★ FIX RELANCE HEAT : chaque score porte le runTs du départ (GO) auquel il
+  //   appartient. Si le TK relance le heat (nouveau startTimestamp), l'ancien
+  //   score validé ne correspond plus au run courant → on l'IGNORE et le juge
+  //   repart normalement (préparation -25s, saisie). Sans ça, la restauration
+  //   verrouillait le juge sur « Score déjà validé » à chaque relance.
+  runTs=parseInt(runTs||0,10)||0;
+  if(runTs>0 && (parseInt(sc.runTs||0,10)||0)!==runTs) return false;
   var reps=parseInt(sc.reps||0,10)||0;
   var fTime=parseInt(sc.finalTime||0,10)||0;
   var validated=(sc.judgeOk===true)||fTime>0;
@@ -3613,11 +3621,12 @@ function _judgeRestoreFromScore(sc){
   }
   return true;
 }
-function _judgeRestoreThenStart(){
+function _judgeRestoreThenStart(runTs){
   if(!db || !FB_HEAT_ID || !FB_LANE){ startJudgeReal(); return; }
+  runTs=parseInt(runTs||HEAT_START_TS||startTs||0,10)||0;
   db.ref('heats/'+FB_HEAT_ID+'/scores/'+FB_LANE).once('value').then(function(snap){
     var restored=false;
-    try{ restored=_judgeRestoreFromScore(snap.val()); }catch(e){ console.warn('restore:', e&&e.message); }
+    try{ restored=_judgeRestoreFromScore(snap.val(), runTs); }catch(e){ console.warn('restore:', e&&e.message); }
     if(_scoreValidated){
       // Score déjà validé → surtout ne PAS rouvrir la saisie
       show('s-done');
@@ -3762,11 +3771,12 @@ function applyRealData(data){
     _preShown=true;
     setTimeout(function(){
       // re-check au cas où une donnée arrive entre-temps
-      if(data.startTimestamp && !HEAT_START_TS){ HEAT_START_TS=data.startTimestamp; startTs=data.startTimestamp; }
+      if(data.startTimestamp){ HEAT_START_TS=data.startTimestamp; startTs=data.startTimestamp; }
       // ★ FIX REPRISE : relire le score existant AVANT d'ouvrir la saisie
       //   (rechargement en plein heat → ne pas repartir à zéro / ne pas
-      //   écraser un score déjà validé).
-      _judgeRestoreThenStart();
+      //   écraser un score déjà validé). Le startTimestamp COURANT sert de
+      //   marqueur de run : un score d'un ancien départ est ignoré.
+      _judgeRestoreThenStart(data.startTimestamp||0);
     }, 400);
   } else {
     // pending — écran d'attente
@@ -3982,6 +3992,9 @@ try{
     navigator.getBattery().then(function(b){
       function upd(){ _battPct=Math.round((b.level||0)*100); }
       upd(); b.addEventListener('levelchange',upd);
+      // Re-signaler dès que le niveau est connu (la 1re présence part souvent
+      // AVANT que la promesse batterie ne soit résolue)
+      setTimeout(function(){ try{ signalPresence(); }catch(e){} }, 1500);
     });
   }
 }catch(e){}
@@ -4169,6 +4182,11 @@ function pushScoreLive(){
     // ★ FIX : une SEULE clé tiebreaks (avant : clé dupliquée, la 2e écrasait la
     //   1re et perdait listIdx → la reprise après refresh re-déclenchait les TB)
     tiebreaks:_tbCaptured.map(function(c){return {ts:c.ts,listIdx:c.listIdx||0,moveIdx:c.moveIdx,rep:c.rep,tour:c.tour,desc:c.desc||''};}),
+    // ★ BATTERIE : le .set() remplaçait tout l'objet et EFFAÇAIT judgeBatt à
+    //   chaque rep → on l'embarque dans chaque push. + runTs : marqueur du
+    //   départ du heat (voir _judgeRestoreFromScore).
+    judgeBatt:(_battPct!=null?_battPct:null), judgeBattTs:(_battPct!=null?Date.now():null),
+    runTs:parseInt(HEAT_START_TS||startTs||0,10)||0,
     _src:'judge', _priority:80, ts:Date.now(), _token:typeof WRITE_TOKEN!=='undefined'?WRITE_TOKEN:''
   };
   if(hasFinalTime){
@@ -4203,6 +4221,8 @@ function pushScoreFinal(scorePayload){
     judgePrenom:FB_JUGE_PRENOM, judgeName:FB_JUGE_PRENOM+' '+FB_JUGE_NOM,
     judgeOk:true, tiebreak:tbTs||0,
     tiebreaks:_tbCaptured.map(function(c){return {ts:c.ts,listIdx:c.listIdx||0,moveIdx:c.moveIdx,rep:c.rep,tour:c.tour,desc:c.desc||''};}),
+    judgeBatt:(_battPct!=null?_battPct:null), judgeBattTs:(_battPct!=null?Date.now():null),
+    runTs:parseInt(HEAT_START_TS||startTs||0,10)||0,
     finishTs:(parseInt(scorePayload&&scorePayload.finalTime||0,10)>0)?serverNow():0,
     _src:'judge', _priority:90, ts:Date.now(), _token:typeof WRITE_TOKEN!=='undefined'?WRITE_TOKEN:''
   });

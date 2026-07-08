@@ -3404,7 +3404,8 @@ function renderCatRank(zone,catName){
         wodInfo:wInfo,
         judgeOk:boolOk(sc.judgeOk),
         hasRawScore:hasRawScore(sc),
-        heatClosed:heatClosed
+        heatClosed:heatClosed,
+        heatLive:h.status==='live'
       });
     });
   });
@@ -3418,7 +3419,11 @@ function renderCatRank(zone,catName){
     var grp=[];
     Object.keys(cat.teams).forEach(function(tname){
       cat.teams[tname].entries.filter(function(e){
-        return e.wod===wid && e.hasRawScore && (e.judgeOk || e.heatClosed);
+        // ★ VIRTUEL : pendant un heat LIVE, les reps en cours comptent comme
+        //   score provisoire → le classement bouge en direct dès le 1er heat,
+        //   et s'agrège avec les heats terminés (barème CrossFit 100/95/90…)
+        //   exactement comme le vrai classement général.
+        return e.wod===wid && e.hasRawScore && (e.judgeOk || e.heatClosed || e.heatLive);
       }).forEach(function(e){
         grp.push({
           team:tname,
@@ -3621,9 +3626,12 @@ function renderLanes(zone,hid,h){
           var remTimeA=Math.max(0,cap-elapsed);
           var projectedA=reps+Math.round(cadence*remTimeA);
           if(totalRepsWod>0){
-            var projectedPctA=Math.round((projectedA/totalRepsWod)*100);
-            etaCls=projectedPctA>=100?'ok':projectedPctA>=80?'blue':'warn';
-            proj='PROJ '+projectedA+' / '+totalRepsWod+' ('+projectedPctA+'%)';
+            // ★ FIX PROJ AMRAP : totalRepsWod = reps d'UN tour, pas du WOD
+            //   (l'athlète boucle) → le « 197/30 (657%) » n'avait aucun sens.
+            //   On affiche la projection en reps + tours estimés.
+            var projToursA=projectedA/totalRepsWod;
+            etaCls='blue';
+            proj='PROJ '+projectedA+' reps (~'+(Math.round(projToursA*10)/10)+' tours)';
           } else {
             etaCls='blue';
             proj='PROJ '+projectedA+' reps';
