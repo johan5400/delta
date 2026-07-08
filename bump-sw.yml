@@ -1,0 +1,46 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# BUMP AUTO DU SERVICE WORKER — Delta / FOC 2026
+#
+# À chaque push sur le repo (n'importe quel fichier, n'importe comment :
+# git push, upload via le site GitHub, etc.), ce robot met à jour la ligne
+# `const BUILD = '...'` de sw.js avec la date + l'identifiant du commit.
+#
+# Résultat : tous les téléphones jettent leur cache et rechargent la nouvelle
+# version au prochain lancement de l'app. Zéro manip, plus jamais.
+#
+# Note anti-boucle : le commit fait par ce robot utilise le token GitHub
+# interne, qui ne redéclenche PAS les workflows → pas de boucle infinie.
+# ─────────────────────────────────────────────────────────────────────────────
+name: Bump service worker
+
+on:
+  push:
+    branches: [ main, master ]
+    paths-ignore:
+      - 'sw.js'   # ignorer les pushes qui ne touchent QUE sw.js
+
+permissions:
+  contents: write
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Récupérer le repo
+        uses: actions/checkout@v4
+
+      - name: Mettre à jour la ligne BUILD de sw.js
+        run: |
+          STAMP="$(date -u +%Y-%m-%dT%H:%M:%SZ)-${GITHUB_SHA::7}"
+          sed -i "s|^const BUILD = '.*';|const BUILD = '${STAMP}';|" sw.js
+          echo "Nouveau BUILD : ${STAMP}"
+          grep "const BUILD" sw.js
+
+      - name: Commit et push
+        run: |
+          git config user.name "sw-bump-bot"
+          git config user.email "bot@zonek.local"
+          git add sw.js
+          git diff --cached --quiet && echo "Rien à committer" && exit 0
+          git commit -m "chore: bump SW build [auto]"
+          git push

@@ -11528,8 +11528,10 @@ function updateMouvementCatQty(wid, idx, catKey, val){
 }
 function updateMouvementCatField(wid, idx, catKey, field, val){
   var w = WODS.find(function(x){return x.id===wid;});
-  if(!w||!w.mouvements||!w.mouvements[idx])return;
-  var m = w.mouvements[idx];
+  if(!w)return;
+  // ★ TOURS PERSO : résoudre le mouvement via la liste aplatie (idx global)
+  var m = _adaptMovAt(w, idx);
+  if(!m)return;
   if(field==='poids'){
     if(!m.poids) m.poids={};
     m.poids[catKey]=val;
@@ -11539,6 +11541,31 @@ function updateMouvementCatField(wid, idx, catKey, field, val){
   }
   refreshWodScPreview(wid);
   autoSave();
+}
+
+/* ★ ADAPTATION PAR CATÉGORIE × TOURS PERSO ─────────────────────────────────
+   Liste effective des mouvements pour le popup d'adaptation :
+   - WOD classique  → w.mouvements (comportement inchangé)
+   - Tours perso    → tous les mouvements de tous les tours, aplatis, avec un
+     libellé "T2 · Pull UP". Les objets retournés sont des RÉFÉRENCES directes
+     vers w.toursPerso[ti].mouvements[mi] : toute modification (qtyParCat,
+     poids, nomParCat…) est donc persistée dans le WOD, embarquée par le
+     flatten (_wodEffMovs) et résolue par le juge (qtyParCat[catId]). */
+function _adaptMovList(w){
+  if(w && w.toursMode==='custom' && Array.isArray(w.toursPerso) && w.toursPerso.length>0){
+    var out=[];
+    w.toursPerso.forEach(function(tp,ti){
+      (tp&&Array.isArray(tp.mouvements)?tp.mouvements:[]).forEach(function(m){
+        out.push({m:m, tourLbl:'T'+(ti+1)});
+      });
+    });
+    return out;
+  }
+  return (w&&Array.isArray(w.mouvements)?w.mouvements:[]).map(function(m){return {m:m, tourLbl:''};});
+}
+function _adaptMovAt(w, idx){
+  var l=_adaptMovList(w);
+  return (l[idx]&&l[idx].m)||null;
 }
 
 function moveWodProg(id, dir) {
@@ -11851,7 +11878,8 @@ function toggleWodAcc(wid, key){
 
 // ═══════ Popup Adaptation par catégorie ═══════
 function _catHasAdapt(w, catKey){
-  var movs = w.mouvements || [];
+  // ★ TOURS PERSO : inclure les mouvements de tous les tours
+  var movs = _adaptMovList(w).map(function(it){return it.m;});
   for(var i=0;i<movs.length;i++){
     var m = movs[i];
     if(m.qtyParCat  && m.qtyParCat[catKey]  != null && m.qtyParCat[catKey]  !== '') return true;
@@ -11881,7 +11909,9 @@ function renderAdaptPopup(){
   var w = WODS.find(function(x){return x.id===_adaptWodId;});
   if(!w) return;
   var cats = CATEGORIES || [];
-  var movs = w.mouvements || [];
+  // ★ TOURS PERSO : le popup adapte aussi les mouvements de chaque tour
+  var _entries = _adaptMovList(w);
+  var movs = _entries.map(function(it){return it.m;});
   var INP = 'background:#F8FAFC;border:1px solid var(--brd2);border-radius:6px;padding:5px 6px;font-size:11px;font-weight:700;outline:none;font-family:inherit;text-align:center;width:100%;box-sizing:border-box;';
   var chips = cats.map(function(c){
     var k = String(c.id||c.nom);
@@ -11891,8 +11921,7 @@ function renderAdaptPopup(){
   }).join('');
   var body;
   if(!movs.length){
-    body = '<div style="font-size:11px;color:var(--mid);text-align:center;padding:14px">Aucun mouvement dans la liste \u2014 ajoute des mouvements d\u2019abord.'
-      + (w.toursMode==='custom' ? '<br><span style="font-size:10px">En tours personnalis\u00e9s, adapte reps/charges directement dans chaque tour.</span>' : '') + '</div>';
+    body = '<div style="font-size:11px;color:var(--mid);text-align:center;padding:14px">Aucun mouvement dans la liste \u2014 ajoute des mouvements (ou des tours) d\u2019abord.</div>';
   } else {
     var k = _adaptCatKey;
     body = '<div style="display:grid;grid-template-columns:1fr 64px 72px 64px;gap:6px;font-size:8px;font-weight:900;color:var(--ink2);text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px"><span>Mouvement</span><span style="text-align:center">Reps/Dist</span><span style="text-align:center">Poids</span><span style="text-align:center">Temps</span></div>'
@@ -11908,7 +11937,7 @@ function renderAdaptPopup(){
         ? '<input type="number" min="0" placeholder="'+escHtml(String(global))+'" value="'+escHtml(String(catDist))+'" onchange="updateMouvementCatField('+w.id+','+mi+',\''+k.replace(/'/g,"\\'")+'\',\'distParCat\',parseInt(this.value)||0);renderAdaptPopup()" style="'+INP+'color:#E65100">'
         : '<input type="number" min="0" placeholder="'+escHtml(String(global))+'" value="'+escHtml(String(catQty))+'" onchange="updateMouvementCatField('+w.id+','+mi+',\''+k.replace(/'/g,"\\'")+'\',\'qtyParCat\',parseInt(this.value)||0);renderAdaptPopup()" style="'+INP+'color:var(--blue)'+(catQty!==''?';border-color:#86EFAC;background:#F0FDF4':'')+'">';
       return '<div style="display:grid;grid-template-columns:1fr 64px 72px 64px;gap:6px;align-items:center;margin-bottom:6px">'
-        + '<input type="text" placeholder="'+escHtml(m.nom||('Mouv '+(mi+1)))+' ('+global+(isErgo?(m.ergoUnit||'m'):'')+')" value="'+escHtml(catNom)+'" title="Nom pour cette cat\u00e9gorie (vide = nom global)" onchange="updateMouvementCatField('+w.id+','+mi+',\''+k.replace(/'/g,"\\'")+'\',\'nomParCat\',this.value);renderAdaptPopup()" style="'+INP+'text-align:left;font-weight:800'+(catNom?';border-color:#86EFAC;background:#F0FDF4':'')+'">'
+        + '<input type="text" placeholder="'+escHtml(((_entries[mi]&&_entries[mi].tourLbl)?_entries[mi].tourLbl+' \u00b7 ':'')+(m.nom||('Mouv '+(mi+1))))+' ('+global+(isErgo?(m.ergoUnit||'m'):'')+')" value="'+escHtml(catNom)+'" title="Nom pour cette cat\u00e9gorie (vide = nom global)" onchange="updateMouvementCatField('+w.id+','+mi+',\''+k.replace(/'/g,"\\'")+'\',\'nomParCat\',this.value);renderAdaptPopup()" style="'+INP+'text-align:left;font-weight:800'+(catNom?';border-color:#86EFAC;background:#F0FDF4':'')+'">'
         + q1
         + '<input type="text" placeholder="\u2014" value="'+escHtml(catPoids)+'" onchange="updateMouvementCatField('+w.id+','+mi+',\''+k.replace(/'/g,"\\'")+'\',\'poids\',this.value);renderAdaptPopup()" style="'+INP+'color:var(--purple)'+(catPoids?';border-color:#86EFAC;background:#F0FDF4':'')+'">'
         + '<input type="text" placeholder="\u2014" value="'+escHtml(catTime)+'" onchange="updateMouvementCatField('+w.id+','+mi+',\''+k.replace(/'/g,"\\'")+'\',\'timeParCat\',this.value);renderAdaptPopup()" style="'+INP+'color:#059669'+(catTime?';border-color:#86EFAC;background:#F0FDF4':'')+'">'
