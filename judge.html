@@ -2362,7 +2362,9 @@ function armReadyLiveWatch(){
         HEAT_STATUS=(st==='timecap')?'timecap':'live';
         stopReadyLiveWatch();
         refreshJudgeLockUI();
-        startJudgeReal();
+        // ★ FIX REPRISE : passer par la restauration (heat déjà en cours =
+        //   un score peut déjà exister pour cette lane).
+        _judgeRestoreThenStart();
         return;
       }
       // ★ Ne PLUS couper le watch après 20s : sur le 1er heat, le juge peut
@@ -2795,7 +2797,13 @@ function addRep(){
       // Skip si ce TB est déjà déclenché
       if(_tbCaptured.some(function(c){return c.listIdx===tbIdx;})) return;
       // Vérifier tour (null = tous les tours)
-      var tourOk = tb.tour==null || tb.tour===currentRound;
+      // ★ FIX TB TOURS PERSO : en For Time / séquence aplatie, currentRound reste
+      //   figé à 1 (seuls amrapLoop/roundsLoop l'incrémentent). Chaque mouvement
+      //   aplati porte son propre m.tour → c'est LUI qui fait foi quand il est
+      //   défini. Sans ça, les tiebreaks configurés sur les tours 2..N ne se
+      //   déclenchaient JAMAIS (symptôme AMS 2026 : TB pris que sur le 1er tour).
+      var effTour = (m && parseInt(m.tour||0,10)>0) ? parseInt(m.tour,10) : currentRound;
+      var tourOk = tb.tour==null || tb.tour===effTour;
       // Vérifier mouvement
       var moveOk = parseInt(tb.moveIdx,10)===moveIdx;
       // Vérifier rep : si rep défini → exact ; si null → fin du mouvement (m.q)
@@ -2803,7 +2811,7 @@ function addRep(){
       var repOk = targetRep>0 && moveReps===targetRep;
       if(tourOk && moveOk && repOk){
         var capTs = startTs ? Math.floor((serverNow()-startTs)/1000) : elapsed;
-        _tbCaptured.push({listIdx:tbIdx, ts:capTs, moveIdx:moveIdx, rep:moveReps, tour:currentRound, desc:tb.desc||''});
+        _tbCaptured.push({listIdx:tbIdx, ts:capTs, moveIdx:moveIdx, rep:moveReps, tour:effTour, desc:tb.desc||''});
         triggerMultiTB(tbIdx, capTs, tb.desc);
       }
     });
@@ -3506,6 +3514,73 @@ function loadHeatLane(heatId, lane, onDone){
 }
 
 /* Appliquer les infos Firebase sur le scénario */
+/* ★ FIX REPRISE (refresh / rechargement en plein heat) ─────────────────────
+   Symptôme AMS 2026 : après un ctrl+alt+R (ou tout rechargement) pendant un
+   heat live, le juge repartait au mouvement 1 / tour 1 avec 0 rep. Le moindre
+   tap faisait alors un .set() complet sur scores/{hid}_{lane} → le score déjà
+   validé (finalTime) ET les tiebreaks étaient ÉCRASÉS → le live affichait CAP
+   (fortime sans finalTime = CAP) et la fiche score perdait ses TB.
+   Correctif : avant d'ouvrir la saisie sur un heat live/timecap, on relit le
+   score existant de CETTE lane et on restaure la progression. Trois cas :
+   1) Score déjà VALIDÉ (judgeOk/finalTime) → état "validé" restauré, la saisie
+      ne se rouvre JAMAIS (écran s-done).
+   2) Score juge en cours (reps>0) → reprise exacte : mouvement, reps, tour,
+      no-reps, tiebreaks.
+   3) Rien → départ normal à zéro. */
+function _judgeRestoreFromScore(sc){
+  if(!sc || typeof sc!=='object') return false;
+  if(String(sc._src||'')!=='judge') return false; // ne restaurer que ce qu'un juge a poussé
+  var reps=parseInt(sc.reps||0,10)||0;
+  var fTime=parseInt(sc.finalTime||0,10)||0;
+  var validated=(sc.judgeOk===true)||fTime>0;
+  if(!validated && reps<=0 && !(parseInt(sc.noReps||0,10)>0)) return false;
+  totalReps=reps;
+  noReps=parseInt(sc.noReps||0,10)||0;
+  var maxIdx=(SC&&Array.isArray(SC.moves)&&SC.moves.length)?SC.moves.length-1:0;
+  moveIdx=Math.max(0,Math.min(parseInt(sc.curMoveIdx||0,10)||0,maxIdx));
+  moveReps=Math.max(0,parseInt(sc.moveReps||0,10)||0);
+  currentRound=Math.max(1,parseInt(sc.currentRound||1,10)||1);
+  tbTs=parseInt(sc.tiebreak||0,10)||0;
+  _tbCaptured=[];
+  var tbs=Array.isArray(sc.tiebreaks)?sc.tiebreaks:[];
+  tbs.forEach(function(t,i){
+    if(!t) return;
+    var ts=parseInt(t.ts||t.val||0,10)||0; if(ts<=0) return;
+    var li=(t.listIdx!=null && isFinite(parseInt(t.listIdx,10)))?parseInt(t.listIdx,10):i;
+    _tbCaptured.push({listIdx:li, ts:ts,
+      moveIdx:parseInt(t.moveIdx||0,10)||0, rep:parseInt(t.rep||0,10)||0,
+      tour:parseInt(t.tour||0,10)||0, desc:t.desc||''});
+  });
+  if(validated){
+    done=true; _scoreValidated=true;
+    // Reconstituer l'écran "score validé" (sans dépendre du cache planning)
+    var fmt=(SC&&SC.fmt||'').toLowerCase(), scoreStr;
+    if(fmt==='fortime') scoreStr=fTime>0?fmtT(fTime):totalReps+' reps (TC)';
+    else if(fmt==='maxload') scoreStr=(parseInt(sc.load||0,10)||0)+' kg';
+    else scoreStr=totalReps+' reps';
+    var e1=$('done-score'); if(e1) e1.textContent=scoreStr;
+    var e2=$('done-meta');  if(e2) e2.textContent=(SC?SC.heat+' · Lane '+SC.lane+' · '+SC.wod:'')+' · restauré après rechargement';
+    var e3=$('done-tb');
+    if(e3){ if(tbTs){e3.textContent='🎯 Tiebreak : '+fmtT(tbTs);e3.style.display='block';} else e3.style.display='none'; }
+  }
+  return true;
+}
+function _judgeRestoreThenStart(){
+  if(!db || !FB_HEAT_ID || !FB_LANE){ startJudgeReal(); return; }
+  db.ref('heats/'+FB_HEAT_ID+'/scores/'+FB_LANE).once('value').then(function(snap){
+    var restored=false;
+    try{ restored=_judgeRestoreFromScore(snap.val()); }catch(e){ console.warn('restore:', e&&e.message); }
+    if(_scoreValidated){
+      // Score déjà validé → surtout ne PAS rouvrir la saisie
+      show('s-done');
+      toast('✅ Score déjà validé — rien à refaire','#00E5A0',4000);
+      return;
+    }
+    if(restored) toast('🔄 Reprise : '+totalReps+' reps · tour '+currentRound,'#FFB74D',3500);
+    startJudgeReal();
+  }).catch(function(){ startJudgeReal(); });
+}
+
 function applyRealData(data){
   if(!data){ showError('Données manquantes','Impossible de charger les données du heat.'); return; }
   // ★ FIX CLIGNOTEMENT JUGE PENDANT INTERHEAT : pendant la transition IH→heat,
@@ -3640,7 +3715,10 @@ function applyRealData(data){
     setTimeout(function(){
       // re-check au cas où une donnée arrive entre-temps
       if(data.startTimestamp && !HEAT_START_TS){ HEAT_START_TS=data.startTimestamp; startTs=data.startTimestamp; }
-      startJudgeReal();
+      // ★ FIX REPRISE : relire le score existant AVANT d'ouvrir la saisie
+      //   (rechargement en plein heat → ne pas repartir à zéro / ne pas
+      //   écraser un score déjà validé).
+      _judgeRestoreThenStart();
     }, 400);
   } else {
     // pending — écran d'attente
@@ -4023,8 +4101,10 @@ function pushScoreLive(){
     attempts:mlAttempts.map(function(a){return {kg:a.kg,ok:!!a.ok};}),
     curMoveIdx:moveIdx, moveReps:moveReps, currentRound:currentRound,
     judgePrenom:FB_JUGE_PRENOM, judgeName:FB_JUGE_PRENOM+' '+FB_JUGE_NOM,
-    judgeOk:!!done, tiebreak:tbTs||0, tiebreaks:_tbPushArr(),
-    tiebreaks:_tbCaptured.map(function(c){return {ts:c.ts,moveIdx:c.moveIdx,rep:c.rep,tour:c.tour,desc:c.desc};}),
+    judgeOk:!!done, tiebreak:tbTs||0,
+    // ★ FIX : une SEULE clé tiebreaks (avant : clé dupliquée, la 2e écrasait la
+    //   1re et perdait listIdx → la reprise après refresh re-déclenchait les TB)
+    tiebreaks:_tbCaptured.map(function(c){return {ts:c.ts,listIdx:c.listIdx||0,moveIdx:c.moveIdx,rep:c.rep,tour:c.tour,desc:c.desc||''};}),
     _src:'judge', _priority:80, ts:Date.now(), _token:typeof WRITE_TOKEN!=='undefined'?WRITE_TOKEN:''
   };
   if(hasFinalTime){
@@ -4057,8 +4137,8 @@ function pushScoreFinal(scorePayload){
     laneNum:parseInt(FB_LANE)||0,
     teamName:(SC&&SC.team)||'',
     judgePrenom:FB_JUGE_PRENOM, judgeName:FB_JUGE_PRENOM+' '+FB_JUGE_NOM,
-    judgeOk:true, tiebreak:tbTs||0, tiebreaks:_tbPushArr(),
-    tiebreaks:_tbCaptured.map(function(c){return {ts:c.ts,moveIdx:c.moveIdx,rep:c.rep,tour:c.tour,desc:c.desc};}),
+    judgeOk:true, tiebreak:tbTs||0,
+    tiebreaks:_tbCaptured.map(function(c){return {ts:c.ts,listIdx:c.listIdx||0,moveIdx:c.moveIdx,rep:c.rep,tour:c.tour,desc:c.desc||''};}),
     finishTs:(parseInt(scorePayload&&scorePayload.finalTime||0,10)>0)?serverNow():0,
     _src:'judge', _priority:90, ts:Date.now(), _token:typeof WRITE_TOKEN!=='undefined'?WRITE_TOKEN:''
   });
