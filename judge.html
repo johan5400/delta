@@ -738,6 +738,7 @@ body{
   <div class="done-tb" id="done-tb" style="display:none"></div>
   <div style="font-size:11px;color:var(--ok);text-align:center;max-width:280px;line-height:1.6;font-weight:700">✓ Score transmis au TK et au Live</div>
   <div style="font-size:11px;color:var(--warn);text-align:center;max-width:280px;line-height:1.6;font-weight:700;margin-top:4px">⚠️ Attends le signal avant de quitter</div>
+  <button id="done-vu-btn" onclick="equipeVu()" style="margin-top:14px;padding:16px 34px;background:linear-gradient(135deg,#00c853,#00e5a0);border:none;color:#04220f;border-radius:14px;font-size:16px;font-weight:900;cursor:pointer;letter-spacing:1px;box-shadow:0 6px 22px rgba(0,229,160,.35)">👁 VU PAR L'ÉQUIPE</button>
   <button id="done-return-btn" onclick="returnToWait()" style="margin-top:16px;padding:14px 32px;background:linear-gradient(135deg,var(--fire),var(--ember));border:none;color:#fff;border-radius:12px;font-size:15px;font-weight:800;cursor:pointer;letter-spacing:1px;box-shadow:0 4px 18px rgba(255,87,34,.35)">↩ Retour attente</button>
 </div>
 
@@ -3005,8 +3006,52 @@ function validate(ergoVal){
   // ★ DIRECTIVE CHEF : le récap "prochain passage" ne doit apparaître QU'APRÈS
   //   la validation du score (jamais pendant le WOD). On arme le flag ici.
   _scoreValidated = true;
-  // Afficher l'écran consigne après un court délai (laisser le score remonter)
-  setTimeout(showNextScreen, 400);
+  // ★ RÉCAP ÉQUIPE : afficher d'abord l'écran récap (score/TB/NR). Le juge le
+  //   montre au capitaine, tape « VU PAR L'ÉQUIPE », puis le cheminement normal
+  //   reprend (consignes du prochain passage via showNextScreen).
+  var _vb=$('done-vu-btn'); if(_vb) _vb.style.display='';
+  _fillDoneNextInfo();
+  setTimeout(function(){ show('s-done'); }, 400);
+  // ★ FILET DE SÉCURITÉ : si le juge ne tape pas « VU PAR L'ÉQUIPE » sous 45s
+  //   (téléphone posé, équipe partie...), le cheminement normal reprend TOUT
+  //   SEUL. L'écran récap ne peut jamais bloquer le flux — le bouton est une
+  //   trace bonus, pas un péage.
+  clearTimeout(window._vuAutoTm);
+  window._vuAutoTm=setTimeout(function(){
+    if(_currentScreen==='s-done'){ showNextScreen(); }
+  }, 45000);
+}
+
+/* ★ Bandeau du haut de l'écran récap : prochain passage DU JUGE, libellé
+   explicitement « JUGE » pour que le capitaine (à qui on montre l'écran) ne
+   croie pas que ça parle de son équipe. Vide → bandeau masqué. */
+function _fillDoneNextInfo(){
+  var el=$('done-next-info'); if(!el) return;
+  var info=null;
+  try{ info=judgeBuildNextInstruction(); }catch(e){}
+  if(info && (info.title||info.body)){
+    el.textContent='⚖ JUGE — '+(info.title||'')+(info.body?(' · '+info.body):'');
+    el.style.display='flex';
+  } else {
+    el.style.display='none';
+  }
+}
+
+/* ★ VU PAR L'ÉQUIPE : trace la prise de connaissance du score par le capitaine
+   (vuEquipe + horodatage sur les DEUX chemins du score), puis reprend le flux
+   normal exactement comme avant (consignes / prochain heat). */
+function equipeVu(){
+  try{
+    if(db && FB_HEAT_ID && FB_LANE){
+      var flag={vuEquipe:true, vuEquipeTs:Date.now()};
+      db.ref('heats/'+FB_HEAT_ID+'/scores/'+FB_LANE).update(flag);
+      db.ref('scores/'+FB_HEAT_ID+'_'+FB_LANE).update(flag);
+    }
+  }catch(e){}
+  clearTimeout(window._vuAutoTm);
+  var b=$('done-vu-btn'); if(b) b.style.display='none';
+  toast('✅ Score vu par l\'équipe','#00E5A0',2500);
+  showNextScreen();
 }
 
 /* ── EMOM / Intervalles ── */
@@ -3562,6 +3607,9 @@ function _judgeRestoreFromScore(sc){
     var e2=$('done-meta');  if(e2) e2.textContent=(SC?SC.heat+' · Lane '+SC.lane+' · '+SC.wod:'')+' · restauré après rechargement';
     var e3=$('done-tb');
     if(e3){ if(tbTs){e3.textContent='🎯 Tiebreak : '+fmtT(tbTs);e3.style.display='block';} else e3.style.display='none'; }
+    // ★ RÉCAP ÉQUIPE : si le capitaine a déjà vu le score, ne pas re-proposer le bouton
+    var e4=$('done-vu-btn'); if(e4) e4.style.display=(sc.vuEquipe===true)?'none':'';
+    try{ _fillDoneNextInfo(); }catch(e){}
   }
   return true;
 }
@@ -3924,15 +3972,31 @@ function loadAndShowPlanning(jugeId){
   }, function(err){ /* erreur Firebase — silencieux */ });
 }
 
+/* ★ BATTERIE JUGE : niveau suivi en continu (Battery API — Android/Chrome ;
+   sur iOS l'API n'existe pas → pas de badge, comportement inchangé). Le niveau
+   voyage avec la présence du juge, dans le MÊME objet score que judgePrenom :
+   zéro nœud supplémentaire, le TK le lit là où il lit déjà tout. */
+var _battPct=null;
+try{
+  if(navigator.getBattery){
+    navigator.getBattery().then(function(b){
+      function upd(){ _battPct=Math.round((b.level||0)*100); }
+      upd(); b.addEventListener('levelchange',upd);
+    });
+  }
+}catch(e){}
 function signalPresence(){
   if(!db||!FB_HEAT_ID||!FB_LANE) return;
   var path='heats/'+FB_HEAT_ID+'/scores/'+FB_LANE;
   var payload={judgePrenom:FB_JUGE_PRENOM,judgeName:FB_JUGE_PRENOM+' '+FB_JUGE_NOM,
     heat:parseInt(String(FB_HEAT_ID).replace(/\D/g,''))||0,
     lane:parseInt(FB_LANE)||0,ts:Date.now()};
+  if(_battPct!=null){ payload.judgeBatt=_battPct; payload.judgeBattTs=Date.now(); }
   db.ref(path).update(payload);
   db.ref('scores/'+FB_HEAT_ID+'_'+FB_LANE).update(payload);
 }
+// ★ Rafraîchir la présence (et donc la batterie) toutes les 3 minutes
+setInterval(function(){ try{ if(typeof signalPresence==='function') signalPresence(); }catch(e){} }, 180000);
 
 /* ── Queue offline — persist dans localStorage si réseau coupé ── */
 var _offlineQueue=[];

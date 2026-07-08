@@ -290,6 +290,7 @@ body::before{
 .ja-force{border:none;border-radius:8px;padding:7px 12px;background:rgba(255,71,87,.18);border:1px solid rgba(255,71,87,.35);color:var(--err);font-weight:900;font-size:11px;cursor:pointer;flex-shrink:0;font-family:inherit}
 .ja-force:active{transform:scale(.97)}
 
+@keyframes battBlink{0%,100%{opacity:1}50%{opacity:.25}}
 </style>
 
 <style id="tk-click-fix">
@@ -1632,6 +1633,20 @@ function startDay(day){
   //        → fonctionne même si TK est rechargé pendant le compte à rebours
 }
 
+
+
+/* ★ BATTERIE JUGE : badge à côté du nom du juge sur chaque lane.
+   Vert >50% · orange 21-50% · rouge clignotant ≤20%. Donnée de plus de
+   15 minutes = considérée périmée (téléphone iOS sans Battery API, ou juge
+   déconnecté) → pas de badge, affichage inchangé. */
+function _battBadge(r){
+  if(r==null || r.batt==null || !isFinite(r.batt)) return '';
+  if(r.battTs && (Date.now()-r.battTs)>15*60*1000) return '';
+  var p=Math.max(0,Math.min(100,r.batt));
+  var col = p>50 ? '#06d6a0' : (p>20 ? '#ffb020' : '#ff4757');
+  var blink = p<=20 ? 'animation:battBlink 1s infinite;' : '';
+  return ' <span style="font-size:10px;font-weight:800;color:'+col+';'+blink+'">\uD83D\uDD0B'+p+'%</span>';
+}
 
 function judgesReadyForHeat(hid){
   var h=HD[hid]||{}, total=0, ready=0, missing=[];
@@ -3659,6 +3674,8 @@ function renderLanes(zone,hid,h){
 
     rows.push({
       ln:ln, team:lane.teamName, judge:judge,
+      batt:(sc.judgeBatt!=null?parseInt(sc.judgeBatt,10):null),
+      battTs:parseInt(sc.judgeBattTs||0,10)||0,
       scoreRaw:scoreRaw, scoreLabel:scoreLabel,
       moveLine:moveLine, movePct:movePct, moveChips:moveChips,
       eta:eta, proj:proj, pace:pace, etaCls:etaCls,
@@ -3722,7 +3739,7 @@ function renderLanes(zone,hid,h){
       +'<div style="display:flex;flex-direction:column;align-items:center;gap:4px;min-width:32px">'        +(i===0?'<div style="font-size:18px">🥇</div>':i===1?'<div style="font-size:18px">🥈</div>':i===2?'<div style="font-size:18px">🥉</div>':'<div style="font-family:var(--ff);font-size:20px;color:var(--muted)">'+(i+1)+'</div>')        +'<div class="lnum" style="font-size:18px">'+r.ln+'</div>'      +'</div>'      // Bloc central
       +'<div style="min-width:0;flex:1">'        // Nom + statut
         +'<div class="ltop">'          +'<div class="lteam">'+esc(r.team)+(r.isGuest?'<span style="font-size:9px;color:'+(r.guestCatColor||'#888')+';font-weight:800;background:'+(r.guestCatColor||'#888')+'18;border:1px solid '+(r.guestCatColor||'#888')+'33;border-radius:999px;padding:2px 7px;white-space:nowrap;margin-left:6px;vertical-align:middle">Invitée · '+esc(r.guestCatName||'')+'</span>':'')+'</div>'          +'<div class="lstatus '+(r.ok?'ok':r.judge?'live':'alert')+'">'+(r.ok?'✓ validé':r.judge?'⏱ live':'⚠ sans juge')+'</div>'        +'</div>'        // Juge
-        +(r.judge?'<div class="lmeta">⚖ '+esc(r.judge)+'</div>':'<div class="lmeta" style="color:var(--err)">Juge non connecté</div>')        // Mouvement actif
+        +(r.judge?'<div class="lmeta">⚖ '+esc(r.judge)+_battBadge(r)+'</div>':'<div class="lmeta" style="color:var(--err)">Juge non connecté</div>')        // Mouvement actif
         +(r.moveLine?'<div class="lmove" style="font-size:12px;margin-top:3px">▶ '+esc(r.moveLine)+'</div>':'')        // Barre progression mouvement courant
         +(r.movePct>0          ?'<div style="margin-top:4px;height:4px;background:rgba(255,255,255,.06);border-radius:3px;overflow:hidden">'            +'<div style="width:'+r.movePct+'%;height:100%;background:linear-gradient(90deg,var(--fire),var(--fire2));border-radius:3px;transition:width .3s"></div></div>'          :'')        // Barre progression globale WOD (% reps totales)
         +(globalPct>0&&!r.ok          ?'<div style="margin-top:3px;display:flex;align-items:center;gap:5px">'            +'<div style="flex:1;height:3px;background:rgba(255,255,255,.04);border-radius:2px;overflow:hidden">'              +'<div style="width:'+globalPct+'%;height:100%;background:rgba(78,159,255,.5);border-radius:2px;transition:width .4s"></div></div>'            +'<span style="font-family:var(--fm);font-size:9px;color:var(--muted)">'+globalPct+'%</span>'          +'</div>'          :'')        // Chips mouvements
