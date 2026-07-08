@@ -3370,7 +3370,7 @@ function renderCatRank(zone,catName){
     var isTime=(wInfo.wodFormat||wInfo.type||'').toLowerCase()==='fortime'||sf==='time';
     if(jm==='maxload'||sf==='load') return parseFloat(sc.load)||0;
     if(jm==='ergo'||sf==='dist'||sf==='cal') return parseFloat(sc.dist||sc.ergoVal||sc.distance)||0;
-    if(isTime) return parseInt(sc.finalTime||0,10)>0 ? -parseInt(sc.finalTime,10) : 0;
+    if(isTime) return parseInt(sc.finalTime||0,10)>0 ? -parseInt(sc.finalTime,10) : (parseInt(sc.reps||0,10)>0 ? -1000000+parseInt(sc.reps,10) : -2000000);
     return parseInt(sc.reps||0,10)||0;
   }
   function hasRawScore(sc){
