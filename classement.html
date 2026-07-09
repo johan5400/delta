@@ -286,6 +286,7 @@ function toggleChefMode(){
   }
 }
 
+
 function editScore(hid,ln,teamName,wod){
   var hidNum2=parseInt(String(hid).replace(/\D/g,''))||0;
   var sc=SCORES[hid+'_'+ln]||SCORES[hidNum2+'_'+ln]||{};
@@ -335,7 +336,18 @@ function editScore(hid,ln,teamName,wod){
   db.ref('scores/'+hid+'_'+ln).set(newSc);
   db.ref('heats/'+hid+'/scores/'+ln).set(newSc);
   // Log
-  db.ref('system/scoreEdits').push({hid:hid,ln:ln,teamName:teamName,reason:reason,ts:Date.now(),by:'chef'});
+  // ★ JOURNAL ENRICHI : on garde la valeur AVANT et APRÈS pour pouvoir
+  //   afficher « 10:58 → 11:02 » en cas de contestation d'une équipe.
+  db.ref('system/scoreEdits').push({
+    hid:hid, ln:ln, teamName:teamName, wod:(wod&&(wod.nom||wod.name))||'',
+    reason:reason, ts:Date.now(), by:'chef',
+    prev:{reps:parseInt(sc.reps||0,10)||0, finalTime:parseInt(sc.finalTime||0,10)||0,
+          load:parseFloat(sc.load||0)||0, dist:parseFloat(sc.dist||0)||0,
+          tiebreak:parseInt(sc.tiebreak||0,10)||0},
+    next:{reps:parseInt(newSc.reps||0,10)||0, finalTime:parseInt(newSc.finalTime||0,10)||0,
+          load:parseFloat(newSc.load||0)||0, dist:parseFloat(newSc.dist||0)||0,
+          tiebreak:parseInt(newSc.tiebreak||0,10)||0}
+  });
 
   SCORES[hid+'_'+ln]=newSc;
   render();

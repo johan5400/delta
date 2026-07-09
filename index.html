@@ -1358,10 +1358,6 @@ function checkPassword(){
     <button onclick="window.open(window.location.href.split('/').slice(0,-1).join('/')+'/podium.html','_blank')" style="padding:18px 10px;border-radius:12px;border:none;cursor:pointer;background:linear-gradient(135deg,#FF8A00,#FFD166);color:#2a1c00;font-weight:900;font-size:13px;display:flex;flex-direction:column;align-items:center;gap:6px;box-shadow:0 4px 16px rgba(255,138,0,.35)">
       <span style="font-size:26px">🏆</span>Podium
     </button>
-    <!-- ★ AJOUT : accès Historique (page existante, liée nulle part) -->
-    <button onclick="window.open(window.location.href.split('/').slice(0,-1).join('/')+'/history.html','_blank')" style="padding:18px 10px;border-radius:12px;border:none;cursor:pointer;background:linear-gradient(135deg,#4C1D95,#8B5CF6);color:#fff;font-weight:900;font-size:13px;display:flex;flex-direction:column;align-items:center;gap:6px;box-shadow:0 4px 16px rgba(139,92,246,.3)">
-      <span style="font-size:26px">📊</span>Historique
-    </button>
   </div>
 </div>
 
@@ -4637,6 +4633,61 @@ function toggleScoreAudit(){
   if(p.style.display==='none'){ p.style.display='block'; renderScoreAuditLog(); }
   else { p.style.display='none'; }
 }
+
+/* ★ POPUP « QUI A MODIFIÉ CE SCORE ? » (ADMIN uniquement) ────────────────
+   Lit system/scoreEdits et affiche, pour UNE équipe : quand, par qui, sur quel
+   WOD, la valeur avant → après, et la raison invoquée. Sert en cas de
+   contestation. Volontairement absent de la page publique classement.html. */
+function _shFmtT(sec){ sec=parseInt(sec||0,10)||0; if(!sec) return '\u2014'; return Math.floor(sec/60)+':'+String(sec%60).padStart(2,'0'); }
+function _shVal(v){
+  if(!v) return '\u2014';
+  if(v.finalTime>0) return _shFmtT(v.finalTime);
+  if(v.load>0) return v.load+' kg';
+  if(v.dist>0) return v.dist+' m';
+  if(v.reps>0) return v.reps+' reps';
+  return '\u2014';
+}
+function _shDate(ts){ var d=new Date(ts||0); function p(n){return (n<10?'0':'')+n;}
+  return p(d.getDate())+'/'+p(d.getMonth()+1)+' \u00b7 '+p(d.getHours())+':'+p(d.getMinutes()); }
+function closeScoreHistory(){ var m=document.getElementById('score-history-modal'); if(m) m.remove(); }
+function _encAttr(s){ return encodeURIComponent(String(s==null?'':s)).replace(/'/g,'%27'); }  // ★ encodeURIComponent laisse passer l'apostrophe → onclick cassé pour « L'Équipe »
+function openScoreHistory(teamNameEnc){
+  var teamName=decodeURIComponent(teamNameEnc||'');
+  closeScoreHistory();
+  var wrap=document.createElement('div');
+  wrap.id='score-history-modal';
+  wrap.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px';
+  wrap.onclick=function(e){ if(e.target===wrap) closeScoreHistory(); };
+  wrap.innerHTML='<div style="background:#0f1826;border:1px solid #2a3a52;border-radius:14px;max-width:640px;width:100%;max-height:80vh;overflow:auto;padding:18px">'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">'
+    +'<div style="font-size:15px;font-weight:900;color:#fff">Modifications de score \u00b7 '+escHtml(teamName)+'</div>'
+    +'<button onclick="closeScoreHistory()" style="background:none;border:none;color:#94a3b8;font-size:22px;cursor:pointer">\u00d7</button></div>'
+    +'<div id="score-history-body" style="color:#94a3b8;font-size:13px">Chargement\u2026</div></div>';
+  document.body.appendChild(wrap);
+  var body=document.getElementById('score-history-body');
+  var db=getDb();
+  if(!db||typeof db.ref!=='function'){ body.textContent='Base indisponible.'; return; }
+  db.ref('system/scoreEdits').once('value').then(function(snap){
+    var v=snap.val()||{};
+    var arr=Object.keys(v).map(function(k){return v[k];})
+      .filter(function(e){ return e && String(e.teamName||'')===String(teamName); })
+      .sort(function(a,b){ return (b.ts||0)-(a.ts||0); });
+    if(!arr.length){ body.innerHTML='<div style="padding:12px 0">Aucune modification enregistr\u00e9e pour cette \u00e9quipe.</div>'; return; }
+    body.innerHTML=arr.map(function(e){
+      var av=_shVal(e.prev), ap=_shVal(e.next);
+      var chg=(e.prev||e.next)?('<span style="color:#f87171">'+av+'</span> \u2192 <span style="color:#34d399;font-weight:800">'+ap+'</span>'):'';
+      return '<div style="border:1px solid #24344c;border-radius:10px;padding:10px 12px;margin-bottom:8px;background:#0b1220">'
+        +'<div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap">'
+        +'<span style="color:#fb923c;font-weight:800">'+escHtml(e.by||'?')+'</span>'
+        +'<span style="color:#64748b">'+_shDate(e.ts)+'</span></div>'
+        +(e.wod?'<div style="color:#94a3b8;margin-top:3px">WOD : '+escHtml(e.wod)+'</div>':'')
+        +(chg?'<div style="margin-top:5px;font-size:15px">'+chg+'</div>':'')
+        +'<div style="color:#cbd5e1;margin-top:5px;font-style:italic">\u00ab '+escHtml(e.reason||'sans raison')+' \u00bb</div>'
+        +'</div>';
+    }).join('');
+  }).catch(function(err){ body.textContent='Erreur : '+err.message; });
+}
+
 function renderScoreAuditLog(){
   var p=document.getElementById('score-audit-panel'); if(!p) return;
   var db=getDb(); if(!db||typeof db.ref!=='function'){ p.innerHTML='<div style="color:var(--ink3);font-size:12px;padding:10px">Firebase indisponible</div>'; return; }
@@ -18261,7 +18312,9 @@ function renderClassementAdmin(heatsData, scoresData){
       html+=posCell(info, liveNow, preNow);
     });
     // Action (modifier)
-    html+='<div style="text-align:center"><button onclick="openScoreEdit(\''+encodeURIComponent(t.name)+'\',\''+encodeURIComponent(window._classementCatFilter)+'\')" style="background:rgba(124,58,237,.1);border:1px solid rgba(124,58,237,.25);color:#7C3AED;padding:6px 11px;border-radius:7px;cursor:pointer;font-size:11px;font-weight:800;font-family:inherit;white-space:nowrap">✏️ Modif</button></div>';
+    html+='<div style="text-align:center"><button onclick="openScoreEdit(\''+_encAttr(t.name)+'\',\''+_encAttr(window._classementCatFilter)+'\')" style="background:rgba(124,58,237,.1);border:1px solid rgba(124,58,237,.25);color:#7C3AED;padding:6px 11px;border-radius:7px;cursor:pointer;font-size:11px;font-weight:800;font-family:inherit;white-space:nowrap">✏️ Modif</button></div>';
+    // ★ Bouton historique des modifications (admin uniquement)
+    html+='<button onclick="openScoreHistory(\''+_encAttr(t.name)+'\')" title="Qui a modifié ce score ?" style="margin-left:6px;background:rgba(251,146,60,.10);border:1px solid rgba(251,146,60,.35);color:#FB923C;border-radius:7px;padding:5px 9px;font-size:11px;font-weight:800;cursor:pointer">ⓘ</button>';
     html+='</div>';
   });
 
