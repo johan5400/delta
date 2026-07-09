@@ -1358,6 +1358,13 @@ function checkPassword(){
     <button onclick="window.open(window.location.href.split('/').slice(0,-1).join('/')+'/podium.html','_blank')" style="padding:18px 10px;border-radius:12px;border:none;cursor:pointer;background:linear-gradient(135deg,#FF8A00,#FFD166);color:#2a1c00;font-weight:900;font-size:13px;display:flex;flex-direction:column;align-items:center;gap:6px;box-shadow:0 4px 16px rgba(255,138,0,.35)">
       <span style="font-size:26px">🏆</span>Podium
     </button>
+    <!-- ★ AJOUT : accès Historique + Classement (pages existantes, liées nulle part) -->
+    <button onclick="window.open(window.location.href.split('/').slice(0,-1).join('/')+'/history.html','_blank')" style="padding:18px 10px;border-radius:12px;border:none;cursor:pointer;background:linear-gradient(135deg,#4C1D95,#8B5CF6);color:#fff;font-weight:900;font-size:13px;display:flex;flex-direction:column;align-items:center;gap:6px;box-shadow:0 4px 16px rgba(139,92,246,.3)">
+      <span style="font-size:26px">📊</span>Historique
+    </button>
+    <button onclick="window.open(window.location.href.split('/').slice(0,-1).join('/')+'/classement.html','_blank')" style="padding:18px 10px;border-radius:12px;border:none;cursor:pointer;background:linear-gradient(135deg,#065F46,#10B981);color:#fff;font-weight:900;font-size:13px;display:flex;flex-direction:column;align-items:center;gap:6px;box-shadow:0 4px 16px rgba(16,185,129,.3)">
+      <span style="font-size:26px">🥇</span>Classement
+    </button>
   </div>
 </div>
 
@@ -4299,7 +4306,13 @@ function checkGenBtn(){
   var missing=[];
   if(!WODS||!WODS.length) missing.push('WODs');
   if(!CATEGORIES||!CATEGORIES.length) missing.push('Catégories');
-  var hasTeams=CATEGORIES&&CATEGORIES.some(function(c){return c.equipes&&c.equipes.length>0;});
+  // ★ FIX « Manque : Équipes » alors qu'elles sont saisies.
+  //   L'admin stocke les équipes dans cat.teams (voir addTeam/addTeamsFromInput).
+  //   Ce contrôle lisait cat.equipes, qui n'existe que pour le WOD final → il ne
+  //   trouvait jamais rien. On accepte les deux noms.
+  var hasTeams=CATEGORIES&&CATEGORIES.some(function(c){
+    return (c.teams&&c.teams.length>0) || (c.equipes&&c.equipes.length>0);
+  });
   if(!hasTeams) missing.push('Équipes');
   if(!BENEVOLES||!BENEVOLES.length) missing.push('Bénévoles');
   var ok=missing.length===0;
@@ -12369,7 +12382,8 @@ function renderWodFinalMoves() {
     el.innerHTML='<div style="color:#64748B;font-size:11px;text-align:center;padding:8px">Aucun mouvement — cliquez + Mouvement</div>';
     return;
   }
-  var cats=(CATEGORIES||[]).filter(function(c){return (c.equipes||[]).length>0;});
+  // ★ FIX : l'admin stocke les équipes dans cat.teams (cat.equipes n'existe pas ici)
+  var cats=(CATEGORIES||[]).filter(function(c){return ((c.equipes||c.teams)||[]).length>0;});
   var IS='background:#0F1C2E;border:1px solid #334155;border-radius:5px;padding:4px 6px;font-size:11px;font-weight:700;outline:none;font-family:inherit;color:#E2E8F0;box-sizing:border-box';
   el.innerHTML=WOD_FINAL.mouvements.map(function(m,i){
     var catRows=cats.map(function(cat){
@@ -12402,14 +12416,15 @@ function renderWodFinalCutPerCat() {
     return;
   }
   if (!WOD_FINAL.cutPerCat) WOD_FINAL.cutPerCat = {};
-  var cats = CATEGORIES.filter(function(c){ return (c.equipes||[]).length > 0; });
+  // ★ FIX : idem, accepter cat.teams
+  var cats = CATEGORIES.filter(function(c){ return ((c.equipes||c.teams)||[]).length > 0; });
   if (!cats.length) {
     el.innerHTML = '<div style="color:#64748B;font-size:11px;text-align:center">Aucune équipe dans les catégories</div>';
     return;
   }
   el.innerHTML = cats.map(function(cat) {
     var catCut = WOD_FINAL.cutPerCat[cat.id] != null ? WOD_FINAL.cutPerCat[cat.id] : defaultCut;
-    var max = (cat.equipes||[]).length;
+    var max = ((cat.equipes||cat.teams)||[]).length;
     catCut = Math.min(catCut, max);
     return '<div style="display:flex;align-items:center;gap:8px;padding:6px 4px;border-bottom:1px solid #1E293B">'
       + '<div style="flex:1;font-size:12px;font-weight:700;color:#E2E8F0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (cat.nom||'—') + '</div>'
@@ -12431,7 +12446,7 @@ function autoSelectFinalTeams() {
   CATEGORIES.forEach(function(cat) {
     var topN = WOD_FINAL.cutPerCat[cat.id] != null ? parseInt(WOD_FINAL.cutPerCat[cat.id],10) : defaultCut;
     topN = Math.max(1, topN || defaultCut);
-    var equipes = (cat.equipes || []).slice(0, topN);
+    var equipes = ((cat.equipes || cat.teams) || []).slice(0, topN);
     equipes.forEach(function(eq) {
       WOD_FINAL.equipes.push({ id: eq.id, nom: eq.nom, cat: cat.nom });
     });
@@ -17031,6 +17046,11 @@ async function buildAnalysisData(){
         var prev=grp[i-1]||null,isTie=!!(prev&&e.val===prev.val);
         if(!isTie) rankPos=i+1;
         var pts=_anCfPts(rankPos),t=T[e.team]; if(!t) return;
+        // ★ MULTIPLICATEUR WOD FINAL : le champ « × points » du panneau WOD Final
+        //   était honoré par classement.html mais IGNORé ici → l'admin et le
+        //   classement public affichaient des totaux différents. Aligne les deux.
+        var _wi=e.wInfo||{};
+        if(_wi.isFinal) pts=pts*Math.max(1,parseInt(_wi.pointsMultiplier,10)||1);
         t.points+=pts; t.validated++;
         if(rankPos===1)t.podiums.p1++; else if(rankPos===2)t.podiums.p2++; else if(rankPos===3)t.podiums.p3++;
         t.byWod[w]={rank:rankPos,points:pts,score:_anFmtSc(e.sc,e.wInfo),val:e.val,reps:parseInt(e.sc.reps||0,10)||0,finalTime:parseInt(e.sc.finalTime||0,10)||0,nTeams:grp.length,moves:(((e.wInfo&&e.wInfo.mouvements)||[]).map(function(m){return String((m&&(m.nom||m.name))||'').trim();}).filter(Boolean)),curMoveIdx:(e.sc&&e.sc.curMoveIdx!=null?parseInt(e.sc.curMoveIdx,10):null)};
@@ -17372,6 +17392,9 @@ async function renderClassementTK(){
           var isTie=!!(prev && e.val===prev.val && e.tb===prev.tb);
           if(!isTie) rankPos=i+1;
           var pts=_cfPts(rankPos); // ★ points CrossFit réels
+          // ★ MULTIPLICATEUR WOD FINAL (voir note du moteur d'analyse)
+          var _wi2=e.wInfo||{};
+          if(_wi2.isFinal) pts=pts*Math.max(1,parseInt(_wi2.pointsMultiplier,10)||1);
           var t=teamObjs[e.team]; if(!t) return;
           t.points+=pts;
           t.validated++;

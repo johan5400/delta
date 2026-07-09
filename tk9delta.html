@@ -3479,6 +3479,10 @@ function renderCatRank(zone,catName){
       var isTie=!!(prev&&e.val===prev.val&&e.tb===prev.tb);
       if(!isTie) rankPos=i+1;
       var pts=_cfPts(rankPos); // ★ points CrossFit réels
+      // ★ MULTIPLICATEUR WOD FINAL : honoré par classement.html et l'admin ;
+      //   il manquait ici, le classement virtuel du TK sous-évaluait la finale.
+      var _wi=e.wodInfo||{};
+      if(_wi.isFinal) pts=pts*Math.max(1,parseInt(_wi.pointsMultiplier,10)||1);
       var t=teamObjs[e.team]; if(!t) return;
       t.points+=pts;
       t.validated++;
