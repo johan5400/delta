@@ -3463,7 +3463,8 @@ function renderCatRank(zone,catName){
         grp.push({
           team:tname,
           val:rankScoreVal(e.sc,e.wodInfo),
-          tb:parseInt(e.sc.tiebreak||0,10)||0
+          tb:parseInt(e.sc.tiebreak||0,10)||0,
+          wodInfo:e.wodInfo   // ★ nécessaire au multiplicateur du WOD final
         });
       });
     });
