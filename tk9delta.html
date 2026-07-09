@@ -1530,9 +1530,9 @@ function startDay(day){
   }
   AUTO=true;
   [1,2].forEach(function(z){
-    clearInterval(zoneState[z].timerIv);
+    _wkTimer.clear(zoneState[z].timerIv);
     clearInterval(zoneState[z].ihIv);
-    clearInterval(zoneState[z].timerIv);
+    _wkTimer.clear(zoneState[z].timerIv);
     clearInterval(zoneState[z].ihIv);
     clearInterval(zoneState[z].jtIv);
     clearTimeout(zoneState[z]._autoLaunchTm);
@@ -1647,6 +1647,41 @@ function _battBadge(r){
   var blink = p<=20 ? 'animation:battBlink 1s infinite;' : '';
   return ' <span style="font-size:10px;font-weight:800;color:'+col+';'+blink+'">\uD83D\uDD0B'+p+'%</span>';
 }
+
+
+/* ★ FIX ONGLET EN ARRIÈRE-PLAN ────────────────────────────────────────────
+   Chrome (et Safari/Firefox) gèlent les setInterval des onglets non actifs.
+   Or c'est un setInterval du TK qui écrit `startTimestamp` / status='live'
+   au GO. Conséquence : TK + live + index ouverts sur le même PC, le TK passe
+   en arrière-plan → le GO n'est JAMAIS écrit, l'app juge et le live restent
+   bloqués en attente. Il fallait cliquer sur l'onglet TK pour le réveiller.
+
+   Correctif : les timers critiques du départ tournent dans un Web Worker.
+   Les workers dédiés ne sont PAS soumis au throttling d'arrière-plan, donc
+   le tick continue même onglet caché. API identique à setInterval. */
+var _wkTimer=(function(){
+  var w=null, next=1, cbs={};
+  try{
+    var src="var t={};onmessage=function(e){var d=e.data;"+
+            "if(d.cmd==='start'){t[d.id]=setInterval(function(){postMessage({id:d.id});},d.ms);}"+
+            "else if(d.cmd==='stop'){clearInterval(t[d.id]);delete t[d.id];}};";
+    w=new Worker(URL.createObjectURL(new Blob([src],{type:'application/javascript'})));
+    w.onmessage=function(e){ var f=cbs[e.data.id]; if(f) f(); };
+  }catch(e){ w=null; }
+  return {
+    set:function(fn,ms){
+      if(!w) return {native:true, id:setInterval(fn,ms)};
+      var id=next++; cbs[id]=fn; w.postMessage({cmd:'start',id:id,ms:ms});
+      return {native:false, id:id};
+    },
+    clear:function(h){
+      if(!h) return;
+      if(h.native){ clearInterval(h.id); return; }
+      delete cbs[h.id]; if(w) w.postMessage({cmd:'stop',id:h.id});
+    },
+    ok:function(){ return !!w; }
+  };
+})();
 
 function judgesReadyForHeat(hid){
   var h=HD[hid]||{}, total=0, ready=0, missing=[];
@@ -2337,7 +2372,7 @@ function launchHeat(zone,hid){
     // auront EXACTEMENT le même tick à chaque rafraîchissement.
     var ts = Math.round(target / 1000) * 1000;
     // Vider le timer du countdown AVANT setStatus pour que le guard laisse passer updateZoneTimer
-    clearInterval(zoneState[zone].timerIv);
+    _wkTimer.clear(zoneState[zone].timerIv);
     zoneState[zone].timerIv=null;
     zoneState[zone].counting=false;
     zoneState[zone]._timerTs=0;
@@ -2367,15 +2402,15 @@ function showTKCountdown(zone, hid, seconds, target, onDone){
   if(stateEl){ stateEl.textContent='COUNTDOWN'; stateEl.className='state pre'; }
   var mainBtn=g('z'+zone+'Main');
   if(mainBtn){ mainBtn.textContent=seconds+'…'; mainBtn.className='mainbtn pre'; }
-  clearInterval(zoneState[zone].timerIv);
+  _wkTimer.clear(zoneState[zone].timerIv);
   zoneState[zone].counting=true;
-  zoneState[zone].timerIv=setInterval(function(){
+  zoneState[zone].timerIv=_wkTimer.set(function(){
     var rem=Math.ceil((target-serverNow())/1000);
     if(rem>0){
       if(el){ el.textContent=rem; el.className='timer'+(rem<=3?' hot':rem<=6?' warn':''); }
       if(mainBtn) mainBtn.textContent=rem+'…';
     } else {
-      clearInterval(zoneState[zone].timerIv);
+      _wkTimer.clear(zoneState[zone].timerIv);
       zoneState[zone].counting=false;
       if(urgence && urgence.active){ if(el){ el.textContent='⏸'; } if(mainBtn){ mainBtn.textContent='PAUSE'; } return; }  // ★ URGENCE : départ annulé
       if(el){ el.textContent='GO !'; el.className='timer'; }
@@ -2435,12 +2470,12 @@ function launchBothZones(){
     var mainBtn=g('z'+z+'Main');
     zoneState[z].selected=hid;
     zoneState[z].ihRem=null;
-    clearInterval(zoneState[z].timerIv);
+    _wkTimer.clear(zoneState[z].timerIv);
     zoneState[z].counting=true;
     if(stateEl){ stateEl.textContent='COUNTDOWN'; stateEl.className='state pre'; }
     if(mainBtn){ mainBtn.textContent=CD+'…'; mainBtn.className='mainbtn pre'; }
   });
-  var syncIv=setInterval(function(){
+  var syncIv=_wkTimer.set(function(){
     var rem=Math.ceil((target-serverNow())/1000);
     [1,2].forEach(function(z){
       var el=g('z'+z+'Timer');
@@ -2458,7 +2493,7 @@ function launchBothZones(){
       if(mainBtn){ mainBtn.textContent='EN COURS'; mainBtn.className='mainbtn live'; }
     });
     if(rem>0) return;
-    clearInterval(syncIv);
+    _wkTimer.clear(syncIv);
     if(urgence && urgence.active){ return; }  // ★ URGENCE : lancement sync annulé
     [1,2].forEach(function(z){
       var hid = z===1?h1id:h2id;
@@ -2799,7 +2834,7 @@ function zoneDone(zone){
   clearInterval(zoneState[zone].jtIv);
   zoneState[zone].jtIv=null;
   zoneState[zone].jtHid=null;
-  clearInterval(zoneState[zone].timerIv);
+  _wkTimer.clear(zoneState[zone].timerIv);
   zoneState[zone].timerIv=null;
   // ★ FIX BUG INTER-HEAT : nettoyer tickFn pour que le loop partagé n'écrive plus
   // dans z{N}Timer pendant l'inter-heat (sinon le countdown IH et le tick du heat
@@ -3012,7 +3047,7 @@ function updateZoneTimer(zone,hid,h){
   // Si le timer tourne déjà pour ce même heat avec le même startTimestamp → ne rien faire
   var _ts=h.startTimestamp||0;
   if(zoneState[zone].timerIv && zoneState[zone]._timerHid===hid && _ts>0 && zoneState[zone]._timerTs===_ts) return;
-  clearInterval(zoneState[zone].timerIv);
+  _wkTimer.clear(zoneState[zone].timerIv);
   var el=g('z'+zone+'Timer'), wod=h.wodInfo||{}, st=heatStatus(h);
   // Fusionner avec WD (wods/ Firebase) pour avoir duree/capSec toujours à jour
   var wodId=wod.id!=null?String(wod.id):(h.wodId!=null?String(h.wodId):'');

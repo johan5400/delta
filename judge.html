@@ -5123,14 +5123,44 @@ function listenHeatStatus(){
         if(done||_scoreValidated) return;
         if(_currentScreen==='s-judge'||_currentScreen==='s-next') return;
         var r=Math.ceil((m.target-serverNow())/1000);
-        if(r<=0) return; // au GO, le listener status prend le relais
+        if(r<=0){
+          // ★ FILET GO AUTONOME : normalement le listener status prend le relais
+          //   quand le TK écrit status='live'. Mais si l'onglet TK est en
+          //   arrière-plan (timers gelés par le navigateur) ou s'il a planté,
+          //   ce statut n'arrive jamais et le juge reste bloqué en attente.
+          //   Ici : la cible du GO est dépassée depuis plus de 2 s et rien n'est
+          //   venu → le juge démarre seul sur cette cible (qui fait autorité,
+          //   elle vient de Firebase). Le heat démarre à l'heure pour tout le
+          //   monde ; quand le TK se réveille, son startTimestamp est identique.
+          if((serverNow()-m.target)>2000 && HEAT_STATUS!=='live' && HEAT_STATUS!=='timecap' && HEAT_STATUS!=='done'){
+            HEAT_START_TS=m.target; startTs=m.target; HEAT_STATUS='live';
+            _prestartLockUntilTs=0;
+            try{ hideJudgePrestartOverlay(); }catch(e){}
+            toast('▶ Départ détecté','#00E5A0',2500);
+            _judgeRestoreThenStart(m.target);
+          }
+          return;
+        }
         if(!HEAT_START_TS) HEAT_START_TS=m.target;
         stopReadyLiveWatch();
         startJudgeLocked(m.target);
       };
       var _ms=(cd.target-serverNow())-25000;
       if(_ms>0){ window._mcd25Timer=setTimeout(_mcdBascule, _ms); }
-      else if(cd.target-serverNow()>0){ _mcdBascule(); }
+      else { _mcdBascule(); }   // ★ cible déjà passée : évaluer tout de suite
+      // ★ GARDE RÉCURRENTE : _mcdBascule ne s'exécutait qu'une seule fois (à -25s).
+      //   Le filet GO autonome (cas TK gelé/planté) ne pouvait donc jamais se
+      //   déclencher. On le réévalue chaque seconde tant que le heat n'est pas
+      //   parti. L'interval s'auto-coupe dès que le heat est live/terminé.
+      try{ clearInterval(window._mcdGuard); }catch(e){}
+      window._mcdGuard=setInterval(function(){
+        if(HEAT_STATUS==='live'||HEAT_STATUS==='timecap'||HEAT_STATUS==='done'||done||_scoreValidated){
+          clearInterval(window._mcdGuard); window._mcdGuard=null; return;
+        }
+        var m=window._morningCd;
+        if(!m||!m.active||!m.target){ clearInterval(window._mcdGuard); window._mcdGuard=null; return; }
+        if((m.target-serverNow())<=25000) _mcdBascule();
+      }, 1000);
     }
     if(!cd||!cd.active||!cd.target) return;
     // le morning countdown ne vaut que si notre heat n'a pas encore démarré
