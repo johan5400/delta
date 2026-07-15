@@ -8391,7 +8391,7 @@ function saveWodPlanningToCategories(){
    qui décidait lequel s'affichait à gauche — sans rapport avec la salle.
    Ce réglage force la zone voulue à gauche. Purement visuel : aucune donnée
    n'est modifiée, seul l'affichage de cette fenêtre change. */
-var ZONE_LEFT = (function(){ try{ return parseInt(localStorage.getItem('deltaZoneLeft'),10)===2?2:1; }catch(e){ return 1; } })();
+var ZONE_LEFT = (function(){ try{ var v=parseInt(localStorage.getItem('deltaZoneLeft'),10); return (v===1||v===2)?v:2; }catch(e){ return 2; } })();  // ★ défaut : Z2 à gauche donc Z1 à droite (config salle du chef)
 function toggleZoneLeft(){
   ZONE_LEFT = (ZONE_LEFT===1) ? 2 : 1;
   try{ localStorage.setItem('deltaZoneLeft', String(ZONE_LEFT)); }catch(e){}

@@ -2112,6 +2112,17 @@ function drawZone(zone){
   var ihSub=g('z'+zone+'IHSub');
   if(ihSub && h){
     var wod_=h.wodInfo||{};
+    // ★ FIX AFFICHAGE IH : wodInfo est une COPIE figée à la publication.
+    //   Le comportement réel (wodTransitionSec) fusionne déjà avec wods/ live ;
+    //   l'affichage doit faire pareil, sinon une modif d'inter-heat dans
+    //   l'admin semble « ne pas prendre » alors qu'elle est active.
+    var _wid_=wod_.id!=null?String(wod_.id):'';
+    if(_wid_ && typeof WD!=='undefined' && WD[_wid_]){
+      var _lv_=WD[_wid_];
+      wod_=Object.assign({},wod_);
+      if(_lv_.interHeat>0)    wod_.interHeat=_lv_.interHeat;
+      if(_lv_.coupureApres>0) wod_.coupureApres=_lv_.coupureApres;
+    }
     var ih_=parseInt(wod_.interHeat)||0;
     var cp_=parseInt(wod_.coupureApres)||0;
     var parts_=[];
@@ -3130,7 +3141,12 @@ function updateZoneTimer(zone,hid,h){
     var cap=wodCapSec(wod);
 
     // ── Gestion tours avec pause ──
-    if(totalRounds>1 && cap>0){
+    // ★ FIX CHRONO FOR TIME : ce découpage divise le cap total par le nombre
+    //   de tours (cap/totalRounds). Correct pour un WOD à intervalles (tours
+    //   minutés + pause), mais FAUX pour un For Time : « 9 min, 5 tours » est UN
+    //   seul chrono de 9 min, pas 5 blocs de 1min48. On ne découpe donc QUE si
+    //   une pause entre tours est configurée — jamais pour un For Time.
+    if(hasPause && totalRounds>1 && cap>0){
       var workSec=Math.round(cap/totalRounds);
       var cycleSec=hasPause?workSec+pauseSec:workSec;
       var cycleElapsed=elapsed % cycleSec;
