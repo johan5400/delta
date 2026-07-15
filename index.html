@@ -10627,6 +10627,69 @@ function buildJugeAssignment(){
     if(removedCount>0){ try{ console.warn('[anti-doublon juge] '+removedCount+' placement(s) en conflit libéré(s)'); }catch(e){} }
   })();
 
+  // ★★ FILET « TOUJOURS UN JUGE » (dernier recours) ★★
+  // Les règles nobles (même lane sur tout le WOD, créneaux, zones, pauses)
+  // peuvent laisser une lane vide alors que des juges restent disponibles
+  // (ex : heat 3/3 lane 6). Cette passe finale remplit chaque lane encore
+  // vide avec le juge le moins chargé qui est LIBRE sur la fenêtre du heat
+  // (jour compatible, aucun chevauchement avec ses autres placements).
+  // Elle relâche uniquement la continuité de lane — jamais l'anti-doublon.
+  (function fillEmptyLanes(){
+    // fenêtres de tous les heats
+    var heatWin={};
+    (HEATS_RESULT||[]).forEach(function(heat){
+      var gn=String(heat.globalNum||'');
+      if(!gn) return;
+      var w=getHeatWindow(heat, String(heat.wodId||''));
+      if(!w) return;
+      heatWin[gn]={ jour: parseInt(heat.catJour||1,10)||1, start:w.start, end:w.end };
+    });
+    // placements actuels par juge (rebuild après l'anti-doublon)
+    var busy={};
+    Object.keys(assignment).forEach(function(gn){
+      Object.keys(assignment[gn]||{}).forEach(function(ligne){
+        var j=assignment[gn][ligne]; if(!j||!j.id) return;
+        var w=heatWin[String(gn)]; if(!w) return;
+        (busy[String(j.id)]=busy[String(j.id)]||[]).push(w);
+      });
+    });
+    function freeOn(id,w){
+      return !(busy[String(id)]||[]).some(function(b){
+        return b.jour===w.jour && (b.start < w.end && w.start < b.end);
+      });
+    }
+    var filled=0;
+    (HEATS_RESULT||[]).forEach(function(heat){
+      var gn=String(heat.globalNum||''); if(!gn) return;
+      var w=heatWin[gn]; if(!w) return;
+      if(!assignment[gn]) assignment[gn]={};
+      // lanes réellement occupées par une équipe
+      var lanes=[];
+      (heat.slots||[]).forEach(function(s){ if(s && !s.empty && s.team && s.ligne) lanes.push(parseInt(s.ligne,10)); });
+      lanes.forEach(function(ln){
+        if(assignment[gn][ln] && assignment[gn][ln].id) return;   // déjà un juge
+        // candidats : dispo ce jour, créneau couvrant le heat, libres sur la fenêtre
+        var cands=jugesForDay(w.jour).filter(function(b){
+          if(typeof judgeAvailableForHeat==='function' && !judgeAvailableForHeat(b, heat, w)) {}
+          return freeOn(b.id, w);
+        });
+        if(!cands.length) return;                                  // vraiment personne → QR secours
+        // le moins chargé d'abord, zone préférée en prime
+        cands.sort(function(a,b2){
+          var za=judgeZonePriority(a, heat.catZone||1), zb=judgeZonePriority(b2, heat.catZone||1);
+          if(za!==zb) return za-zb;
+          return (chargeMap[String(a.id)]||0)-(chargeMap[String(b2.id)]||0);
+        });
+        var pick=cands[0];
+        assignment[gn][ln]={ id:String(pick.id), prenom:pick.prenom||'', nom:pick.nom||'' };
+        (busy[String(pick.id)]=busy[String(pick.id)]||[]).push(w);
+        chargeMap[String(pick.id)]=(chargeMap[String(pick.id)]||0)+1;
+        filled++;
+      });
+    });
+    if(filled>0){ try{ console.info('[filet juge] '+filled+' lane(s) vide(s) comblée(s) en dernier recours'); }catch(e){} }
+  })();
+
   window._jugeChargeMap = chargeMap;
   window._jugePauseInfo = buildJugePauseInfo(pool, judgeWodEntries);
   return assignment;
@@ -18023,6 +18086,34 @@ function renderClassementAdmin(heatsData, scoresData){
   var tabsEl = document.getElementById('classement-cat-tabs');
   if(!el) return;
   var classementStarted = classementHasStarted(heatsData||{});
+
+  // ★ GARDE « HEATS PÉRIMÉS » : les heats publiés embarquent une COPIE des
+  //   noms d'équipes au moment de leur génération. Si l'admin modifie les
+  //   équipes APRÈS, le classement continue d'afficher les anciennes (symptôme
+  //   vécu : équipes fantômes de test « G, H, I... »). Cette garde compare
+  //   les noms publiés aux équipes actuellement saisies et affiche un bandeau
+  //   clair au lieu de laisser chercher.
+  try{
+    var _known={};
+    (CATEGORIES||[]).forEach(function(c){ (((c.teams||c.equipes))||[]).forEach(function(t){ var n=(t&&(t.nom||t.name))||t; if(n) _known[String(n).trim().toLowerCase()]=1; }); });
+    var _pub=0,_unknown=0,_ex=[];
+    Object.keys(heatsData||{}).forEach(function(hid){
+      var h=heatsData[hid]; if(!h||!h.lanes) return;
+      Object.keys(h.lanes).forEach(function(ln){
+        var tn=(h.lanes[ln]||{}).teamName; if(!tn||/^Lane \d+$/.test(tn)) return;
+        _pub++;
+        if(!_known[String(tn).trim().toLowerCase()]){ _unknown++; if(_ex.length<4) _ex.push(tn); }
+      });
+    });
+    var _warnEl=document.getElementById('classement-stale-warn');
+    if(Object.keys(_known).length && _pub>0 && _unknown>_pub*0.3){
+      if(!_warnEl){ _warnEl=document.createElement('div'); _warnEl.id='classement-stale-warn'; el.parentNode.insertBefore(_warnEl, el); }
+      _warnEl.innerHTML='<div style="background:#FEF3E2;border:1.5px solid #F59E0B;border-radius:10px;padding:10px 14px;margin-bottom:10px;font-size:12px;color:#92400E">'
+        +'<b>⚠ Les heats publiés ne correspondent pas aux équipes saisies.</b> '
+        +_unknown+' équipe(s) publiée(s) inconnue(s) de la saisie actuelle (ex : '+_ex.map(function(x){return '« '+String(x).slice(0,18)+' »';}).join(', ')+'). '
+        +'Les équipes ont probablement été modifiées après la dernière publication → re-cliquer <b>Générer &amp; Publier</b> pour régénérer les heats.</div>';
+    } else if(_warnEl){ _warnEl.innerHTML=''; }
+  }catch(e){}
 
   function fmtT(sec){ sec=parseInt(sec||0,10)||0; return Math.floor(sec/60)+':'+String(sec%60).padStart(2,'0'); }
   function boolOk(v){ return v===true||v===1||v==='true'||v==='1'; }
