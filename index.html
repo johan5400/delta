@@ -1655,6 +1655,7 @@ function checkPassword(){
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
       <div style="font-size:11px;font-weight:900;color:var(--ink);text-transform:uppercase;letter-spacing:1px;">🗓 Ordre de passage par WOD</div>
       <div style="font-size:10px;color:var(--mid);flex:1">Glisse les catégories dans l'ordre voulu pour chaque WOD</div>
+      <button onclick="toggleZoneLeft()" id="zone-left-btn" title="Inverse l'affichage Zone 1 / Zone 2 pour coller à la disposition réelle de la salle" style="padding:4px 10px;border:1px solid var(--brd2);border-radius:6px;background:#fff;color:var(--mid);font-size:10px;font-weight:800;cursor:pointer;margin-right:4px">⇄ Z1 à gauche</button>
       <button onclick="resetPlanningWod()" style="padding:4px 10px;border:1px solid var(--brd2);border-radius:6px;background:#fff;color:var(--ink3);font-size:10px;font-weight:700;cursor:pointer;">↺ Reset</button>
     </div>
     <div style="font-size:9px;color:var(--mid);margin-bottom:10px;">Une même catégorie peut apparaître dans plusieurs WODs — elle passera sur chacun dans l'ordre défini.</div>
@@ -8383,6 +8384,28 @@ function saveWodPlanningToCategories(){
   if(typeof renderPlanningCF==='function') renderPlanningCF();
 }
 
+
+/* ★ ZONE AFFICHÉE À GAUCHE ─────────────────────────────────────────────────
+   Les WODs sont triés par ordreZone (= ordre DANS la zone). Quand un WOD de la
+   zone 1 et un de la zone 2 portent le même numéro, c'était l'ordre du tableau
+   qui décidait lequel s'affichait à gauche — sans rapport avec la salle.
+   Ce réglage force la zone voulue à gauche. Purement visuel : aucune donnée
+   n'est modifiée, seul l'affichage de cette fenêtre change. */
+var ZONE_LEFT = (function(){ try{ return parseInt(localStorage.getItem('deltaZoneLeft'),10)===2?2:1; }catch(e){ return 1; } })();
+function toggleZoneLeft(){
+  ZONE_LEFT = (ZONE_LEFT===1) ? 2 : 1;
+  try{ localStorage.setItem('deltaZoneLeft', String(ZONE_LEFT)); }catch(e){}
+  renderPlanningWod();
+  if(typeof toast==='function') toast('Zone '+ZONE_LEFT+' affich\u00e9e \u00e0 gauche');
+}
+function _sortWodsForDisplay(a,b){
+  var oa=(a.ordreZone||99), ob=(b.ordreZone||99);
+  if(oa!==ob) return oa-ob;                      // d'abord l'ordre de passage
+  var za=parseInt(a.zone||1,10), zb=parseInt(b.zone||1,10);
+  if(za===zb) return 0;
+  return (za===ZONE_LEFT) ? -1 : 1;              // puis la zone choisie à gauche
+}
+
 function renderPlanningWod(){
   var el = document.getElementById('planning-wod-grid');
   if(!el) return;
@@ -8390,7 +8413,9 @@ function renderPlanningWod(){
   el.style.gridTemplateColumns='repeat(auto-fit,minmax(220px,1fr))';
   el.style.gap='10px';
   el.style.overflowX='visible';
-  var wods = (WODS||[]).slice().sort(function(a,b){ return (a.ordreZone||99)-(b.ordreZone||99); });
+  var wods = (WODS||[]).slice().sort(_sortWodsForDisplay);   // ★ zone choisie à gauche
+  var _zb=document.getElementById('zone-left-btn');
+  if(_zb) _zb.textContent='\u21c4 Z'+ZONE_LEFT+' \u00e0 gauche';
   if(!wods.length){
     el.innerHTML='<div style="padding:20px;color:var(--mid);font-size:11px;">Crée d\'abord des WODs dans l\'onglet ⏱ WODs</div>';
     return;
