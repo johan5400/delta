@@ -3,27 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>HYROX · Zone K</title>
+<title>Fights on Contest 2026 · Zone K</title>
 <script>var FIREBASE_DB_URL='https://foc-2026-default-rtdb.europe-west1.firebasedatabase.app';</script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-<script>
-/* ★ HYROX — isolation Firebase : toutes les données sous /hyrox pour ne JAMAIS
-   écraser les données Delta/FOC qui vivent à la racine de la même DB. */
-(function(){
-  try{
-    if(!window.firebase || !firebase.database || firebase.database.__hyroxPatched) return;
-    var Db = firebase.database.Database && firebase.database.Database.prototype;
-    if(!Db || !Db.ref) return;
-    var _ref = Db.ref;
-    Db.ref = function(p){
-      var path = (p==null || p==='') ? 'hyrox' : ('hyrox/' + String(p).replace(/^\/+/, ''));
-      return _ref.call(this, path);
-    };
-    firebase.database.__hyroxPatched = true;
-  }catch(e){ console.warn('HYROX fb shim', e); }
-})();
-</script>
 <style>
 
 @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700&display=swap');
@@ -622,7 +605,7 @@ function checkAndShowMobilePlanning(){
 function renderMobilePlanningLocal(benId, wrap){
   // 1. Essai depuis localStorage (même appareil que l'admin)
   try {
-    var saved = localStorage.getItem('hyrox-data');
+    var saved = localStorage.getItem('zonek-data');
     if(saved){
       var data = JSON.parse(saved);
       var ben = (data.benevoles||[]).find(function(b){ return String(b.id)===String(benId); });
@@ -874,14 +857,14 @@ function checkPassword(){
   <div class="tabs">
     <button class="tab active" onclick="show('accueil',this)">🏠 Accueil</button>
     <button class="tab" onclick="show('config',this)">⚙️ Config</button>
-    <button class="tab" onclick="show('hyrox',this);setTimeout(function(){if(typeof renderHyrox==='function')renderHyrox();},40)">🏃 HYROX</button>
+    <button class="tab" onclick="show('programme',this)">⏱ WODs</button>
     <button class="tab" onclick="show('categories',this)">🏆 Catégories</button>
     <button class="tab" onclick="show('benevoles',this)">👥 Bénévoles</button>
     <button class="tab" onclick="show('planning',this)">📋 Planning</button>
     <button class="tab" onclick="show('planning-juge',this)">🧑‍⚖️ Planning juge</button>
     <button class="tab" onclick="show('printcenter',this);setTimeout(function(){if(typeof renderPrintCenter==='function')renderPrintCenter();},40)">🖨️ Impression</button>
     <button class="tab" onclick="show('mailcenter',this);setTimeout(function(){if(typeof renderMailCenter==='function')renderMailCenter();},40)">📧 Mails</button>
-    <button class="tab" onclick="show('synoptique',this);setTimeout(function(){if(typeof renderSynoptique==='function')renderSynoptique();},40)">🗓 Synoptique</button>
+    <button class="tab" onclick="show('synoptique',this)">🗓 Synoptique</button>
     <button class="tab" onclick="show('jourj',this)">🎯 Jour J</button>
     <button class="tab" onclick="showQRCodes(this)">📱 QR Codes</button>
     <button class="tab" onclick="showClassement(this)">🏆 Classement</button>
@@ -1003,14 +986,24 @@ function checkPassword(){
       </div>
     </div>
     <div class="card" style="grid-column:1/-1">
-      <div class="sh-card-title">🏟️ Parcours HYROX</div>
-      <div style="background:rgba(77,166,255,.08);border:1.5px solid #90CAF9;border-radius:10px;padding:14px">
-        <div class="form-row" style="margin-bottom:8px">
-          <div class="form-group" style="margin:0;flex:1"><label>Responsable parcours</label><input id="zone1-resp" value="" oninput="reactiveUpdate()" placeholder="Nom du responsable"></div>
-          <div class="form-group" style="margin:0;flex:1"><label>Email / Tél.</label><input id="zone1-contact" value="" oninput="reactiveUpdate()" placeholder="Contact"></div>
+      <div class="sh-card-title">📍 Zones de compétition</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+        <div style="background:rgba(77,166,255,.08);border:1.5px solid #90CAF9;border-radius:10px;padding:14px">
+          <div style="font-size:10px;font-weight:900;color:var(--blue);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px">🏟️ Zone 1</div>
+          <div class="form-row" style="margin-bottom:8px">
+            <div class="form-group" style="margin:0;flex:1"><label>Responsable Zone 1</label><input id="zone1-resp" value="" oninput="reactiveUpdate()" placeholder="Nom du responsable"></div>
+            <div class="form-group" style="margin:0;flex:1"><label>Email / Tél.</label><input id="zone1-contact" value="zone1@zonek.fr" oninput="reactiveUpdate()" placeholder="Contact"></div>
+          </div>
+          <div class="form-group" style="margin:0"><label>Description Zone 1</label><input id="zone1-desc" value="" oninput="reactiveUpdate()" placeholder="Ex: Lignes 1-3, côté entrée"></div>
         </div>
-        <div class="form-group" style="margin:0"><label>Description</label><input id="zone1-desc" value="8 stations + runs 1000m + Roxzone + Arrivée" oninput="reactiveUpdate()" placeholder="Description du parcours"></div>
-        <input type="hidden" id="zone2-resp" value=""><input type="hidden" id="zone2-contact" value=""><input type="hidden" id="zone2-desc" value="">
+        <div style="background:rgba(0,229,160,.07);border:1.5px solid #A5D6A7;border-radius:10px;padding:14px">
+          <div style="font-size:10px;font-weight:900;color:#2E7D32;text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px">🏟️ Zone 2</div>
+          <div class="form-row" style="margin-bottom:8px">
+            <div class="form-group" style="margin:0;flex:1"><label>Responsable Zone 2</label><input id="zone2-resp" value="Marie Martin" oninput="reactiveUpdate()" placeholder="Nom du responsable"></div>
+            <div class="form-group" style="margin:0;flex:1"><label>Email / Tél.</label><input id="zone2-contact" value="zone2@zonek.fr" oninput="reactiveUpdate()" placeholder="Contact"></div>
+          </div>
+          <div class="form-group" style="margin:0"><label>Description Zone 2</label><input id="zone2-desc" value="" oninput="reactiveUpdate()" placeholder="Ex: Lignes 4-6, côté podium"></div>
+        </div>
       </div>
     </div>
 
@@ -1076,164 +1069,6 @@ function checkPassword(){
 
 
 <!-- PROGRAMME -->
-
-<!-- ══════════════ PLANNING HYROX (vagues + athlètes) ══════════════ -->
-<div id="planning-hyrox" class="sheet">
-  <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px;padding-bottom:14px;border-bottom:2px solid var(--brd2)">
-    <div style="flex:1">
-      <div style="font-size:20px;font-weight:900;color:var(--ink)">📋 Planning HYROX</div>
-      <div style="font-size:11px;color:var(--ink3);margin-top:3px;font-weight:600">Départs par vagues · athlètes affectés · 2 jours</div>
-    </div>
-    <div style="display:flex;gap:8px">
-      <button class="btn" id="hxp-day1" onclick="setHyroxPlanDay(1)" style="font-size:12px;font-weight:800;background:linear-gradient(135deg,#1565C0,#1E88E5);color:#fff">🌅 Jour 1</button>
-      <button class="btn" id="hxp-day2" onclick="setHyroxPlanDay(2)" style="font-size:12px;font-weight:800;background:#EBF0FA;color:var(--ink2)">☀️ Jour 2</button>
-      <button class="btn" onclick="printHyroxPlanning()" style="font-size:12px;font-weight:800;background:#0F1C2E;color:#fff">🖨️ Imprimer</button>
-    </div>
-  </div>
-  <div id="hxp-body"></div>
-</div>
-
-<!-- ══════════════════ ONGLET HYROX ══════════════════ -->
-<div id="hyrox" class="sheet">
-
-  <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px;padding-bottom:14px;border-bottom:2px solid var(--brd2)">
-    <div style="flex:1">
-      <div style="font-size:20px;font-weight:900;color:var(--ink);letter-spacing:.3px">🏃 Parcours HYROX</div>
-      <div style="font-size:11px;color:var(--ink3);margin-top:3px;font-weight:600">8× (Run 1000m + Station) · For Time · départs par vagues</div>
-    </div>
-    <button class="btn btn-blue" onclick="applyHyroxToEngine()" style="font-size:12px;font-weight:800">💾 Appliquer &amp; générer les vagues</button>
-  </div>
-
-  <!-- ── SÉLECTEUR ADULTES / KIDS ── -->
-  <div style="display:flex;gap:10px;margin-bottom:18px">
-    <button id="hxmode-adult" onclick="hxPickMode('adult')" style="flex:1;padding:15px 12px;border-radius:16px;border:2px solid var(--blue);background:var(--blue);color:#fff;font-weight:900;font-size:14px;cursor:pointer;transition:.18s;display:flex;align-items:center;justify-content:center;gap:8px">🏋️ Adultes</button>
-    <button id="hxmode-kids" onclick="hxPickMode('kids')" style="flex:1;padding:15px 12px;border-radius:16px;border:2px solid #EC4899;background:#fff;color:#DB2777;font-weight:900;font-size:14px;cursor:pointer;transition:.18s;display:flex;align-items:center;justify-content:center;gap:8px">🧒 Kids · Youngstars</button>
-  </div>
-
-  <!-- ── POP-UP HYROX YOUNGSTARS ── -->
-  <style>
-    #kids-modal{position:fixed;inset:0;z-index:9999;display:none;align-items:center;justify-content:center;padding:16px}
-    #kids-modal .kids-back{position:absolute;inset:0;background:rgba(15,23,42,.55);backdrop-filter:blur(4px);opacity:0;transition:opacity .22s}
-    #kids-modal .kids-card{position:relative;width:100%;max-width:520px;max-height:90vh;overflow:hidden auto;background:#fff;border-radius:24px;box-shadow:0 30px 80px rgba(0,0,0,.4);transform:translateY(24px) scale(.96);opacity:0;transition:transform .26s cubic-bezier(.2,.9,.3,1.2),opacity .22s;-webkit-overflow-scrolling:touch}
-    #kids-modal.open .kids-back{opacity:1}
-    #kids-modal.open .kids-card{transform:none;opacity:1}
-    #kids-modal .kids-x{position:absolute;top:14px;right:14px;z-index:3;width:34px;height:34px;border-radius:50%;border:none;background:rgba(255,255,255,.25);color:#fff;font-size:15px;font-weight:900;cursor:pointer;backdrop-filter:blur(4px)}
-    #kids-modal .kids-hero{padding:26px 24px 22px;color:#fff;transition:background .3s}
-    #kids-modal .kids-body{padding:18px 20px 22px}
-    #kids-modal .kids-ages{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}
-    #kids-modal .kids-age{padding:12px 4px;border-radius:14px;border:2px solid var(--brd2);background:#fff;cursor:pointer;text-align:center;transition:.15s;font-family:inherit}
-    #kids-modal .kids-age b{display:block;font-size:16px;font-weight:900;line-height:1}
-    #kids-modal .kids-age span{font-size:9px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:.5px}
-    #kids-modal .kids-gender{display:flex;gap:6px;margin-bottom:16px;background:var(--bg2,#F1F5F9);border-radius:12px;padding:4px}
-    #kids-modal .kids-gender button{flex:1;padding:9px;border:none;border-radius:9px;background:transparent;font-weight:800;font-size:12px;cursor:pointer;color:var(--ink2);font-family:inherit;transition:.15s}
-    #kids-modal .kids-row{display:flex;align-items:center;gap:12px;padding:11px 12px;border-radius:12px;background:#F8FAFC;margin-bottom:7px;opacity:0;transform:translateX(-10px);animation:kidsIn .32s forwards}
-    #kids-modal .kids-row .ic{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
-    #kids-modal .kids-row .nm{flex:1;font-weight:800;font-size:13px;color:var(--ink)}
-    #kids-modal .kids-row .vl{font-weight:900;font-size:13px;white-space:nowrap}
-    @keyframes kidsIn{to{opacity:1;transform:none}}
-    @media (prefers-reduced-motion:reduce){#kids-modal *{transition:none!important;animation:none!important;opacity:1!important;transform:none!important}}
-  </style>
-  <div id="kids-modal" role="dialog" aria-modal="true" aria-label="HYROX Youngstars">
-    <div class="kids-back" onclick="closeKidsModal()"></div>
-    <div class="kids-card">
-      <button class="kids-x" onclick="closeKidsModal()" aria-label="Fermer">✕</button>
-      <div class="kids-hero" id="kids-hero">
-        <div style="font-size:11px;letter-spacing:3px;opacity:.85;font-weight:800">HYROX</div>
-        <div style="font-size:28px;font-weight:900;line-height:1;margin-top:2px">YOUNGSTARS</div>
-        <div style="font-size:11px;opacity:.92;margin-top:6px" id="kids-hero-sub">Le format Kids officiel — 8 à 15 ans · 8 stations</div>
-      </div>
-      <div class="kids-body">
-        <div id="kids-ages" class="kids-ages"></div>
-        <div id="kids-gender" class="kids-gender"></div>
-        <div id="kids-parcours"></div>
-        <div id="kids-foot" style="margin-top:16px"></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ── CONFIG VAGUES ── -->
-  <div style="background:#F5F8FF;border:1px solid var(--brd2);border-radius:14px;padding:14px;margin-bottom:16px">
-    <div style="font-size:11px;font-weight:900;color:var(--ink);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">🌊 Départs par vagues</div>
-    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
-      <div style="display:flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--brd2);border-radius:10px;padding:8px 14px;flex:1;min-width:160px">
-        <span style="font-size:18px">🌅</span>
-        <div style="flex:1">
-          <div style="font-size:10px;font-weight:800;color:var(--blue);text-transform:uppercase">1ère vague · Jour 1</div>
-          <input id="hx-start-j1" type="time" value="09:00" oninput="saveHyroxCfg();renderHyroxWaves()"
-            style="background:none;border:none;outline:none;font-size:18px;font-weight:900;color:var(--ink);font-family:inherit;width:100%;padding:0">
-        </div>
-      </div>
-      <div style="display:flex;align-items:center;gap:8px;background:#fff;border:1px solid rgba(245,166,35,.35);border-radius:10px;padding:8px 14px;flex:1;min-width:160px">
-        <span style="font-size:18px">☀️</span>
-        <div style="flex:1">
-          <div style="font-size:10px;font-weight:800;color:var(--amber);text-transform:uppercase">1ère vague · Jour 2</div>
-          <input id="hx-start-j2" type="time" value="09:00" oninput="saveHyroxCfg();renderHyroxWaves()"
-            style="background:none;border:none;outline:none;font-size:18px;font-weight:900;color:var(--amber);font-family:inherit;width:100%;padding:0">
-        </div>
-      </div>
-      <div style="display:flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--brd2);border-radius:10px;padding:8px 14px;flex:1;min-width:160px">
-        <span style="font-size:18px">⏲️</span>
-        <div style="flex:1">
-          <div style="font-size:10px;font-weight:800;color:var(--ink3);text-transform:uppercase">Intervalle vagues (min)</div>
-          <input id="hx-interval" type="number" min="5" max="60" value="20" oninput="saveHyroxCfg();renderHyroxWaves()"
-            style="background:none;border:none;outline:none;font-size:18px;font-weight:900;color:var(--ink);font-family:inherit;width:100%;padding:0">
-        </div>
-      </div>
-      <div style="display:flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--brd2);border-radius:10px;padding:8px 14px;flex:1;min-width:160px">
-        <span style="font-size:18px">👥</span>
-        <div style="flex:1">
-          <div style="font-size:10px;font-weight:800;color:var(--ink3);text-transform:uppercase">Slots par vague</div>
-          <input id="hx-slots" type="number" min="1" max="40" value="5" oninput="saveHyroxCfg();renderHyroxWaves()"
-            style="background:none;border:none;outline:none;font-size:18px;font-weight:900;color:var(--ink);font-family:inherit;width:100%;padding:0">
-        </div>
-      </div>
-      <div style="display:flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--brd2);border-radius:10px;padding:8px 14px;flex:1;min-width:160px">
-        <span style="font-size:18px">🏁</span>
-        <div style="flex:1">
-          <div style="font-size:10px;font-weight:800;color:var(--ink3);text-transform:uppercase">Time cap course (min)</div>
-          <input id="hx-cap" type="number" min="30" max="180" value="100" oninput="saveHyroxCfg()"
-            style="background:none;border:none;outline:none;font-size:18px;font-weight:900;color:var(--ink);font-family:inherit;width:100%;padding:0">
-        </div>
-      </div>
-    </div>
-    <label style="display:flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--brd2);border-radius:10px;padding:10px 14px;margin-bottom:10px;cursor:pointer">
-      <input id="hx-auto" type="checkbox" onchange="saveHyroxCfg()" style="width:18px;height:18px;accent-color:#059669;cursor:pointer">
-      <div>
-        <div style="font-size:12px;font-weight:900;color:var(--ink)">🚀 Départs automatiques (TK optionnel)</div>
-        <div style="font-size:10px;color:var(--ink3);font-weight:600">Chaque vague démarre toute seule pile à l'heure planifiée — nécessite les dates J1/J2 dans Config. Le TK peut toujours lancer en avance ou annuler.</div>
-      </div>
-    </label>
-    <div style="font-size:10px;color:var(--ink3);margin-bottom:10px;font-weight:600">Chaque division part à son heure : jour + heure de la 1ère vague. Nb de vagues auto = inscrits ÷ slots/vague. L'horaire se recalcule en direct.</div>
-    <div id="hx-divisions"></div>
-  </div>
-
-  <!-- ── PLANNING VAGUES ── -->
-  <div style="background:#fff;border:1px solid var(--brd2);border-radius:14px;padding:14px;margin-bottom:16px">
-    <div style="font-size:11px;font-weight:900;color:var(--ink);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">📅 Horaire des vagues</div>
-    <div id="hx-waves"></div>
-  </div>
-
-  <!-- ── AFFECTATION JUGES ── -->
-  <div style="background:#fff;border:1px solid var(--brd2);border-radius:14px;padding:14px;margin-bottom:16px">
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
-      <div style="font-size:11px;font-weight:900;color:var(--ink);text-transform:uppercase;letter-spacing:.5px;flex:1">👨‍⚖️ Affectation juges → stations</div>
-      <button onclick="printHyroxJudges()" style="padding:6px 12px;background:#EBF0FA;border:1px solid var(--brd2);border-radius:8px;color:var(--ink2);font-size:11px;font-weight:800;cursor:pointer">🖨️ QR juges</button>
-    </div>
-    <div style="font-size:10px;color:var(--ink3);margin-bottom:10px;font-weight:600">2 juges/station · station préférée honorée. Publié vers l'app juge au clic sur <b>💾 Appliquer &amp; générer</b>. Chaque juge scanne son QR → verrouillé sur sa station.</div>
-    <div id="hx-judges"></div>
-  </div>
-
-  <!-- ── PARCOURS / STATIONS ── -->
-  <div style="background:#fff;border:1px solid var(--brd2);border-radius:14px;padding:14px;margin-bottom:16px">
-    <div style="display:flex;align-items:center;margin-bottom:10px">
-      <div style="flex:1;font-size:11px;font-weight:900;color:var(--ink);text-transform:uppercase;letter-spacing:.5px">🏋️ Stations · standards par division · 👨‍⚖️ saisie juge (valeur par clic)</div>
-      <div style="font-size:10px;color:var(--ink3);font-weight:700">Poids, quantités et pas de saisie juge (/clic) éditables · sauvegarde auto</div>
-    </div>
-    <div id="hx-stations"></div>
-  </div>
-
-</div>
-<!-- ════════════════ FIN ONGLET HYROX ════════════════ -->
 
 <div id="programme" class="sheet">
 <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px;padding-bottom:14px;border-bottom:2px solid var(--brd2)">
@@ -1514,14 +1349,14 @@ function checkPassword(){
 <div style="margin-bottom:24px">
   <div style="font-size:11px;font-weight:900;color:var(--ink3);letter-spacing:3px;text-transform:uppercase;margin-bottom:12px;padding-left:2px">🎯 Accès rapide — Jour J</div>
   <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
-    <button onclick="window.open(window.location.href.split('/').slice(0,-1).join('/')+'/tk-hyrox.html','_blank')" style="padding:18px 10px;border-radius:12px;border:none;cursor:pointer;background:linear-gradient(135deg,#E85D04,#F48C06);color:#fff;font-weight:900;font-size:13px;display:flex;flex-direction:column;align-items:center;gap:6px;box-shadow:0 4px 16px rgba(232,93,4,.3)">
+    <button onclick="window.open(window.location.href.split('/').slice(0,-1).join('/')+'/tk9delta.html','_blank')" style="padding:18px 10px;border-radius:12px;border:none;cursor:pointer;background:linear-gradient(135deg,#E85D04,#F48C06);color:#fff;font-weight:900;font-size:13px;display:flex;flex-direction:column;align-items:center;gap:6px;box-shadow:0 4px 16px rgba(232,93,4,.3)">
       <span style="font-size:26px">⏱️</span>Time Keeper
     </button>
-    <button onclick="window.open(window.location.href.split('/').slice(0,-1).join('/')+'/live-hyrox.html','_blank')" style="padding:18px 10px;border-radius:12px;border:none;cursor:pointer;background:linear-gradient(135deg,#0369A1,#38BDF8);color:#fff;font-weight:900;font-size:13px;display:flex;flex-direction:column;align-items:center;gap:6px;box-shadow:0 4px 16px rgba(3,105,161,.3)">
+    <button onclick="window.open(window.location.href.split('/').slice(0,-1).join('/')+'/live.html','_blank')" style="padding:18px 10px;border-radius:12px;border:none;cursor:pointer;background:linear-gradient(135deg,#0369A1,#38BDF8);color:#fff;font-weight:900;font-size:13px;display:flex;flex-direction:column;align-items:center;gap:6px;box-shadow:0 4px 16px rgba(3,105,161,.3)">
       <span style="font-size:26px">📺</span>Live
     </button>
-    <button onclick="window.open(window.location.href.split('/').slice(0,-1).join('/')+'/depart.html','_blank')" style="padding:18px 10px;border-radius:12px;border:none;cursor:pointer;background:linear-gradient(135deg,#059669,#34D399);color:#fff;font-weight:900;font-size:13px;display:flex;flex-direction:column;align-items:center;gap:6px;box-shadow:0 4px 16px rgba(5,150,105,.3)">
-      <span style="font-size:26px">🚀</span>Départ
+    <button onclick="window.open(window.location.href.split('/').slice(0,-1).join('/')+'/podium.html','_blank')" style="padding:18px 10px;border-radius:12px;border:none;cursor:pointer;background:linear-gradient(135deg,#FF8A00,#FFD166);color:#2a1c00;font-weight:900;font-size:13px;display:flex;flex-direction:column;align-items:center;gap:6px;box-shadow:0 4px 16px rgba(255,138,0,.35)">
+      <span style="font-size:26px">🏆</span>Podium
     </button>
   </div>
 </div>
@@ -1604,18 +1439,18 @@ function checkPassword(){
   <div style="font-size:12px;font-weight:900;color:#1E88E5;letter-spacing:1.5px;text-transform:uppercase;margin:4px 0 10px;display:flex;align-items:center;gap:8px"><span>📋</span> Planning</div>
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin-bottom:24px">
     <div class="card">
-      <div class="sh-card-title">📋 Planning bénévoles</div>
-      <div style="font-size:11px;color:var(--ink2);margin-bottom:12px">Catégories, vagues, horaires, équipes et juges par station.</div>
+      <div class="sh-card-title">📋 Planning par WOD</div>
+      <div style="font-size:11px;color:var(--ink2);margin-bottom:12px">Catégories, heats, horaires, équipes et juges, WOD par WOD.</div>
       <button class="btn btn-blue" onclick="printPlanningWodCat()" style="width:100%;justify-content:center;font-size:12px">🖨️ Imprimer</button>
     </div>
     <div class="card">
       <div class="sh-card-title">🗓 Synoptique global</div>
-      <div style="font-size:11px;color:var(--ink2);margin-bottom:12px">Vue d'ensemble de la journée sur une page.</div>
+      <div style="font-size:11px;color:var(--ink2);margin-bottom:12px">Vue d'ensemble de la journée, toutes zones sur une page.</div>
       <button class="btn" onclick="printSynoptique()" style="width:100%;justify-content:center;font-size:12px;background:linear-gradient(135deg,#0E7490,#0891B2);color:#fff">🖨️ Imprimer</button>
     </div>
     <div class="card">
       <div class="sh-card-title">🧑‍⚖️ Planning des juges</div>
-      <div style="font-size:11px;color:var(--ink2);margin-bottom:12px">Tableau d'affectation des juges par station et par créneau.</div>
+      <div style="font-size:11px;color:var(--ink2);margin-bottom:12px">Tableau d'affectation des juges par zone et par heat.</div>
       <button class="btn" onclick="printJudgePlanning()" style="width:100%;justify-content:center;font-size:12px;background:linear-gradient(135deg,#1E3A5F,#2563EB);color:#fff">🖨️ Imprimer</button>
     </div>
   </div>
@@ -1638,7 +1473,7 @@ function checkPassword(){
       <div style="font-size:11px;color:var(--ink2);margin-bottom:12px">QR vers le live et le classement, pour les spectateurs.</div>
       <button class="btn" onclick="printPublicQR()" style="width:100%;justify-content:center;font-size:12px;background:linear-gradient(135deg,#1565C0,#1E88E5);color:#fff">🖨️ Imprimer</button>
     </div>
-    <div class="card" style="display:none">
+    <div class="card">
       <div class="sh-card-title">🆘 QR Juge secours</div>
       <div style="font-size:11px;color:var(--ink2);margin-bottom:12px">QR d'accès secours (entry) pour prendre une ligne sans juge.</div>
       <button class="btn btn-orange" onclick="printEntryQR()" style="width:100%;justify-content:center;font-size:12px">🖨️ Imprimer</button>
@@ -1649,11 +1484,11 @@ function checkPassword(){
   <div style="font-size:12px;font-weight:900;color:#EA580C;letter-spacing:1.5px;text-transform:uppercase;margin:4px 0 10px;display:flex;align-items:center;gap:8px"><span>📝</span> Scorecards & fiches</div>
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin-bottom:24px">
     <div class="card" style="grid-column:1/-1">
-      <div class="sh-card-title">📝 Scorecards par station</div>
-      <div style="font-size:11px;color:var(--ink2);margin-bottom:12px">Feuilles de score à remplir par les juges. Choisis le parcours.</div>
+      <div class="sh-card-title">📝 Scorecards par WOD</div>
+      <div style="font-size:11px;color:var(--ink2);margin-bottom:12px">Feuilles de score à remplir par les juges. Choisis le WOD.</div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:end">
         <div style="flex:1;min-width:200px">
-          <div style="font-size:10px;font-weight:800;color:var(--ink2);margin-bottom:6px">Parcours</div>
+          <div style="font-size:10px;font-weight:800;color:var(--ink2);margin-bottom:6px">WOD</div>
           <select id="print-center-wod-select" style="width:100%;background:#FFF7ED;border:1px solid var(--brd2);border-radius:8px;color:var(--ink);padding:9px 10px;font-size:12px;outline:none;font-family:inherit"></select>
         </div>
         <button class="btn btn-orange" onclick="printScorecardFromCenter()" style="font-size:12px">🖨️ Imprimer les scorecards</button>
@@ -1816,7 +1651,7 @@ function checkPassword(){
   </div>
 
   <!-- PLANNING PAR WOD -->
-  <div style="display:none;background:#fff;border:1px solid var(--brd2);border-radius:14px;padding:14px 16px;margin-bottom:16px;">
+  <div style="background:#fff;border:1px solid var(--brd2);border-radius:14px;padding:14px 16px;margin-bottom:16px;">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
       <div style="font-size:11px;font-weight:900;color:var(--ink);text-transform:uppercase;letter-spacing:1px;">🗓 Ordre de passage par WOD</div>
       <div style="font-size:10px;color:var(--mid);flex:1">Glisse les catégories dans l'ordre voulu pour chaque WOD</div>
@@ -1826,8 +1661,8 @@ function checkPassword(){
     <div id="planning-wod-grid" style="display:flex;gap:10px;overflow-x:auto;padding-bottom:6px;"></div>
   </div>
 
-  <!-- Ordre WODs par zone (masqué en Hyrox) -->
-  <div id="zones-synoptic" style="display:none;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;"></div>
+  <!-- Ordre WODs par zone (conservé) -->
+  <div id="zones-synoptic" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;"></div>
 
   <!-- LISTE CATÉGORIES -->
   <div id="cat-list-grid" style="display:flex;flex-direction:column;gap:10px;"></div>
@@ -1865,30 +1700,40 @@ function checkPassword(){
     </div>
     <div class="form-row">
       <div class="form-group">
-        <label>🌊 Heure de départ (1ère vague)</label>
-        <input id="cat-start" type="time" value="08:00">
-        <div style="font-size:10px;color:#888;margin-top:3px">Le nb de vagues se calcule automatiquement (inscrits ÷ slots/vague)</div>
+        <label>Nb de heats</label>
+        <input id="cat-heats" type="number" min="1" max="50" value="3" placeholder="3">
+      </div>
+      <div class="form-group">
+        <label>Nb de lignes</label>
+        <input id="cat-lignes" type="number" min="1" max="20" value="6" placeholder="6">
       </div>
       <div class="form-group">
         <label>Ordre de passage</label>
         <input id="cat-ordre" type="number" min="1" max="99" value="1" placeholder="1">
       </div>
-      <input type="hidden" id="cat-heats" value="1"><input type="hidden" id="cat-lignes" value="10">
     </div>
     <div class="form-row">
-      <select id="cat-zone" style="display:none"><option value="1" selected>Parcours</option></select>
+      <div class="form-group">
+        <label>Zone</label>
+        <select id="cat-zone">
+          <option value="1">Zone 1</option>
+          <option value="2">Zone 2</option>
+          <option value="12">Z1 + Z2</option>
+        </select>
+      </div>
       <div class="form-group">
         <label>Jour</label>
         <select id="cat-jour">
           <option value="1">Jour 1</option>
           <option value="2">Jour 2</option>
+          <option value="12">Les 2 jours</option>
         </select>
       </div>
     </div>
     <div class="form-group" style="margin-bottom:14px">
       <label>Équipes (une par ligne)</label>
       <textarea id="cat-teams" rows="6" placeholder="Team Alpha&#10;Team Beta&#10;Team Gamma&#10;..." style="width:100%;background:#F0F9FF;border:1px solid #ccc;border-radius:7px;color:var(--ink);padding:9px 12px;font-size:12px;font-family:inherit;outline:none;resize:vertical"></textarea>
-      <div style="font-size:10px;color:#888;margin-top:3px">Chaque équipe sera placée dans une vague de départ</div>
+      <div style="font-size:10px;color:#888;margin-top:3px">Chaque équipe gardera sa ligne assignée pour toute la compétition</div>
     </div>
     <div style="display:flex;gap:8px;justify-content:flex-end">
       <button class="btn btn-dark" onclick="closeModal('cat-modal')">Annuler</button>
@@ -2075,61 +1920,6 @@ function checkPassword(){
   </div>
 </div>
 <div style="max-width:900px;margin:0 auto;padding-bottom:40px">
-
-  <!-- ── SECTION 0 : APPLIS HYROX TERRAIN ── -->
-  <div style="background:linear-gradient(135deg,var(--s2),var(--s3));border:2px solid #3B82F6;border-radius:14px;padding:18px;margin-bottom:16px;">
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
-      <div style="width:40px;height:40px;background:rgba(59,130,246,.15);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px">🏃</div>
-      <div style="flex:1">
-        <div style="font-size:15px;font-weight:900;color:var(--ink)">Applis HYROX · Terrain</div>
-        <div style="font-size:11px;color:var(--mid)">TK, juges de station et arrivée — chacun scanne le QR de son poste</div>
-      </div>
-      <button onclick="printHyroxQRAll()" style="padding:8px 16px;background:#0F1C2E;border:none;border-radius:8px;color:#fff;font-size:11px;font-weight:800;cursor:pointer;">🖨️ Tout imprimer (A4)</button>
-    </div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px">
-
-      <div style="background:#fff;border:2px solid #10B981;border-radius:12px;padding:14px;text-align:center">
-        <div style="font-size:13px;font-weight:900;color:#059669;margin-bottom:2px">🚀 Départ · Le Chef</div>
-        <div style="font-size:10px;color:var(--mid);margin-bottom:8px">depart.html</div>
-        <div id="qr-hx-depart" style="display:inline-block"></div>
-        <div style="font-size:10px;color:var(--mid);line-height:1.6;margin-top:8px">Prochaine vague en grand + bouton GO<br>compte à rebours · mode auto compatible</div>
-        <button onclick="printHyroxQR('depart')" style="margin-top:8px;padding:6px 14px;background:linear-gradient(135deg,#059669,#10B981);border:none;border-radius:7px;color:#fff;font-size:10px;font-weight:800;cursor:pointer;">🖨️ A4</button>
-      </div>
-
-      <div style="background:#fff;border:1px solid var(--brd2,#DDE5F5);border-radius:12px;padding:14px;text-align:center">
-        <div style="font-size:13px;font-weight:900;color:#1565C0;margin-bottom:2px">⏱ TK · Contrôle</div>
-        <div style="font-size:10px;color:var(--mid);margin-bottom:8px">tk-hyrox.html</div>
-        <div id="qr-hx-tk" style="display:inline-block"></div>
-        <div style="font-size:10px;color:var(--mid);line-height:1.6;margin-top:8px">Lance le chrono de chaque vague<br>🚀 GO · annulation 15s · chrono live</div>
-        <button onclick="printHyroxQR('tk')" style="margin-top:8px;padding:6px 14px;background:linear-gradient(135deg,#1565C0,#1E88E5);border:none;border-radius:7px;color:#fff;font-size:10px;font-weight:800;cursor:pointer;">🖨️ A4</button>
-      </div>
-
-      <div style="background:#fff;border:1px solid var(--brd2,#DDE5F5);border-radius:12px;padding:14px;text-align:center">
-        <div style="font-size:13px;font-weight:900;color:#7C3AED;margin-bottom:2px">👨‍⚖️ Juge · Station</div>
-        <div style="font-size:10px;color:var(--mid);margin-bottom:8px">juge-hyrox.html</div>
-        <div id="qr-hx-juge" style="display:inline-block"></div>
-        <div style="font-size:10px;color:var(--mid);line-height:1.6;margin-top:8px">Le juge choisit sa station puis<br>valide les reps par clic (équipe par équipe)</div>
-        <button onclick="printHyroxQR('juge')" style="margin-top:8px;padding:6px 14px;background:linear-gradient(135deg,#6D28D9,#8B5CF6);border:none;border-radius:7px;color:#fff;font-size:10px;font-weight:800;cursor:pointer;">🖨️ A4</button>
-      </div>
-
-      <div style="background:#fff;border:1px solid var(--brd2,#DDE5F5);border-radius:12px;padding:14px;text-align:center">
-        <div style="font-size:13px;font-weight:900;color:#DC2626;margin-bottom:2px">🔴 Live · Classement</div>
-        <div style="font-size:10px;color:var(--mid);margin-bottom:8px">live-hyrox.html</div>
-        <div id="qr-hx-live" style="display:inline-block"></div>
-        <div style="font-size:10px;color:var(--mid);line-height:1.6;margin-top:8px">Écran TV &amp; spectateurs<br>classement + progression en course</div>
-        <button onclick="printHyroxQR('live')" style="margin-top:8px;padding:6px 14px;background:linear-gradient(135deg,#B91C1C,#EF4444);border:none;border-radius:7px;color:#fff;font-size:10px;font-weight:800;cursor:pointer;">🖨️ A4</button>
-      </div>
-
-      <div style="background:#fff;border:1px solid var(--brd2,#DDE5F5);border-radius:12px;padding:14px;text-align:center">
-        <div style="font-size:13px;font-weight:900;color:#059669;margin-bottom:2px">🏁 Arrivée · Chrono officiel</div>
-        <div style="font-size:10px;color:var(--mid);margin-bottom:8px">arrivee.html</div>
-        <div id="qr-hx-arrivee" style="display:inline-block"></div>
-        <div style="font-size:10px;color:var(--mid);line-height:1.6;margin-top:8px">Stoppe le chrono à la ligne<br>temps officiel = arrivée − départ vague</div>
-        <button onclick="printHyroxQR('arrivee')" style="margin-top:8px;padding:6px 14px;background:linear-gradient(135deg,#059669,#10B981);border:none;border-radius:7px;color:#fff;font-size:10px;font-weight:800;cursor:pointer;">🖨️ A4</button>
-      </div>
-
-    </div>
-  </div>
 
   <!-- ── SECTION 1 : QR PUBLIC SPECTATEURS ── -->
   <div style="background:linear-gradient(135deg,var(--s2),var(--s3));border:1px solid var(--brd);border-radius:14px;padding:18px;margin-bottom:16px;">
@@ -3161,6 +2951,34 @@ function checkPassword(){
     </div>
   </div>
 
+  <div class="gc tip">
+    <div class="gc-title">📺 Écran public (live) — les nouveautés</div>
+    <div class="gc-body">
+      <div class="gcl">
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Essais Max Load affichés</strong> : sur un WOD <strong>charge max</strong>, l'écran public montre la suite des essais de chaque équipe sous forme de pastilles — validés en vert, la meilleure charge avec 🏆, les essais ratés barrés (ex : <code>✓85 ✓92 🏆100 105</code>). Ça se remplit en temps réel à chaque validation du juge. Sur les autres formats (AMRAP, For Time…), rien ne s'affiche : c'est réservé au Max Load.</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Séparation par catégorie dans un heat mixte</strong> : quand un heat est complété par des <strong>équipes invitées</strong> d'une autre catégorie, l'écran public regroupe les lignes par catégorie, séparées par un <strong>trait de couleur portant le nom de la catégorie</strong> (la catégorie du heat d'abord, puis les invités regroupés dessous). Le public voit tout de suite qui joue dans quelle catégorie. Un heat <strong>sans invité</strong> s'affiche normalement, sans trait.</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Classements justes (classement &amp; podium)</strong> : dans le <strong>classement</strong> et le <strong>podium</strong>, une équipe invitée est comptée dans <strong>sa propre catégorie d'origine</strong>, jamais dans celle du heat hôte — même si sa catégorie est répartie sur plusieurs heats, tout est rassemblé correctement. Sur l'écran public, l'invité apparaît dans le <strong>heat en direct</strong>, séparé par le trait de catégorie décrit ci-dessus.</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Résistance aux coupures réseau</strong> : si la connexion abîme des données en cours de route (liste de départages ou d'essais avec un trou), les écrans <strong>ignorent le bout abîmé et continuent</strong> au lieu de planter. Les calculs restent justes.</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="gc warn">
+    <div class="gc-title">🗑 Le bouton Purger — repartir propre après les tests</div>
+    <div class="gc-body">
+      Le bouton <strong>🗑 Firebase</strong> (dans l'admin) remet le cloud à zéro et y repousse ta version. C'est l'outil pour effacer les données de test avant la compétition.<br><br>
+      <div class="gcl">
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>🗑 Firebase (bouton Purger)</strong> — <strong>pour repartir propre après les tests.</strong> Quand tu as fait des saisies d'essai puis corrigé ta configuration, ce bouton <strong>efface tout le cloud et repousse ta version admin à jour</strong> à la place. C'est la façon simple de nettoyer les données de test : tu modifies ta saisie dans l'admin, tu purges, et le cloud repart sur ta version propre. <u>Quand l'utiliser</u> : <strong>avant</strong> la compétition, une fois ta config finalisée — jamais pendant.</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>🗑 Firebase (purge totale)</strong> — <strong>le radical, à manier avec précaution.</strong> Il <strong>efface TOUT sur le cloud</strong> (WODs, catégories, bénévoles, heats, scores, juges, classement, statuts, system, backup) puis <strong>repousse tes données locales d'admin</strong> à la place. <u>Quand l'utiliser</u> : seulement si le cloud est <strong>dans un état incohérent</strong> (données d'un ancien événement, mélange, corruption) et que tu veux <strong>tout remettre à zéro depuis ta version admin</strong>. À faire <strong>avant</strong> la compétition, jamais pendant.</div></div>
+      </div>
+      <div style="margin-top:10px;padding:9px 11px;background:rgba(211,47,47,.08);border:1px solid rgba(211,47,47,.25);border-radius:8px;font-size:12px;color:#B71C1C">
+        ⚠️ <strong>La purge Firebase est irréversible et concerne tout le monde.</strong> Tous les appareils connectés verront leurs données remplacées par les tiennes, et <strong>tous les scores saisis sur le terrain seront perdus</strong>. Ne jamais la lancer une fois la compétition commencée.
+      </div>
+      <div style="margin-top:8px"><strong>Comment ça se passe (Firebase)</strong> : le bouton demande une <strong>double confirmation</strong> — une fenêtre qui liste ce qui va être effacé, puis tu dois <strong>taper le mot <code>PURGER</code></strong> exactement pour valider. Si tu tapes autre chose, rien ne se passe. La clé de sauvegarde (JSONBin) est préservée automatiquement. À la fin, un message confirme le nombre d'éléments traités.</div>
+      <div style="margin-top:8px"><strong>Le bon réflexe</strong> : prépare ta config tranquillement, fais tes tests, puis <strong>purge une dernière fois avant le jour J</strong> pour repartir sur des données propres. Une fois la compétition lancée, on ne purge plus.</div>
+    </div>
+  </div>
+
   <div class="gc warn">
     <div class="gc-title">▶️ « Je clique une fois, je ne touche plus à rien »</div>
     <div class="gc-body">
@@ -3603,17 +3421,16 @@ function getSlotTimes(day){
 }
 
 var STATIONS=[
-  {id:1, name:"SkiErg 1000m",          diff:5,desc:"Suivi machine · distance 1000m",             requis:2},
-  {id:2, name:"Sled Push 50m",         diff:7,desc:"Poussée traîneau · couloirs · charges",      requis:2},
-  {id:3, name:"Sled Pull 50m",         diff:7,desc:"Tirage traîneau · couloirs · charges",       requis:2},
-  {id:4, name:"Burpee Broad Jumps 80m",diff:8,desc:"Standard burpee + saut · distance",          requis:2},
-  {id:5, name:"Rowing 1000m",          diff:5,desc:"Suivi machine · distance 1000m",             requis:2},
-  {id:6, name:"Farmers Carry 200m",    diff:5,desc:"Portés kettlebells · parcours",              requis:2},
-  {id:7, name:"Sandbag Lunges 100m",   diff:7,desc:"Fentes sandbag · profondeur genou",          requis:2},
-  {id:8, name:"Wall Balls",            diff:7,desc:"Comptage · cible · profondeur squat",        requis:2},
-  {id:9, name:"Roxzone / Transitions", diff:3,desc:"Circulation athlètes entre runs et stations",requis:1},
-  {id:10,name:"Run / Parcours 1000m",  diff:2,desc:"Signaleurs sécurité · AUCUNE saisie (run auto-validé à la station suivante)",requis:1},
-  {id:11,name:"🏁 Arrivée",            diff:4,desc:"Ligne d'arrivée · temps officiel",           requis:2}
+  {id:1,name:"Snatch",           diff:9,desc:"Technique haltéro · Lift olympique",  requis:2},
+  {id:2,name:"Clean & Jerk",     diff:9,desc:"Épaulé-jeté · standard technique",    requis:2},
+  {id:3,name:"Thrusters",        diff:7,desc:"Comptage · profondeur squat",         requis:2},
+  {id:4,name:"Double-Unders",    diff:6,desc:"Comptage corde · validation sauts",   requis:2},
+  {id:5,name:"Box Jumps",        diff:6,desc:"Comptage · hauteur box · sécurité",   requis:2},
+  {id:6,name:"Pull-Ups",         diff:7,desc:"Comptage · standard mouvement",       requis:2},
+  {id:7,name:"Rowing/SkiErg",    diff:5,desc:"Suivi machine · distance",            requis:2},
+  {id:8,name:"Handstand Push-Up",diff:8,desc:"Comptage · zone marquée · sécurité", requis:2},
+  {id:9,name:"Deadlift",         diff:7,desc:"Standard barre · sécurité dos",       requis:2},
+  {id:10,name:"Run/Zone sécurité",diff:1,desc:"Parcours extérieur · sécurité",     requis:0},
 ];
 // ★ Postes requis = lignes réelles de la compèt (1 juge / ligne), pas la somme des stations.
 //   = somme, par zone, du nb de lignes max d'une catégorie de cette zone (2 zones × 6 = 12).
@@ -3632,13 +3449,14 @@ var DEFAULT_BENEVOLES_BY_ID={};
 var DEFAULT_REAL_JUDGE_ROSTER=(function(){
   var list=[];
   for(var i=1;i<=20;i++){
+    var zone=i<=10?1:2;
     list.push({
       id:5000+i,
-      prenom:'Bénévole',
+      prenom:'Juge',
       nom:String(i).padStart(2,'0'),
-      role:'Bénévole',
-      zone:1,
-      zoneAssign:'1',
+      role:zone===2?'Juge Z2':'Juge Z1',
+      zone:zone,
+      zoneAssign:String(zone),
       qualif:6,
       qualification:6,
       slot:'Journée',
@@ -3657,7 +3475,7 @@ var DEFAULT_REAL_JUDGE_ROSTER=(function(){
   }
   return list;
 })();
-var REAL_JUDGE_ROSTER_SEED_KEY='zonek-real-judge-roster-seeded-v2';
+var REAL_JUDGE_ROSTER_SEED_KEY='zonek-real-judge-roster-seeded-v1';
 var LEGACY_DEMO_EMAIL_RE=/(@foc-demo\.invalid$|\.invalid$)/i;
 var LEGACY_DEMO_ROLE_RE=/^affectation prioritaire zone \d+/i;
 var LEGACY_DEMO_ID_MIN=4001;
@@ -3785,7 +3603,7 @@ function persistBenevolesSnapshot(){
     if(typeof SAVE_KEY!=='undefined' && SAVE_KEY){
       localStorage.setItem(SAVE_KEY, JSON.stringify(getStateToSave()));
     }
-    localStorage.setItem('hyrox-data', JSON.stringify({
+    localStorage.setItem('zonek-data', JSON.stringify({
       benevoles: BENEVOLES||[],
       categories: CATEGORIES||[],
       wods: WODS||[]
@@ -4147,7 +3965,7 @@ function show(id,btn){
   if(id==='classement-tk'){ setTimeout(function(){ if(typeof startClassementAutoRefresh==='function') startClassementAutoRefresh(); },50); }
   if(id==="config"){ setTimeout(function(){ if(typeof loadCountdownDuration==='function') loadCountdownDuration(); }, 100); }
   if(id==="categories"){setTimeout(function(){renderCategories();},80);}
-  if(id==="planning"){generateHeatsSilent();computeHorairesOnly();syncHeatsToFirebase();setPlanDay(activePlanDay);try{RESULT=computePlanning();renderPlanningView();renderCoverageAlerts();}catch(e){console.error('planning auto-gen',e);}setTimeout(function(){if(typeof syncJudgeAssignmentsNow==='function')syncJudgeAssignmentsNow();},2000);setTimeout(renderPlanningCF,50);}
+  if(id==="planning"){generateHeatsSilent();computeHorairesOnly();syncHeatsToFirebase();setPlanDay(activePlanDay);setTimeout(function(){if(typeof syncJudgeAssignmentsNow==='function')syncJudgeAssignmentsNow();},2000);setTimeout(renderPlanningCF,50);}
   if(id==="planning-juge"){generateHeatsSilent();computeHorairesOnly();setTimeout(function(){if(typeof syncJudgeAssignmentsNow==='function')syncJudgeAssignmentsNow();},1200);setTimeout(renderJudgePlanningTab,60);}
   if(id==="programme"){setTimeout(function(){renderProgWodsList();computeProgramme();},50);}
   if(id==="recap") setTimeout(function(){if(typeof renderRecapView==='function')renderRecapView();},50);
@@ -4482,8 +4300,9 @@ function checkGenBtn(){
   if(!WODS||!WODS.length) missing.push('WODs');
   if(!CATEGORIES||!CATEGORIES.length) missing.push('Catégories');
   // ★ FIX « Manque : Équipes » alors qu'elles sont saisies.
-  //   L'admin stocke les équipes dans cat.teams ; ce contrôle lisait cat.equipes
-  //   (qui n'existe que pour le WOD final) → il ne trouvait jamais rien.
+  //   L'admin stocke les équipes dans cat.teams (voir addTeam/addTeamsFromInput).
+  //   Ce contrôle lisait cat.equipes, qui n'existe que pour le WOD final → il ne
+  //   trouvait jamais rien. On accepte les deux noms.
   var hasTeams=CATEGORIES&&CATEGORIES.some(function(c){
     return (c.teams&&c.teams.length>0) || (c.equipes&&c.equipes.length>0);
   });
@@ -4814,11 +4633,11 @@ function toggleScoreAudit(){
   if(p.style.display==='none'){ p.style.display='block'; renderScoreAuditLog(); }
   else { p.style.display='none'; }
 }
-function _encAttr(s){ return encodeURIComponent(String(s==null?'':s)).replace(/'/g,'%27'); }  /* ★ encodeURIComponent laisse passer l'apostrophe → onclick cassé pour « L'Équipe » */
 
 /* ★ POPUP « QUI A MODIFIÉ CE SCORE ? » (ADMIN uniquement) ────────────────
    Lit system/scoreEdits et affiche, pour UNE équipe : quand, par qui, sur quel
-   WOD, la valeur avant → après, et la raison. Absent de la page publique. */
+   WOD, la valeur avant → après, et la raison invoquée. Sert en cas de
+   contestation. Volontairement absent de la page publique classement.html. */
 function _shFmtT(sec){ sec=parseInt(sec||0,10)||0; if(!sec) return '\u2014'; return Math.floor(sec/60)+':'+String(sec%60).padStart(2,'0'); }
 function _shVal(v){
   if(!v) return '\u2014';
@@ -4831,6 +4650,7 @@ function _shVal(v){
 function _shDate(ts){ var d=new Date(ts||0); function p(n){return (n<10?'0':'')+n;}
   return p(d.getDate())+'/'+p(d.getMonth()+1)+' \u00b7 '+p(d.getHours())+':'+p(d.getMinutes()); }
 function closeScoreHistory(){ var m=document.getElementById('score-history-modal'); if(m) m.remove(); }
+function _encAttr(s){ return encodeURIComponent(String(s==null?'':s)).replace(/'/g,'%27'); }  // ★ encodeURIComponent laisse passer l'apostrophe → onclick cassé pour « L'Équipe »
 function openScoreHistory(teamNameEnc){
   var teamName=decodeURIComponent(teamNameEnc||'');
   closeScoreHistory();
@@ -5600,8 +5420,7 @@ function isSpeakerQrRole(ben){
 
 function isJudgeQrRole(ben){
   var role=normalizeQrRoleLabel(ben&&ben.role);
-  // Hyrox : un bénévole EST un juge de station → on accepte juge/judge ET benevole
-  return role.indexOf('juge')!==-1 || role.indexOf('judge')!==-1 || role.indexOf('benevole')!==-1;
+  return role.indexOf('juge')!==-1 || role.indexOf('judge')!==-1;
 }
 
 function hasDedicatedQrRole(ben){
@@ -5806,10 +5625,7 @@ function editBen(id){
     var mp=document.getElementById("m-pref-station");
     if(mp){
       mp.innerHTML='<option value="">Aucune</option>';
-      var _w=(typeof hyroxWod==='function')?hyroxWod():null;
-      var _st=((_w&&_w.mouvements)||[]).filter(function(m){return (m.hyroxSeg||'station')==='station';});
-      if(_st.length){ _st.forEach(function(m){mp.innerHTML+='<option value="'+(m.nom||'')+'">'+(m.nom||'')+'</option>';}); }
-      else { STATIONS.forEach(function(s){mp.innerHTML+='<option value="'+s.name+'">'+s.name+'</option>';}); }
+      STATIONS.forEach(function(s){mp.innerHTML+='<option value="'+s.name+'">'+s.name+'</option>';});
       mp.value=b.prefStation||"";
     }
     // Select lien
@@ -6479,7 +6295,7 @@ function openMailAfterPDF(){ ouvrirMailDepuisPDF(); }
 
 
 // SAUVEGARDE
-var SAVE_KEY="zonek_hyrox_v1"; // Clé HYROX dédiée — isolée du state Delta/FOC
+var SAVE_KEY="zonek_foc_v12_vide"; // Nouvelle clé = reset automatique des anciennes données
 function getStateToSave(){
   return{ev:{nom:document.getElementById("ev-nom").value,date1:document.getElementById("ev-date1").value,date2:document.getElementById("ev-date2").value,lieu:document.getElementById("ev-lieu").value,resp:document.getElementById("ev-resp").value,email:document.getElementById("ev-email").value,compStart:document.getElementById("comp-start").value,compEnd:document.getElementById("comp-end").value,rotDur:"2",compStart2:(document.getElementById("comp-start2")||{}).value,compEnd2:(document.getElementById("comp-end2")||{}).value,rotDur2:((document.getElementById("rotation-dur2")||{})||{}).value,notesJ1:(document.getElementById("notes-j1")||{}).value||"",notesJ2:(document.getElementById("notes-j2")||{}).value||""},stations:STATIONS,benevoles:BENEVOLES,presence:PRESENCE,heureArr:HEURE_ARR,notesJour:NOTES_JOUR,categories:CATEGORIES,heatsResult:HEATS_RESULT,zones:ZONES,wods:WODS,zone1Resp:(document.getElementById("zone1-resp")||{}).value||"",zone1Contact:(document.getElementById("zone1-contact")||{}).value||"",zone1Desc:(document.getElementById("zone1-desc")||{}).value||"",zone2Resp:(document.getElementById("zone2-resp")||{}).value||"",zone2Contact:(document.getElementById("zone2-contact")||{}).value||"",zone2Desc:(document.getElementById("zone2-desc")||{}).value||"",savedAt:new Date().toISOString()};
 }
@@ -7143,7 +6959,7 @@ function autoSave(){
   try{
     var state=getStateToSave();
     localStorage.setItem(SAVE_KEY,JSON.stringify(state));
-    localStorage.setItem('hyrox-data',JSON.stringify({
+    localStorage.setItem('zonek-data',JSON.stringify({
       benevoles: BENEVOLES||[],
       categories: CATEGORIES||[],
       wods: WODS||[]
@@ -7242,7 +7058,7 @@ function loadFromStorage(){
     if(!raw){
       // Fallback legacy rapide : certaines versions ne stockaient que le trio
       // bénévoles / catégories / WODs dans zonek-data.
-      var quickRaw = localStorage.getItem('hyrox-data');
+      var quickRaw = localStorage.getItem('zonek-data');
       if(quickRaw){
         try{
           var quick = JSON.parse(quickRaw)||{};
@@ -7281,7 +7097,7 @@ function restoreFromFirebaseBackup(_db){
   function persistRecoveredState(){
     try{ localStorage.setItem(SAVE_KEY, JSON.stringify(getStateToSave())); }catch(e){}
     try{
-      localStorage.setItem('hyrox-data', JSON.stringify({
+      localStorage.setItem('zonek-data', JSON.stringify({
         benevoles: BENEVOLES||[],
         categories: CATEGORIES||[],
         wods: WODS||[]
@@ -7343,21 +7159,20 @@ function importData(ev){
 // CATÉGORIES & HEATS
 // ═══════════════════════════════════════════
 var CATEGORIES=[
-{"id": 1001, "nom": "Open Hommes", "couleur": "#E8421A", "ordre": 1, "nbHeats": 3, "nbLignes": 10, "zone": "1", "jour": 1, "wodOrdres": {}, "teams": [{"id": 3001, "nom": "Athlète OH 1", "ligne": null}, {"id": 3002, "nom": "Athlète OH 2", "ligne": null}, {"id": 3003, "nom": "Athlète OH 3", "ligne": null}, {"id": 3004, "nom": "Athlète OH 4", "ligne": null}]},
-{"id": 1002, "nom": "Open Femmes", "couleur": "#C62828", "ordre": 2, "nbHeats": 2, "nbLignes": 10, "zone": "1", "jour": 1, "wodOrdres": {}, "teams": [{"id": 3005, "nom": "Athlète OF 1", "ligne": null}, {"id": 3006, "nom": "Athlète OF 2", "ligne": null}, {"id": 3007, "nom": "Athlète OF 3", "ligne": null}, {"id": 3008, "nom": "Athlète OF 4", "ligne": null}]},
-{"id": 1003, "nom": "Pro Hommes", "couleur": "#7C3AED", "ordre": 3, "nbHeats": 1, "nbLignes": 8, "zone": "1", "jour": 2, "wodOrdres": {}, "teams": [{"id": 3009, "nom": "Athlète PH 1", "ligne": null}, {"id": 3010, "nom": "Athlète PH 2", "ligne": null}]},
-{"id": 1004, "nom": "Pro Femmes", "couleur": "#9333EA", "ordre": 4, "nbHeats": 1, "nbLignes": 8, "zone": "1", "jour": 2, "wodOrdres": {}, "teams": [{"id": 3011, "nom": "Athlète PF 1", "ligne": null}, {"id": 3012, "nom": "Athlète PF 2", "ligne": null}]},
-{"id": 1005, "nom": "Doubles Hommes", "couleur": "#1D6DB5", "ordre": 5, "nbHeats": 1, "nbLignes": 8, "zone": "1", "jour": 1, "wodOrdres": {}, "teams": [{"id": 3013, "nom": "Duo H 1", "ligne": null}, {"id": 3014, "nom": "Duo H 2", "ligne": null}]},
-{"id": 1006, "nom": "Doubles Femmes", "couleur": "#0891B2", "ordre": 6, "nbHeats": 1, "nbLignes": 8, "zone": "1", "jour": 1, "wodOrdres": {}, "teams": [{"id": 3015, "nom": "Duo F 1", "ligne": null}, {"id": 3016, "nom": "Duo F 2", "ligne": null}]},
-{"id": 1007, "nom": "Doubles Mixte", "couleur": "#059669", "ordre": 7, "nbHeats": 1, "nbLignes": 8, "zone": "1", "jour": 2, "wodOrdres": {}, "teams": [{"id": 3017, "nom": "Duo Mixte 1", "ligne": null}, {"id": 3018, "nom": "Duo Mixte 2", "ligne": null}]},
-{"id": 1008, "nom": "Relay", "couleur": "#FF8A00", "ordre": 8, "nbHeats": 1, "nbLignes": 6, "zone": "1", "jour": 2, "wodOrdres": {}, "teams": [{"id": 3019, "nom": "Relay Team 1", "ligne": null}, {"id": 3020, "nom": "Relay Team 2", "ligne": null}]}
-]; // HYROX — 8 divisions (exemples, à remplacer par les inscriptions)
+{"id":1001,"nom":"RX Mixte","couleur":"#E8421A","ordre":1,"nbHeats":1,"nbLignes":6,"zone":"1","jour":1,"wodOrdres":{},"teams":[{"id":3001,"nom":"Team Alpha","ligne":null},{"id":3002,"nom":"Team Bravo","ligne":null},{"id":3003,"nom":"Team Charlie","ligne":null},{"id":3004,"nom":"Team Delta","ligne":null},{"id":3005,"nom":"Team Echo","ligne":null},{"id":3006,"nom":"Team Foxtrot","ligne":null}]},
+{"id":1002,"nom":"RX Femmes","couleur":"#C62828","ordre":2,"nbHeats":1,"nbLignes":6,"zone":"2","jour":1,"wodOrdres":{},"teams":[{"id":3011,"nom":"Iron Queens","ligne":null},{"id":3012,"nom":"Fiery Ladies","ligne":null},{"id":3013,"nom":"Storm Sisters","ligne":null},{"id":3014,"nom":"Wildcats","ligne":null},{"id":3015,"nom":"Red Wolves","ligne":null},{"id":3016,"nom":"Blaze Girls","ligne":null}]},
+{"id":1003,"nom":"Scaled Mixte","couleur":"#1D6DB5","ordre":3,"nbHeats":1,"nbLignes":6,"zone":"1","jour":2,"wodOrdres":{},"teams":[{"id":3021,"nom":"Easy Riders","ligne":null},{"id":3022,"nom":"Just Sweat","ligne":null},{"id":3023,"nom":"Fun Squad","ligne":null},{"id":3024,"nom":"No Ego","ligne":null},{"id":3025,"nom":"Keep Moving","ligne":null},{"id":3026,"nom":"Chill & Lift","ligne":null}]},
+{"id":1004,"nom":"Masters 35+","couleur":"#7C3AED","ordre":4,"nbHeats":1,"nbLignes":6,"zone":"2","jour":2,"wodOrdres":{},"teams":[{"id":3031,"nom":"Silver Fox","ligne":null},{"id":3032,"nom":"Old School","ligne":null},{"id":3033,"nom":"Vintage Iron","ligne":null},{"id":3034,"nom":"Forever Young","ligne":null},{"id":3035,"nom":"Classic Crew","ligne":null},{"id":3036,"nom":"Timeless Force","ligne":null}]},
+{"id":1005,"nom":"Rookie","couleur":"#059669","ordre":5,"nbHeats":1,"nbLignes":6,"zone":"1","jour":1,"wodOrdres":{},"teams":[{"id":3041,"nom":"First Steps","ligne":null},{"id":3042,"nom":"Newbies FC","ligne":null},{"id":3043,"nom":"Just Started","ligne":null},{"id":3044,"nom":"Rising Stars","ligne":null},{"id":3045,"nom":"Fresh Blood","ligne":null},{"id":3046,"nom":"Zero to Hero","ligne":null}]},
+{"id":1006,"nom":"Masters 45+","couleur":"#FF8A00","ordre":6,"nbHeats":1,"nbLignes":6,"zone":"2","jour":1,"wodOrdres":{},"teams":[{"id":3051,"nom":"Legends","ligne":null},{"id":3052,"nom":"Veteran Lions","ligne":null},{"id":3053,"nom":"Golden Age","ligne":null},{"id":3054,"nom":"Iron Veterans","ligne":null},{"id":3055,"nom":"Ageless","ligne":null},{"id":3056,"nom":"Still Strong","ligne":null}]},
+{"id":1007,"nom":"Scaled Femmes","couleur":"#D4A000","ordre":7,"nbHeats":1,"nbLignes":6,"zone":"1","jour":2,"wodOrdres":{},"teams":[{"id":3061,"nom":"Brave Hearts","ligne":null},{"id":3062,"nom":"Fearless","ligne":null},{"id":3063,"nom":"Power Flowers","ligne":null},{"id":3064,"nom":"She Lifts","ligne":null},{"id":3065,"nom":"Wonder Squad","ligne":null},{"id":3066,"nom":"Girls on Fire","ligne":null}]}
+]; // FOC 2026 — 7 catégories × 6 équipes
 var HEATS_RESULT = null;
 var editCatId = null;
 
 // ── JSONBIN globals ──
-var JSONBIN_KEY    = localStorage.getItem('zonek-hyrox-jsonbin-key') || '';
-var JSONBIN_BIN_ID = localStorage.getItem('zonek-hyrox-jsonbin-bin') || '';
+var JSONBIN_KEY    = localStorage.getItem('zonek-foc-jsonbin-key') || '';
+var JSONBIN_BIN_ID = localStorage.getItem('zonek-foc-jsonbin-bin') || '';
 var JSONBIN_API    = 'https://api.jsonbin.io/v3';
 
 
@@ -7377,7 +7192,11 @@ function renderCatGrid(){
     var placed=cat.teams.filter(function(t){return t.ligne!=null&&t.heatNum!=null;}).length;
     var total=cat.teams.length;
     var pct=total>0?Math.round(placed/total*100):0;
-    var nbW=(typeof hyroxWaveCount==='function')?hyroxWaveCount(cat):(cat.nbHeats||1);
+    var nbH=cat.nbHeats||1;
+    var nbL=cat.nbLignes||6;
+    var zColor='#94A3B8';
+    var zLabel=categoryZoneLabel(cat);
+    var dayLabel=cat.jour===2?'J2':cat.jour===12?'J1+2':'J1';
     
     return '<div id="catrow-'+cat.id+'" style="border:1.5px solid '+(isActive?cat.couleur+'88':'var(--brd,#EBF0FA)')+';border-radius:11px;overflow:hidden;background:'+(isActive?cat.couleur+'12':'var(--s1,#FFFFFF)')+';transition:all .15s;">'
       // ── HEADER (cliquable) ──
@@ -7385,14 +7204,11 @@ function renderCatGrid(){
         +'<div style="width:14px;height:14px;border-radius:4px;background:'+cat.couleur+';flex-shrink:0;box-shadow:0 2px 8px '+cat.couleur+'66;"></div>'
         +'<div style="flex:1;min-width:0;">'
           +'<div style="font-size:15px;font-weight:900;color:#0F1C2E;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+escHtml(cat.nom)+'</div>'
-          +'<div style="display:flex;align-items:center;gap:8px;margin-top:4px;flex-wrap:wrap;" onclick="event.stopPropagation()">'
-            +'<select onchange="hxSetDiv('+cat.id+',\'jour\',this.value);renderCategories()" title="Jour" style="background:#EBF0FA;border:1px solid var(--brd,#DDE5F5);border-radius:6px;padding:2px 6px;font-size:10px;font-weight:900;font-family:inherit;outline:none;cursor:pointer">'
-              +'<option value="1"'+((cat.jour||1)==1?' selected':'')+'>Jour 1</option>'
-              +'<option value="2"'+((cat.jour||1)==2?' selected':'')+'>Jour 2</option></select>'
-            +'<span style="font-size:10px;color:#3A5270;font-weight:800">🌊 départ</span>'
-            +'<input type="time" value="'+(cat.hxStart||'08:00')+'" onchange="hxSetDiv('+cat.id+',\'hxStart\',this.value);renderCategories()" title="Heure de départ de la 1ère vague" style="background:#EBF0FA;border:1px solid var(--brd,#DDE5F5);border-radius:6px;padding:2px 6px;font-size:11px;font-weight:900;font-family:inherit;outline:none;cursor:pointer">'
-            +'<span style="font-size:10px;color:#3A5270;">→ '+nbW+' vague'+(nbW>1?'s':'')+'</span>'
-            +'<span style="font-size:10px;color:#3A5270;">'+total+' inscrit'+(total>1?'s':'')+'</span>'
+          +'<div style="display:flex;align-items:center;gap:8px;margin-top:3px;flex-wrap:wrap;">'
+            +'<span style="font-size:10px;font-weight:700;color:'+zColor+';">'+zLabel+'</span>'
+            +'<span style="font-size:10px;color:#3A5270;">'+dayLabel+'</span>'
+            +'<span style="font-size:10px;color:#3A5270;">'+nbH+' heat'+(nbH>1?'s':'')+' × '+nbL+' lignes</span>'
+            +'<span style="font-size:10px;color:#3A5270;">'+total+' équipe'+(total>1?'s':'')+'</span>'
           +'</div>'
         +'</div>'
         // Progress
@@ -8257,8 +8073,9 @@ function renderCatDetail(){
   var cat=CATEGORIES.find(function(c){return c.id===_activeCatId;});
   if(!cat){_activeCatId=sorted[0].id;cat=sorted[0];}
 
-  var nbH=(typeof hyroxWaveCount==='function')?hyroxWaveCount(cat):(cat.nbHeats||1);
-  var nbL=cat.nbLignes||10;
+  var zColor=(cat.zone||1)===1?'#1E88E5':'#16A34A';
+  var nbH=cat.nbHeats||1;
+  var nbL=cat.nbLignes||6;
   var catHeats=(HEATS_RESULT||[]).filter(function(h){return h.catId===cat.id;});
 
   var html='';
@@ -8269,21 +8086,22 @@ function renderCatDetail(){
     +'<div style="flex:1;min-width:0;">'
       +'<div style="font-size:17px;font-weight:900;color:#0F1C2E;">'+escHtml(cat.nom)+'</div>'
       +'<div style="font-size:10px;color:var(--ink2);margin-top:2px;">'
-        +'J'+(cat.jour||1)
-        +' · 🌊 départ '+(cat.hxStart||'08:00')
-        +' · '+cat.teams.length+' inscrit'+(cat.teams.length>1?'s':'')
-        +' · '+nbH+' vague'+(nbH>1?'s':'')
-        +' ('+nbL+' slots/vague)'
+        +'<span style="color:'+zColor+';font-weight:700;">'+zLabel+'</span>'
+        +' · J'+(cat.jour||1)
+        +' · '+cat.teams.length+' équipes'
+        +' · '+nbH+' heat'+(nbH>1?'s':'')
+        +' · '+nbL+' lignes/heat'
       +'</div>'
     +'</div>'
     +'<input type="color" value="'+cat.couleur+'" onchange="setCatCouleur('+cat.id+',this.value)" style="width:28px;height:28px;border:none;border-radius:5px;cursor:pointer;padding:0;background:none;" title="Couleur">'
-    +'<div style="display:flex;align-items:center;gap:5px;border:1px solid rgba(0,0,0,.08);border-radius:7px;padding:3px 8px;" title="Heure de départ de la 1ère vague">'
-      +'<span style="font-size:10px;font-weight:900;color:#3A5270">🌊</span>'
-      +'<input type="time" value="'+(cat.hxStart||'08:00')+'" onchange="hxSetDiv('+cat.id+',\'hxStart\',this.value);renderCategories()" style="background:none;border:none;outline:none;font-size:12px;font-weight:900;font-family:inherit;cursor:pointer">'
+    +'<div style="display:flex;border:1px solid #1E3A5F;border-radius:7px;overflow:hidden;" title="Zone physique">'
+      +'<button onclick="setCatZone('+cat.id+',1)" style="padding:4px 12px;border:none;cursor:pointer;font-size:10px;font-weight:900;'+((cat.zone||1)===1?'background:#1565C0;color:#fff':'background:transparent;color:#3A5270')+'">Z1</button>'
+      +'<button onclick="setCatZone('+cat.id+',2)" style="padding:4px 12px;border:none;cursor:pointer;font-size:10px;font-weight:900;'+((cat.zone||1)===2?'background:#16A34A;color:#fff':'background:transparent;color:#3A5270')+'">Z2</button>'
     +'</div>'
     +'<div style="display:flex;border:1px solid rgba(0,0,0,.08);border-radius:7px;overflow:hidden;">'
-      +'<button onclick="setCatJour('+cat.id+',1)" style="padding:4px 12px;border:none;cursor:pointer;font-size:10px;font-weight:800;'+((cat.jour||1)===1?'background:#7C3AED;color:#fff':'background:transparent;color:#3A5270')+'">Jour 1</button>'
-      +'<button onclick="setCatJour('+cat.id+',2)" style="padding:4px 12px;border:none;cursor:pointer;font-size:10px;font-weight:800;'+((cat.jour||1)===2?'background:#7C3AED;color:#fff':'background:transparent;color:#3A5270')+'">Jour 2</button>'
+      +'<button onclick="setCatJour('+cat.id+',1)" style="padding:4px 10px;border:none;cursor:pointer;font-size:10px;font-weight:800;'+((cat.jour||1)===1?'background:#7C3AED;color:#fff':'background:transparent;color:#3A5270')+'">J1</button>'
+      +'<button onclick="setCatJour('+cat.id+',12)" style="padding:4px 10px;border:none;cursor:pointer;font-size:10px;font-weight:800;'+((cat.jour||1)===12?'background:#1E88E5;color:#fff':'background:transparent;color:#3A5270')+'">J1+2</button>'
+      +'<button onclick="setCatJour('+cat.id+',2)" style="padding:4px 10px;border:none;cursor:pointer;font-size:10px;font-weight:800;'+((cat.jour||1)===2?'background:#7C3AED;color:#fff':'background:transparent;color:#3A5270')+'">J2</button>'
     +'</div>'
     +'<button onclick="deleteCat('+cat.id+')" style="padding:5px 9px;border-radius:7px;border:1px solid rgba(239,68,68,.3);background:rgba(239,68,68,.08);color:#EF4444;cursor:pointer;font-size:11px;font-weight:800;">✕</button>'
     +'</div>';
@@ -8401,12 +8219,12 @@ function renderHeatsSummary(){
   if(!el) return;
   var sorted = CATEGORIES.slice().sort(function(a,b){return a.ordre-b.ordre;});
   if(!sorted.length){el.innerHTML='';return;}
-  var totalHeats = sorted.reduce(function(s,c){return s+((typeof hyroxWaveCount==='function')?hyroxWaveCount(c):(c.nbHeats||1));},0);
+  var totalHeats = sorted.reduce(function(s,c){return s+c.nbHeats;},0);
   var totalTeams = sorted.reduce(function(s,c){return s+c.teams.length;},0);
   el.innerHTML = '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:4px">'
     + '<div class="kpi" style="flex:1;min-width:100px"><div class="val" style="color:#1E88E5">'+sorted.length+'</div><div class="lbl">Catégories</div></div>'
     + '<div class="kpi" style="flex:1;min-width:100px"><div class="val" style="color:#2E7D32">'+totalTeams+'</div><div class="lbl">Équipes</div></div>'
-    + '<div class="kpi" style="flex:1;min-width:100px"><div class="val" style="color:#6A1B9A">'+totalHeats+'</div><div class="lbl">Vagues total</div></div>'
+    + '<div class="kpi" style="flex:1;min-width:100px"><div class="val" style="color:#6A1B9A">'+totalHeats+'</div><div class="lbl">Heats total</div></div>'
     + '</div>';
 }
 
@@ -8847,16 +8665,16 @@ function addCatSimple(){
     toast('Cette catégorie existe déjà','#E65100'); return;
   }
   var col = (document.getElementById('new-cat-color')||{}).value || '#1E88E5';
-  var nbHeats = parseInt((document.getElementById('new-cat-heats')||{}).value,10) || 1;
-  var nbLignes = parseInt((document.getElementById('new-cat-lignes')||{}).value,10) || 10;
+  var nbHeats = parseInt((document.getElementById('new-cat-heats')||{}).value,10) || 3;
+  var nbLignes = parseInt((document.getElementById('new-cat-lignes')||{}).value,10) || 6;
   var ordre = parseInt((document.getElementById('new-cat-ordre')||{}).value,10) || (CATEGORIES.length+1);
   var teamLines = ((document.getElementById('new-cat-teams')||{}).value || '').split('\n').map(function(l){ return l.trim(); }).filter(Boolean);
   var newTeams = teamLines.map(function(name,i){ return {id:Date.now()+i,nom:name,ligne:null}; });
   CATEGORIES.push({
     id:Date.now(), nom:nom, couleur:col,
     ordre:ordre,
-    nbHeats:nbHeats, nbLignes:nbLignes, hxStart:'08:00',
-    zone:'1', wodOrdres:{}, teams:newTeams
+    nbHeats:nbHeats, nbLignes:nbLignes,
+    zone:resolveCategorySeedZone({wodOrdres:{}}), wodOrdres:{}, teams:newTeams
   });
   resetQuickAddCatForm();
   closeQuickAddCat();
@@ -9121,7 +8939,6 @@ function editCat(id){
   document.getElementById('cat-name').value = cat.nom;
   document.getElementById('cat-color').value = cat.couleur;
   document.getElementById('cat-heats').value = cat.nbHeats;
-  var _csEl = document.getElementById('cat-start'); if(_csEl) _csEl.value = cat.hxStart || '08:00';
   document.getElementById('cat-lignes').value = cat.nbLignes;
   document.getElementById('cat-ordre').value = cat.ordre;
   document.getElementById("cat-teams").value = cat.teams.map(function(t){return t.nom;}).join("\n");
@@ -9152,7 +8969,6 @@ function saveCat(){
     cat.ordre = parseInt(document.getElementById('cat-ordre').value)||1;
     var czEl2 = document.getElementById('cat-zone'); if(czEl2) cat.zone = czEl2.value;
     var cjEl2 = document.getElementById('cat-jour'); if(cjEl2) cat.jour = parseInt(cjEl2.value)||1;
-    var _cs2 = document.getElementById('cat-start'); if(_cs2 && _cs2.value) cat.hxStart = _cs2.value;
     cat.teams = updatedTeams;
   } else {
     var newTeams = teamLines.map(function(name,i){return {id:Date.now()+i,nom:name,ligne:null};});
@@ -9166,7 +8982,6 @@ function saveCat(){
       nbLignes:parseInt(document.getElementById('cat-lignes').value)||6,
       zone: catZoneEl ? catZoneEl.value : '1',
       jour: catJourEl ? parseInt(catJourEl.value)||1 : 1,
-      hxStart: ((document.getElementById('cat-start')||{}).value)||'08:00',
       wodOrdres:{},
       teams:newTeams
     });
@@ -9924,516 +9739,88 @@ var ZONES = [
   {id:2, nom:"Zone 2", couleur:"#00E5A0", resp:"", contact:"", desc:""}
 ];
 var WODS=[
-// ══ HYROX — parcours unique For Time ══
-// duree = intervalle entre vagues (planning) · hyroxCapMinutes = cap course
-{
- "id": 2001,
- "nom": "Parcours HYROX",
- "desc": "8× (Run 1000m + Station) · For Time",
- "zone": "1",
- "jour": 1,
- "ordreZone": 1,
- "duree": 600,
- "interHeat": 0,
- "coupureApres": 0,
- "wodFormat": "fortime",
- "workMin": 0,
- "restMin": 0,
- "rounds": 1,
- "capMinutes": 100,
- "hyroxCapMinutes": 100,
- "isHyrox": true,
- "scoreType": "time",
- "scoreFields": [
-  "time"
- ],
- "pauseEntreToursActive": false,
- "pauseEntreToursSec": 0,
- "mouvements": [
-  {
-   "nom": "Run 1000m — R1",
-   "qty": 1000,
-   "type": "reps",
-   "ergoTarget": 0,
-   "ergoUnit": "m",
-   "poids": {
-    "1001": "",
-    "1002": "",
-    "1003": "",
-    "1004": "",
-    "1005": "",
-    "1006": "",
-    "1007": "",
-    "1008": ""
-   },
-   "qtyParCat": {
-    "1001": 1000,
-    "1002": 1000,
-    "1003": 1000,
-    "1004": 1000,
-    "1005": 1000,
-    "1006": 1000,
-    "1007": 1000,
-    "1008": 1000
-   },
-   "timeParCat": {},
-   "distParCat": {},
-   "hyroxSeg": "run"
-  },
-  {
-   "nom": "1 · SkiErg 1000m",
-   "qty": 1000,
-   "type": "reps",
-   "ergoTarget": 0,
-   "ergoUnit": "m",
-   "poids": {
-    "1001": "",
-    "1002": "",
-    "1003": "",
-    "1004": "",
-    "1005": "",
-    "1006": "",
-    "1007": "",
-    "1008": ""
-   },
-   "qtyParCat": {
-    "1001": 1000,
-    "1002": 1000,
-    "1003": 1000,
-    "1004": 1000,
-    "1005": 1000,
-    "1006": 1000,
-    "1007": 1000,
-    "1008": 1000
-   },
-   "timeParCat": {},
-   "distParCat": {},
-   "hyroxSeg": "station"
-  },
-  {
-   "nom": "Run 1000m — R2",
-   "qty": 1000,
-   "type": "reps",
-   "ergoTarget": 0,
-   "ergoUnit": "m",
-   "poids": {
-    "1001": "",
-    "1002": "",
-    "1003": "",
-    "1004": "",
-    "1005": "",
-    "1006": "",
-    "1007": "",
-    "1008": ""
-   },
-   "qtyParCat": {
-    "1001": 1000,
-    "1002": 1000,
-    "1003": 1000,
-    "1004": 1000,
-    "1005": 1000,
-    "1006": 1000,
-    "1007": 1000,
-    "1008": 1000
-   },
-   "timeParCat": {},
-   "distParCat": {},
-   "hyroxSeg": "run"
-  },
-  {
-   "nom": "2 · Sled Push 50m",
-   "qty": 50,
-   "type": "reps",
-   "ergoTarget": 0,
-   "ergoUnit": "m",
-   "poids": {
-    "1001": "152kg",
-    "1002": "102kg",
-    "1003": "202kg",
-    "1004": "152kg",
-    "1005": "152kg",
-    "1006": "102kg",
-    "1007": "102kg",
-    "1008": "102/152kg"
-   },
-   "qtyParCat": {
-    "1001": 50,
-    "1002": 50,
-    "1003": 50,
-    "1004": 50,
-    "1005": 50,
-    "1006": 50,
-    "1007": 50,
-    "1008": 50
-   },
-   "timeParCat": {},
-   "distParCat": {},
-   "hyroxSeg": "station"
-  },
-  {
-   "nom": "Run 1000m — R3",
-   "qty": 1000,
-   "type": "reps",
-   "ergoTarget": 0,
-   "ergoUnit": "m",
-   "poids": {
-    "1001": "",
-    "1002": "",
-    "1003": "",
-    "1004": "",
-    "1005": "",
-    "1006": "",
-    "1007": "",
-    "1008": ""
-   },
-   "qtyParCat": {
-    "1001": 1000,
-    "1002": 1000,
-    "1003": 1000,
-    "1004": 1000,
-    "1005": 1000,
-    "1006": 1000,
-    "1007": 1000,
-    "1008": 1000
-   },
-   "timeParCat": {},
-   "distParCat": {},
-   "hyroxSeg": "run"
-  },
-  {
-   "nom": "3 · Sled Pull 50m",
-   "qty": 50,
-   "type": "reps",
-   "ergoTarget": 0,
-   "ergoUnit": "m",
-   "poids": {
-    "1001": "103kg",
-    "1002": "78kg",
-    "1003": "153kg",
-    "1004": "103kg",
-    "1005": "103kg",
-    "1006": "78kg",
-    "1007": "78kg",
-    "1008": "78/103kg"
-   },
-   "qtyParCat": {
-    "1001": 50,
-    "1002": 50,
-    "1003": 50,
-    "1004": 50,
-    "1005": 50,
-    "1006": 50,
-    "1007": 50,
-    "1008": 50
-   },
-   "timeParCat": {},
-   "distParCat": {},
-   "hyroxSeg": "station"
-  },
-  {
-   "nom": "Run 1000m — R4",
-   "qty": 1000,
-   "type": "reps",
-   "ergoTarget": 0,
-   "ergoUnit": "m",
-   "poids": {
-    "1001": "",
-    "1002": "",
-    "1003": "",
-    "1004": "",
-    "1005": "",
-    "1006": "",
-    "1007": "",
-    "1008": ""
-   },
-   "qtyParCat": {
-    "1001": 1000,
-    "1002": 1000,
-    "1003": 1000,
-    "1004": 1000,
-    "1005": 1000,
-    "1006": 1000,
-    "1007": 1000,
-    "1008": 1000
-   },
-   "timeParCat": {},
-   "distParCat": {},
-   "hyroxSeg": "run"
-  },
-  {
-   "nom": "4 · Burpee Broad Jumps 80m",
-   "qty": 80,
-   "type": "reps",
-   "ergoTarget": 0,
-   "ergoUnit": "m",
-   "poids": {
-    "1001": "",
-    "1002": "",
-    "1003": "",
-    "1004": "",
-    "1005": "",
-    "1006": "",
-    "1007": "",
-    "1008": ""
-   },
-   "qtyParCat": {
-    "1001": 80,
-    "1002": 80,
-    "1003": 80,
-    "1004": 80,
-    "1005": 80,
-    "1006": 80,
-    "1007": 80,
-    "1008": 80
-   },
-   "timeParCat": {},
-   "distParCat": {},
-   "hyroxSeg": "station"
-  },
-  {
-   "nom": "Run 1000m — R5",
-   "qty": 1000,
-   "type": "reps",
-   "ergoTarget": 0,
-   "ergoUnit": "m",
-   "poids": {
-    "1001": "",
-    "1002": "",
-    "1003": "",
-    "1004": "",
-    "1005": "",
-    "1006": "",
-    "1007": "",
-    "1008": ""
-   },
-   "qtyParCat": {
-    "1001": 1000,
-    "1002": 1000,
-    "1003": 1000,
-    "1004": 1000,
-    "1005": 1000,
-    "1006": 1000,
-    "1007": 1000,
-    "1008": 1000
-   },
-   "timeParCat": {},
-   "distParCat": {},
-   "hyroxSeg": "run"
-  },
-  {
-   "nom": "5 · Row 1000m",
-   "qty": 1000,
-   "type": "reps",
-   "ergoTarget": 0,
-   "ergoUnit": "m",
-   "poids": {
-    "1001": "",
-    "1002": "",
-    "1003": "",
-    "1004": "",
-    "1005": "",
-    "1006": "",
-    "1007": "",
-    "1008": ""
-   },
-   "qtyParCat": {
-    "1001": 1000,
-    "1002": 1000,
-    "1003": 1000,
-    "1004": 1000,
-    "1005": 1000,
-    "1006": 1000,
-    "1007": 1000,
-    "1008": 1000
-   },
-   "timeParCat": {},
-   "distParCat": {},
-   "hyroxSeg": "station"
-  },
-  {
-   "nom": "Run 1000m — R6",
-   "qty": 1000,
-   "type": "reps",
-   "ergoTarget": 0,
-   "ergoUnit": "m",
-   "poids": {
-    "1001": "",
-    "1002": "",
-    "1003": "",
-    "1004": "",
-    "1005": "",
-    "1006": "",
-    "1007": "",
-    "1008": ""
-   },
-   "qtyParCat": {
-    "1001": 1000,
-    "1002": 1000,
-    "1003": 1000,
-    "1004": 1000,
-    "1005": 1000,
-    "1006": 1000,
-    "1007": 1000,
-    "1008": 1000
-   },
-   "timeParCat": {},
-   "distParCat": {},
-   "hyroxSeg": "run"
-  },
-  {
-   "nom": "6 · Farmers Carry 200m",
-   "qty": 200,
-   "type": "reps",
-   "ergoTarget": 0,
-   "ergoUnit": "m",
-   "poids": {
-    "1001": "2×24kg",
-    "1002": "2×16kg",
-    "1003": "2×32kg",
-    "1004": "2×24kg",
-    "1005": "2×24kg",
-    "1006": "2×16kg",
-    "1007": "2×16kg",
-    "1008": "2×16/24kg"
-   },
-   "qtyParCat": {
-    "1001": 200,
-    "1002": 200,
-    "1003": 200,
-    "1004": 200,
-    "1005": 200,
-    "1006": 200,
-    "1007": 200,
-    "1008": 200
-   },
-   "timeParCat": {},
-   "distParCat": {},
-   "hyroxSeg": "station"
-  },
-  {
-   "nom": "Run 1000m — R7",
-   "qty": 1000,
-   "type": "reps",
-   "ergoTarget": 0,
-   "ergoUnit": "m",
-   "poids": {
-    "1001": "",
-    "1002": "",
-    "1003": "",
-    "1004": "",
-    "1005": "",
-    "1006": "",
-    "1007": "",
-    "1008": ""
-   },
-   "qtyParCat": {
-    "1001": 1000,
-    "1002": 1000,
-    "1003": 1000,
-    "1004": 1000,
-    "1005": 1000,
-    "1006": 1000,
-    "1007": 1000,
-    "1008": 1000
-   },
-   "timeParCat": {},
-   "distParCat": {},
-   "hyroxSeg": "run"
-  },
-  {
-   "nom": "7 · Sandbag Lunges 100m",
-   "qty": 100,
-   "type": "reps",
-   "ergoTarget": 0,
-   "ergoUnit": "m",
-   "poids": {
-    "1001": "20kg",
-    "1002": "10kg",
-    "1003": "30kg",
-    "1004": "20kg",
-    "1005": "20kg",
-    "1006": "10kg",
-    "1007": "10kg",
-    "1008": "10/20kg"
-   },
-   "qtyParCat": {
-    "1001": 100,
-    "1002": 100,
-    "1003": 100,
-    "1004": 100,
-    "1005": 100,
-    "1006": 100,
-    "1007": 100,
-    "1008": 100
-   },
-   "timeParCat": {},
-   "distParCat": {},
-   "hyroxSeg": "station"
-  },
-  {
-   "nom": "Run 1000m — R8",
-   "qty": 1000,
-   "type": "reps",
-   "ergoTarget": 0,
-   "ergoUnit": "m",
-   "poids": {
-    "1001": "",
-    "1002": "",
-    "1003": "",
-    "1004": "",
-    "1005": "",
-    "1006": "",
-    "1007": "",
-    "1008": ""
-   },
-   "qtyParCat": {
-    "1001": 1000,
-    "1002": 1000,
-    "1003": 1000,
-    "1004": 1000,
-    "1005": 1000,
-    "1006": 1000,
-    "1007": 1000,
-    "1008": 1000
-   },
-   "timeParCat": {},
-   "distParCat": {},
-   "hyroxSeg": "run"
-  },
-  {
-   "nom": "8 · Wall Balls",
-   "qty": 100,
-   "type": "reps",
-   "ergoTarget": 0,
-   "ergoUnit": "m",
-   "poids": {
-    "1001": "6kg",
-    "1002": "4kg",
-    "1003": "9kg",
-    "1004": "6kg",
-    "1005": "6kg",
-    "1006": "4kg",
-    "1007": "4kg",
-    "1008": "4/6kg"
-   },
-   "qtyParCat": {
-    "1001": 100,
-    "1002": 100,
-    "1003": 100,
-    "1004": 100,
-    "1005": 100,
-    "1006": 100,
-    "1007": 100,
-    "1008": 100
-   },
-   "timeParCat": {},
-   "distParCat": {},
-   "hyroxSeg": "station"
-  },
-  {"nom":"🏁 Arrivée","qty":1,"type":"reps","ergoTarget":0,"ergoUnit":"m","poids":{},"qtyParCat":{},"timeParCat":{},"distParCat":{},"hyroxSeg":"finish"}
- ]
-}
-]; // HYROX — 1 parcours · vagues gérées via l'onglet 🏃 HYROX
+// ══════════════════════════════════════════════════════════════
+//  FOC 2026 — 7 WODs · 2 jours · 2 zones · formats alternés
+//
+//  JOUR 1 — 3 WODs
+//    Z1 WOD 1 : AMRAP 3min  →  Cindy
+//    Z2 WOD 1 : For Time     →  21-15-9 Thrusters + Bar Muscle-Ups (cap 3min)
+//    Z1 WOD 2 : For Time     →  3 rounds Power Clean + Box Jump Over (cap 3min)
+//
+//  JOUR 2 — 4 WODs
+//    Z2 WOD 2 : AMRAP 3min  →  KB Swing + Burpees + Wall Ball
+//    Z1 WOD 3 : AMRAP 3min  →  Double Unders + Toes-to-Bar + Devils Press
+//    Z2 WOD 3 : For Time     →  4 rounds Deadlift + Box Jump Over (cap 3min)
+//    Z1 WOD 4 : For Time     →  21-15-9 Power Snatch + Pull-Ups (cap 3min)
+// ══════════════════════════════════════════════════════════════
+
+// ── JOUR 1 · ZONE 1 · WOD 1 — AMRAP 3min ───────────────────
+{"id":2001,"nom":"Cindy","desc":"AMRAP 3min · Pull-Ups / Push-Ups / Air Squats","zone":"1","jour":1,"ordreZone":1,
+ "duree":180,"interHeat":90,"coupureApres":0,"wodFormat":"amrap","workMin":3,"restMin":0,"rounds":1,"capMinutes":3,
+ "scoreType":"reps","scoreFields":["reps"],"pauseEntreToursActive":false,"pauseEntreToursSec":0,
+ "mouvements":[
+  {"nom":"Pull-Ups","qty":5,"type":"reps","ergoTarget":0,"ergoUnit":"m","poids":{"1001":"","1002":"","1003":"","1004":"","1005":"","1006":"","1007":""},"qtyParCat":{"1001":5,"1002":5,"1003":3,"1004":3,"1005":2,"1006":3,"1007":3},"timeParCat":{},"distParCat":{}},
+  {"nom":"Push-Ups","qty":10,"type":"reps","ergoTarget":0,"ergoUnit":"m","poids":{"1001":"","1002":"","1003":"","1004":"","1005":"","1006":"","1007":""},"qtyParCat":{"1001":10,"1002":10,"1003":7,"1004":7,"1005":5,"1006":7,"1007":7},"timeParCat":{},"distParCat":{}},
+  {"nom":"Air Squats","qty":15,"type":"reps","ergoTarget":0,"ergoUnit":"m","poids":{"1001":"","1002":"","1003":"","1004":"","1005":"","1006":"","1007":""},"qtyParCat":{"1001":15,"1002":15,"1003":12,"1004":10,"1005":8,"1006":10,"1007":12},"timeParCat":{},"distParCat":{}}
+ ]},
+
+// ── JOUR 1 · ZONE 2 · WOD 1 — For Time cap 3min ─────────────
+{"id":2002,"nom":"Thruster 21-15-9","desc":"For Time · 21-15-9 Thrusters + Bar Muscle-Ups (cap 3min)","zone":"2","jour":1,"ordreZone":1,
+ "duree":180,"interHeat":90,"coupureApres":0,"wodFormat":"fortime","workMin":3,"restMin":0,"rounds":1,"capMinutes":3,
+ "scoreType":"time","scoreFields":["time"],"pauseEntreToursActive":false,"pauseEntreToursSec":0,
+ "mouvements":[
+  {"nom":"Thrusters","qty":21,"type":"reps","ergoTarget":0,"ergoUnit":"m","poids":{"1001":"42.5kg","1002":"30kg","1003":"25kg","1004":"35kg","1005":"20kg","1006":"30kg","1007":"22.5kg"},"qtyParCat":{"1001":21,"1002":21,"1003":15,"1004":18,"1005":12,"1006":15,"1007":15},"timeParCat":{},"distParCat":{}},
+  {"nom":"Bar Muscle-Ups","qty":21,"type":"reps","ergoTarget":0,"ergoUnit":"m","poids":{"1001":"","1002":"","1003":"","1004":"","1005":"","1006":"","1007":""},"qtyParCat":{"1001":21,"1002":15,"1003":9,"1004":12,"1005":6,"1006":9,"1007":9},"timeParCat":{},"distParCat":{}}
+ ]},
+
+// ── JOUR 1 · ZONE 1 · WOD 2 — For Time cap 3min ─────────────
+{"id":2003,"nom":"Clean Box Jump","desc":"For Time · 3 rounds Power Clean + Box Jump Over (cap 3min)","zone":"1","jour":1,"ordreZone":2,
+ "duree":180,"interHeat":90,"coupureApres":0,"wodFormat":"fortime","workMin":3,"restMin":0,"rounds":1,"capMinutes":3,
+ "scoreType":"time","scoreFields":["time"],"pauseEntreToursActive":false,"pauseEntreToursSec":0,
+ "mouvements":[
+  {"nom":"Power Clean","qty":9,"type":"reps","ergoTarget":0,"ergoUnit":"m","poids":{"1001":"70kg","1002":"50kg","1003":"40kg","1004":"60kg","1005":"30kg","1006":"50kg","1007":"35kg"},"qtyParCat":{"1001":9,"1002":9,"1003":7,"1004":8,"1005":5,"1006":7,"1007":7},"timeParCat":{},"distParCat":{}},
+  {"nom":"Box Jump Over","qty":12,"type":"reps","ergoTarget":0,"ergoUnit":"m","poids":{"1001":"","1002":"","1003":"","1004":"","1005":"","1006":"","1007":""},"qtyParCat":{"1001":12,"1002":12,"1003":9,"1004":10,"1005":7,"1006":9,"1007":9},"timeParCat":{},"distParCat":{}}
+ ]},
+
+// ── JOUR 2 · ZONE 2 · WOD 2 — AMRAP 3min ───────────────────
+{"id":2004,"nom":"KB Swing Power","desc":"AMRAP 3min · KB Swing + Burpees + Wall Ball","zone":"2","jour":2,"ordreZone":1,
+ "duree":180,"interHeat":90,"coupureApres":0,"wodFormat":"amrap","workMin":3,"restMin":0,"rounds":1,"capMinutes":3,
+ "scoreType":"reps","scoreFields":["reps"],"pauseEntreToursActive":false,"pauseEntreToursSec":0,
+ "mouvements":[
+  {"nom":"KB Swing","qty":15,"type":"reps","ergoTarget":0,"ergoUnit":"m","poids":{"1001":"32kg","1002":"24kg","1003":"20kg","1004":"24kg","1005":"16kg","1006":"24kg","1007":"20kg"},"qtyParCat":{"1001":15,"1002":15,"1003":12,"1004":12,"1005":10,"1006":12,"1007":12},"timeParCat":{},"distParCat":{}},
+  {"nom":"Burpees","qty":10,"type":"reps","ergoTarget":0,"ergoUnit":"m","poids":{"1001":"","1002":"","1003":"","1004":"","1005":"","1006":"","1007":""},"qtyParCat":{"1001":10,"1002":10,"1003":8,"1004":8,"1005":6,"1006":8,"1007":8},"timeParCat":{},"distParCat":{}},
+  {"nom":"Wall Ball","qty":12,"type":"reps","ergoTarget":0,"ergoUnit":"m","poids":{"1001":"9kg","1002":"6kg","1003":"6kg","1004":"9kg","1005":"4kg","1006":"7kg","1007":"6kg"},"qtyParCat":{"1001":12,"1002":12,"1003":10,"1004":10,"1005":8,"1006":10,"1007":10},"timeParCat":{},"distParCat":{}}
+ ]},
+
+// ── JOUR 2 · ZONE 1 · WOD 3 — AMRAP 3min ────────────────────
+{"id":2005,"nom":"DU Toes Press","desc":"AMRAP 3min · Double Unders + Toes-to-Bar + Devils Press","zone":"1","jour":2,"ordreZone":2,
+ "duree":180,"interHeat":90,"coupureApres":0,"wodFormat":"amrap","workMin":3,"restMin":0,"rounds":1,"capMinutes":3,
+ "scoreType":"reps","scoreFields":["reps"],"pauseEntreToursActive":false,"pauseEntreToursSec":0,
+ "mouvements":[
+  {"nom":"Double Unders","qty":30,"type":"reps","ergoTarget":0,"ergoUnit":"m","poids":{"1001":"","1002":"","1003":"","1004":"","1005":"","1006":"","1007":""},"qtyParCat":{"1001":30,"1002":30,"1003":20,"1004":20,"1005":15,"1006":20,"1007":20},"timeParCat":{},"distParCat":{}},
+  {"nom":"Toes-to-Bar","qty":15,"type":"reps","ergoTarget":0,"ergoUnit":"m","poids":{"1001":"","1002":"","1003":"","1004":"","1005":"","1006":"","1007":""},"qtyParCat":{"1001":15,"1002":15,"1003":10,"1004":10,"1005":7,"1006":10,"1007":10},"timeParCat":{},"distParCat":{}},
+  {"nom":"Devils Press","qty":10,"type":"reps","ergoTarget":0,"ergoUnit":"m","poids":{"1001":"22.5kg","1002":"15kg","1003":"12.5kg","1004":"17.5kg","1005":"10kg","1006":"15kg","1007":"12.5kg"},"qtyParCat":{"1001":10,"1002":10,"1003":8,"1004":8,"1005":6,"1006":8,"1007":8},"timeParCat":{},"distParCat":{}}
+ ]},
+
+// ── JOUR 2 · ZONE 2 · WOD 3 — For Time cap 3min ─────────────
+{"id":2006,"nom":"DL Box Jump Over","desc":"For Time · 4 rounds Deadlift + Box Jump Over (cap 3min)","zone":"2","jour":2,"ordreZone":2,
+ "duree":180,"interHeat":90,"coupureApres":0,"wodFormat":"fortime","workMin":3,"restMin":0,"rounds":1,"capMinutes":3,
+ "scoreType":"time","scoreFields":["time"],"pauseEntreToursActive":false,"pauseEntreToursSec":0,
+ "mouvements":[
+  {"nom":"Deadlift","qty":8,"type":"reps","ergoTarget":0,"ergoUnit":"m","poids":{"1001":"100kg","1002":"70kg","1003":"60kg","1004":"80kg","1005":"50kg","1006":"70kg","1007":"55kg"},"qtyParCat":{"1001":8,"1002":8,"1003":6,"1004":7,"1005":5,"1006":7,"1007":6},"timeParCat":{},"distParCat":{}},
+  {"nom":"Box Jump Over","qty":10,"type":"reps","ergoTarget":0,"ergoUnit":"m","poids":{"1001":"","1002":"","1003":"","1004":"","1005":"","1006":"","1007":""},"qtyParCat":{"1001":10,"1002":10,"1003":8,"1004":8,"1005":6,"1006":8,"1007":8},"timeParCat":{},"distParCat":{}}
+ ]},
+
+// ── JOUR 2 · ZONE 1 · WOD 4 — For Time cap 3min ────────────
+{"id":2007,"nom":"Snatch Pull-Ups","desc":"For Time · 21-15-9 Power Snatch + Pull-Ups (cap 3min)","zone":"1","jour":2,"ordreZone":3,
+ "duree":180,"interHeat":90,"coupureApres":0,"wodFormat":"fortime","workMin":3,"restMin":0,"rounds":1,"capMinutes":3,
+ "scoreType":"time","scoreFields":["time"],"pauseEntreToursActive":false,"pauseEntreToursSec":0,
+ "mouvements":[
+  {"nom":"Power Snatch","qty":21,"type":"reps","ergoTarget":0,"ergoUnit":"m","poids":{"1001":"50kg","1002":"35kg","1003":"30kg","1004":"42.5kg","1005":"22.5kg","1006":"35kg","1007":"27.5kg"},"qtyParCat":{"1001":21,"1002":21,"1003":15,"1004":18,"1005":12,"1006":15,"1007":15},"timeParCat":{},"distParCat":{}},
+  {"nom":"Pull-Ups","qty":21,"type":"reps","ergoTarget":0,"ergoUnit":"m","poids":{"1001":"","1002":"","1003":"","1004":"","1005":"","1006":"","1007":""},"qtyParCat":{"1001":21,"1002":15,"1003":10,"1004":12,"1005":7,"1006":10,"1007":10},"timeParCat":{},"distParCat":{}}
+ ]}
+
+]; // FOC 2026 — 7 WODs · J1: WODs 1-3 · J2: WODs 4-7 · Zones alternées · Formats alternés
 // Les vrais WODs sont saisis dans l'onglet ⏱ WODs de l'admin
 // Ci-dessous : WODs de TEST reconnus par isBundledTestWod() — purgés auto si vrais WODs présents
 var WODS_TEST = [];
@@ -12202,8 +11589,10 @@ function updateMouvementCatQty(wid, idx, catKey, val){
 }
 function updateMouvementCatField(wid, idx, catKey, field, val){
   var w = WODS.find(function(x){return x.id===wid;});
-  if(!w||!w.mouvements||!w.mouvements[idx])return;
-  var m = w.mouvements[idx];
+  if(!w)return;
+  // ★ TOURS PERSO : résoudre le mouvement via la liste aplatie (idx global)
+  var m = _adaptMovAt(w, idx);
+  if(!m)return;
   if(field==='poids'){
     if(!m.poids) m.poids={};
     m.poids[catKey]=val;
@@ -12213,6 +11602,31 @@ function updateMouvementCatField(wid, idx, catKey, field, val){
   }
   refreshWodScPreview(wid);
   autoSave();
+}
+
+/* ★ ADAPTATION PAR CATÉGORIE × TOURS PERSO ─────────────────────────────────
+   Liste effective des mouvements pour le popup d'adaptation :
+   - WOD classique  → w.mouvements (comportement inchangé)
+   - Tours perso    → tous les mouvements de tous les tours, aplatis, avec un
+     libellé "T2 · Pull UP". Les objets retournés sont des RÉFÉRENCES directes
+     vers w.toursPerso[ti].mouvements[mi] : toute modification (qtyParCat,
+     poids, nomParCat…) est donc persistée dans le WOD, embarquée par le
+     flatten (_wodEffMovs) et résolue par le juge (qtyParCat[catId]). */
+function _adaptMovList(w){
+  if(w && w.toursMode==='custom' && Array.isArray(w.toursPerso) && w.toursPerso.length>0){
+    var out=[];
+    w.toursPerso.forEach(function(tp,ti){
+      (tp&&Array.isArray(tp.mouvements)?tp.mouvements:[]).forEach(function(m){
+        out.push({m:m, tourLbl:'T'+(ti+1)});
+      });
+    });
+    return out;
+  }
+  return (w&&Array.isArray(w.mouvements)?w.mouvements:[]).map(function(m){return {m:m, tourLbl:''};});
+}
+function _adaptMovAt(w, idx){
+  var l=_adaptMovList(w);
+  return (l[idx]&&l[idx].m)||null;
 }
 
 function moveWodProg(id, dir) {
@@ -12525,7 +11939,8 @@ function toggleWodAcc(wid, key){
 
 // ═══════ Popup Adaptation par catégorie ═══════
 function _catHasAdapt(w, catKey){
-  var movs = w.mouvements || [];
+  // ★ TOURS PERSO : inclure les mouvements de tous les tours
+  var movs = _adaptMovList(w).map(function(it){return it.m;});
   for(var i=0;i<movs.length;i++){
     var m = movs[i];
     if(m.qtyParCat  && m.qtyParCat[catKey]  != null && m.qtyParCat[catKey]  !== '') return true;
@@ -12555,7 +11970,9 @@ function renderAdaptPopup(){
   var w = WODS.find(function(x){return x.id===_adaptWodId;});
   if(!w) return;
   var cats = CATEGORIES || [];
-  var movs = w.mouvements || [];
+  // ★ TOURS PERSO : le popup adapte aussi les mouvements de chaque tour
+  var _entries = _adaptMovList(w);
+  var movs = _entries.map(function(it){return it.m;});
   var INP = 'background:#F8FAFC;border:1px solid var(--brd2);border-radius:6px;padding:5px 6px;font-size:11px;font-weight:700;outline:none;font-family:inherit;text-align:center;width:100%;box-sizing:border-box;';
   var chips = cats.map(function(c){
     var k = String(c.id||c.nom);
@@ -12565,8 +11982,7 @@ function renderAdaptPopup(){
   }).join('');
   var body;
   if(!movs.length){
-    body = '<div style="font-size:11px;color:var(--mid);text-align:center;padding:14px">Aucun mouvement dans la liste \u2014 ajoute des mouvements d\u2019abord.'
-      + (w.toursMode==='custom' ? '<br><span style="font-size:10px">En tours personnalis\u00e9s, adapte reps/charges directement dans chaque tour.</span>' : '') + '</div>';
+    body = '<div style="font-size:11px;color:var(--mid);text-align:center;padding:14px">Aucun mouvement dans la liste \u2014 ajoute des mouvements (ou des tours) d\u2019abord.</div>';
   } else {
     var k = _adaptCatKey;
     body = '<div style="display:grid;grid-template-columns:1fr 64px 72px 64px;gap:6px;font-size:8px;font-weight:900;color:var(--ink2);text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px"><span>Mouvement</span><span style="text-align:center">Reps/Dist</span><span style="text-align:center">Poids</span><span style="text-align:center">Temps</span></div>'
@@ -12582,7 +11998,7 @@ function renderAdaptPopup(){
         ? '<input type="number" min="0" placeholder="'+escHtml(String(global))+'" value="'+escHtml(String(catDist))+'" onchange="updateMouvementCatField('+w.id+','+mi+',\''+k.replace(/'/g,"\\'")+'\',\'distParCat\',parseInt(this.value)||0);renderAdaptPopup()" style="'+INP+'color:#E65100">'
         : '<input type="number" min="0" placeholder="'+escHtml(String(global))+'" value="'+escHtml(String(catQty))+'" onchange="updateMouvementCatField('+w.id+','+mi+',\''+k.replace(/'/g,"\\'")+'\',\'qtyParCat\',parseInt(this.value)||0);renderAdaptPopup()" style="'+INP+'color:var(--blue)'+(catQty!==''?';border-color:#86EFAC;background:#F0FDF4':'')+'">';
       return '<div style="display:grid;grid-template-columns:1fr 64px 72px 64px;gap:6px;align-items:center;margin-bottom:6px">'
-        + '<input type="text" placeholder="'+escHtml(m.nom||('Mouv '+(mi+1)))+' ('+global+(isErgo?(m.ergoUnit||'m'):'')+')" value="'+escHtml(catNom)+'" title="Nom pour cette cat\u00e9gorie (vide = nom global)" onchange="updateMouvementCatField('+w.id+','+mi+',\''+k.replace(/'/g,"\\'")+'\',\'nomParCat\',this.value);renderAdaptPopup()" style="'+INP+'text-align:left;font-weight:800'+(catNom?';border-color:#86EFAC;background:#F0FDF4':'')+'">'
+        + '<input type="text" placeholder="'+escHtml(((_entries[mi]&&_entries[mi].tourLbl)?_entries[mi].tourLbl+' \u00b7 ':'')+(m.nom||('Mouv '+(mi+1))))+' ('+global+(isErgo?(m.ergoUnit||'m'):'')+')" value="'+escHtml(catNom)+'" title="Nom pour cette cat\u00e9gorie (vide = nom global)" onchange="updateMouvementCatField('+w.id+','+mi+',\''+k.replace(/'/g,"\\'")+'\',\'nomParCat\',this.value);renderAdaptPopup()" style="'+INP+'text-align:left;font-weight:800'+(catNom?';border-color:#86EFAC;background:#F0FDF4':'')+'">'
         + q1
         + '<input type="text" placeholder="\u2014" value="'+escHtml(catPoids)+'" onchange="updateMouvementCatField('+w.id+','+mi+',\''+k.replace(/'/g,"\\'")+'\',\'poids\',this.value);renderAdaptPopup()" style="'+INP+'color:var(--purple)'+(catPoids?';border-color:#86EFAC;background:#F0FDF4':'')+'">'
         + '<input type="text" placeholder="\u2014" value="'+escHtml(catTime)+'" onchange="updateMouvementCatField('+w.id+','+mi+',\''+k.replace(/'/g,"\\'")+'\',\'timeParCat\',this.value);renderAdaptPopup()" style="'+INP+'color:#059669'+(catTime?';border-color:#86EFAC;background:#F0FDF4':'')+'">'
@@ -13014,7 +12430,7 @@ function renderWodFinalMoves() {
     el.innerHTML='<div style="color:#64748B;font-size:11px;text-align:center;padding:8px">Aucun mouvement — cliquez + Mouvement</div>';
     return;
   }
-  // ★ FIX : l'admin stocke les équipes dans cat.teams
+  // ★ FIX : l'admin stocke les équipes dans cat.teams (cat.equipes n'existe pas ici)
   var cats=(CATEGORIES||[]).filter(function(c){return ((c.equipes||c.teams)||[]).length>0;});
   var IS='background:#0F1C2E;border:1px solid #334155;border-radius:5px;padding:4px 6px;font-size:11px;font-weight:700;outline:none;font-family:inherit;color:#E2E8F0;box-sizing:border-box';
   el.innerHTML=WOD_FINAL.mouvements.map(function(m,i){
@@ -13048,7 +12464,7 @@ function renderWodFinalCutPerCat() {
     return;
   }
   if (!WOD_FINAL.cutPerCat) WOD_FINAL.cutPerCat = {};
-  // ★ FIX : idem
+  // ★ FIX : idem, accepter cat.teams
   var cats = CATEGORIES.filter(function(c){ return ((c.equipes||c.teams)||[]).length > 0; });
   if (!cats.length) {
     el.innerHTML = '<div style="color:#64748B;font-size:11px;text-align:center">Aucune équipe dans les catégories</div>';
@@ -13231,52 +12647,10 @@ function safeCall(fn, name) {
   }
 }
 
-
-/* ── QR applis HYROX terrain ── */
-var HX_APPS={
-  depart: {file:'depart.html',     titre:'🚀 Départ · Le Chef',          soustitre:'Prochaine vague · gros bouton GO', color:'065F46'},
-  tk:     {file:'tk-hyrox.html',   titre:'⏱ TK · Contrôle des départs',  soustitre:'Vue d\'ensemble · GO · annulation', color:'0D47A1'},
-  juge:   {file:'juge-hyrox.html', titre:'👨‍⚖️ Juge de station · HYROX', soustitre:'Choisis ta station · valide les reps', color:'4C1D95'},
-  arrivee:{file:'arrivee.html',    titre:'🏁 Arrivée · Chrono officiel', soustitre:'Stoppe le chrono à la ligne',    color:'065F46'},
-  live:   {file:'live-hyrox.html', titre:'🔴 Live · Classement HYROX',   soustitre:'Classement et progression en direct', color:'B91C1C'}
-};
-function hxAppUrl(k){
-  var base=location.href.split('/').slice(0,-1).join('/')+'/';
-  return base+HX_APPS[k].file;
-}
-function renderHyroxQRs(){
-  Object.keys(HX_APPS).forEach(function(k){
-    var el=document.getElementById('qr-hx-'+k);
-    if(!el) return;
-    var img=document.createElement('img');
-    img.src='https://api.qrserver.com/v1/create-qr-code/?size=300x300&color='+HX_APPS[k].color+'&bgcolor=FFFFFF&margin=12&ecc=M&data='+encodeURIComponent(hxAppUrl(k));
-    img.style.cssText='width:150px;height:150px;border-radius:6px;display:block;';
-    el.innerHTML='';el.appendChild(img);
-  });
-}
-function _hxQRPage(k){
-  var a=HX_APPS[k], url=hxAppUrl(k);
-  return '<div class="page"><h1>'+a.titre+'</h1><h2>'+a.soustitre+'</h2>'
-    +'<img src="https://api.qrserver.com/v1/create-qr-code/?size=600x600&color='+a.color+'&bgcolor=FFFFFF&margin=16&ecc=M&data='+encodeURIComponent(url)+'">'
-    +'<div class="url">'+url+'</div></div>';
-}
-function _hxQRPrint(pages){
-  var nomEv=(document.getElementById('ev-nom')||{}).value||'HYROX';
-  var doc='<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>QR '+nomEv+'</title><style>'
-    +'body{font-family:Arial,sans-serif;margin:0;color:#111}'
-    +'.page{height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;page-break-after:always}'
-    +'h1{font-size:34px;margin:0 0 6px}h2{font-size:16px;color:#555;margin:0 0 30px;font-weight:normal}'
-    +'img{width:420px;height:420px}.url{margin-top:26px;font-size:13px;color:#777;word-break:break-all;max-width:80%}'
-    +'</style></head><body>'+pages+'<script>window.print();<\/script></body></html>';
-  var w=window.open('','_blank'); if(w){ w.document.write(doc); w.document.close(); }
-}
-function printHyroxQR(k){ _hxQRPrint(_hxQRPage(k)); }
-function printHyroxQRAll(){ _hxQRPrint(Object.keys(HX_APPS).map(_hxQRPage).join('')); }
-
 function renderPublicQRs(){
   var base=location.href.split('/').slice(0,-1).join('/')+'/';
   // ★ Public = classement uniquement (le live multiplierait les connexions Firebase)
-  var publicUrl=base+'live-hyrox.html';
+  var publicUrl=base+'classement.html';
   var speakerUrl=base+'speaker.html';
   var el=document.getElementById('qr-public-single');
   if(el){
@@ -13308,7 +12682,6 @@ function renderPublicQRs(){
     imgP.style.cssText='width:140px;height:140px;border-radius:6px;display:block;';
     elP.innerHTML='';elP.appendChild(imgP);
   }
-  renderHyroxQRs();
 }
 
 function esc(s){
@@ -16168,8 +15541,8 @@ function lockJSONBin(){
 function saveJSONBinConfig(){
   // 1. localStorage pour accès immédiat (même session)
   try{
-    localStorage.setItem('zonek-hyrox-jsonbin-key', JSONBIN_KEY);
-    localStorage.setItem('zonek-hyrox-jsonbin-bin', JSONBIN_BIN_ID);
+    localStorage.setItem('zonek-foc-jsonbin-key', JSONBIN_KEY);
+    localStorage.setItem('zonek-foc-jsonbin-bin', JSONBIN_BIN_ID);
   }catch(e){}
   // 2. Firebase pour persistance définitive multi-appareil
   var fbdb = window.db || (typeof LS_FB_DB !== 'undefined' ? LS_FB_DB : null);
@@ -16186,8 +15559,8 @@ function saveJSONBinConfig(){
 function loadJSONBinConfig(){
   // 1. Charger localStorage immédiatement (pas d'attente réseau)
   try{
-    var lsKey = localStorage.getItem('zonek-hyrox-jsonbin-key')||'';
-    var lsBin = localStorage.getItem('zonek-hyrox-jsonbin-bin')||'';
+    var lsKey = localStorage.getItem('zonek-foc-jsonbin-key')||'';
+    var lsBin = localStorage.getItem('zonek-foc-jsonbin-bin')||'';
     if(lsKey){ JSONBIN_KEY=lsKey; }
     if(lsBin){ JSONBIN_BIN_ID=lsBin; }
     if(JSONBIN_BIN_ID) setSyncStatus('✅ Configuré','#2E7D32');
@@ -16201,8 +15574,8 @@ function loadJSONBinConfig(){
         var d = snap.val();
         if(!d) return;
         var changed = false;
-        if(d.key && d.key !== JSONBIN_KEY){ JSONBIN_KEY=d.key; localStorage.setItem('zonek-hyrox-jsonbin-key',d.key); changed=true; }
-        if(d.bin && d.bin !== JSONBIN_BIN_ID){ JSONBIN_BIN_ID=d.bin; localStorage.setItem('zonek-hyrox-jsonbin-bin',d.bin); changed=true; }
+        if(d.key && d.key !== JSONBIN_KEY){ JSONBIN_KEY=d.key; localStorage.setItem('zonek-foc-jsonbin-key',d.key); changed=true; }
+        if(d.bin && d.bin !== JSONBIN_BIN_ID){ JSONBIN_BIN_ID=d.bin; localStorage.setItem('zonek-foc-jsonbin-bin',d.bin); changed=true; }
         if(changed){
           // Mettre à jour les inputs dans l'UI
           var kEl=document.getElementById('cfg-jsonbin-key'); if(kEl) kEl.value=JSONBIN_KEY;
@@ -17121,47 +16494,8 @@ function renderJudgePlanningDayTable(day, records){
     + '</div>';
 }
 
-function renderHyroxJudgePlanning(){
-  var content=document.getElementById('judge-planning-content'); if(!content) return;
-  var _info=document.getElementById('judge-plan-info'); if(_info) _info.textContent='Vue par station (rotations · dispo · horaires respectés)';
-  try{ RESULT=computePlanning(); }catch(e){ content.innerHTML='<div style="color:#DC2626;padding:12px;font-weight:700">⚠ Erreur planning : '+e.message+'</div>'; return; }
-  if(!RESULT){ content.innerHTML='<div style="padding:16px;color:#888">Aucun planning — vérifie bénévoles et stations.</div>'; return; }
-  var stations=(typeof STATIONS!=='undefined'?STATIONS:[]);
-  var html='';
-  [{k:'day1',d:1},{k:'day2',d:2}].forEach(function(dd){
-    var R=RESULT[dd.k]; if(!R||!R.globalSlots||!R.globalSlots.length) return;
-    var slots=R.globalSlots;
-    var nJuges=Object.keys(R.assignCount||{}).filter(function(id){return R.assignCount[id]>0;}).length;
-    html+='<div style="margin-bottom:22px">';
-    html+='<div style="font-weight:900;font-size:15px;margin-bottom:8px;color:var(--ink)">Jour '+dd.d+' <span style="font-size:11px;color:var(--ink3);font-weight:600">· '+nJuges+' juges · '+slots.length+' rotations · par station</span></div>';
-    html+='<div style="overflow-x:auto;border:1px solid var(--brd2);border-radius:10px"><table style="border-collapse:collapse;width:100%;font-size:11px">';
-    html+='<tr><th style="text-align:left;padding:8px;background:#1e293b;color:#fff;position:sticky;left:0;z-index:1">Station <span style="opacity:.6">(requis)</span></th>'+slots.map(function(s){var cl=s.start<parseTime("12:00")?"#2563EB":s.start<parseTime("16:00")?"#0891B2":"#7C3AED";return '<th style="padding:8px;background:'+cl+';color:#fff;white-space:nowrap;font-size:10px">'+s.label+'</th>';}).join('')+'</tr>';
-    stations.forEach(function(sta){
-      html+='<tr><td style="padding:7px;font-weight:800;background:#F1F5F9;position:sticky;left:0;white-space:nowrap;border-top:1px solid var(--brd2)">'+sta.name+' <span style="color:var(--ink3);font-weight:600">('+(sta.requis||0)+')</span></td>';
-      slots.forEach(function(slot,si){
-        var ids=(R.schedule&&R.schedule[si]&&R.schedule[si][sta.id])||[];
-        var cells=ids.map(function(id){
-          var b=(BENEVOLES||[]).find(function(x){return x.id===id;});
-          var nm=b?((b.prenom||'')+' '+(b.nom||'')).trim():('#'+id);
-          var uq=b&&(parseInt(b.qualif,10)||0)<(sta.diff||0);
-          return '<div style="background:'+(uq?'#FEF3C7':'#EEF4FF')+';border-radius:4px;padding:2px 5px;margin-bottom:2px;font-weight:700;color:'+(uq?'#92400E':'#1e3a8a')+'">'+nm+(uq?' ⚠':'')+'</div>';
-        }).join('');
-        var miss=(sta.requis||0)-ids.length;
-        html+='<td style="padding:5px;border:1px solid var(--brd2);vertical-align:top;min-width:90px">'+cells+(miss>0?'<div style="color:#DC2626;font-size:9px;font-weight:800">manque '+miss+'</div>':'')+'</td>';
-      });
-      html+='</tr>';
-    });
-    html+='</table></div></div>';
-  });
-  content.innerHTML=html||'<div style="padding:16px;color:#888">Aucune rotation générée (vérifie les horaires de compétition et les dispos).</div>';
-}
-
 function renderJudgePlanningTab(){
   var content = document.getElementById('judge-planning-content');
-  if(content){
-    var _hxw=((typeof WODS!=='undefined'&&WODS)||[]).find(function(w){return w&&w.isHyrox;});
-    if(_hxw){ renderHyroxJudgePlanning(); return; }
-  }
   var info = document.getElementById('judge-plan-info');
   if(!content) return;
   syncJudgePlanningToolbar();
@@ -17423,8 +16757,8 @@ function resetLiveScoringMemory(){
   try{
     if(typeof LS_SCORES!=='undefined') LS_SCORES={};
     if(typeof LS_STATUSES!=='undefined') LS_STATUSES={};
-    localStorage.setItem('hyrox-ls-scores','{}');
-    localStorage.setItem('hyrox-ls-statuses','{}');
+    localStorage.setItem('zonek-ls-scores','{}');
+    localStorage.setItem('zonek-ls-statuses','{}');
   }catch(e){}
 }
 async function generateAndPublishAll(){
@@ -17442,13 +16776,6 @@ async function generateAndPublishAll(){
     if(btnA){ btnA.disabled=false; btnA.style.opacity='1'; }
     toast('⚠️ Timeout — réessaie ou vérifie Firebase','#E65100');
   }, 30000);
-
-  // ★ HYROX — publier les vagues EN PRIORITÉ, indépendamment du flux heats Delta
-  //   (sinon un événement Hyrox sans heat Delta ne publierait jamais ses vagues)
-  try{
-    var _isHyroxEvt = ((typeof WODS!=='undefined'&&WODS)||[]).some(function(w){return w&&w.isHyrox;});
-    if(_isHyroxEvt && typeof publishHyroxRace==='function') publishHyroxRace();
-  }catch(e){ console.error('hyrox waves publish:', e); }
 
   // 1 — Planning bénévoles
   try{
@@ -17473,8 +16800,7 @@ async function generateAndPublishAll(){
 
   var heats = (typeof HEATS_RESULT!=='undefined' ? HEATS_RESULT : null) || [];
   if(!heats.length){
-    var _hx = ((typeof WODS!=='undefined'&&WODS)||[]).some(function(w){return w&&w.isHyrox;});
-    toast(_hx ? '📡 Vagues HYROX publiées' : '⚠️ Aucun heat — vérifie WODs et catégories', _hx ? '#059669' : '#E65100');
+    toast('⚠️ Aucun heat — vérifie WODs et catégories','#E65100');
     if(btn){ btn.disabled=false; btn.textContent='🚀 Générer & Publier'; }
     if(btnA){ btnA.disabled=false; btnA.style.opacity='1'; }
     return;
@@ -17723,7 +17049,7 @@ var _ANALYSE={cats:null};
 function _anFmtTime(s){s=parseInt(s||0,10)||0;return Math.floor(s/60)+':'+String(s%60).padStart(2,'0');}
 function _anBool(v){return v===true||v===1||v==='true'||v==='1';}
 function _anCfPts(r){var g=[100,95,90,85,80,75,70,65,60,55,50,45,40,35,30,25,20,15,10,0];return (r>=1&&r<=g.length)?g[r-1]:0;}
-function _anScoreVal(sc,w){sc=sc||{};w=w||{};var sf=(w.scoreFinale||w.scoreType||'').toLowerCase();var jm=(w.judgeMode||'').toLowerCase();var isT=(w.wodFormat||'').toLowerCase()==='fortime'||sf==='time';if(jm==='maxload'||sf==='load')return parseFloat(sc.load)||0;if(jm==='ergo'||sf==='dist'||sf==='cal')return parseFloat(sc.dist||sc.ergoVal||sc.distance)||0;if(isT)return parseInt(sc.finalTime||0,10)>0?-parseInt(sc.finalTime,10):0;return parseInt(sc.reps||0,10)||0;}
+function _anScoreVal(sc,w){sc=sc||{};w=w||{};var sf=(w.scoreFinale||w.scoreType||'').toLowerCase();var jm=(w.judgeMode||'').toLowerCase();var isT=(w.wodFormat||'').toLowerCase()==='fortime'||sf==='time';if(jm==='maxload'||sf==='load')return parseFloat(sc.load)||0;if(jm==='ergo'||sf==='dist'||sf==='cal')return parseFloat(sc.dist||sc.ergoVal||sc.distance)||0;if(isT)return parseInt(sc.finalTime||0,10)>0 ? -parseInt(sc.finalTime,10) : (parseInt(sc.reps||0,10)>0 ? -1000000+parseInt(sc.reps,10) : -2000000);return parseInt(sc.reps||0,10)||0;}
 function _anFmtSc(sc,w){sc=sc||{};w=w||{};var sf=(w.scoreFinale||w.scoreType||'').toLowerCase();var jm=(w.judgeMode||'').toLowerCase();var isT=(w.wodFormat||'').toLowerCase()==='fortime'||sf==='time';if(jm==='maxload'||sf==='load')return (parseFloat(sc.load)||0)+' kg';if(jm==='ergo'||sf==='dist'||sf==='cal')return (parseFloat(sc.dist||sc.ergoVal||sc.distance)||0)+(sf==='cal'?' cal':(' '+(sc.ergoUnit||'m')));if(isT&&parseInt(sc.finalTime||0,10)>0)return _anFmtTime(sc.finalTime);if(parseInt(sc.reps||0,10)>0)return parseInt(sc.reps,10)+' reps';return '—';}
 function _anHasRaw(sc){sc=sc||{};return parseInt(sc.reps||0,10)>0||parseInt(sc.finalTime||0,10)>0||parseFloat(sc.load||0)>0||parseFloat(sc.dist||sc.distance||0)>0;}
 function _anEsc(s){return (typeof escHtml==='function')?escHtml(s):String(s==null?'':s);}
@@ -17768,8 +17094,9 @@ async function buildAnalysisData(){
         var prev=grp[i-1]||null,isTie=!!(prev&&e.val===prev.val);
         if(!isTie) rankPos=i+1;
         var pts=_anCfPts(rankPos),t=T[e.team]; if(!t) return;
-        // ★ MULTIPLICATEUR WOD FINAL : honoré par classement.html, ignoré ici →
-        //   l'admin et le classement public se contredisaient. Aligné.
+        // ★ MULTIPLICATEUR WOD FINAL : le champ « × points » du panneau WOD Final
+        //   était honoré par classement.html mais IGNORé ici → l'admin et le
+        //   classement public affichaient des totaux différents. Aligne les deux.
         var _wi=e.wInfo||{};
         if(_wi.isFinal) pts=pts*Math.max(1,parseInt(_wi.pointsMultiplier,10)||1);
         t.points+=pts; t.validated++;
@@ -18008,7 +17335,7 @@ async function renderClassementTK(){
       var isT=(wInfo.wodFormat||'').toLowerCase()==='fortime'||sf==='time';
       if(jm==='maxload'||sf==='load') return parseFloat(sc.load)||0;
       if(jm==='ergo'||sf==='dist'||sf==='cal') return parseFloat(sc.dist||sc.ergoVal||sc.distance)||0;
-      if(isT) return parseInt(sc.finalTime||0,10)>0 ? -parseInt(sc.finalTime,10) : 0;
+      if(isT) return parseInt(sc.finalTime||0,10)>0 ? -parseInt(sc.finalTime,10) : (parseInt(sc.reps||0,10)>0 ? -1000000+parseInt(sc.reps,10) : -2000000);
       return parseInt(sc.reps||0,10)||0;
     }
     function hasRawScore(sc){
@@ -18827,7 +18154,7 @@ function renderClassementAdmin(heatsData, scoresData){
     var jm=(wodInfo.judgeMode||'').toLowerCase();
     if(jm==='maxload'||sf==='load') return parseFloat(sc.load)||0;
     if(jm==='ergo'||sf==='dist'||sf==='cal') return parseFloat(sc.dist||sc.ergoVal||sc.distance)||0;
-    if(fmt==='fortime'||sf==='time') return parseInt(sc.finalTime||0,10)>0?-parseInt(sc.finalTime,10):0;
+    if(fmt==='fortime'||sf==='time') return parseInt(sc.finalTime||0,10)>0 ? -parseInt(sc.finalTime,10) : (parseInt(sc.reps||0,10)>0 ? -1000000+parseInt(sc.reps,10) : -2000000);
     return parseInt(sc.reps||0,10)||0;
   }
 
@@ -18986,6 +18313,7 @@ function renderClassementAdmin(heatsData, scoresData){
     });
     // Action (modifier)
     html+='<div style="text-align:center"><button onclick="openScoreEdit(\''+_encAttr(t.name)+'\',\''+_encAttr(window._classementCatFilter)+'\')" style="background:rgba(124,58,237,.1);border:1px solid rgba(124,58,237,.25);color:#7C3AED;padding:6px 11px;border-radius:7px;cursor:pointer;font-size:11px;font-weight:800;font-family:inherit;white-space:nowrap">✏️ Modif</button></div>';
+    // ★ Bouton historique des modifications (admin uniquement)
     html+='<button onclick="openScoreHistory(\''+_encAttr(t.name)+'\')" title="Qui a modifié ce score ?" style="margin-left:6px;background:rgba(251,146,60,.10);border:1px solid rgba(251,146,60,.35);color:#FB923C;border-radius:7px;padding:5px 9px;font-size:11px;font-weight:800;cursor:pointer">ⓘ</button>';
     html+='</div>';
   });
@@ -19072,6 +18400,30 @@ function renderTbModal(){
 }
 
 // Construit la config TB d'un WOD/cat depuis w.tbCfg (nouveau format)
+// ★ MULTI-TB : lignes de tiebreak pour la scorecard (une par TB configuré)
+function _tbLinesForScorecard(wod, catId){
+  var cid = String(catId||'');
+  var cfg = (typeof tbGetCfg==='function') ? tbGetCfg(wod, cid) : [];
+  if(!cfg.length && wod && wod.tbCfg){
+    var ks = Object.keys(wod.tbCfg);
+    for(var i=0;i<ks.length;i++){
+      if(Array.isArray(wod.tbCfg[ks[i]]) && wod.tbCfg[ks[i]].length){ cfg = wod.tbCfg[ks[i]]; cid = ks[i]; break; }
+    }
+  }
+  if(!cfg.length) return [];
+  var moves = (typeof tbMovesForCat==='function') ? tbMovesForCat(wod, cid) : [];
+  return cfg.map(function(tb, i){
+    var det='';
+    if(tb.moveIdx!=null && tb.moveIdx!==''){
+      var mv = moves[parseInt(tb.moveIdx,10)];
+      if(mv){ det = (mv.nom||'Mvt '+(parseInt(tb.moveIdx,10)+1)) + (mv.tour?(' — Tour '+mv.tour):''); }
+      else det = 'Mouvement '+(parseInt(tb.moveIdx,10)+1);
+    } else det = 'Fin du WOD';
+    if(tb.tour!=null && tb.tour!=='' && det.indexOf('Tour')<0) det += ' — Tour '+tb.tour;
+    if(tb.rep!=null && tb.rep!=='') det += ' · rep '+tb.rep;
+    return {detail: det};
+  });
+}
 function tbGetCfg(wod, catId){
   if(!wod || !wod.tbCfg) return [];
   var arr = wod.tbCfg[String(catId)];
@@ -20316,7 +19668,7 @@ function lsPollFirebase() {
       }
     });
     if (changed) {
-      try { localStorage.setItem('hyrox-ls-scores', JSON.stringify(LS_SCORES)); } catch(e) {}
+      try { localStorage.setItem('zonek-ls-scores', JSON.stringify(LS_SCORES)); } catch(e) {}
       lsRenderHeats();
       lsRenderLeaderboard();
       lsUpdateHeader();
@@ -20326,15 +19678,15 @@ function lsPollFirebase() {
 
 function lsSave() {
   try {
-    localStorage.setItem('hyrox-ls-scores', JSON.stringify(LS_SCORES));
-    localStorage.setItem('hyrox-ls-statuses', JSON.stringify(LS_STATUSES));
+    localStorage.setItem('zonek-ls-scores', JSON.stringify(LS_SCORES));
+    localStorage.setItem('zonek-ls-statuses', JSON.stringify(LS_STATUSES));
   } catch(e) {}
 }
 
 function lsLoadFromStorage() {
   try {
-    var s = localStorage.getItem('hyrox-ls-scores');
-    var st = localStorage.getItem('hyrox-ls-statuses');
+    var s = localStorage.getItem('zonek-ls-scores');
+    var st = localStorage.getItem('zonek-ls-statuses');
     if (s) LS_SCORES = JSON.parse(s);
     if (st) LS_STATUSES = JSON.parse(st);
   } catch(e) {}
@@ -20873,7 +20225,7 @@ function lsjSubmit() {
   };
   var flat = lsjHeatId + '_' + lsjLane;
   LS_SCORES[flat] = scoreData;
-  try { localStorage.setItem('hyrox-ls-scores', JSON.stringify(LS_SCORES)); } catch(e) {}
+  try { localStorage.setItem('zonek-ls-scores', JSON.stringify(LS_SCORES)); } catch(e) {}
 
   // Push score to Firebase via SDK
   if (LS_FB_DB) {
@@ -20896,7 +20248,7 @@ function lsFormatScore(v, type) {
 function lsResetConfirm() {
   if (!confirm('⚠️ Effacer TOUS les scores Live ?')) return;
   LS_SCORES={}; LS_STATUSES={};
-  try { localStorage.setItem('hyrox-ls-scores','{}'); localStorage.setItem('hyrox-ls-statuses','{}'); } catch(e) {}
+  try { localStorage.setItem('zonek-ls-scores','{}'); localStorage.setItem('zonek-ls-statuses','{}'); } catch(e) {}
   if (LS_FB_DB) {
     LS_FB_DB.ref('scores').remove().catch(function(){});
     LS_FB_DB.ref('heats').remove().catch(function(){});
@@ -21417,7 +20769,18 @@ function lsBuildScorecardHTML(heat, slot, wod, sc, nomEv, timeStr) {
     + _buildTiebreakAdaptationsHTML(wod, {compact:true})
     +'<div style="display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid #E2E8F0">'
     +  '<div style="padding:9px 12px;border-right:1px solid #E2E8F0"><div style="font-size:8px;font-weight:900;color:var(--ink);text-transform:uppercase;letter-spacing:1px;margin-bottom:2px">TIEBREAK TIME</div>'
-    +  (sc.tiebreak>0?'<div style="font-size:18px;font-weight:900;color:'+catColor+'">'+fmtT(sc.tiebreak)+'</div>':'<div style="height:22px;border-bottom:1.5px solid #CBD5E1"></div>')+'</div>'
+    +  (function(){
+         var _lines=_tbLinesForScorecard(wod, h.catId);
+         if(_lines.length<=1){
+           var _d=_lines.length?'<div style="font-size:7.5px;color:var(--ink2);font-style:italic;margin-bottom:2px">'+escHtml(_lines[0].detail)+'</div>':'';
+           return _d+(sc.tiebreak>0?'<div style="font-size:18px;font-weight:900;color:'+catColor+'">'+fmtT(sc.tiebreak)+'</div>':'<div style="height:22px;border-bottom:1.5px solid #CBD5E1"></div>');
+         }
+         return _lines.map(function(L,i){
+           var _v=(sc.tiebreaks&&sc.tiebreaks[i]&&sc.tiebreaks[i].ts>0)?fmtT(sc.tiebreaks[i].ts):((i===0&&sc.tiebreak>0)?fmtT(sc.tiebreak):null);
+           return '<div style="margin-bottom:5px"><div style="font-size:7.5px;font-weight:800;color:var(--ink2)">TB'+(i+1)+' — '+escHtml(L.detail)+'</div>'
+             +(_v?'<div style="font-size:15px;font-weight:900;color:'+catColor+'">'+_v+'</div>':'<div style="height:16px;border-bottom:1.5px solid #CBD5E1"></div>')+'</div>';
+         }).join('');
+       })()+'</div>'
     +  '<div style="padding:9px 12px"><div style="font-size:8px;font-weight:900;color:var(--ink);text-transform:uppercase;letter-spacing:1px;margin-bottom:2px">'+(isTime?'TEMPS CAP':'REPS \u00c0 '+fmtT(wod.duree||0))+'</div>'
     +  '<div style="font-size:8px;color:var(--ink2);font-style:italic;margin-bottom:3px">Score si timecap atteint</div>'
     +  (sc.reps>0?'<div style="font-size:18px;font-weight:900;color:'+catColor+'">'+sc.reps+'</div>':'<div style="height:22px;border-bottom:1.5px solid #CBD5E1"></div>')+'</div>'
@@ -21552,10 +20915,22 @@ function printScorecardWod(wodId) {
       html += '<div style="display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid #E2E8F0">'
         + '<div style="padding:10px 14px;border-right:1px solid #E2E8F0">'
         +   '<div style="font-size:9px;font-weight:900;color:var(--ink);text-transform:uppercase;letter-spacing:1px;margin-bottom:2px">TIEBREAK TIME</div>'
-        +   (hasTB && wod.tiebreakDesc ? '<div style="font-size:8px;color:var(--ink2);font-style:italic;margin-bottom:5px">'+wod.tiebreakDesc+'</div>' : '<div style="margin-bottom:5px"></div>')
-        +   (tbVal
-            ? '<div style="font-size:20px;font-weight:900;color:#1E40AF">'+tbVal+'</div>'
-            : '<div style="height:24px;border-bottom:1.5px solid #CBD5E1"></div>')
+        +   (function(){
+              var _lines=_tbLinesForScorecard(wod, _catIdForTB||'');
+              if(_lines.length<=1){
+                var _d=_lines.length
+                  ? '<div style="font-size:8px;color:var(--ink2);font-style:italic;margin-bottom:5px">'+escHtml(_lines[0].detail)+'</div>'
+                  : (hasTB && wod.tiebreakDesc ? '<div style="font-size:8px;color:var(--ink2);font-style:italic;margin-bottom:5px">'+wod.tiebreakDesc+'</div>' : '<div style="margin-bottom:5px"></div>');
+                return _d+(tbVal
+                  ? '<div style="font-size:20px;font-weight:900;color:#1E40AF">'+tbVal+'</div>'
+                  : '<div style="height:24px;border-bottom:1.5px solid #CBD5E1"></div>');
+              }
+              return _lines.map(function(L,i){
+                var _v=(sc&&sc.tiebreaks&&sc.tiebreaks[i]&&sc.tiebreaks[i].ts>0)?fmtT(sc.tiebreaks[i].ts):((i===0&&tbVal)?tbVal:null);
+                return '<div style="margin-bottom:6px"><div style="font-size:8px;font-weight:800;color:var(--ink2)">TB'+(i+1)+' — '+escHtml(L.detail)+'</div>'
+                  +(_v?'<div style="font-size:16px;font-weight:900;color:#1E40AF">'+_v+'</div>':'<div style="height:18px;border-bottom:1.5px solid #CBD5E1"></div>')+'</div>';
+              }).join('');
+            })()
         + '</div>'
         + '<div style="padding:10px 14px">'
         +   '<div style="font-size:9px;font-weight:900;color:var(--ink);text-transform:uppercase;letter-spacing:1px;margin-bottom:2px">'+(isTime?'TEMPS CAP':'REPS À '+fmtT(wod.duree||0))+'</div>'
@@ -22414,8 +21789,8 @@ function resetLocalStorage(){
   var _keepJsonbinKey = '';
   var _keepJsonbinBin = '';
   try{
-    _keepJsonbinKey = localStorage.getItem('zonek-hyrox-jsonbin-key') || '';
-    _keepJsonbinBin = localStorage.getItem('zonek-hyrox-jsonbin-bin') || '';
+    _keepJsonbinKey = localStorage.getItem('zonek-foc-jsonbin-key') || '';
+    _keepJsonbinBin = localStorage.getItem('zonek-foc-jsonbin-bin') || '';
   }catch(e){}
   // Vider localStorage
   try{
@@ -22425,8 +21800,8 @@ function resetLocalStorage(){
   }catch(e){}
   // ★ Restaurer la clé API et le bin ID juste après le clear
   try{
-    if(_keepJsonbinKey) localStorage.setItem('zonek-hyrox-jsonbin-key', _keepJsonbinKey);
-    if(_keepJsonbinBin) localStorage.setItem('zonek-hyrox-jsonbin-bin', _keepJsonbinBin);
+    if(_keepJsonbinKey) localStorage.setItem('zonek-foc-jsonbin-key', _keepJsonbinKey);
+    if(_keepJsonbinBin) localStorage.setItem('zonek-foc-jsonbin-bin', _keepJsonbinBin);
   }catch(e){}
   // Vider Firebase
   var _db=(typeof LS_FB_DB!=='undefined'&&LS_FB_DB)||(window.db||null);
@@ -22526,7 +21901,7 @@ async function renderClassementModal(){
       var isT=(wInfo.wodFormat||'').toLowerCase()==='fortime'||sf==='time';
       if(jm==='maxload'||sf==='load') return parseFloat(sc.load)||0;
       if(jm==='ergo'||sf==='dist'||sf==='cal') return parseFloat(sc.dist||sc.ergoVal||sc.distance)||0;
-      if(isT) return parseInt(sc.finalTime||0,10)>0?-parseInt(sc.finalTime,10):0;
+      if(isT) return parseInt(sc.finalTime||0,10)>0 ? -parseInt(sc.finalTime,10) : (parseInt(sc.reps||0,10)>0 ? -1000000+parseInt(sc.reps,10) : -2000000);
       return parseInt(sc.reps||0,10)||0;
     }
     function hasRawScore(sc){
@@ -22811,7 +22186,7 @@ function exportClassementCSV(){
             <option>Pas de repas</option>
           </select>
         </div>
-        <div class="form-group"><label>⭐ Station préférée (HYROX)</label><select id="m-pref-station"></select></div>
+        <div style="display:none"><select id="m-pref-station"></select></div>
       </div>
       <div class="form-group" style="margin-bottom:10px">
         <div class="form-group"><label>📍 Zone assignée</label>
@@ -22943,706 +22318,5 @@ function exportClassementCSV(){
 
   </div>
 </div>
-
-<script>
-/* ═══════════════════════════════════════════════════════════════
-   MODULE HYROX — onglet 🏃 HYROX
-   Parcours unique (WODS[0]) · 16 segments · divisions = CATEGORIES
-   Vagues = heats : nbHeats (vagues) × nbLignes (slots) par division
-   duree du WOD = intervalle entre vagues (pilote le planning Delta)
-   hyroxCapMinutes = time cap réel de la course (pour juge/live à venir)
-   ═══════════════════════════════════════════════════════════════ */
-var HYROX_CFG = (function(){
-  var d={startJ1:'09:00',startJ2:'09:00',interval:20,cap:100,slots:5,autoStart:false};
-  try { return Object.assign(d, JSON.parse(localStorage.getItem('hyrox-cfg')||'{}')); } catch(e){ return d; }
-})();
-
-function hyroxWod(){
-  if(!WODS || !WODS.length) return null;
-  var w = WODS.find(function(x){ return x.isHyrox; }) || WODS[0];
-  return w;
-}
-
-function saveHyroxCfg(){
-  HYROX_CFG.startJ1  = (document.getElementById('hx-start-j1')||{}).value || '08:00';
-  HYROX_CFG.startJ2  = (document.getElementById('hx-start-j2')||{}).value || '08:00';
-  HYROX_CFG.interval = parseInt((document.getElementById('hx-interval')||{}).value,10) || 10;
-  HYROX_CFG.cap      = parseInt((document.getElementById('hx-cap')||{}).value,10) || 100;
-  HYROX_CFG.slots    = parseInt((document.getElementById('hx-slots')||{}).value,10) || 10;
-  HYROX_CFG.autoStart= !!((document.getElementById('hx-auto')||{}).checked);
-  try { localStorage.setItem('hyrox-cfg', JSON.stringify(HYROX_CFG)); } catch(e){}
-}
-
-function loadHyroxCfg(){
-  var s1=document.getElementById('hx-start-j1'), s2=document.getElementById('hx-start-j2');
-  var iv=document.getElementById('hx-interval'), cp=document.getElementById('hx-cap');
-  if(s1 && HYROX_CFG.startJ1) s1.value = HYROX_CFG.startJ1;
-  if(s2 && HYROX_CFG.startJ2) s2.value = HYROX_CFG.startJ2;
-  if(iv && HYROX_CFG.interval) iv.value = HYROX_CFG.interval;
-  if(cp && HYROX_CFG.cap) cp.value = HYROX_CFG.cap;
-  var sl=document.getElementById('hx-slots'); if(sl && HYROX_CFG.slots) sl.value = HYROX_CFG.slots;
-  var au=document.getElementById('hx-auto'); if(au) au.checked = !!HYROX_CFG.autoStart;
-}
-
-/* ── Divisions (config vagues par division) ── */
-function hyroxWaveCount(c){
-  var slots = HYROX_CFG.slots||10;
-  var n = (c.teams||[]).length;
-  return Math.max(1, Math.ceil(n/slots));
-}
-
-function renderHyroxDivisions(){
-  var el = document.getElementById('hx-divisions'); if(!el) return;
-  var h = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:8px">';
-  (CATEGORIES||[]).forEach(function(c){
-    var nAth = (c.teams||[]).length;
-    var nW = hyroxWaveCount(c);
-    h += '<div style="display:flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--brd2);border-left:4px solid '+(c.couleur||'#1D6DB5')+';border-radius:10px;padding:8px 10px">'
-      + '<div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:900;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+c.nom+'</div>'
-      + '<div style="font-size:9px;color:var(--ink3);font-weight:700">'+nAth+' inscrit(s) → '+nW+' vague(s)</div></div>'
-      + '<select onchange="hxSetDiv('+c.id+',\'jour\',this.value)" title="Jour" style="background:#EBF0FA;border:1px solid var(--brd2);border-radius:7px;padding:4px 6px;font-size:11px;font-weight:800;font-family:inherit;outline:none">'
-      + '<option value="1"'+((c.jour||1)==1?' selected':'')+'>J1</option><option value="2"'+((c.jour||1)==2?' selected':'')+'>J2</option></select>'
-      + '<input type="time" value="'+(c.hxStart||'08:00')+'" onchange="hxSetDiv('+c.id+',\'hxStart\',this.value)" title="Heure 1ère vague" style="background:#EBF0FA;border:1px solid var(--brd2);border-radius:7px;padding:4px 6px;font-size:13px;font-weight:900;font-family:inherit;outline:none">'
-      + '</div>';
-  });
-  h += '</div>';
-  el.innerHTML = h;
-}
-
-function hxSetDiv(catId, key, val){
-  var c = (CATEGORIES||[]).find(function(x){ return x.id===catId; }); if(!c) return;
-  if(key==='jour') c.jour = parseInt(val,10)||1;
-  else if(key==='hxStart') c.hxStart = val||'08:00';
-  else c[key] = Math.max(1, parseInt(val,10)||1);
-  syncHyroxEngineCats();
-  if(typeof autoSave==='function') autoSave();
-  renderHyroxDivisions();
-  renderHyroxWaves();
-}
-
-/* Tient nbHeats/nbLignes cohérents pour le moteur Delta (heats/planning/juge) */
-function syncHyroxEngineCats(){
-  var slots = HYROX_CFG.slots||10;
-  (CATEGORIES||[]).forEach(function(c){
-    c.nbLignes = slots;
-    c.nbHeats = hyroxWaveCount(c);
-    c.zone = '1';
-  });
-}
-
-/* ── Horaire des vagues (calcul autonome : start + k×intervalle par jour) ── */
-function renderHyroxWaves(){
-  var el = document.getElementById('hx-waves'); if(!el) return;
-  var html='';
-  [1,2].forEach(function(day){
-    var waves = hyroxWavesForDay(day);
-    if(!waves.length) return;
-    var rows=''; var totalAth=0;
-    waves.forEach(function(w){
-      totalAth += w.athletes.length;
-      var fill = w.athletes.length;
-      rows += '<tr'+(w.conflict?' style="background:#FEF2F2"':'')+'>'
-        + '<td style="padding:6px 10px;font-weight:900;color:'+(w.conflict?'#DC2626':'var(--ink)')+';font-size:13px">'+w.time+(w.conflict?' ⚠️':'')+'</td>'
-        + '<td style="padding:6px 10px;font-weight:800;font-size:12px">Vague '+w.num+'</td>'
-        + '<td style="padding:6px 10px"><span style="display:inline-block;background:'+(w.cat.couleur||'#1D6DB5')+'22;color:'+(w.cat.couleur||'#1D6DB5')+';border:1px solid '+(w.cat.couleur||'#1D6DB5')+'55;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:900">'+w.cat.nom+' '+w.wave+'/'+w.nWaves+'</span></td>'
-        + '<td style="padding:6px 10px;font-size:11px;font-weight:800;color:var(--ink2)">'+fill+' / '+w.slots+' slots</td>'
-        + '</tr>';
-    });
-    var last=waves[waves.length-1];
-    var endMin=last.min+(HYROX_CFG.cap||100);
-    var conflicts=waves.filter(function(w){return w.conflict;}).length;
-    html += '<div style="margin-bottom:14px">'
-      + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">'
-      + '<span style="font-size:12px;font-weight:900;color:'+(day===1?'var(--blue)':'var(--amber)')+'">'+(day===1?'🌅 JOUR 1':'☀️ JOUR 2')+'</span>'
-      + '<span style="font-size:10px;color:var(--ink3);font-weight:700">'+waves.length+' vagues · '+totalAth+' inscrits · fin estimée '
-      + ('0'+Math.floor(endMin/60)).slice(-2)+':'+('0'+(endMin%60)).slice(-2)+'</span>'
-      + (conflicts?'<span style="font-size:10px;color:#DC2626;font-weight:900">⚠️ '+conflicts+' départs en conflit (même heure)</span>':'')
-      + '</div>'
-      + '<table style="width:100%;border-collapse:collapse;background:#F5F8FF;border:1px solid var(--brd2);border-radius:10px;overflow:hidden">'
-      + '<thead><tr style="background:#EBF0FA"><th style="text-align:left;padding:6px 10px;font-size:9px;color:var(--ink3);text-transform:uppercase">Départ</th><th style="text-align:left;padding:6px 10px;font-size:9px;color:var(--ink3);text-transform:uppercase">Vague</th><th style="text-align:left;padding:6px 10px;font-size:9px;color:var(--ink3);text-transform:uppercase">Division</th><th style="text-align:left;padding:6px 10px;font-size:9px;color:var(--ink3);text-transform:uppercase">Remplissage</th></tr></thead>'
-      + '<tbody>'+rows+'</tbody></table></div>';
-  });
-  el.innerHTML = html || '<div style="text-align:center;color:#aaa;padding:20px;font-size:12px">Aucune division configurée</div>';
-}
-
-/* ── Stations : éditeur standards par division ── */
-function hxDefaultStep(m){
-  var n=(m.nom||'').toLowerCase();
-  if(m.hyroxSeg==='finish') return 1;
-  if(m.hyroxSeg==='run' || /^run/.test(n)) return m.qty||1000;   // 1 clic = run validé
-  if(/skierg|row/.test(n)) return m.qty||1000;                    // 1 clic = machine validée
-  if(/sled/.test(n)) return 12.5;                                 // 1 clic = 1 longueur 12.5m
-  if(/burpee/.test(n)) return 20;                                 // 1 clic = 20m (tranche)
-  if(/farmers/.test(n)) return 50;                                // 1 clic = 1 longueur 50m
-  if(/lunge/.test(n)) return 25;                                  // 1 clic = 1 longueur 25m
-  if(/wall/.test(n)) return 1;                                    // 1 clic = 1 rep
-  return 1;
-}
-function hxStep(m){ return (m.judgeStep!=null && m.judgeStep>0) ? m.judgeStep : hxDefaultStep(m); }
-
-function renderHyroxStations(){
-  var el = document.getElementById('hx-stations'); if(!el) return;
-  var w = hyroxWod();
-  if(!w || !w.mouvements || !w.mouvements.length){ el.innerHTML='<div style="color:#aaa;font-size:12px;text-align:center;padding:16px">Parcours introuvable (WODS vide)</div>'; return; }
-  var html='';
-  w.mouvements.forEach(function(m, idx){
-    var isRun = (m.hyroxSeg==='run') || /^run/i.test(m.nom||'');
-    var isFinish = (m.hyroxSeg==='finish');
-    if(isFinish){
-      html += '<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:#0F1C2E;border-radius:8px;margin-bottom:4px">'
-        + '<span style="font-size:15px">🏁</span>'
-        + '<input value="'+String(m.nom||'').replace(/"/g,'&quot;')+'" onchange="hxSetMov('+idx+',\'nom\',this.value)" style="flex:1;background:none;border:none;outline:none;font-size:13px;font-weight:900;color:#fff;font-family:inherit">'
-        + '<span style="font-size:9px;color:#94A3B8;font-weight:800">temps officiel · fin de course</span></div>';
-      return;
-    }
-    if(isRun){
-      html += '<div style="display:flex;align-items:center;gap:8px;padding:5px 12px;background:#EBF0FA;border-radius:8px;margin-bottom:4px">'
-        + '<span style="font-size:13px">🏃</span>'
-        + '<input value="'+String(m.nom||'').replace(/"/g,'&quot;')+'" onchange="hxSetMov('+idx+',\'nom\',this.value)" style="flex:1;background:none;border:none;outline:none;font-size:11px;font-weight:800;color:var(--ink2);font-family:inherit">'
-        + '<input type="number" value="'+(m.qty||1000)+'" onchange="hxSetMov('+idx+',\'qty\',this.value)" style="width:64px;background:#fff;border:1px solid var(--brd2);border-radius:6px;padding:3px 6px;font-size:11px;font-weight:900;text-align:center;font-family:inherit;outline:none">'
-        + '<span style="font-size:9px;color:var(--ink3);font-weight:800">m</span>'
-        + '<span style="font-size:9px;color:#059669;font-weight:900;margin-left:6px;background:#ECFDF5;border:1px solid #A7F3D0;border-radius:6px;padding:3px 8px">✅ auto — validé à l\'arrivée station suivante (pas de juge)</span></div>';
-      return;
-    }
-    var cells='';
-    (CATEGORIES||[]).forEach(function(c){
-      var pv = (m.poids && m.poids[String(c.id)]) || '';
-      var qv = (m.qtyParCat && m.qtyParCat[String(c.id)]!=null) ? m.qtyParCat[String(c.id)] : (m.qty||'');
-      cells += '<div style="display:flex;flex-direction:column;gap:2px;min-width:96px">'
-        + '<div style="font-size:8px;font-weight:900;color:'+(c.couleur||'#1D6DB5')+';text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+c.nom+'">'+c.nom+'</div>'
-        + '<input value="'+String(pv).replace(/"/g,'&quot;')+'" placeholder="poids" onchange="hxSetStd('+idx+','+c.id+',\'poids\',this.value)" style="width:100%;background:#fff;border:1px solid var(--brd2);border-radius:6px;padding:3px 6px;font-size:10px;font-weight:800;font-family:inherit;outline:none;box-sizing:border-box">'
-        + '<input value="'+qv+'" placeholder="qté" onchange="hxSetStd('+idx+','+c.id+',\'qty\',this.value)" style="width:100%;background:#fff;border:1px solid var(--brd2);border-radius:6px;padding:3px 6px;font-size:10px;font-weight:800;font-family:inherit;outline:none;box-sizing:border-box">'
-        + '</div>';
-    });
-    html += '<div style="background:#F5F8FF;border:1px solid var(--brd2);border-radius:10px;padding:10px 12px;margin-bottom:6px">'
-      + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">'
-      + '<span style="font-size:14px">🏋️</span>'
-      + '<input value="'+String(m.nom||'').replace(/"/g,'&quot;')+'" onchange="hxSetMov('+idx+',\'nom\',this.value)" style="flex:1;background:none;border:none;outline:none;font-size:13px;font-weight:900;color:var(--ink);font-family:inherit">'
-      + '<span style="font-size:9px;color:var(--ink3);font-weight:800">base:</span>'
-      + '<input type="number" value="'+(m.qty||0)+'" onchange="hxSetMov('+idx+',\'qty\',this.value)" style="width:64px;background:#fff;border:1px solid var(--brd2);border-radius:6px;padding:3px 6px;font-size:11px;font-weight:900;text-align:center;font-family:inherit;outline:none">'
-      + '<span style="font-size:9px;color:#7C3AED;font-weight:900;margin-left:8px">👨‍⚖️ saisie:</span>'
-      + '<input type="number" step="any" value="'+hxStep(m)+'" onchange="hxSetMov('+idx+',\'judgeStep\',this.value)" title="Valeur ajoutée à chaque clic du juge (ex: 12.5 = 1 longueur de sled)" style="width:58px;background:#F3EEFF;border:1px solid #C4B5FD;border-radius:6px;padding:3px 6px;font-size:11px;font-weight:900;text-align:center;font-family:inherit;outline:none;color:#7C3AED">'
-      + '<span style="font-size:9px;color:#7C3AED;font-weight:800">/clic · '+(hxStep(m)>0?Math.ceil((m.qty||0)/hxStep(m))+' clics':'—')+'</span>'
-      + '</div>'
-      + '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;padding:6px 8px;background:#EEF4FF;border:1px solid #C7D8F5;border-radius:8px;flex-wrap:wrap">'
-      +   '<span style="font-size:9px;color:#2563EB;font-weight:900">👥 Juges requis</span>'
-      +   '<input type="number" min="1" max="6" value="'+(m.hyroxRequis!=null?m.hyroxRequis:2)+'" onchange="hxSetMov('+idx+',\'hyroxRequis\',this.value)" title="Nombre de juges sur cette station" style="width:52px;background:#fff;border:1px solid #C7D8F5;border-radius:6px;padding:3px 6px;font-size:12px;font-weight:900;text-align:center;font-family:inherit;outline:none;color:#2563EB">'
-      +   '<span style="font-size:9px;color:#2563EB;font-weight:900;margin-left:6px">⭐ Qualif min</span>'
-      +   '<input type="number" min="0" max="10" value="'+(m.hyroxDiff!=null?m.hyroxDiff:0)+'" onchange="hxSetMov('+idx+',\'hyroxDiff\',this.value)" title="Qualification minimale requise (0 = aucune exigence)" style="width:52px;background:#fff;border:1px solid #C7D8F5;border-radius:6px;padding:3px 6px;font-size:12px;font-weight:900;text-align:center;font-family:inherit;outline:none;color:#2563EB">'
-      +   '<span style="font-size:9px;color:var(--ink3);font-weight:700;margin-left:auto">0 = pas d\'exigence</span>'
-      + '</div>'
-      + '<div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:2px">'+cells+'</div>'
-      + '</div>';
-  });
-  el.innerHTML = html;
-}
-
-function hxSetMov(idx, key, val){
-  var w = hyroxWod(); if(!w||!w.mouvements||!w.mouvements[idx]) return;
-  if(key==='qty') w.mouvements[idx][key] = parseInt(val,10)||0;
-  else if(key==='judgeStep') w.mouvements[idx][key] = parseFloat(String(val).replace(',','.'))||0;
-  else if(key==='hyroxRequis') w.mouvements[idx][key] = Math.max(1, parseInt(val,10)||1);
-  else if(key==='hyroxDiff') w.mouvements[idx][key] = Math.max(0, parseInt(val,10)||0);
-  else w.mouvements[idx][key] = val;
-  w.validated = false;
-  if(typeof autoSave==='function') autoSave();
-  renderHyroxStations();
-  try{ if(typeof renderHyroxJudges==='function') renderHyroxJudges(); }catch(e){ console.error('hx judges (setMov)',e); }
-}
-
-function hxSetStd(idx, catId, kind, val){
-  var w = hyroxWod(); if(!w||!w.mouvements||!w.mouvements[idx]) return;
-  var m = w.mouvements[idx];
-  if(kind==='poids'){ if(!m.poids) m.poids={}; m.poids[String(catId)] = val; }
-  else { if(!m.qtyParCat) m.qtyParCat={}; m.qtyParCat[String(catId)] = parseInt(val,10)||0; }
-  w.validated = false;
-  if(typeof autoSave==='function') autoSave();
-}
-
-
-/* ── Publication course → Firebase /race (le shim préfixe /hyrox) ──
-   Consommé par tk-hyrox.html, juge-hyrox.html, arrivee.html */
-function hxFbKey(v){ return String(v).replace(/[.#$\[\]\/]/g,'_'); }
-
-/* ── Affectation juges → stations HYROX (équivalent buildJugeAssignment de Delta) ──
-   2 juges/station, station préférée (prefStation) honorée, reste en renfort.
-   Sortie : { bySeg:{segIdx:{station,juges[]}}, byBen:{benId:segIdx}, spare:[] } */
-function buildHyroxJudges(jour){
-  var w=hyroxWod();
-  if(!w) return {bySeg:{}, byBen:{}, spare:[]};
-  // Normalise tableau OU objet Firebase (clés non contiguës) → vrai tableau
-  function _arr(x){ return Array.isArray(x) ? x : (x && typeof x==='object' ? Object.keys(x).map(function(k){return x[k];}) : []); }
-  var segs=[];
-  _arr(w.mouvements).forEach(function(m,i){
-    if(!m) return; // ignore les trous / mouvements null
-    if((m.hyroxSeg||'station')==='station'){
-      segs.push({idx:i, nom:m.nom||('Station '+i),
-        requis:(m.hyroxRequis!=null?parseInt(m.hyroxRequis,10):2)||2,
-        diff:(m.hyroxDiff!=null?parseInt(m.hyroxDiff,10):0)||0});
-    }
-  });
-  // Pool = bénévoles non-athlètes, filtrés par disponibilité si un jour est fourni
-  var pool=_arr(BENEVOLES).filter(function(b){
-    if(!b || b.isAthlete) return false;
-    if(jour){
-      if(typeof benOnDay==='function' && !benOnDay(b,jour)) return false;   // dispo ce jour
-      if(typeof getPres==='function' && getPres(b.id,jour)==='absent') return false; // présence jour J
-    }
-    return true;
-  }).slice();
-  pool.sort(function(a,b){ return (parseInt(b.qualif,10)||0)-(parseInt(a.qualif,10)||0); }); // les plus qualifiés d'abord
-  var used={};
-  function qOf(b){ return parseInt(b.qualif,10)||0; }
-  // needQualif=true → n'accepte que qualif >= diff ; station préférée honorée en priorité
-  function take(seg, needQualif){
-    var pref=pool.find(function(b){ return !used[b.id] && b.prefStation && String(seg.nom).indexOf(b.prefStation)>=0 && (!needQualif || qOf(b)>=seg.diff); });
-    if(pref){ used[pref.id]=true; return pref; }
-    var any=pool.find(function(b){ return !used[b.id] && (!needQualif || qOf(b)>=seg.diff); });
-    if(any){ used[any.id]=true; return any; }
-    return null;
-  }
-  var bySeg={}, byBen={};
-  // On sert les stations les plus exigeantes en premier → les mieux qualifiés vont où il faut
-  var order = segs.slice().sort(function(a,b){ return b.diff-a.diff; });
-  order.forEach(function(s){
-    var juges=[];
-    while(juges.length<s.requis){
-      var b = take(s,true) || take(s,false); // qualifié d'abord, sinon sous-qualifié (secours)
-      if(!b) break;
-      juges.push({id:String(b.id), prenom:b.prenom||'', nom:b.nom||'', qualif:qOf(b), underQ:qOf(b)<s.diff});
-      byBen[String(b.id)]=s.idx;
-    }
-    bySeg[String(s.idx)]={station:s.nom, requis:s.requis, diff:s.diff, juges:juges, manque:Math.max(0,s.requis-juges.length)};
-  });
-  var spare=pool.filter(function(b){return !used[b.id];})
-    .map(function(b){return {id:String(b.id), prenom:b.prenom||'', nom:b.nom||'', qualif:qOf(b)};});
-  return {bySeg:bySeg, byBen:byBen, spare:spare};
-}
-
-var _hxJDay=1;
-function hxJudgeDay(d){ _hxJDay=d; renderHyroxJudges(); }
-function renderHyroxJudges(){
-  var el=document.getElementById('hx-judges'); if(!el) return;
-  var J=buildHyroxJudges(_hxJDay);
-  var toggle='<div style="display:flex;gap:6px;margin-bottom:10px">'
-    +[1,2].map(function(d){ var on=(_hxJDay===d);
-      return '<button onclick="hxJudgeDay('+d+')" style="flex:1;padding:6px;border-radius:8px;border:1px solid '+(on?'#2563EB':'var(--brd2)')+';background:'+(on?'#2563EB':'#fff')+';color:'+(on?'#fff':'var(--ink2)')+';font-size:11px;font-weight:900;cursor:pointer">Jour '+d+'</button>';
-    }).join('')+'</div>';
-  var keys=Object.keys(J.bySeg);
-  if(!keys.length){ el.innerHTML=toggle+'<div style="text-align:center;color:#aaa;padding:16px;font-size:12px">Aucune station — applique le parcours HYROX</div>'; return; }
-  var h=toggle+'<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px">';
-  keys.forEach(function(k){
-    var e=J.bySeg[k];
-    h+='<div style="background:#F5F8FF;border:1px solid '+(e.manque?'#FCA5A5':'var(--brd2)')+';border-radius:10px;padding:10px">'
-      +'<div style="display:flex;align-items:baseline;gap:6px;margin-bottom:6px">'
-      +  '<span style="font-size:12px;font-weight:900;color:var(--ink);flex:1">'+e.station+'</span>'
-      +  '<span style="font-size:9px;font-weight:800;color:var(--ink3);white-space:nowrap">'+e.juges.length+'/'+e.requis+' 👥'+(e.diff>0?' · ⭐≥'+e.diff:'')+'</span>'
-      +'</div>'
-      +(e.juges.length? e.juges.map(function(j){
-          var uq=!!j.underQ;
-          return '<div style="display:flex;align-items:center;gap:6px;font-size:11px;font-weight:700;color:'+(uq?'#D97706':'var(--ink2)')+';margin-bottom:3px">'
-            +'<span style="color:'+(uq?'#D97706':'#10B981')+'">'+(uq?'▲':'●')+'</span>'
-            +'<span style="flex:1">'+((j.prenom||'')+' '+(j.nom||'')).trim()+'</span>'
-            +'<span style="font-size:8px;color:var(--ink3)">q'+j.qualif+(uq?' ⚠':'')+'</span></div>';
-        }).join('') : '')
-      +(e.manque? '<div style="font-size:10px;color:#DC2626;font-weight:800;margin-top:2px">⚠ manque '+e.manque+' juge'+(e.manque>1?'s':'')+'</div>' : '')
-      +'</div>';
-  });
-  h+='</div>';
-  if(J.spare.length){
-    h+='<div style="margin-top:8px;font-size:10px;color:var(--ink3);font-weight:700">🔄 Renfort ('+J.spare.length+') : '+J.spare.map(function(j){return ((j.prenom||'')+' '+(j.nom||'')).trim();}).join(', ')+'</div>';
-  }
-  el.innerHTML=h;
-}
-
-function printHyroxJudges(){
-  var J1=buildHyroxJudges(1), J2=buildHyroxJudges(2);
-  var base=location.origin+location.pathname.replace(/[^/]*$/,'');
-  var map={}; // id -> {name, j1, j2}
-  function addDay(J, dk){
-    Object.keys(J.bySeg).forEach(function(k){ var e=J.bySeg[k]; e.juges.forEach(function(j){ var id=String(j.id); map[id]=map[id]||{name:((j.prenom||'')+' '+(j.nom||'')).trim()}; map[id][dk]=e.station; }); });
-    (J.spare||[]).forEach(function(j){ var id=String(j.id); map[id]=map[id]||{name:((j.prenom||'')+' '+(j.nom||'')).trim()}; if(!map[id][dk]) map[id][dk]='Renfort'; });
-  }
-  addDay(J1,'j1'); addDay(J2,'j2');
-  var ids=Object.keys(map);
-  if(!ids.length){ toast('Aucun juge à imprimer','#E65100'); return; }
-  var cards=ids.map(function(id){
-    var r=map[id];
-    var url=base+'juge-hyrox.html?ben='+encodeURIComponent(id);
-    var qr='https://api.qrserver.com/v1/create-qr-code/?size=240x240&margin=10&data='+encodeURIComponent(url);
-    return '<div class="card"><div class="st">J1 · '+(r.j1||'—')+'<br>J2 · '+(r.j2||'—')+'</div><img src="'+qr+'"><div class="nm">'+r.name+'</div><div class="url">'+url+'</div></div>';
-  }).join('');
-  var w=window.open('','_blank'); if(!w){ toast('Autorise les pop-ups pour imprimer','#E65100'); return; }
-  w.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>QR Juges · HYROX</title><style>'
-    +'body{font-family:system-ui,sans-serif;margin:0;padding:16px;background:#fff}h1{font-size:18px;margin:0 0 12px}'
-    +'.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}'
-    +'.card{border:1px solid #ccc;border-radius:10px;padding:12px;text-align:center;page-break-inside:avoid}'
-    +'.st{font-size:11px;font-weight:900;color:#2563EB;text-transform:uppercase;margin-bottom:6px}'
-    +'.card img{width:180px;height:180px}.nm{font-size:14px;font-weight:900;margin-top:6px}'
-    +'.url{font-size:8px;color:#888;word-break:break-all;margin-top:4px}@media print{.card{border-color:#000}}'
-    +'</style></head><body><h1>QR Juges HYROX — 1 scan = station verrouillée</h1><div class="grid">'+cards+'</div>'
-    +'<scr'+'ipt>setTimeout(function(){window.print();},700);</scr'+'ipt></body></html>');
-  w.document.close();
-}
-
-function publishHyroxRace(){
-  var db=null;
-  try{ db=(typeof LS_FB_DB!=='undefined'&&LS_FB_DB)||window.db||firebase.app().database(); }catch(e){}
-  if(!db||typeof db.ref!=='function'){ console.warn('publishHyroxRace: pas de DB'); return; }
-  var w=hyroxWod(); if(!w) return;
-  var _movs=Array.isArray(w.mouvements)?w.mouvements:(w.mouvements&&typeof w.mouvements==='object'?Object.keys(w.mouvements).map(function(k){return w.mouvements[k];}):[]);
-  var stations=_movs.map(function(m,i){
-    if(!m) return {idx:i, nom:'', seg:'run', qty:0, step:0, qtyParCat:{}, poids:{}, requis:2, diff:0};
-    return {idx:i, nom:m.nom||'', seg:m.hyroxSeg||'station', qty:m.qty||0,
-      step:hxStep(m), qtyParCat:m.qtyParCat||{}, poids:m.poids||{},
-      requis:(m.hyroxRequis!=null?parseInt(m.hyroxRequis,10):2)||2,
-      diff:(m.hyroxDiff!=null?parseInt(m.hyroxDiff,10):0)||0};
-  });
-  var divisions={};
-  (CATEGORIES||[]).forEach(function(c){
-    divisions[hxFbKey(c.id)]={id:c.id,nom:c.nom,couleur:c.couleur||'#1D6DB5',jour:c.jour||1};
-  });
-  var waves={};
-  [1,2].forEach(function(day){
-    hyroxWavesForDay(day).forEach(function(wv){
-      var key='d'+day+'_c'+hxFbKey(wv.cat.id)+'_v'+wv.wave;
-      var dateStr = day===1 ? ((document.getElementById('ev-date1')||{}).value||'') : ((document.getElementById('ev-date2')||{}).value||'');
-      var schedAt = null;
-      if(dateStr){ var d=new Date(dateStr+'T'+wv.time+':00'); if(!isNaN(d.getTime())) schedAt=d.getTime(); }
-      waves[key]={key:key, num:wv.num, jour:day, time:wv.time, schedAt:schedAt,
-        catId:wv.cat.id, catNom:wv.cat.nom, couleur:wv.cat.couleur||'#1D6DB5',
-        wave:wv.wave, nWaves:wv.nWaves,
-        athletes:(wv.athletes||[]).map(function(a){return {id:hxFbKey(a.id), nom:a.nom||'—'};})};
-    });
-  });
-  if(!Object.keys(waves).length){ toast('⚠️ Aucune vague générée — vérifie catégories, équipes et créneaux','#DC2626'); }
-  // Les affectations juges ne doivent JAMAIS bloquer la publication des vagues
-  var JUD1={bySeg:{},byBen:{},spare:[]}, JUD2={bySeg:{},byBen:{},spare:[]};
-  try{ JUD1=buildHyroxJudges(1); JUD2=buildHyroxJudges(2); }
-  catch(e){ console.error('buildHyroxJudges (publish)',e); toast('⚠️ Affectation juges en erreur — vagues publiées quand même','#D97706'); }
-  var byBen={}; // { benId: {1:seg, 2:seg} }
-  Object.keys(JUD1.byBen).forEach(function(k){ (byBen[k]=byBen[k]||{})['1']=JUD1.byBen[k]; });
-  Object.keys(JUD2.byBen).forEach(function(k){ (byBen[k]=byBen[k]||{})['2']=JUD2.byBen[k]; });
-  Promise.all([
-    db.ref('race/config').set({
-      nom:(document.getElementById('ev-nom')||{}).value||'HYROX',
-      capMinutes:HYROX_CFG.cap||100, interval:HYROX_CFG.interval||10,
-      slots:HYROX_CFG.slots||10, stations:stations, divisions:divisions,
-      autoStart:!!HYROX_CFG.autoStart,
-      publishedAt:Date.now()
-    }),
-    db.ref('race/waves').set(waves),
-    db.ref('race/judges').set({j1:JUD1.bySeg, j2:JUD2.bySeg}),
-    db.ref('race/judgeByBen').set(byBen),
-    db.ref('race/judgesSpare').set({j1:JUD1.spare, j2:JUD2.spare})
-  ]).then(function(){
-    var nJuges=Object.keys(byBen).length;
-    var noDate = HYROX_CFG.autoStart && Object.values(waves).some(function(w){return !w.schedAt;});
-    toast('📡 Course publiée ('+Object.keys(waves).length+' vagues · '+nJuges+' juges affectés)'+(HYROX_CFG.autoStart?' · départs AUTO':''),'#059669');
-    if(noDate) setTimeout(function(){ toast('⚠️ Départs auto : renseigne les dates J1/J2 dans ⚙️ Config puis republie','#D97706'); },1600);
-  }).catch(function(e){
-    toast('❌ Publication Firebase échouée : '+(e&&e.message||e),'#DC2626');
-  });
-}
-
-/* ── Appliquer au moteur Delta : le WOD porte l'intervalle, heats = vagues ── */
-function applyHyroxToEngine(){
-  saveHyroxCfg();
-  syncHyroxEngineCats();
-  var w = hyroxWod();
-  if(!w){ toast('❌ Parcours introuvable','#DC2626'); return; }
-  w.duree = (HYROX_CFG.interval||10)*60;   // espacement des vagues dans le planning
-  w.interHeat = 0;
-  w.capMinutes = HYROX_CFG.cap||100;
-  w.hyroxCapMinutes = HYROX_CFG.cap||100;
-  w.isHyrox = true;
-  w.wodFormat = 'fortime';
-  w.scoreType = 'time'; w.scoreFields = ['time'];
-  w.validated = true; w.validatedAt = Date.now();
-  // heure de départ jour 1 / jour 2 → champs programme (moteur existant)
-  var p1=document.getElementById('prog-start');   if(p1) p1.value = HYROX_CFG.startJ1||'08:00';
-  var p2=document.getElementById('prog-start-j2');if(p2) p2.value = HYROX_CFG.startJ2||'08:00';
-  if(typeof normalizeWodOrdreZone==='function') normalizeWodOrdreZone();
-  if(typeof computeProgramme==='function') computeProgramme();
-  if(typeof generateHeatsSilent==='function') generateHeatsSilent();
-  if(typeof syncHeatsToFirebase==='function') syncHeatsToFirebase();
-  if(typeof autoSave==='function') autoSave();
-  publishHyroxRace();
-  renderHyrox();
-  toast('✅ Parcours HYROX appliqué · vagues publiées (TK/juges/arrivée)','#059669');
-}
-
-/* ── Planning HYROX : vagues + athlètes affectés ── */
-var _hxPlanDay = 1;
-function setHyroxPlanDay(d){
-  _hxPlanDay = d;
-  var b1=document.getElementById('hxp-day1'), b2=document.getElementById('hxp-day2');
-  if(b1&&b2){
-    b1.style.background = d===1?'linear-gradient(135deg,#1565C0,#1E88E5)':'#EBF0FA'; b1.style.color=d===1?'#fff':'var(--ink2)';
-    b2.style.background = d===2?'linear-gradient(135deg,#F59E0B,#F97316)':'#EBF0FA'; b2.style.color=d===2?'#fff':'var(--ink2)';
-  }
-  renderHyroxPlanning();
-}
-
-function hyroxWavesForDay(day){
-  saveHyroxCfg();
-  var iv = HYROX_CFG.interval||10;
-  var slots = HYROX_CFG.slots||10;
-  var waves=[];
-  (CATEGORIES||[]).filter(function(c){ return (c.jour||1)===day; }).forEach(function(c){
-    var teams=(c.teams||[]);
-    var t=(c.hxStart||'08:00').split(':');
-    var mins=(parseInt(t[0],10)||8)*60+(parseInt(t[1],10)||0);
-    var nW = hyroxWaveCount(c);
-    for(var v=1; v<=nW; v++){
-      waves.push({min:mins, cat:c, wave:v, nWaves:nW,
-        athletes:teams.slice((v-1)*slots, v*slots), slots:slots});
-      mins += iv;
-    }
-  });
-  waves.sort(function(a,b){ return a.min-b.min || (a.cat.ordre||99)-(b.cat.ordre||99); });
-  waves.forEach(function(w,i){
-    w.num=i+1;
-    w.time=('0'+Math.floor(w.min/60)).slice(-2)+':'+('0'+(w.min%60)).slice(-2);
-    w.conflict = waves.some(function(o){ return o!==w && o.min===w.min; });
-  });
-  return waves;
-}
-
-function renderHyroxPlanning(){
-  var el=document.getElementById('hxp-body'); if(!el) return;
-  ensureHyroxState();
-  loadHyroxCfg();
-  var waves = hyroxWavesForDay(_hxPlanDay);
-  if(!waves.length){ el.innerHTML='<div style="text-align:center;color:#aaa;padding:32px;font-size:13px">Aucune vague ce jour — configure les divisions dans l\'onglet 🏃 HYROX</div>'; return; }
-  var html='';
-  waves.forEach(function(w){
-    var chips = w.athletes.length
-      ? w.athletes.map(function(a,i){ return '<span style="display:inline-flex;align-items:center;gap:5px;background:#fff;border:1px solid var(--brd2);border-radius:7px;padding:3px 9px;font-size:11px;font-weight:800;color:var(--ink)"><span style="color:'+(w.cat.couleur||'#1D6DB5')+';font-weight:900">'+(i+1)+'</span>'+(a.nom||'—')+'</span>'; }).join(' ')
-      : '<span style="font-size:11px;color:#aaa;font-weight:700">Aucun inscrit affecté</span>';
-    html += '<div style="display:flex;gap:14px;background:#F5F8FF;border:1px solid var(--brd2);border-left:5px solid '+(w.cat.couleur||'#1D6DB5')+';border-radius:12px;padding:12px 14px;margin-bottom:8px;align-items:flex-start">'
-      + '<div style="min-width:74px;text-align:center"><div style="font-size:19px;font-weight:900;color:var(--ink)">'+w.time+'</div>'
-      + '<div style="font-size:9px;font-weight:900;color:var(--ink3);text-transform:uppercase">Vague '+w.num+'</div></div>'
-      + '<div style="flex:1"><div style="display:flex;align-items:center;gap:8px;margin-bottom:7px">'
-      + '<span style="background:'+(w.cat.couleur||'#1D6DB5')+'22;color:'+(w.cat.couleur||'#1D6DB5')+';border:1px solid '+(w.cat.couleur||'#1D6DB5')+'55;border-radius:6px;padding:2px 9px;font-size:11px;font-weight:900">'+w.cat.nom+'</span>'
-      + '<span style="font-size:10px;color:var(--ink3);font-weight:800">vague '+w.wave+'/'+(w.cat.nbHeats||1)+' · '+w.athletes.length+'/'+w.slots+' slots</span></div>'
-      + '<div style="display:flex;flex-wrap:wrap;gap:5px">'+chips+'</div></div>'
-      + '</div>';
-  });
-  var last=waves[waves.length-1];
-  var lp=last.time.split(':'); var endMin=(parseInt(lp[0],10)*60+parseInt(lp[1],10))+(HYROX_CFG.cap||100);
-  html += '<div style="text-align:right;font-size:11px;color:var(--ink3);font-weight:800;padding:6px 4px">🏁 Dernière vague '+last.time+' + cap '+(HYROX_CFG.cap||100)+' min → fin estimée '+('0'+Math.floor(endMin/60)).slice(-2)+':'+('0'+(endMin%60)).slice(-2)+'</div>';
-  el.innerHTML=html;
-}
-
-function printHyroxPlanning(){
-  var waves=hyroxWavesForDay(_hxPlanDay);
-  var nomEv=(document.getElementById('ev-nom')||{}).value||'HYROX';
-  var rows=waves.map(function(w){
-    return '<tr><td class="t">'+w.time+'</td><td><b>Vague '+w.num+'</b></td><td><span class="cat" style="color:'+(w.cat.couleur||'#1D6DB5')+'">'+w.cat.nom+'</span> ('+w.wave+'/'+(w.cat.nbHeats||1)+')</td><td>'+(w.athletes.map(function(a){return a.nom;}).join(', ')||'—')+'</td></tr>';
-  }).join('');
-  var doc='<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>Planning HYROX J'+_hxPlanDay+'</title><style>'
-    +'body{font-family:Arial,sans-serif;margin:24px;color:#111}h1{font-size:20px;margin:0 0 4px}h2{font-size:13px;color:#555;margin:0 0 16px;font-weight:normal}'
-    +'table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:6px 9px;font-size:12px;text-align:left;vertical-align:top}'
-    +'th{background:#f0f3f8;font-size:10px;text-transform:uppercase}.t{font-weight:bold;font-size:14px;white-space:nowrap}.cat{font-weight:bold}'
-    +'</style></head><body><h1>'+nomEv+' — Planning HYROX · Jour '+_hxPlanDay+'</h1>'
-    +'<h2>Départs par vagues · intervalle '+(HYROX_CFG.interval||10)+' min · time cap '+(HYROX_CFG.cap||100)+' min</h2>'
-    +'<table><thead><tr><th>Départ</th><th>Vague</th><th>Division</th><th>Athlètes</th></tr></thead><tbody>'+rows+'</tbody></table>'
-    +'<script>window.print();<\/script></body></html>';
-  var w=window.open('','_blank'); if(w){ w.document.write(doc); w.document.close(); }
-}
-
-/* ── Garde-fou : si un state Delta/CrossFit a été restauré (localStorage ou
-     Firebase backup), on reconstruit le parcours et les divisions HYROX. ── */
-// ═══ HYROX Youngstars (Kids) — valeurs officielles rulebook 25/26 par âge/genre ═══
-// Ordre des 8 catégories : F8-9,G8-9, F10-11,G10-11, F12-13,G12-13, F14-15,G14-15
-function _hyroxApplyKids(P){
-  var K=[1101,1102,1103,1104,1105,1106,1107,1108];
-  function setSta(kw, qty, poids){
-    (P.mouvements||[]).forEach(function(m){
-      if(m.hyroxSeg==='station' && m.nom && m.nom.toLowerCase().indexOf(kw)>=0){
-        m.qtyParCat=m.qtyParCat||{}; m.poids=m.poids||{};
-        K.forEach(function(id,i){ m.qtyParCat[id]=qty[i]; if(poids) m.poids[id]=poids[i]; });
-      }
-    });
-  }
-  // Stations (distance/reps + charge). Voir rulebook §6.
-  setSta('skierg',   [300,300,400,400,500,500,600,600]);
-  setSta('sled push',[15,15,15,15,30,30,30,30],   ['35kg','35kg','45kg','45kg','60kg','70kg','70kg','102kg']);
-  setSta('sled pull',[15,15,15,15,30,30,30,30],   ['25kg','25kg','40kg','40kg','25kg','50kg','50kg','78kg']);
-  setSta('burpee',   [20,20,20,20,40,40,40,40]);   // 8-9 = Frogger (même distance)
-  setSta('row',      [200,200,300,300,400,400,500,500]);
-  setSta('farmers',  [50,50,50,50,100,100,100,100],['2×4kg','2×4kg','2×6kg','2×6kg','2×8kg','2×12kg','2×12kg','2×16kg']);
-  setSta('lunges',   [20,20,20,20,40,40,40,40],    ['—','—','—','—','5kg','7.5kg','7.5kg','10kg']);
-  setSta('wall ball',[50,50,50,50,50,50,50,50],    ['1kg','1kg','2kg','2kg','2kg','3kg','3kg','4kg']); // 8-9/10-11 = Squats
-  // Course : structure par âge (rulebook §5.2, 1 tour ≈ 250m)
-  //  8-9 & 10-11 : 1 tour entrée + 1 tour sortie ; 12-13 : 2+2 ; 14-15 : 1 tour entre chaque station
-  var lap=250;
-  var runs=(P.mouvements||[]).filter(function(m){return m.hyroxSeg==='run';});
-  runs.forEach(function(m,ri){
-    m.qtyParCat=m.qtyParCat||{};
-    var isEntry=(ri===0), isExit=(ri===runs.length-1);
-    K.forEach(function(id){
-      var age=(id<=1102)?'8-9':(id<=1104)?'10-11':(id<=1106)?'12-13':'14-15';
-      var v;
-      if(age==='14-15'){ v=lap; }
-      else if(isEntry||isExit){ v=(age==='12-13')?2*lap:lap; }
-      else { v=0; }
-      m.qtyParCat[id]=v;
-    });
-  });
-  return P;
-}
-
-// ═══ Pop-up HYROX Youngstars (sélecteur Kids) ═══
-var KIDS_DATA={
-  ages:[
-    {k:'8-9',   lbl:'8-9',   col:'#EC4899', run:'1 tour entrée + 1 tour sortie'},
-    {k:'10-11', lbl:'10-11', col:'#F59E0B', run:'1 tour entrée + 1 tour sortie'},
-    {k:'12-13', lbl:'12-13', col:'#14B8A6', run:'2 tours entrée + 2 tours sortie'},
-    {k:'14-15', lbl:'14-15', col:'#8B5CF6', run:'1 tour entre chaque station'}
-  ],
-  st:[
-    {ic:'🎿',nom:'SkiErg',           v:{'8-9':['300m','300m'],'10-11':['400m','400m'],'12-13':['500m','500m'],'14-15':['600m','600m']}},
-    {ic:'🛷',nom:'Sled Push',        v:{'8-9':['15m · 35kg','15m · 35kg'],'10-11':['15m · 45kg','15m · 45kg'],'12-13':['30m · 60kg','30m · 70kg'],'14-15':['30m · 70kg','30m · 102kg']}},
-    {ic:'🪢',nom:'Sled Pull / Drag', v:{'8-9':['15m · 25kg','15m · 25kg'],'10-11':['15m · 40kg','15m · 40kg'],'12-13':['30m · 25kg','30m · 50kg'],'14-15':['30m · 50kg','30m · 78kg']}},
-    {ic:'🐸',nom:'Burpee / Frogger', v:{'8-9':['20m Frogger','20m Frogger'],'10-11':['20m','20m'],'12-13':['40m','40m'],'14-15':['40m','40m']}},
-    {ic:'🚣',nom:'Row',              v:{'8-9':['200m','200m'],'10-11':['300m','300m'],'12-13':['400m','400m'],'14-15':['500m','500m']}},
-    {ic:'🧺',nom:'Farmers Carry',    v:{'8-9':['50m · 2×4kg','50m · 2×4kg'],'10-11':['50m · 2×6kg','50m · 2×6kg'],'12-13':['100m · 2×8kg','100m · 2×12kg'],'14-15':['100m · 2×12kg','100m · 2×16kg']}},
-    {ic:'🦵',nom:'Lunges',           v:{'8-9':['20m','20m'],'10-11':['20m','20m'],'12-13':['40m · 5kg','40m · 7.5kg'],'14-15':['40m · 7.5kg','40m · 10kg']}},
-    {ic:'⚽',nom:'Wall Ball / Squat', v:{'8-9':['50 · 1kg squats','50 · 1kg squats'],'10-11':['50 · 2kg squats','50 · 2kg squats'],'12-13':['50 · 2kg','50 · 3kg'],'14-15':['50 · 3kg','50 · 4kg']}}
-  ]
-};
-var _kidsAge='8-9', _kidsGen=0; // 0=Filles, 1=Garçons
-function hxPickMode(m){
-  var a=document.getElementById('hxmode-adult'), k=document.getElementById('hxmode-kids');
-  if(m==='kids') openKidsModal();
-  if(a&&k){ var on=(m==='adult');
-    a.style.background=on?'var(--blue)':'#fff'; a.style.color=on?'#fff':'var(--blue)';
-    k.style.background=on?'#fff':'#EC4899';    k.style.color=on?'#DB2777':'#fff'; }
-}
-function openKidsModal(){ var m=document.getElementById('kids-modal'); if(!m)return; m.style.display='flex'; renderKidsModal(); requestAnimationFrame(function(){m.classList.add('open');}); document.addEventListener('keydown',_kidsEsc); }
-function closeKidsModal(){ var m=document.getElementById('kids-modal'); if(!m)return; m.classList.remove('open'); document.removeEventListener('keydown',_kidsEsc); setTimeout(function(){m.style.display='none'; hxPickMode('adult');},220); }
-function _kidsEsc(e){ if(e.key==='Escape') closeKidsModal(); }
-function kidsPickAge(a){ _kidsAge=a; renderKidsModal(); }
-function kidsPickGen(g){ _kidsGen=g; renderKidsModal(); }
-function _kidsShade(hex){ try{ var n=parseInt(hex.slice(1),16),r=(n>>16)&255,g=(n>>8)&255,b=n&255,f=.72; return 'rgb('+Math.round(r*f)+','+Math.round(g*f)+','+Math.round(b*f)+')'; }catch(e){ return hex; } }
-function renderKidsModal(){
-  var age=KIDS_DATA.ages.find(function(x){return x.k===_kidsAge;})||KIDS_DATA.ages[0]; var col=age.col;
-  var hero=document.getElementById('kids-hero'); if(hero) hero.style.background='linear-gradient(135deg,'+col+','+_kidsShade(col)+')';
-  var sub=document.getElementById('kids-hero-sub'); if(sub) sub.textContent=(_kidsGen?'Garçons':'Filles')+' '+age.k+' ans · course : '+age.run;
-  var ac=document.getElementById('kids-ages');
-  if(ac) ac.innerHTML=KIDS_DATA.ages.map(function(a){ var on=(a.k===_kidsAge);
-    return '<button class="kids-age" onclick="kidsPickAge(\''+a.k+'\')" style="'+(on?'border-color:'+a.col+';background:'+a.col+'14':'')+'"><b style="'+(on?'color:'+a.col:'')+'">'+a.lbl+'</b><span>ans</span></button>'; }).join('');
-  var gc=document.getElementById('kids-gender');
-  if(gc) gc.innerHTML=['Filles','Garçons'].map(function(g,i){ var on=(i===_kidsGen);
-    return '<button onclick="kidsPickGen('+i+')" style="'+(on?'background:#fff;color:'+col+';box-shadow:0 1px 4px rgba(0,0,0,.12)':'')+'">'+(i?'👦 ':'👧 ')+g+'</button>'; }).join('');
-  var pc=document.getElementById('kids-parcours');
-  if(pc) pc.innerHTML='<div style="font-size:10px;font-weight:800;color:var(--ink3);text-transform:uppercase;letter-spacing:1px;margin:2px 0 10px">Parcours station par station</div>'+
-    KIDS_DATA.st.map(function(s,i){ var val=s.v[_kidsAge][_kidsGen];
-      return '<div class="kids-row" style="animation-delay:'+(i*40)+'ms"><div class="ic" style="background:'+col+'1f">'+s.ic+'</div><div class="nm">'+s.nom+'</div><div class="vl" style="color:'+col+'">'+val+'</div></div>'; }).join('');
-  var ft=document.getElementById('kids-foot');
-  if(ft) ft.innerHTML='<div style="background:'+col+'12;border:1px solid '+col+'40;border-radius:12px;padding:12px 14px;display:flex;align-items:center;gap:10px"><div style="font-size:20px">✅</div><div style="flex:1;font-size:11px;font-weight:700;color:var(--ink2);line-height:1.35">Les 8 catégories Youngstars (Filles/Garçons × 4 âges) sont déjà dans ton event — Jour 2, départs 13:00 → 15:20.</div></div><button onclick="closeKidsModal();show(\'categories\',document.querySelector(\'[onclick*=categories]\'));" style="width:100%;margin-top:10px;padding:13px;border:none;border-radius:13px;background:'+col+';color:#fff;font-weight:900;font-size:13px;cursor:pointer;font-family:inherit">Voir les catégories Kids →</button>';
-}
-
-function buildHyroxParcours(){
-  function pc(oh,of,ph,pf,dh,df,dm,rl){ return {"1001":oh,"1002":of,"1003":ph,"1004":pf,"1005":dh,"1006":df,"1007":dm,"1008":rl}; }
-  function q(v){ return pc(v,v,v,v,v,v,v,v); }
-  function mov(nom,qty,poids,qtyPar,seg,step){
-    return {nom:nom,qty:qty,type:'reps',ergoTarget:0,ergoUnit:'m',
-      poids:poids||pc('','','','','','','',''),qtyParCat:qtyPar||q(qty),
-      timeParCat:{},distParCat:{},hyroxSeg:seg||'station',
-      judgeStep:(step!=null?step:null)};
-  }
-  function RUN(n){ return mov('Run 1000m — R'+n,1000,null,null,'run'); }
-  var _HXP={id:2001,nom:'Parcours HYROX',desc:'8× (Run 1000m + Station) · For Time',
-    zone:'1',jour:1,ordreZone:1,duree:(HYROX_CFG.interval||10)*60,interHeat:0,coupureApres:0,
-    wodFormat:'fortime',workMin:0,restMin:0,rounds:1,capMinutes:HYROX_CFG.cap||100,
-    hyroxCapMinutes:HYROX_CFG.cap||100,isHyrox:true,scoreType:'time',scoreFields:['time'],
-    pauseEntreToursActive:false,pauseEntreToursSec:0,
-    mouvements:[
-      RUN(1), mov('1 · SkiErg 1000m',1000,null,null,'station',1000),
-      RUN(2), mov('2 · Sled Push 50m',50,pc('152kg','102kg','202kg','152kg','152kg','102kg','102kg','102/152kg'),null,'station',12.5),
-      RUN(3), mov('3 · Sled Pull 50m',50,pc('103kg','78kg','153kg','103kg','103kg','78kg','78kg','78/103kg'),null,'station',12.5),
-      RUN(4), mov('4 · Burpee Broad Jumps 80m',80,null,null,'station',20),
-      RUN(5), mov('5 · Row 1000m',1000,null,null,'station',1000),
-      RUN(6), mov('6 · Farmers Carry 200m',200,pc('2×24kg','2×16kg','2×32kg','2×24kg','2×24kg','2×16kg','2×16kg','2×16/24kg'),null,'station',50),
-      RUN(7), mov('7 · Sandbag Lunges 100m',100,pc('20kg','10kg','30kg','20kg','20kg','10kg','10kg','10/20kg'),null,'station',25),
-      RUN(8), mov('8 · Wall Balls',100,pc('6kg','4kg','9kg','6kg','6kg','4kg','4kg','4/6kg'),q(100),'station',1),
-      {nom:'🏁 Arrivée',qty:1,type:'reps',ergoTarget:0,ergoUnit:'m',poids:{},qtyParCat:{},timeParCat:{},distParCat:{},hyroxSeg:'finish'}
-    ]};
-  return _hyroxApplyKids(_HXP);
-}
-
-function buildHyroxDivisions(){
-  // [id, nom, couleur, ordre, jour, hxStart, code]
-  // Départs décalés bout-à-bout : 10 équipes ÷ 5 slots = 2 vagues/cat,
-  // donc +40 min entre catégories → flux continu à 20 min dès 09:00.
-  var defs=[
-    [1001,'Open Hommes',   '#E8421A',1,1,'09:00','OH'],
-    [1002,'Open Femmes',   '#C62828',2,1,'09:40','OF'],
-    [1005,'Doubles Hommes','#1D6DB5',3,1,'10:20','DH'],
-    [1006,'Doubles Femmes','#0891B2',4,1,'11:00','DF'],
-    [1003,'Pro Hommes',    '#7C3AED',5,2,'09:00','PH'],
-    [1004,'Pro Femmes',    '#9333EA',6,2,'09:40','PF'],
-    [1007,'Doubles Mixte', '#059669',7,2,'10:20','DM'],
-    [1008,'Relay',         '#FF8A00',8,2,'11:00','RL'],
-    // ── HYROX Youngstars (Kids) — 4 âges × 2 genres, jour 2 après-midi ──
-    [1101,'Youngstars Filles 8-9',    '#EC4899', 9,2,'13:00','F8-9',   true,'8-9','F'],
-    [1102,'Youngstars Garçons 8-9',   '#3B82F6',10,2,'13:20','G8-9',   true,'8-9','G'],
-    [1103,'Youngstars Filles 10-11',  '#DB2777',11,2,'13:40','F10-11', true,'10-11','F'],
-    [1104,'Youngstars Garçons 10-11', '#2563EB',12,2,'14:00','G10-11', true,'10-11','G'],
-    [1105,'Youngstars Filles 12-13',  '#BE185D',13,2,'14:20','F12-13', true,'12-13','F'],
-    [1106,'Youngstars Garçons 12-13', '#1D4ED8',14,2,'14:40','G12-13', true,'12-13','G'],
-    [1107,'Youngstars Filles 14-15',  '#9D174D',15,2,'15:00','F14-15', true,'14-15','F'],
-    [1108,'Youngstars Garçons 14-15', '#1E40AF',16,2,'15:20','G14-15', true,'14-15','G']
-  ];
-  return defs.map(function(d){
-    var teams=[];
-    for(var i=1;i<=10;i++){ teams.push({id:d[0]*100+i, nom:d[6]+' '+('0'+i).slice(-2)}); }
-    return {id:d[0],nom:d[1],couleur:d[2],ordre:d[3],jour:d[4],hxStart:d[5],code:d[6],
-      nbHeats:2,nbLignes:5,zone:'1',hyroxDiv:true,wodOrdres:{},teams:teams,
-      kids:!!d[7],ageGroup:d[8]||null,gender:d[9]||null};
-  });
-}
-
-function ensureHyroxState(){
-  var changed=false;
-  if(!Array.isArray(WODS) || !WODS.length || !WODS.some(function(w){return w&&w.isHyrox;})){
-    WODS = [buildHyroxParcours()];
-    changed=true;
-  } else {
-    WODS = WODS.filter(function(w){return w&&w.isHyrox;});
-  }
-  var hasHx = Array.isArray(CATEGORIES) && CATEGORIES.length && CATEGORIES.some(function(c){return c&&(c.hyroxDiv||/hyrox|open|pro |doubles|relay/i.test(c.nom||''));});
-  if(!hasHx){
-    var oldTeams={};
-    (CATEGORIES||[]).forEach(function(c){ (c.teams||[]).forEach(function(t){ oldTeams[t.nom]=true; }); });
-    CATEGORIES = buildHyroxDivisions();
-    changed=true;
-  } else {
-    (CATEGORIES||[]).forEach(function(c){ c.zone='1'; if(!c.hxStart) c.hxStart='08:00'; });
-  }
-  if(typeof syncHyroxEngineCats==='function') syncHyroxEngineCats();
-  if(changed){
-    if(typeof HEATS_RESULT!=='undefined') HEATS_RESULT=null;
-    try{ if(typeof autoSave==='function') autoSave(); }catch(e){}
-    console.warn('HYROX — state Delta détecté et remplacé par le parcours/divisions HYROX');
-  }
-  return changed;
-}
-// Purge auto après restauration du state (localStorage puis backup Firebase)
-setTimeout(ensureHyroxState, 800);
-setTimeout(ensureHyroxState, 3500);
-
-function renderHyrox(){
-  ensureHyroxState();
-  loadHyroxCfg();
-  try{ renderHyroxDivisions(); }catch(e){ console.error('hx divisions',e); }
-  try{ renderHyroxWaves(); }catch(e){ console.error('hx waves',e); }
-  try{ renderHyroxStations(); }catch(e){ console.error('hx stations',e); }
-  try{ renderHyroxJudges(); }catch(e){ console.error('hx judges',e); var _hj=document.getElementById('hx-judges'); if(_hj) _hj.innerHTML='<div style="color:#DC2626;font-size:11px;padding:8px;font-weight:700">⚠ Erreur affectation juges : '+e.message+'</div>'; }
-}
-</script>
 </body>
 </html>
