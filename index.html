@@ -4481,7 +4481,12 @@ function checkGenBtn(){
   var missing=[];
   if(!WODS||!WODS.length) missing.push('WODs');
   if(!CATEGORIES||!CATEGORIES.length) missing.push('Catégories');
-  var hasTeams=CATEGORIES&&CATEGORIES.some(function(c){return c.equipes&&c.equipes.length>0;});
+  // ★ FIX « Manque : Équipes » alors qu'elles sont saisies.
+  //   L'admin stocke les équipes dans cat.teams ; ce contrôle lisait cat.equipes
+  //   (qui n'existe que pour le WOD final) → il ne trouvait jamais rien.
+  var hasTeams=CATEGORIES&&CATEGORIES.some(function(c){
+    return (c.teams&&c.teams.length>0) || (c.equipes&&c.equipes.length>0);
+  });
   if(!hasTeams) missing.push('Équipes');
   if(!BENEVOLES||!BENEVOLES.length) missing.push('Bénévoles');
   var ok=missing.length===0;
@@ -4809,6 +4814,60 @@ function toggleScoreAudit(){
   if(p.style.display==='none'){ p.style.display='block'; renderScoreAuditLog(); }
   else { p.style.display='none'; }
 }
+function _encAttr(s){ return encodeURIComponent(String(s==null?'':s)).replace(/'/g,'%27'); }  /* ★ encodeURIComponent laisse passer l'apostrophe → onclick cassé pour « L'Équipe » */
+
+/* ★ POPUP « QUI A MODIFIÉ CE SCORE ? » (ADMIN uniquement) ────────────────
+   Lit system/scoreEdits et affiche, pour UNE équipe : quand, par qui, sur quel
+   WOD, la valeur avant → après, et la raison. Absent de la page publique. */
+function _shFmtT(sec){ sec=parseInt(sec||0,10)||0; if(!sec) return '\u2014'; return Math.floor(sec/60)+':'+String(sec%60).padStart(2,'0'); }
+function _shVal(v){
+  if(!v) return '\u2014';
+  if(v.finalTime>0) return _shFmtT(v.finalTime);
+  if(v.load>0) return v.load+' kg';
+  if(v.dist>0) return v.dist+' m';
+  if(v.reps>0) return v.reps+' reps';
+  return '\u2014';
+}
+function _shDate(ts){ var d=new Date(ts||0); function p(n){return (n<10?'0':'')+n;}
+  return p(d.getDate())+'/'+p(d.getMonth()+1)+' \u00b7 '+p(d.getHours())+':'+p(d.getMinutes()); }
+function closeScoreHistory(){ var m=document.getElementById('score-history-modal'); if(m) m.remove(); }
+function openScoreHistory(teamNameEnc){
+  var teamName=decodeURIComponent(teamNameEnc||'');
+  closeScoreHistory();
+  var wrap=document.createElement('div');
+  wrap.id='score-history-modal';
+  wrap.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px';
+  wrap.onclick=function(e){ if(e.target===wrap) closeScoreHistory(); };
+  wrap.innerHTML='<div style="background:#0f1826;border:1px solid #2a3a52;border-radius:14px;max-width:640px;width:100%;max-height:80vh;overflow:auto;padding:18px">'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">'
+    +'<div style="font-size:15px;font-weight:900;color:#fff">Modifications de score \u00b7 '+escHtml(teamName)+'</div>'
+    +'<button onclick="closeScoreHistory()" style="background:none;border:none;color:#94a3b8;font-size:22px;cursor:pointer">\u00d7</button></div>'
+    +'<div id="score-history-body" style="color:#94a3b8;font-size:13px">Chargement\u2026</div></div>';
+  document.body.appendChild(wrap);
+  var body=document.getElementById('score-history-body');
+  var db=getDb();
+  if(!db||typeof db.ref!=='function'){ body.textContent='Base indisponible.'; return; }
+  db.ref('system/scoreEdits').once('value').then(function(snap){
+    var v=snap.val()||{};
+    var arr=Object.keys(v).map(function(k){return v[k];})
+      .filter(function(e){ return e && String(e.teamName||'')===String(teamName); })
+      .sort(function(a,b){ return (b.ts||0)-(a.ts||0); });
+    if(!arr.length){ body.innerHTML='<div style="padding:12px 0">Aucune modification enregistr\u00e9e pour cette \u00e9quipe.</div>'; return; }
+    body.innerHTML=arr.map(function(e){
+      var av=_shVal(e.prev), ap=_shVal(e.next);
+      var chg=(e.prev||e.next)?('<span style="color:#f87171">'+av+'</span> \u2192 <span style="color:#34d399;font-weight:800">'+ap+'</span>'):'';
+      return '<div style="border:1px solid #24344c;border-radius:10px;padding:10px 12px;margin-bottom:8px;background:#0b1220">'
+        +'<div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap">'
+        +'<span style="color:#fb923c;font-weight:800">'+escHtml(e.by||'?')+'</span>'
+        +'<span style="color:#64748b">'+_shDate(e.ts)+'</span></div>'
+        +(e.wod?'<div style="color:#94a3b8;margin-top:3px">WOD : '+escHtml(e.wod)+'</div>':'')
+        +(chg?'<div style="margin-top:5px;font-size:15px">'+chg+'</div>':'')
+        +'<div style="color:#cbd5e1;margin-top:5px;font-style:italic">\u00ab '+escHtml(e.reason||'sans raison')+' \u00bb</div>'
+        +'</div>';
+    }).join('');
+  }).catch(function(err){ body.textContent='Erreur : '+err.message; });
+}
+
 function renderScoreAuditLog(){
   var p=document.getElementById('score-audit-panel'); if(!p) return;
   var db=getDb(); if(!db||typeof db.ref!=='function'){ p.innerHTML='<div style="color:var(--ink3);font-size:12px;padding:10px">Firebase indisponible</div>'; return; }
@@ -12955,7 +13014,8 @@ function renderWodFinalMoves() {
     el.innerHTML='<div style="color:#64748B;font-size:11px;text-align:center;padding:8px">Aucun mouvement — cliquez + Mouvement</div>';
     return;
   }
-  var cats=(CATEGORIES||[]).filter(function(c){return (c.equipes||[]).length>0;});
+  // ★ FIX : l'admin stocke les équipes dans cat.teams
+  var cats=(CATEGORIES||[]).filter(function(c){return ((c.equipes||c.teams)||[]).length>0;});
   var IS='background:#0F1C2E;border:1px solid #334155;border-radius:5px;padding:4px 6px;font-size:11px;font-weight:700;outline:none;font-family:inherit;color:#E2E8F0;box-sizing:border-box';
   el.innerHTML=WOD_FINAL.mouvements.map(function(m,i){
     var catRows=cats.map(function(cat){
@@ -12988,14 +13048,15 @@ function renderWodFinalCutPerCat() {
     return;
   }
   if (!WOD_FINAL.cutPerCat) WOD_FINAL.cutPerCat = {};
-  var cats = CATEGORIES.filter(function(c){ return (c.equipes||[]).length > 0; });
+  // ★ FIX : idem
+  var cats = CATEGORIES.filter(function(c){ return ((c.equipes||c.teams)||[]).length > 0; });
   if (!cats.length) {
     el.innerHTML = '<div style="color:#64748B;font-size:11px;text-align:center">Aucune équipe dans les catégories</div>';
     return;
   }
   el.innerHTML = cats.map(function(cat) {
     var catCut = WOD_FINAL.cutPerCat[cat.id] != null ? WOD_FINAL.cutPerCat[cat.id] : defaultCut;
-    var max = (cat.equipes||[]).length;
+    var max = ((cat.equipes||cat.teams)||[]).length;
     catCut = Math.min(catCut, max);
     return '<div style="display:flex;align-items:center;gap:8px;padding:6px 4px;border-bottom:1px solid #1E293B">'
       + '<div style="flex:1;font-size:12px;font-weight:700;color:#E2E8F0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (cat.nom||'—') + '</div>'
@@ -13017,7 +13078,7 @@ function autoSelectFinalTeams() {
   CATEGORIES.forEach(function(cat) {
     var topN = WOD_FINAL.cutPerCat[cat.id] != null ? parseInt(WOD_FINAL.cutPerCat[cat.id],10) : defaultCut;
     topN = Math.max(1, topN || defaultCut);
-    var equipes = (cat.equipes || []).slice(0, topN);
+    var equipes = ((cat.equipes || cat.teams) || []).slice(0, topN);
     equipes.forEach(function(eq) {
       WOD_FINAL.equipes.push({ id: eq.id, nom: eq.nom, cat: cat.nom });
     });
@@ -17707,6 +17768,10 @@ async function buildAnalysisData(){
         var prev=grp[i-1]||null,isTie=!!(prev&&e.val===prev.val);
         if(!isTie) rankPos=i+1;
         var pts=_anCfPts(rankPos),t=T[e.team]; if(!t) return;
+        // ★ MULTIPLICATEUR WOD FINAL : honoré par classement.html, ignoré ici →
+        //   l'admin et le classement public se contredisaient. Aligné.
+        var _wi=e.wInfo||{};
+        if(_wi.isFinal) pts=pts*Math.max(1,parseInt(_wi.pointsMultiplier,10)||1);
         t.points+=pts; t.validated++;
         if(rankPos===1)t.podiums.p1++; else if(rankPos===2)t.podiums.p2++; else if(rankPos===3)t.podiums.p3++;
         t.byWod[w]={rank:rankPos,points:pts,score:_anFmtSc(e.sc,e.wInfo),val:e.val,reps:parseInt(e.sc.reps||0,10)||0,finalTime:parseInt(e.sc.finalTime||0,10)||0,nTeams:grp.length,moves:(((e.wInfo&&e.wInfo.mouvements)||[]).map(function(m){return String((m&&(m.nom||m.name))||'').trim();}).filter(Boolean)),curMoveIdx:(e.sc&&e.sc.curMoveIdx!=null?parseInt(e.sc.curMoveIdx,10):null)};
@@ -18048,6 +18113,9 @@ async function renderClassementTK(){
           var isTie=!!(prev && e.val===prev.val && e.tb===prev.tb);
           if(!isTie) rankPos=i+1;
           var pts=_cfPts(rankPos); // ★ points CrossFit réels
+          // ★ MULTIPLICATEUR WOD FINAL (voir note du moteur d'analyse)
+          var _wi2=e.wInfo||{};
+          if(_wi2.isFinal) pts=pts*Math.max(1,parseInt(_wi2.pointsMultiplier,10)||1);
           var t=teamObjs[e.team]; if(!t) return;
           t.points+=pts;
           t.validated++;
@@ -18917,7 +18985,8 @@ function renderClassementAdmin(heatsData, scoresData){
       html+=posCell(info, liveNow, preNow);
     });
     // Action (modifier)
-    html+='<div style="text-align:center"><button onclick="openScoreEdit(\''+encodeURIComponent(t.name)+'\',\''+encodeURIComponent(window._classementCatFilter)+'\')" style="background:rgba(124,58,237,.1);border:1px solid rgba(124,58,237,.25);color:#7C3AED;padding:6px 11px;border-radius:7px;cursor:pointer;font-size:11px;font-weight:800;font-family:inherit;white-space:nowrap">✏️ Modif</button></div>';
+    html+='<div style="text-align:center"><button onclick="openScoreEdit(\''+_encAttr(t.name)+'\',\''+_encAttr(window._classementCatFilter)+'\')" style="background:rgba(124,58,237,.1);border:1px solid rgba(124,58,237,.25);color:#7C3AED;padding:6px 11px;border-radius:7px;cursor:pointer;font-size:11px;font-weight:800;font-family:inherit;white-space:nowrap">✏️ Modif</button></div>';
+    html+='<button onclick="openScoreHistory(\''+_encAttr(t.name)+'\')" title="Qui a modifié ce score ?" style="margin-left:6px;background:rgba(251,146,60,.10);border:1px solid rgba(251,146,60,.35);color:#FB923C;border-radius:7px;padding:5px 9px;font-size:11px;font-weight:800;cursor:pointer">ⓘ</button>';
     html+='</div>';
   });
 

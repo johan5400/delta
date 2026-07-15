@@ -5132,7 +5132,13 @@ function listenHeatStatus(){
           //   venu → le juge démarre seul sur cette cible (qui fait autorité,
           //   elle vient de Firebase). Le heat démarre à l'heure pour tout le
           //   monde ; quand le TK se réveille, son startTimestamp est identique.
-          if((serverNow()-m.target)>2000 && HEAT_STATUS!=='live' && HEAT_STATUS!=='timecap' && HEAT_STATUS!=='done'){
+          // ★ BORNE : n'agir que dans une fenêtre courte après la cible (2 s → 120 s).
+          //   Au-delà, c'est un ANCIEN countdown resté « active » dans Firebase :
+          //   le déclencher ferait démarrer seul un heat qui n'a pas commencé
+          //   (symptôme observé : « l'appli se cherche » avant le 1er heat).
+          var _lag=serverNow()-m.target;
+          var _enAttente=(HEAT_STATUS==='pre'||HEAT_STATUS==='pending'||!HEAT_STATUS);
+          if(_lag>2000 && _lag<120000 && _enAttente && !done && !_scoreValidated){
             HEAT_START_TS=m.target; startTs=m.target; HEAT_STATUS='live';
             _prestartLockUntilTs=0;
             try{ hideJudgePrestartOverlay(); }catch(e){}
