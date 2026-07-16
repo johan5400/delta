@@ -689,7 +689,7 @@ var _tkSessionActive=false;
       }
       if(d.type === 'ih_end') {
         if(d.zone) {
-          clearInterval(zoneState[d.zone].ihIv);
+          _wkTimer.clear(zoneState[d.zone].ihIv);
           zoneState[d.zone].ihRem=0;
           var banner=g('z'+d.zone+'IhBanner');
           if(banner) banner.classList.remove('show');
@@ -1388,7 +1388,7 @@ function resetZoneDayHeats(zone){
   ids.forEach(function(hid){
     var h=HD[hid]||{};
     setStatus(hid,'pending',{startTimestamp:null,countdownTarget:null,curRound:null,roundPhase:null,autoClosed:null,autoClosedTs:null});
-    clearInterval(zoneState[zone].jtIv);
+    _wkTimer.clear(zoneState[zone].jtIv);
     zoneState[zone].jtIv=null;
     zoneState[zone].jtHid=null;
     Object.keys(h.lanes||{}).forEach(function(ln){
@@ -1531,10 +1531,10 @@ function startDay(day){
   AUTO=true;
   [1,2].forEach(function(z){
     _wkTimer.clear(zoneState[z].timerIv);
-    clearInterval(zoneState[z].ihIv);
+    _wkTimer.clear(zoneState[z].ihIv);
     _wkTimer.clear(zoneState[z].timerIv);
-    clearInterval(zoneState[z].ihIv);
-    clearInterval(zoneState[z].jtIv);
+    _wkTimer.clear(zoneState[z].ihIv);
+    _wkTimer.clear(zoneState[z].jtIv);
     clearTimeout(zoneState[z]._autoLaunchTm);
     clearTimeout(zoneState[z]._judgeCheckTm);
     zoneState[z].timerIv=null;
@@ -1865,7 +1865,7 @@ function toggleAuto(){AUTO=!AUTO;}
 function openUrgence(){g('urgenceBanner').classList.add('show');}
 function applyUrgence(){
   if(!confirm('🚨 GELER LA COMPETITION ?\n\nTous les ecrans (juges, live, speaker) passent en pause et un message est diffuse a tous.')) return;
-  [1,2].forEach(function(z){ clearInterval(zoneState[z].jtIv); var subEl=g('z'+z+'StatusSub'); if(subEl&&(subEl.textContent||'').indexOf('Forçage')!==-1)subEl.textContent=''; }); dbRef('system/urgence').set({active:true,ts:Date.now(),delay:0,resumeMode:'resume_exact',token:'foc2026zk'}); dbRef('system/broadcast').set({target:'all',message:'Compétition suspendue. Attendre les consignes du Timekeeper.',ts:Date.now(),source:'tkx',token:'foc2026zk'});}
+  [1,2].forEach(function(z){ _wkTimer.clear(zoneState[z].jtIv); var subEl=g('z'+z+'StatusSub'); if(subEl&&(subEl.textContent||'').indexOf('Forçage')!==-1)subEl.textContent=''; }); dbRef('system/urgence').set({active:true,ts:Date.now(),delay:0,resumeMode:'resume_exact',token:'foc2026zk'}); dbRef('system/broadcast').set({target:'all',message:'Compétition suspendue. Attendre les consignes du Timekeeper.',ts:Date.now(),source:'tkx',token:'foc2026zk'});}
 function resumeUrgence(){
   // ★ GEL REEL DU CHRONO : tous les ecrans calculent le temps ecoule depuis
   //   heats/{id}/startTimestamp -> on decale le depart des heats LIVE du temps
@@ -2628,19 +2628,20 @@ function zoneTimecap(zone){
 
 /* ── Timeout juge : force les scores non validés puis enchaîne ── */
 function startJudgeTimeout(zone, hid){
-  clearInterval(zoneState[zone].jtIv);
+  _wkTimer.clear(zoneState[zone].jtIv);
   zoneState[zone].jtHid=hid;
   if(!JUDGE_TIMEOUT||JUDGE_TIMEOUT<=0) return;
   var deadline=Date.now()+JUDGE_TIMEOUT*1000;
   // Afficher le compte à rebours dans le sous-titre de zone
   var subEl=g('z'+zone+'StatusSub');
-  zoneState[zone].jtIv=setInterval(function(){
-    if(!AUTO){ clearInterval(zoneState[zone].jtIv); zoneState[zone].jtIv=null; if(subEl) subEl.textContent=''; return; }
+  // ★ ANTI-VEILLE : idem pour le forçage des scores juge en mode auto.
+  zoneState[zone].jtIv=_wkTimer.set(function(){
+    if(!AUTO){ _wkTimer.clear(zoneState[zone].jtIv); zoneState[zone].jtIv=null; if(subEl) subEl.textContent=''; return; }
     if(urgence && urgence.active){ if(subEl) subEl.textContent='⏸ En pause (arrêt urgence)'; return; }  // ★ URGENCE : pas de forçage de scores
     var rem=Math.max(0,Math.ceil((deadline-Date.now())/1000));
     if(subEl) subEl.textContent='⏳ Forçage scores dans '+rem+'s';
     if(rem<=0){
-      clearInterval(zoneState[zone].jtIv);
+      _wkTimer.clear(zoneState[zone].jtIv);
       zoneState[zone].jtIv=null;
       if(subEl) subEl.textContent='';
       // Forcer tous les scores non validés
@@ -2842,7 +2843,7 @@ function coordinateCoupure(zone, donHid, delay){
 }
 
 function zoneDone(zone){
-  clearInterval(zoneState[zone].jtIv);
+  _wkTimer.clear(zoneState[zone].jtIv);
   zoneState[zone].jtIv=null;
   zoneState[zone].jtHid=null;
   _wkTimer.clear(zoneState[zone].timerIv);
@@ -2913,7 +2914,7 @@ function zoneForceDone(zone){
 }
 function zoneReset(zone){var hid=currentHeat(zone)||zoneSelectedHeat(zone); if(!hid)return; var h=HD[hid]||{}; setStatus(hid,'pending',{startTimestamp:null,countdownTarget:null,curRound:null,roundPhase:null}); Object.keys(h.lanes||{}).forEach(function(ln){var lane=h.lanes[ln]; if(!lane||!lane.teamName)return; var empty={reps:0,noReps:0,judgeOk:false,heat:parseInt(hid)||hid,lane:parseInt(ln)||ln,teamName:lane.teamName,ts:Date.now(),resetBy:'TKX'}; dbRef('scores/'+hid+'_'+ln).set(empty); dbRef('heats/'+hid+'/scores/'+ln).set(empty);});}
 function startInterheat(zone, seconds, type, label){
-  clearInterval(zoneState[zone].ihIv);
+  _wkTimer.clear(zoneState[zone].ihIv);
   // ★ FIX BUG INTER-HEAT : couper toute tickFn résiduelle du heat précédent
   // pour qu'elle n'écrive plus dans z{N}Timer en parallèle du countdown IH.
   zoneState[zone].tickFn=null;
@@ -3016,13 +3017,15 @@ function startInterheat(zone, seconds, type, label){
   }
   renderInterheat();
   // ★ FIX : tick 100ms pour détecter rem<=0 le plus tôt possible (transition IH→heat instantanée)
-  zoneState[zone].ihIv=setInterval(function(){
+  // ★ ANTI-VEILLE : l'enchaînement auto (fin d'inter-heat → GO suivant) doit
+  //   survivre à un onglet TK en arrière-plan, comme le chrono des heats.
+  zoneState[zone].ihIv=_wkTimer.set(function(){
     var rem=Math.max(0,Math.ceil((target-serverNow())/1000));
     renderInterheat(rem);
 
     if(urgence && urgence.active){ return; }  // ★ URGENCE : gel de l'inter-heat, pas de lancement auto
     if(rem<=0){
-      clearInterval(zoneState[zone].ihIv);
+      _wkTimer.clear(zoneState[zone].ihIv);
       zoneState[zone].ihIv=null;
       zoneState[zone].ihRem=0;
       zoneState[zone].counting=false;
