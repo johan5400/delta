@@ -883,7 +883,10 @@ function getLiveChronoFrame(zone,hid,h,w){
   var totalRounds=parseInt(w.rounds||1,10)||1;
   var hasPause=!!w.pauseEntreToursActive&&totalRounds>1;
   var pauseSec=parseInt(w.pauseEntreToursSec||0,10)||0;
-  if(totalRounds>1&&cap>0){
+  // ★ FIX CHRONO FOR TIME (même fix que le TK) : ne découper le chrono en
+  //   tours que si une pause entre tours est configurée. Un For Time « 9 min,
+  //   5 tours » est UN seul chrono de 9 min, pas 5 blocs de 1min48.
+  if(hasPause&&totalRounds>1&&cap>0){
     var workSec=Math.round(cap/totalRounds);
     var cycleSec=hasPause?workSec+pauseSec:workSec;
     var cycleElapsed=elapsed%cycleSec;          // ★ entier (aligné TK)

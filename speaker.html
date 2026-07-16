@@ -562,7 +562,9 @@ function _renderZoneInner(z){
   else if(st.status==='pre'){ ch.textContent=fmtT(cap); ch.className='chrono-val pre'; if(roundBox) roundBox.style.display='none'; }
   else if(st.status==='live'||st.status==='timecap'){
     // ── Gestion tours avec pause (identique à tk9delta) ──
-    if(totalRounds>1 && cap>0){
+    // ★ FIX CHRONO FOR TIME (même fix que TK et live) : découpage en tours
+  //   minutés UNIQUEMENT si une pause est configurée — jamais pour un For Time.
+  if(hasPause && totalRounds>1 && cap>0){
       var workSec = Math.round(cap/totalRounds);
       var cycleSec = hasPause ? workSec+pauseSec : workSec;
       var cycleElapsed = el % cycleSec;
@@ -596,7 +598,7 @@ function _renderZoneInner(z){
 
   // Progress bar — en mode tours : progression dans la phase courante
   var progPct;
-  if(st.status==='live' && totalRounds>1 && cap>0){
+  if(st.status==='live' && hasPause && totalRounds>1 && cap>0){  // ★ idem
     var _wSec=Math.round(cap/totalRounds);
     var _cSec=hasPause?_wSec+pauseSec:_wSec;
     var _phaseElapsed=el%_cSec;
