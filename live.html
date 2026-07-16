@@ -992,11 +992,19 @@ function getZoneClockState(zone){
     var capL=wodCapSec(w2);
     var ihL=parseInt(w2.interHeat,10)||0;
     var cpL=parseInt(w2.coupureApres,10)||0;
-    // ★ FLUIDITÉ : aligner la détection locale sur la logique EXACTE du TK
-    //   (coupure dès coupureApres>0 ; durée = coupureApres si coupure, sinon interHeat).
-    //   Avant : isCoup=cpL>ihL et delay=max → désaccord avec l'état publié → flicker 1s.
-    var delayL=(cpL>0?cpL:ihL);
-    var isCoup=(cpL>0);
+    // ★ FIX FLASH COUPURE : la VRAIE règle du TK est « coupure UNIQUEMENT si
+    //   le heat suivant appartient à un AUTRE WOD » (fin de tous les heats du
+    //   WOD). L'ancienne version locale affichait ✂️ COUPURE dès que
+    //   coupureApres>0, à CHAQUE fin de heat — d'où le flash d'une demi-seconde
+    //   avant que l'inter-heat publié par le TK ne le remplace.
+    var isCoup=false;
+    try{
+      var _nx=getNext(zone);
+      var _nxWod=_nx&&_nx.h&&_nx.h.wodInfo&&_nx.h.wodInfo.nom||null;
+      var _curWod=w2.nom||null;
+      isCoup=(cpL>0 && _curWod && _nxWod && String(_nxWod)!==String(_curWod));
+    }catch(e){ isCoup=false; }
+    var delayL=(isCoup?cpL:ihL);
     var stL=parseInt(h.startTimestamp,10)||0;
     if(stL>0 && capL>0 && delayL>0){
       var endL=stL+capL*1000+delayL*1000;
