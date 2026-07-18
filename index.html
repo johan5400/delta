@@ -2325,6 +2325,7 @@ function checkPassword(){
     <a href="#g14">14 · Classement — fonctionnement &amp; équipes invitées</a>
     <a href="#g15">15 · Après génération : ce que tu peux encore toucher</a>
     <a href="#g16">16 · Jour J</a>
+    <a href="#gj1j2" style="font-weight:800;color:#1E88E5">🌙 Coupure J1 → J2</a>
     <a href="#g17">17 · Si ça merde</a>
   </div>
 </div>
@@ -2820,6 +2821,42 @@ function checkPassword(){
 </div>
 
 <!-- 17 SI ÇA MERDE -->
+<div class="gsec" id="gj1j2">
+  <div class="gsec-hdr"><div class="gnum blue">🌙</div><div><div class="gsec-title">Coupure fin J1 → reprise J2</div><div class="gsec-sub">Le soir du samedi et le matin du dimanche — 3 gestes chacun</div></div></div>
+
+  <div class="gc tip">
+    <div class="gc-title">✅ D'abord, la bonne nouvelle</div>
+    <div class="gc-body">Il n'y a <strong>rien à réinitialiser</strong> entre les deux jours. Chaque heat connaît son jour, les scores du J1 restent sur Firebase toute la nuit, et le classement final cumule les deux jours tout seul. Passer au J2 = <strong>un clic</strong>.</div>
+  </div>
+
+  <div class="gc">
+    <div class="gc-title">🌙 Le soir du Jour 1 — 3 gestes</div>
+    <div class="gc-body">
+      <div class="gcl">
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>1. Vérifier</strong> que tous les heats du J1 sont finis (les deux zones) et que le Classement affiche les résultats.</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>2. Ne rien toucher</strong> : pas de purge, pas de vidage, pas de « ménage ».</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>3. Fermer les écrans</strong> et aller dormir. C'est tout.</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="gc">
+    <div class="gc-title">☀️ Le matin du Jour 2 — 3 gestes</div>
+    <div class="gc-body">
+      <div class="gcl">
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>1. Ouvrir le TK</strong> + Ctrl&nbsp;Maj&nbsp;R, et vérifier le titre de l'onglet : « Fights on Contest 2026 » (pas HYROX).</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>2. Cliquer « Jour 2 »</strong> — le TK bascule sur les heats du J2, deux zones, mode auto, décompte du matin.</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>3. Contrôler le Live</strong> : les bons heats et les bonnes équipes s'affichent → laisser tourner.</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="gc warn">
+    <div class="gc-title">⛔ Le seul geste interdit</div>
+    <div class="gc-body"><strong>Ne jamais cliquer sur Purger</strong> — ni le soir du J1, ni le matin du J2. Ça effacerait tous les scores du Jour 1, sans retour possible.</div>
+  </div>
+</div>
+
 <div class="gsec" id="g17">
   <div class="gsec-hdr"><div class="gnum red">17</div><div><div class="gsec-title">Si ça merde</div><div class="gsec-sub">Les réflexes utiles</div></div></div>
 
@@ -2863,6 +2900,24 @@ function checkPassword(){
 
 <div class="gsec" id="gnew">
   <div class="gsec-hdr"><div class="gnum green">★</div><div><div class="gsec-title">Nouveautés &amp; améliorations</div><div class="gsec-sub">Tout ce qui a été ajouté récemment — lis ça en priorité</div></div></div>
+
+  <div class="gc tip">
+    <div class="gc-title">🆕 Juillet 2026 — derniers correctifs</div>
+    <div class="gc-body">
+      <div class="gcl">
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Chrono For Time réparé</strong> : un For Time « 9 min, 5 tours » affiche UN seul chrono de 9 min (TK, live et speaker). Avant, il était découpé en blocs par tour.</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Countdown J1/J2 (Config)</strong> : taper « 1 » enregistre bien 1 minute. Avant, vider le champ re-sauvait 10 par-dessus la frappe.</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Inter-heat en direct</strong> : modifier l'inter-heat d'un WOD se voit immédiatement sur le TK, sans republier.</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Toujours un juge</strong> : si l'affectation auto laisse une lane vide alors que des juges restent disponibles, elle est comblée automatiquement. Sinon : QR secours.</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Heats périmés détectés</strong> : si les équipes ont changé après la publication, un bandeau orange apparaît dans le Classement → re-cliquer « Générer &amp; Publier ».</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Journal des modifs complet</strong> : chaque correction de score note l'équipe et la valeur avant → après dans la bulle historique.</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Zones à l'écran</strong> : bouton ⇄ (onglet Catégories) pour choisir quelle zone s'affiche à gauche — pour coller à la salle. Par défaut : Zone 1 à droite.</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Appli juge plus lisible</strong> : la progression « 3 / 12 · Tour 2 / 5 » en gros, et le mouvement suivant en discret dessous.</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Pastille tour du live</strong> : sur un WOD à tours personnalisés, la pastille « Tour X/Y » suit enfin le tour réel.</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Enchaînement auto blindé</strong> : le TK enchaîne les heats même si son onglet passe en arrière-plan (anti-mise en veille).</div></div>
+      </div>
+    </div>
+  </div>
 
   <div class="gc tip">
     <div class="gc-title">🏆 Classement au barème CrossFit (officiel)</div>
@@ -17936,6 +17991,8 @@ function saveScoreEdit(){
   var key=hid+'_'+ln;
   db2.ref('scores/'+key).once('value').then(function(snap){
     var sc=snap.val()||{};
+    var _p1prev=(type==='load')?sc.load:(type==='time'?sc.finalTime:sc.reps);  // ★ valeur avant
+    var _p1team=sc.teamName||sc.team||'';                                        // ★ nom équipe
     sc.judgeOk=true;
     sc._src='chef';
     sc._priority=200;
@@ -17950,7 +18007,7 @@ function saveScoreEdit(){
     updates['scores/'+key]=sc;
     updates['heats/'+hid+'/scores/'+ln]=sc;
     return db2.ref().update(updates).then(function(){
-      db2.ref('system/scoreEdits').push({hid:hid,ln:ln,reason:reason,ts:Date.now(),by:'admin'});
+      db2.ref('system/scoreEdits').push({hid:hid,ln:ln,teamName:_p1team,prev:_p1prev,next:val,reason:reason,ts:Date.now(),by:'admin'});
     });
   }).then(function(){
     res.innerHTML='<span style="color:#00E5A0">✅ Score corrigé — classement mis à jour en temps réel</span>';
@@ -19236,6 +19293,8 @@ function seSubmit(){
   var existing = (h && h.scores && (h.scores[ln] || h.scores[String(ln)])) || (_seScoresCache && (_seScoresCache[key] || _seScoresCache[String(hid)+'_'+ln])) || {};
 
   // Construire le score en conservant les champs utiles, et en forçant une validation admin
+  var _p2prev=(type==='reps'?existing.reps:(type==='time'?existing.finalTime:(type==='load'?existing.load:existing.reps)));  // ★ avant
+  var _p2team=(existing.teamName||existing.team||(sc&&sc.teamName)||'');  // ★ nom équipe
   var sc = Object.assign({}, existing, {
     judgeOk: true,
     ts: Date.now(),
@@ -19276,7 +19335,7 @@ function seSubmit(){
   updates['heats/'+hid+'/scores/'+ln] = sc;
 
   _db.ref().update(updates).then(function(){
-    return _db.ref('system/scoreEdits').push({hid:hid,ln:ln,cat:cat,wod:wod,reason:justif,ts:Date.now(),by:'admin'});
+    return _db.ref('system/scoreEdits').push({hid:hid,ln:ln,cat:cat,wod:wod,teamName:_p2team,prev:_p2prev,next:(sc.finalTime||sc.reps||sc.load||0),reason:justif,ts:Date.now(),by:'admin'});
   }).then(function(){
     // Mettre à jour le cache local
     if(!_seScoresCache) _seScoresCache = {};
@@ -19452,6 +19511,8 @@ function submitScoreEdit(){
   var _db = window.db || (typeof LS_FB_DB!=='undefined' && LS_FB_DB) || (typeof db!=='undefined'&&db) || null;
   if(!_db){ alert('Firebase non connecté'); return; }
 
+  var _p3prev=(e.sc&&(e.sc.finalTime||e.sc.reps||e.sc.load))||0;  // ★ avant
+  var _p3team=(e.sc&&(e.sc.teamName||e.sc.team))||e.teamName||'';  // ★ nom équipe
   var sc=Object.assign({}, e.sc, {
     judgeOk:true, ts:Date.now(), modifiedAt:Date.now(),
     justification:reason, modifiedBy:'admin', _src:'admin', _priority:200,
@@ -19481,7 +19542,7 @@ function submitScoreEdit(){
   updates['scores/'+key]=sc;
   updates['heats/'+e.hid+'/scores/'+e.ln]=sc;
   _db.ref().update(updates).then(function(){
-    return _db.ref('system/scoreEdits').push({hid:e.hid,ln:e.ln,cat:ctx.catId,wod:e.wodNom,reason:reason,ts:Date.now(),by:'admin'});
+    return _db.ref('system/scoreEdits').push({hid:e.hid,ln:e.ln,cat:ctx.catId,wod:e.wodNom,teamName:_p3team,prev:_p3prev,next:(sc.finalTime||sc.reps||sc.load||0),reason:reason,ts:Date.now(),by:'admin'});
   }).then(function(){
     if(typeof toast==='function') toast('✅ Score modifié');
     closeScoreEdit();
