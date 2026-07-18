@@ -611,9 +611,9 @@ function _renderZoneInner(z){
 
   // Scores / classement complet speaker
   var wod=st.wod||{};  // ★ FIX : st.wodInfo n'est jamais rempli → on lit st.wod (qui contient le wodInfo)
-  var jm=(wod.judgeMode||'').toLowerCase();
-  var sf=(wod.scoreFinale||wod.scoreType||'').toLowerCase();
-  var isForTime=(wod.wodFormat||'').toLowerCase()==='fortime'||sf==='time';
+  var jm=String(wod.judgeMode||'').toLowerCase();
+  var sf=String(wod.scoreFinale||wod.scoreType||'').toLowerCase();
+  var isForTime=String(wod.wodFormat||'').toLowerCase()==='fortime'||sf==='time';
   var isMaxLoad=jm==='maxload'||sf==='load';
   var isErgo=jm==='ergo'||sf==='dist';
   var scores = st.scores||{};
@@ -669,7 +669,7 @@ function _renderZoneInner(z){
 
     // ETA pour For Time (si pas encore validé et en live)
     var etaStr = '';
-    if(isLive && !s.judgeOk && (wod.wodFormat||'').toLowerCase()==='fortime' && el>10 && reps>0 && cap>0){
+    if(isLive && !s.judgeOk && String(wod.wodFormat||'').toLowerCase()==='fortime' && el>10 && reps>0 && cap>0){
       // Vitesse moyenne reps/s × reps restants
       var totalReps = moves.reduce(function(acc,m){return acc+(parseInt(m.qty||0));},0);
       if(totalReps>0){

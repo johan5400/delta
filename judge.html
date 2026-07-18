@@ -3605,8 +3605,8 @@ function _judgeRestoreFromScore(sc, runTs){
   var fTime=parseInt(sc.finalTime||0,10)||0;
   var validated=(sc.judgeOk===true)||fTime>0;
   if(!validated && reps<=0 && !(parseInt(sc.noReps||0,10)>0)) return false;
-  totalReps=reps;
-  noReps=parseInt(sc.noReps||0,10)||0;
+  totalReps=Math.max(0,reps);  // ★ blindage fuzzing : jamais de reps négatifs restaurés
+  noReps=Math.max(0,parseInt(sc.noReps||0,10)||0);  // ★ idem
   var maxIdx=(SC&&Array.isArray(SC.moves)&&SC.moves.length)?SC.moves.length-1:0;
   moveIdx=Math.max(0,Math.min(parseInt(sc.curMoveIdx||0,10)||0,maxIdx));
   moveReps=Math.max(0,parseInt(sc.moveReps||0,10)||0);

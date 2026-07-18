@@ -6407,7 +6407,7 @@ if(typeof fbBuildWodInfo !== 'function'){
       scParCat: wod.scParCat||{},
       duree: parseInt(wod.duree||wod.capSec||wod.capSeconds||0,10)||0,
       wodFormat: wod.wodFormat||wod.type||'amrap',
-      type: wod.type || ((wod.wodFormat||'').toLowerCase()==='fortime' || wod.scoreType==='time' || wod.scoreType==='load' ? 'fortime' : 'amrap'),
+      type: wod.type || (String(wod.wodFormat||'').toLowerCase()==='fortime' || wod.scoreType==='time' || wod.scoreType==='load' ? 'fortime' : 'amrap'),
       capMinutes: capMinutes,
       capSec: parseInt(wod.duree||wod.capSec||wod.capSeconds||0,10)||0,
       capSeconds: parseInt(wod.capSeconds||0,10)||0,
@@ -12220,6 +12220,7 @@ function stopClassementModalLiveRefresh(){
   if(_classModalScoreRef){ _classModalScoreRef.off(); _classModalScoreRef=null; }
 }
 function secToMmss(s) {
+  s = Number(s); if (!isFinite(s)) s = 0;  // ★ blindage fuzzing : NaN/Infinity → 0
   s = Math.max(0, Math.round(s || 0));
   var m = Math.floor(s / 60), ss = s % 60;
   return (m < 10 ? '0' : '') + m + ':' + (ss < 10 ? '0' : '') + ss;
@@ -17486,9 +17487,9 @@ async function renderClassementTK(){
     function fmtTime(sec){ sec=parseInt(sec||0,10)||0; return Math.floor(sec/60)+':'+String(sec%60).padStart(2,'0'); }
     function fmtSc(sc,wInfo){
       sc=sc||{}; wInfo=wInfo||{};
-      var sf=(wInfo.scoreFinale||wInfo.scoreType||'').toLowerCase();
-      var jm=(wInfo.judgeMode||'').toLowerCase();
-      var isT=(wInfo.wodFormat||'').toLowerCase()==='fortime'||sf==='time';
+      var sf=String(wInfo.scoreFinale||wInfo.scoreType||'').toLowerCase();
+      var jm=String(wInfo.judgeMode||'').toLowerCase();
+      var isT=String(wInfo.wodFormat||'').toLowerCase()==='fortime'||sf==='time';
       if(jm==='maxload'||sf==='load') return ((parseFloat(sc.load)||0)+' kg');
       if(jm==='ergo'||sf==='dist'||sf==='cal') return ((parseFloat(sc.dist||sc.ergoVal||sc.distance)||0)+(sf==='cal'?' cal':(' '+(sc.ergoUnit||'m'))));
       if(isT&&parseInt(sc.finalTime||0,10)>0) return fmtTime(sc.finalTime);
@@ -17497,9 +17498,9 @@ async function renderClassementTK(){
     }
     function scoreVal(sc,wInfo){
       sc=sc||{}; wInfo=wInfo||{};
-      var sf=(wInfo.scoreFinale||wInfo.scoreType||'').toLowerCase();
-      var jm=(wInfo.judgeMode||'').toLowerCase();
-      var isT=(wInfo.wodFormat||'').toLowerCase()==='fortime'||sf==='time';
+      var sf=String(wInfo.scoreFinale||wInfo.scoreType||'').toLowerCase();
+      var jm=String(wInfo.judgeMode||'').toLowerCase();
+      var isT=String(wInfo.wodFormat||'').toLowerCase()==='fortime'||sf==='time';
       if(jm==='maxload'||sf==='load') return parseFloat(sc.load)||0;
       if(jm==='ergo'||sf==='dist'||sf==='cal') return parseFloat(sc.dist||sc.ergoVal||sc.distance)||0;
       if(isT) return parseInt(sc.finalTime||0,10)>0 ? -parseInt(sc.finalTime,10) : (parseInt(sc.reps||0,10)>0 ? -1000000+parseInt(sc.reps,10) : -2000000);
@@ -17507,7 +17508,7 @@ async function renderClassementTK(){
     }
     function hasRawScore(sc){
       sc=sc||{};
-      return parseInt(sc.reps||0,10)>0||parseInt(sc.finalTime||0,10)>0||parseFloat(sc.load||0)>0||parseFloat(sc.dist||sc.distance||0)>0;
+      sc=sc||{}; return parseInt(sc.reps||0,10)>0||parseInt(sc.finalTime||0,10)>0||parseFloat(sc.load||0)>0||parseFloat(sc.dist||sc.distance||0)>0;
     }
     function teamDisplayName(lane, ln){
       return (lane&& (lane.teamName||lane.nom||lane.name||lane.teamNom)) || ('Lane '+ln);
@@ -18340,9 +18341,9 @@ function renderClassementAdmin(heatsData, scoresData){
   // ★ Calculer score affiché selon le format
   function fmtSc(sc, wodInfo){
     sc=sc||{}; wodInfo=wodInfo||{};
-    var fmt=(wodInfo.wodFormat||wodInfo.format||'').toLowerCase();
-    var sf=(wodInfo.scoreFinale||wodInfo.scoreType||'').toLowerCase();
-    var jm=(wodInfo.judgeMode||'').toLowerCase();
+    var fmt=String(wodInfo.wodFormat||wodInfo.format||'').toLowerCase();
+    var sf=String(wodInfo.scoreFinale||wodInfo.scoreType||'').toLowerCase();
+    var jm=String(wodInfo.judgeMode||'').toLowerCase();
     if(jm==='maxload'||sf==='load') return (parseFloat(sc.load)||0)+' kg';
     if(jm==='ergo'||sf==='dist'||sf==='cal') return (parseFloat(sc.dist||sc.ergoVal||sc.distance)||0)+(sf==='cal'?' cal':(' '+(sc.ergoUnit||'m')));
     if(fmt==='fortime'||sf==='time'){
@@ -18356,9 +18357,9 @@ function renderClassementAdmin(heatsData, scoresData){
   // ★ Valeur numérique pour tri (fortime = négatif car plus petit = meilleur)
   function scoreVal(sc, wodInfo){
     sc=sc||{}; wodInfo=wodInfo||{};
-    var fmt=(wodInfo.wodFormat||wodInfo.format||'').toLowerCase();
-    var sf=(wodInfo.scoreFinale||wodInfo.scoreType||'').toLowerCase();
-    var jm=(wodInfo.judgeMode||'').toLowerCase();
+    var fmt=String(wodInfo.wodFormat||wodInfo.format||'').toLowerCase();
+    var sf=String(wodInfo.scoreFinale||wodInfo.scoreType||'').toLowerCase();
+    var jm=String(wodInfo.judgeMode||'').toLowerCase();
     if(jm==='maxload'||sf==='load') return parseFloat(sc.load)||0;
     if(jm==='ergo'||sf==='dist'||sf==='cal') return parseFloat(sc.dist||sc.ergoVal||sc.distance)||0;
     if(fmt==='fortime'||sf==='time') return parseInt(sc.finalTime||0,10)>0 ? -parseInt(sc.finalTime,10) : (parseInt(sc.reps||0,10)>0 ? -1000000+parseInt(sc.reps,10) : -2000000);
@@ -19397,8 +19398,8 @@ function openScoreEdit(teamNameEnc, catIdEnc){
         var wInfo=h.wodInfo||{};
         entries.push({hid:hid, ln:ln, wodNom:wodNom, wInfo:wInfo,
           fmt:(wInfo.wodFormat||wInfo.format||h.wodFormat||'amrap').toLowerCase(),
-          sf:(wInfo.scoreFinale||wInfo.scoreType||'').toLowerCase(),
-          jm:(wInfo.judgeMode||'').toLowerCase(),
+          sf:String(wInfo.scoreFinale||wInfo.scoreType||'').toLowerCase(),
+          jm:String(wInfo.judgeMode||'').toLowerCase(),
           ordre:h.wodOrdreZone||99, sc:sc, heatNum:hidNum, laneNum:parseInt(ln)||0,
           judgePrenom:(sc.judgePrenom||sc.judgeName||'')});
       });
@@ -22096,9 +22097,9 @@ async function renderClassementModal(){
     function fmtTime(sec){ sec=parseInt(sec||0,10)||0; return Math.floor(sec/60)+':'+String(sec%60).padStart(2,'0'); }
     function fmtSc(sc,wInfo){
       sc=sc||{}; wInfo=wInfo||{};
-      var sf=(wInfo.scoreFinale||wInfo.scoreType||'').toLowerCase();
-      var jm=(wInfo.judgeMode||'').toLowerCase();
-      var isT=(wInfo.wodFormat||'').toLowerCase()==='fortime'||sf==='time';
+      var sf=String(wInfo.scoreFinale||wInfo.scoreType||'').toLowerCase();
+      var jm=String(wInfo.judgeMode||'').toLowerCase();
+      var isT=String(wInfo.wodFormat||'').toLowerCase()==='fortime'||sf==='time';
       if(jm==='maxload'||sf==='load') return (parseFloat(sc.load)||0)+' kg';
       if(jm==='ergo'||sf==='dist'||sf==='cal') return (parseFloat(sc.dist||sc.ergoVal||sc.distance)||0)+(sf==='cal'?' cal':(' '+(sc.ergoUnit||'m')));
       if(isT&&parseInt(sc.finalTime||0,10)>0) return fmtTime(sc.finalTime);
@@ -22107,16 +22108,16 @@ async function renderClassementModal(){
     }
     function scoreVal(sc,wInfo){
       sc=sc||{}; wInfo=wInfo||{};
-      var sf=(wInfo.scoreFinale||wInfo.scoreType||'').toLowerCase();
-      var jm=(wInfo.judgeMode||'').toLowerCase();
-      var isT=(wInfo.wodFormat||'').toLowerCase()==='fortime'||sf==='time';
+      var sf=String(wInfo.scoreFinale||wInfo.scoreType||'').toLowerCase();
+      var jm=String(wInfo.judgeMode||'').toLowerCase();
+      var isT=String(wInfo.wodFormat||'').toLowerCase()==='fortime'||sf==='time';
       if(jm==='maxload'||sf==='load') return parseFloat(sc.load)||0;
       if(jm==='ergo'||sf==='dist'||sf==='cal') return parseFloat(sc.dist||sc.ergoVal||sc.distance)||0;
       if(isT) return parseInt(sc.finalTime||0,10)>0 ? -parseInt(sc.finalTime,10) : (parseInt(sc.reps||0,10)>0 ? -1000000+parseInt(sc.reps,10) : -2000000);
       return parseInt(sc.reps||0,10)||0;
     }
     function hasRawScore(sc){
-      return parseInt(sc.reps||0,10)>0||parseInt(sc.finalTime||0,10)>0||parseFloat(sc.load||0)>0||parseFloat(sc.dist||sc.distance||0)>0;
+      sc=sc||{}; return parseInt(sc.reps||0,10)>0||parseInt(sc.finalTime||0,10)>0||parseFloat(sc.load||0)>0||parseFloat(sc.dist||sc.distance||0)>0;
     }
 
     var cats={};

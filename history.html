@@ -106,9 +106,9 @@ function fmt(s){ if(!s||s<0)return '--:--'; var m=Math.floor(s/60),se=s%60; retu
 
 function getScoreDisplay(sc, wod) {
   if(!sc || !sc.judgeOk) return '—';
-  var t = (wod.wodFormat || wod.type || '').toLowerCase();
-  var sf = (wod.scoreFinale || wod.scoreType || '').toLowerCase();
-  var jm = (wod.judgeMode || '').toLowerCase();
+  var t = String(wod.wodFormat || wod.type || '').toLowerCase();
+  var sf = String(wod.scoreFinale || wod.scoreType || '').toLowerCase();
+  var jm = String(wod.judgeMode || '').toLowerCase();
   
   if(jm==='maxload'||sf==='load'||t==='maxload') return (sc.load||0)+' kg';
   if(sf==='dist') return (sc.dist||sc.distance||0)+' m';
@@ -118,8 +118,8 @@ function getScoreDisplay(sc, wod) {
 
 function getScoreValue(sc, wod) {
   if(!sc || !sc.judgeOk) return -1;
-  var t = (wod.wodFormat || wod.type || '').toLowerCase();
-  var sf = (wod.scoreFinale || wod.scoreType || '').toLowerCase();
+  var t = String(wod.wodFormat || wod.type || '').toLowerCase();
+  var sf = String(wod.scoreFinale || wod.scoreType || '').toLowerCase();
   
   if(t==='fortime'||sf==='time') return sc.finalTime > 0 ? -sc.finalTime : -999999;
   return parseInt(sc.reps) || parseFloat(sc.load) || parseFloat(sc.dist) || 0;
