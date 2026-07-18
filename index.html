@@ -11811,7 +11811,18 @@ function wodValidationStatus(w){
   if(!(w.zone)) missing.push('Zone non définie');
   if(!(w.duree>0)) missing.push('Durée = 0');
   if(!(w.interHeat>=0&&w.interHeat!=null)) missing.push('Inter-heat manquant');
-  if(!w.mouvements||!w.mouvements.length) missing.push('Aucun mouvement');
+  // ★ FIX TOURS PERSO : la validation reflète EXACTEMENT ce que la
+  //   publication utilisera (_wodEffMovs) : en mode tours personnalisés,
+  //   les mouvements aplatis des tours ; sinon la liste classique.
+  //   Avant : un WOD à tours perso rempli était déclaré « Aucun mouvement ».
+  var _effMoves;
+  if(w.toursMode==='custom' && Array.isArray(w.toursPerso) && w.toursPerso.length>0){
+    _effMoves=[];
+    w.toursPerso.forEach(function(tp){ (tp&&Array.isArray(tp.mouvements)?tp.mouvements:[]).forEach(function(m){ _effMoves.push(m); }); });
+  } else {
+    _effMoves=w.mouvements||[];
+  }
+  if(!_effMoves.length) missing.push('Aucun mouvement');
   return {ok: missing.length===0, missing: missing};
 }
 
