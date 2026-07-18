@@ -1921,8 +1921,13 @@ function renderRankCards(rows,w,st,showLiveChips,h,catId,catLeader){
     var _cr=parseInt(sc.moveReps)||0;
     var _ci=parseInt(sc.curMoveIdx)||0;
     var _cRound=parseInt(sc.currentRound)||1;
+    // ★ FIX TOURS PERSO : sur un WOD à tours personnalisés, le juge parcourt
+    //   une liste PLATE de mouvements — son currentRound reste à 1. Le vrai
+    //   tour est porté par le mouvement courant (.tour, posé à la publication).
+    //   Sans ça, la pastille affichait « Tour 1/5 » toute la course.
     var _movs=w.mouvements||[];
     var _curMov=_movs[_ci]||null;
+    if(_curMov && parseInt(_curMov.tour)>0){ _cRound=parseInt(_curMov.tour); }
     var _movName=_curMov?(_curMov.nom||''):''
 ;    var _q=_curMov?(adaptedQtyForMove(_curMov,catId)||parseInt(_curMov.qty)||0):0;
     var _tot=liveReps(sc);
