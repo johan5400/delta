@@ -858,7 +858,7 @@ function getZoneSyncStartTs(zone,hid){
 function getLiveChronoFrame(zone,hid,h,w){
   w=mergeLiveWodConfig(h,w);
   var sf=(w.scoreFinale||w.scoreType||'').toLowerCase();
-  var type=(w.wodFormat||w.type||'amrap').toLowerCase();
+  var type=String(w.wodFormat||w.type||'amrap').toLowerCase();
   var isFortime=type==='fortime'||sf==='time';
   var cap=wodCapSec(w);
   var ts=h.startTimestamp||(HEATS[hid]&&HEATS[hid].startTimestamp)||getZoneSyncStartTs(zone,hid)||0;
@@ -1262,7 +1262,7 @@ function startClock(z,hid,h,w){
     // Sur AMRAP (descendant), heat fini = temps écoulé → afficher 0:00 (cohérent avec la fin du chrono)
     // Sur fortime, afficher le temps écoulé jusqu'à la fin (= cap si timecap, ou temps réel sinon)
     var sf=(w.scoreFinale||w.scoreType||'').toLowerCase();
-    var typ=(w.wodFormat||w.type||'amrap').toLowerCase();
+    var typ=String(w.wodFormat||w.type||'amrap').toLowerCase();
     var isFortime=typ==='fortime'||sf==='time';
     var displayVal;
     if(isFortime){

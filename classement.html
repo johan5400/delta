@@ -513,7 +513,7 @@ function rankWod(catName,wodName,zone){
     var aOk=a.val!==null,bOk=b.val!==null;
     if(aOk&&!bOk)return -1;
     if(!aOk&&bOk)return 1;
-    if(!aOk&&!bOk)return a.teamName.localeCompare(b.teamName);
+    if(!aOk&&!bOk)return String(a.teamName||"").localeCompare(String(b.teamName||""));
     if(a.val!==b.val)return b.val-a.val;
     // ★ Multi-TB en cascade
     var aTbs=tbArrCl(a.sc),bTbs=tbArrCl(b.sc);
@@ -523,7 +523,7 @@ function rankWod(catName,wodName,zone){
       if(at>0&&bt===0) return -1;
       if(at===0&&bt>0) return 1;
     }
-    return a.teamName.localeCompare(b.teamName);
+    return String(a.teamName||"").localeCompare(String(b.teamName||""));
   });
   return entries;
 }
@@ -641,7 +641,7 @@ function totalRanking(catName,zone){
     if(aTB!==bTB)return aTB-bTB;
     // Plus haut score brut
     if(b.rawScore!==a.rawScore)return b.rawScore-a.rawScore;
-    return a.teamName.localeCompare(b.teamName);
+    return String(a.teamName||"").localeCompare(String(b.teamName||""));
   });
 
   // Marquer les égalités et afficher raison
@@ -751,7 +751,7 @@ function renderByTeam(catName){
   // Colonnes WOD
   wodNames.forEach(function(wname){
     var wod=wodMap[wname]||{};
-    var type=(wod.wodFormat||wod.type||'amrap').toUpperCase();
+    var type=String(wod.wodFormat||wod.type||'amrap').toUpperCase();
     var rule=type==='FORTIME'?'Finisher=temps · TC=reps':type==='MAXLOAD'?'Plus lourd = 1er':'Plus de reps = 1er';
     html+='<th style="background:#1a2e46;padding:10px 12px;border-bottom:2px solid rgba(255,255,255,.12);border-right:1px solid rgba(255,255,255,.06);text-align:center;min-width:160px;white-space:nowrap">'
       +'<span style="font-family:var(--ff);font-size:14px;letter-spacing:.5px;color:#fff;display:block">'+escH(wname)+'</span>'
@@ -802,7 +802,7 @@ function renderByTeam(catName){
       var sc=wd?wd.sc||{}:{};
       var wod=wd?wd.wod||{}:wodMap[wname]||{};
       var hasScore=wd&&sc&&sc.judgeOk;
-      var type=(wod.wodFormat||wod.type||'amrap').toLowerCase();
+      var type=String(wod.wodFormat||wod.type||'amrap').toLowerCase();
       var isFortime=type==='fortime'||wod.scoreFinale==='time';
       var isTC=isFortime&&hasScore&&!sc.finalTime&&sc.reps>0;
       var rank=wd?wd.rank:null;
@@ -977,7 +977,7 @@ function renderHeatBreakdown(catName,wodNames){
   Object.keys(byWod).forEach(function(wname){
     var group=byWod[wname];
     var wod=group.wod;
-    var type=(wod.wodFormat||wod.type||'amrap').toLowerCase();
+    var type=String(wod.wodFormat||wod.type||'amrap').toLowerCase();
     var isFortime=type==='fortime'||wod.scoreFinale==='time';
     var fmtLabel=type.toUpperCase();
 
@@ -1083,7 +1083,7 @@ function renderSingle(catName,wodName){
   var wodNames=Object.keys(wodsForCat(catName,SEL_ZONE));
   var teamMap={};
   teamsRanked.forEach(function(t){ teamMap[t.teamName]=t; });
-  var fmt2=(wod.wodFormat||wod.type||'amrap').toUpperCase();
+  var fmt2=String(wod.wodFormat||wod.type||'amrap').toUpperCase();
   var html='<div class="cat-head"><div><div class="cat-name">'+escH(catName)+' · '+escH(wodName)+'</div><div class="cat-sub">Classement WOD · '+ranked.length+' équipes · maj '+LAST_UPDATE+'</div></div><div class="winner"><div class="k">Format</div><div class="v" style="font-size:16px">'+escH(fmt2)+'</div></div></div><div class="rows">';
   ranked.forEach(function(r,i){
     var t2=teamMap[r.teamName]||null;
@@ -1160,9 +1160,9 @@ function renderFinalRanking(finalHeats){
     rows.sort(function(a,b){
       var aOk=a.val!==null,bOk=b.val!==null;
       if(aOk&&!bOk)return -1;if(!aOk&&bOk)return 1;
-      if(!aOk&&!bOk)return a.teamName.localeCompare(b.teamName);
+      if(!aOk&&!bOk)return String(a.teamName||"").localeCompare(String(b.teamName||""));
       if(a.val!==b.val)return b.val-a.val;
-      return a.teamName.localeCompare(b.teamName);
+      return String(a.teamName||"").localeCompare(String(b.teamName||""));
     });
     html+='<div style="margin-bottom:20px">'
       +'<div style="font-family:var(--ff);font-size:18px;letter-spacing:2px;color:var(--gold);margin-bottom:10px">Heat '+heatNum+'</div>'

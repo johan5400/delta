@@ -1088,8 +1088,8 @@ function normalizeFortimeScore(hid,ln,sc,h,lane,fallbackTs){
   return {sc:next,changed:changed};
 }
 function scoreObj(hid,ln){var h=HD[hid]||{}, n=(h.scores||{})[ln]||null, f=SC[hid+'_'+ln]||null; return mergeScoreRecord(n,f);}
-function scoreVal(sc,wod,hid){if(!sc)return null; var type=(wod.wodFormat||wod.type||'amrap').toLowerCase(); var sf=String(wod.scoreFinale||wod.scoreType||'').toLowerCase(), jm=String(wod.judgeMode||'').toLowerCase(); if(jm==='maxload'||sf==='load') return parseFloat(sc.load)||0; if(jm==='ergo'||sf==='dist'||sf==='cal') return parseFloat(sc.dist||sc.ergoVal||sc.distance)||0; if(type==='fortime'){var h=hid?(HD[hid]||{}):{}; var ft=inferFortimeFinalSeconds(h,sc,wod,serverNow()); if(ft>0&&sc.judgeOk)return -ft; return -(999999-(parseInt(sc.reps)||0));} return parseInt(sc.reps)||0;}
-function scoreLabel(sc,wod,hid){var type=(wod.wodFormat||wod.type||'amrap').toLowerCase(); var sf=String(wod.scoreFinale||wod.scoreType||'').toLowerCase(), jm=String(wod.judgeMode||'').toLowerCase(); if(jm==='maxload'||sf==='load') return (parseFloat(sc.load)||0)+' kg'; if(jm==='ergo'||sf==='dist'||sf==='cal') return (parseFloat(sc.dist||sc.ergoVal||sc.distance)||0)+(sf==='cal'?' cal':(' '+(sc.ergoUnit||'m'))); if(type==='fortime'){var h=hid?(HD[hid]||{}):{}; var ft=inferFortimeFinalSeconds(h,sc,wod,serverNow()); if(ft>0&&sc.judgeOk)return fmtS(ft);} return (parseInt(sc.reps)||0)+' reps';}
+function scoreVal(sc,wod,hid){if(!sc)return null; var type=String(wod.wodFormat||wod.type||'amrap').toLowerCase(); var sf=String(wod.scoreFinale||wod.scoreType||'').toLowerCase(), jm=String(wod.judgeMode||'').toLowerCase(); if(jm==='maxload'||sf==='load') return parseFloat(sc.load)||0; if(jm==='ergo'||sf==='dist'||sf==='cal') return parseFloat(sc.dist||sc.ergoVal||sc.distance)||0; if(type==='fortime'){var h=hid?(HD[hid]||{}):{}; var ft=inferFortimeFinalSeconds(h,sc,wod,serverNow()); if(ft>0&&sc.judgeOk)return -ft; return -(999999-(parseInt(sc.reps)||0));} return parseInt(sc.reps)||0;}
+function scoreLabel(sc,wod,hid){var type=String(wod.wodFormat||wod.type||'amrap').toLowerCase(); var sf=String(wod.scoreFinale||wod.scoreType||'').toLowerCase(), jm=String(wod.judgeMode||'').toLowerCase(); if(jm==='maxload'||sf==='load') return (parseFloat(sc.load)||0)+' kg'; if(jm==='ergo'||sf==='dist'||sf==='cal') return (parseFloat(sc.dist||sc.ergoVal||sc.distance)||0)+(sf==='cal'?' cal':(' '+(sc.ergoUnit||'m'))); if(type==='fortime'){var h=hid?(HD[hid]||{}):{}; var ft=inferFortimeFinalSeconds(h,sc,wod,serverNow()); if(ft>0&&sc.judgeOk)return fmtS(ft);} return (parseInt(sc.reps)||0)+' reps';}
 
 
 /* ── Alerte Tiebreak TK ── */
@@ -1724,7 +1724,7 @@ function autoValidateHeat(hid){
 }
 function heatLaneSummary(hid){
   var h=HD[hid]||{}, wod=h.wodInfo||{};
-  var fmt=(wod.wodFormat||wod.type||'amrap').toLowerCase();
+  var fmt=String(wod.wodFormat||wod.type||'amrap').toLowerCase();
   var out={total:0, judgeOk:0, terminal:0, submitted:0, isForTime:(fmt==='fortime'||wod.scoreFinale==='time')};
   var _hls2=h.lanes||h.slots||{};
   Object.keys(_hls2).forEach(function(ln){
@@ -1776,7 +1776,7 @@ function maybeAutoAdvanceZone(zone){
   // ★ FIX : formats auto-validables (AMRAP/ForTime/Rounds/EMOM) → IH immédiate au timecap
   // sans attendre les juges. Pour maxload/ergo on attend submitted (saisie manuelle requise).
   var wod=h.wodInfo||{};
-  var fmt=(wod.wodFormat||wod.type||'amrap').toLowerCase();
+  var fmt=String(wod.wodFormat||wod.type||'amrap').toLowerCase();
   var needsManualEntry=(fmt==='maxload'||fmt==='ergo');
 
   if(st==='live' && sum.isForTime){
@@ -2159,7 +2159,7 @@ function drawZone(zone){
     return;
   }
   var st=heatStatus(h), wod=h.wodInfo||{}, jc=judgeCount(hid);
-  g('z'+zone+'Cat').textContent=h.catName||'—'; g('z'+zone+'StatusSub').textContent=st.toUpperCase()+(REQUIRE_JUDGES_READY && jc.total ? ' · juges '+jc.on+'/'+jc.total : ''); g('z'+zone+'Judges').textContent=jc.on+' / '+jc.total;
+  g('z'+zone+'Cat').textContent=h.catName||'—'; g('z'+zone+'StatusSub').textContent=String(st||'').toUpperCase()+(REQUIRE_JUDGES_READY && jc.total ? ' · juges '+jc.on+'/'+jc.total : ''); g('z'+zone+'Judges').textContent=jc.on+' / '+jc.total;
   // ★ ALERTE SCORES MANQUANTS : quand le heat est terminé (timecap/done), vérifier
   //   que chaque ligne occupée a un score validé. Sinon, signaler lesquelles.
   (function(){
@@ -2202,8 +2202,8 @@ function drawZone(zone){
   g('z'+zone+'Heat').textContent='HEAT '+(h.catHeatNum||hid); g('z'+zone+'HeatCat').textContent=h.catName||'Sans catégorie';
   var _capSec=wodCapSec(wod);
   var _capStr=_capSec>0?(Math.floor(_capSec/60)+'min'+(_capSec%60>0?_capSec%60+'s':'')):'';
-  g('z'+zone+'HeatWod').textContent=[wod.nom||'—',(wod.wodFormat||wod.type||'').toUpperCase(),_capStr].filter(Boolean).join(' · ');
-  g('z'+zone+'State').textContent=st.toUpperCase(); g('z'+zone+'State').className='state '+statusClass(st);
+  g('z'+zone+'HeatWod').textContent=[wod.nom||'—',String(wod.wodFormat||wod.type||'').toUpperCase(),_capStr].filter(Boolean).join(' · ');
+  g('z'+zone+'State').textContent=String(st||'').toUpperCase(); g('z'+zone+'State').className='state '+statusClass(st);
   // Ne relancer updateZoneTimer que si : pas de timer actif OU le heat a changé OU le startTimestamp a changé
   // Bloquer pendant le morning countdown pour éviter que le chrono WOD tourne en arrière-plan
   var _prevTs = zoneState[zone]._timerTs||0;
@@ -2333,6 +2333,7 @@ function setStatus(hid,status,extra){
     if(HD[hid].catZone && !patch.catZone) patch.catZone = HD[hid].catZone;
     if(HD[hid].globalNum && !patch.globalNum) patch.globalNum = HD[hid].globalNum;
   }
+  if(!HD[hid]) HD[hid]={};   // ★ chaos : heat absent/corrompu → ne pas planter
   Object.keys(patch).forEach(function(k){ HD[hid][k]=patch[k]; });
   dbRef('heats/'+hid).update(patch);
   dbRef('statuses/'+hid).set(status);
@@ -3116,7 +3117,7 @@ function updateZoneTimer(zone,hid,h){
     }
     return;
   }
-  var type=(wod.wodFormat||wod.type||'amrap').toLowerCase();
+  var type=String(wod.wodFormat||wod.type||'amrap').toLowerCase();
   var isFortime=type==='fortime';
   var totalRounds=parseInt(wod.rounds||1)||1;
   var hasPause=!!wod.pauseEntreToursActive && totalRounds>1;
@@ -3369,7 +3370,7 @@ function deleteCurrentAdaptationMovement(zone){
 
 function renderHeatRank(zone,hid,h){
   var root=g('z'+zone+'HeatRank'), wod=h.wodInfo||{};
-  var fmt=(wod.wodFormat||wod.type||'amrap').toLowerCase();
+  var fmt=String(wod.wodFormat||wod.type||'amrap').toLowerCase();
   var isFortime=fmt==='fortime';
   var st=heatStatus(h), isLive=st==='live'&&h.startTimestamp;
   var rows=[];
@@ -3387,9 +3388,9 @@ function renderHeatRank(zone,hid,h){
   rows.sort(function(a,b){
     if(a.val===null&&b.val!==null)return 1;
     if(a.val!==null&&b.val===null)return -1;
-    if(a.val===null&&b.val===null)return a.team.localeCompare(b.team);
+    if(a.val===null&&b.val===null)return String(a.team||"").localeCompare(String(b.team||""));
     if(a.val!==b.val)return b.val-a.val;
-    return a.team.localeCompare(b.team);
+    return String(a.team||"").localeCompare(String(b.team||""));
   });
   if(!rows.length){root.innerHTML='<div class="empty">AUCUN HEAT</div>'; return;}
   var leaderReps=rows[0].reps;
@@ -3513,7 +3514,7 @@ function renderCatRank(zone,catName){
     });
   });
   var rows=Object.values(teamObjs).sort(function(a,b){
-    if(a.validated===0&&b.validated===0) return a.name.localeCompare(b.name,'fr',{sensitivity:'base'});
+    if(a.validated===0&&b.validated===0) return String(a.name||"").localeCompare(String(b.name||""),'fr',{sensitivity:'base'});
     if(a.validated===0) return 1;
     if(b.validated===0) return -1;
     if(a.points!==b.points) return b.points-a.points; // ★ PLUS de points = meilleur (CrossFit)
@@ -3521,7 +3522,7 @@ function renderCatRank(zone,catName){
     if(b.podiums.p2!==a.podiums.p2) return b.podiums.p2-a.podiums.p2;
     var aTB=a.bestTiebreak!==null?a.bestTiebreak:999999;
     var bTB=b.bestTiebreak!==null?b.bestTiebreak:999999;
-    return aTB-bTB||a.name.localeCompare(b.name,'fr',{sensitivity:'base'});
+    return aTB-bTB||String(a.name||"").localeCompare(String(b.name||""),'fr',{sensitivity:'base'});
   }).filter(function(t){ return t.validated>0; });
   if(!rows.length){root.innerHTML='<div class="empty">AUCUNE DONNEE</div>'; return;}
   root.innerHTML=rows.slice(0,8).map(function(r,i){
@@ -3531,7 +3532,7 @@ function renderCatRank(zone,catName){
 }
 function renderLanes(zone,hid,h){
   var root=g('z'+zone+'Lanes'), wod=h.wodInfo||{}, st=heatStatus(h);
-  var fmt=(wod.wodFormat||wod.type||'amrap').toLowerCase();
+  var fmt=String(wod.wodFormat||wod.type||'amrap').toLowerCase();
   var isFortime=fmt==='fortime';
   var isAmrap=fmt==='amrap'||fmt==='open';
   var isMaxload=fmt==='maxload'||wod.judgeMode==='maxload'||wod.scoreFinale==='load';
@@ -3772,7 +3773,7 @@ function renderLanes(zone,hid,h){
       if(at>0&&bt===0) return -1;
       if(at===0&&bt>0) return 1;
     }
-    return a.team.localeCompare(b.team);
+    return String(a.team||"").localeCompare(String(b.team||""));
   });
 
   // ── Leader ──

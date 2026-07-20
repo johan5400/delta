@@ -429,7 +429,7 @@ function rankWod(catName,wodName,zone){
     var aOk=a.val!==null,bOk=b.val!==null;
     if(aOk&&!bOk)return -1;
     if(!aOk&&bOk)return 1;
-    if(!aOk&&!bOk)return a.teamName.localeCompare(b.teamName);
+    if(!aOk&&!bOk)return String(a.teamName||"").localeCompare(String(b.teamName||""));
     if(a.val!==b.val)return b.val-a.val;
     // ★ Multi-TB en cascade
     var aTbs=tbArrCl(a.sc),bTbs=tbArrCl(b.sc);
@@ -439,7 +439,7 @@ function rankWod(catName,wodName,zone){
       if(at>0&&bt===0) return -1;
       if(at===0&&bt>0) return 1;
     }
-    return a.teamName.localeCompare(b.teamName);
+    return String(a.teamName||"").localeCompare(String(b.teamName||""));
   });
   return entries;
 }
@@ -557,7 +557,7 @@ function totalRanking(catName,zone){
     if(aTB!==bTB)return aTB-bTB;
     // Plus haut score brut
     if(b.rawScore!==a.rawScore)return b.rawScore-a.rawScore;
-    return a.teamName.localeCompare(b.teamName);
+    return String(a.teamName||"").localeCompare(String(b.teamName||""));
   });
 
   // Marquer les égalités et afficher raison
