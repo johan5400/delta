@@ -565,7 +565,7 @@ function _renderZoneInner(z){
     // ★ FIX CHRONO FOR TIME (même fix que TK et live) : découpage en tours
   //   minutés UNIQUEMENT si une pause est configurée — jamais pour un For Time.
   if(hasPause && totalRounds>1 && cap>0){
-      var workSec = Math.round(cap/totalRounds);
+      var workSec = Math.max(1,Math.round(cap/totalRounds));  // ★ anti division-par-zéro
       var cycleSec = hasPause ? workSec+pauseSec : workSec;
       var cycleElapsed = el % cycleSec;
       var curRound = Math.min(totalRounds, Math.floor(el/cycleSec)+1);
@@ -599,7 +599,7 @@ function _renderZoneInner(z){
   // Progress bar — en mode tours : progression dans la phase courante
   var progPct;
   if(st.status==='live' && hasPause && totalRounds>1 && cap>0){  // ★ idem
-    var _wSec=Math.round(cap/totalRounds);
+    var _wSec=Math.max(1,Math.round(cap/totalRounds));  // ★ anti division-par-zéro
     var _cSec=hasPause?_wSec+pauseSec:_wSec;
     var _phaseElapsed=el%_cSec;
     var _phaseDur=hasPause&&(_phaseElapsed>=_wSec)?pauseSec:_wSec;
