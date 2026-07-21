@@ -218,7 +218,7 @@ body{
 .cd-go-sub{font-family:var(--fc);font-size:13px;font-weight:800;letter-spacing:4px;color:rgba(255,255,255,.28);text-transform:uppercase}
 
 /* JUGE HEADER */
-#s-judge{overflow:hidden}
+#s-judge{overflow:hidden;position:relative}
 .j-hdr{background:linear-gradient(160deg,var(--s1),var(--s2));border-bottom:1px solid var(--brd);padding:10px 13px;flex-shrink:0;padding-top:calc(var(--sat) + 10px)}
 .j-hdr-r1{display:flex;align-items:center;gap:8px;margin-bottom:5px}
 .j-heat-lbl{font-family:var(--fc);font-size:10px;font-weight:800;letter-spacing:2px;color:var(--ember);text-transform:uppercase;flex-shrink:0}
@@ -594,6 +594,9 @@ body{
     <div class="j-hdr-r1">
       <span class="j-heat-lbl" id="j-heat">—</span>
       <span class="j-team" id="j-team">—</span>
+      <button onclick="toggleWodRecall()" id="j-wod-recall"
+        style="background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.22);color:rgba(255,255,255,.82);border-radius:8px;padding:6px 11px;font-size:11px;font-weight:800;cursor:pointer;flex-shrink:0;white-space:nowrap;font-family:var(--fc)"
+        title="Rappel du WOD (mouvements et tours)">📋 WOD</button>
       <span class="j-lane" id="j-lane">L—</span>
       <button onclick="markTeamAbsent()" id="btn-team-absent"
         style="background:rgba(245,138,0,.15);border:1px solid rgba(245,138,0,.4);color:#FF8A00;border-radius:8px;padding:6px 10px;font-size:10px;font-weight:800;cursor:pointer;flex-shrink:0;white-space:nowrap"
@@ -1712,6 +1715,63 @@ function fillBriefScreen(next){
     }
     return true;
   }catch(e){ return false; }
+}
+
+// ★ RAPPEL WOD PENDANT LE JUGEMENT : rouvre le briefing en superposition,
+//   sans interrompre le comptage. Le juge consulte tours/mouvements/note et
+//   reprend son +REP exactement où il en était. Répond au besoin « savoir
+//   où il en est » quand il a un doute en plein heat.
+var _wodRecallOn=false;
+function toggleWodRecall(){
+  var ov=document.getElementById('j-wod-recall-overlay');
+  if(_wodRecallOn){
+    if(ov) ov.style.display='none';
+    _wodRecallOn=false;
+    return;
+  }
+  if(!ov){
+    ov=document.createElement('div');
+    ov.id='j-wod-recall-overlay';
+    ov.style.cssText='position:fixed;inset:0;z-index:9998;background:rgba(6,10,18,.94);overflow-y:auto;padding:18px 16px 90px;backdrop-filter:blur(3px)';
+    document.body.appendChild(ov);
+  }
+  // contenu : nom + format + mouvements par tour + note, calqué sur le briefing
+  var sc=SC||{};
+  var moves=sc.moves||[];
+  var fmt=(sc.fmt||'').toUpperCase();
+  var rounds=parseInt(sc.rounds||1,10)||1;
+  var html='<div style="max-width:520px;margin:0 auto">'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">'
+    +'<div style="font-family:var(--fc);font-size:12px;font-weight:900;letter-spacing:2px;color:rgba(255,255,255,.5)">📋 RAPPEL DU WOD</div>'
+    +'<button onclick="toggleWodRecall()" style="background:var(--fire);color:#fff;border:none;border-radius:10px;padding:8px 16px;font-size:13px;font-weight:900;cursor:pointer">✕ FERMER</button>'
+    +'</div>'
+    +'<div style="font-size:22px;font-weight:900;color:#fff;margin-bottom:2px">'+escH(sc.wod||'WOD')+'</div>'
+    +'<div style="font-family:var(--fc);font-size:12px;font-weight:800;letter-spacing:1px;color:var(--fire);margin-bottom:16px">'+escH(fmt)+(rounds>1?' · '+rounds+' TOURS':'')+'</div>';
+  // grouper par tour si les mouvements portent .tour
+  var hasTours=moves.some(function(m){return parseInt(m&&m.tour)>0;});
+  function chip(m,idx){
+    var isDone=idx<moveIdx, isAct=idx===moveIdx;
+    var col=isDone?'rgba(52,211,153,.15)':isAct?'rgba(255,107,42,.18)':'rgba(255,255,255,.05)';
+    var bord=isDone?'#34D399':isAct?'var(--fire)':'rgba(255,255,255,.12)';
+    var mark=isDone?'✓ ':isAct?'▶ ':'';
+    var q=(m&&m.q>0)?' ×'+m.q:'';
+    var extra=(m&&m.poids?' · '+escH(m.poids):'')+(m&&m.temps?' · '+escH(m.temps):'');
+    return '<div style="background:'+col+';border:1px solid '+bord+';border-radius:10px;padding:9px 13px;margin-bottom:6px;font-size:15px;font-weight:800;color:#fff">'+mark+escH((m&&m.n)||'Mouv')+q+'<span style="color:rgba(255,255,255,.5);font-size:.85em">'+extra+'</span></div>';
+  }
+  if(hasTours){
+    var byTour={};
+    moves.forEach(function(m,idx){ var t=parseInt(m&&m.tour)||1; (byTour[t]=byTour[t]||[]).push({m:m,idx:idx}); });
+    Object.keys(byTour).map(Number).sort(function(a,b){return a-b;}).forEach(function(t){
+      html+='<div style="font-family:var(--fc);font-size:11px;font-weight:900;letter-spacing:1px;color:rgba(255,255,255,.4);margin:12px 0 6px">TOUR '+t+' / '+rounds+'</div>';
+      byTour[t].forEach(function(o){ html+=chip(o.m,o.idx); });
+    });
+  } else {
+    moves.forEach(function(m,idx){ html+=chip(m,idx); });
+  }
+  html+='</div>';
+  ov.innerHTML=html;
+  ov.style.display='block';
+  _wodRecallOn=true;
 }
 
 // Affiche le briefing plein écran + gère le compte à rebours jusqu'à -20s
