@@ -4286,7 +4286,7 @@ function renderMatZone(z, mat){
 
 function formatType(w){
   var m={amrap:'AMRAP',fortime:'FOR TIME',emom:'EMOM',rounds:'ROUNDS',open:'OPEN'}[w.wodFormat||w.type||'']||'WOD';
-  return m+(w.capMinutes?' · '+w.capMinutes+'min':'');
+  var _dm=(w.duree>0?Math.round(w.duree/60):(w.capMinutes||0)); return m+(_dm?' · '+_dm+'min':'');
 }
 
 function renderMatChecklist(mat){
@@ -7641,7 +7641,7 @@ function renderZonesSynoptic(){
         html += '<span style="font-family:var(--fc);font-size:10px;font-weight:700;color:var(--ink);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+escHtml(w.nom||'WOD')+'</span>';
         if(w.zone==='12') html += '<span style="font-family:var(--fc);font-size:7px;padding:1px 4px;border-radius:3px;background:rgba(176,110,255,.1);color:#C084FC;flex-shrink:0;">Z1+2</span>';
         html += '<span style="font-family:var(--fc);font-size:7px;font-weight:700;padding:1px 5px;border-radius:3px;background:rgba(77,166,255,.08);color:var(--blue);flex-shrink:0;">'+fmt2+'</span>';
-        if(w.capMinutes) html += '<span style="font-size:8px;color:var(--mid);flex-shrink:0;">TC '+w.capMinutes+'</span>';
+        var _tc7=(w.duree>0?Math.round(w.duree/60):(w.capMinutes||0)); if(_tc7) html += '<span style="font-size:8px;color:var(--mid);flex-shrink:0;">TC '+_tc7+'</span>';
         // Compte des categories actuellement inversees sur ce WOD
         var invCount = CATEGORIES.filter(function(c){
           return c.wodZoneOverride && c.wodZoneOverride[String(w.id)] != null;
@@ -8498,7 +8498,7 @@ function renderPlanningWod(){
     var zBg    = zNum==='1' ? 'var(--z1-bg)' : 'var(--z2-bg)';
     var zBrd   = zNum==='1' ? 'var(--z1-brd)' : 'var(--z2-brd)';
     var fmt    = (wod.wodFormat||'AMRAP').toUpperCase();
-    var cap    = wod.capMinutes ? wod.capMinutes+'min' : '';
+    var _cm85=(wod.duree>0?Math.round(wod.duree/60):(wod.capMinutes||0)); var cap = _cm85 ? _cm85+'min' : '';
 
     var html = '<div style="min-width:0;border:1.5px solid '+zBrd+';border-radius:12px;overflow:hidden;background:'+zBg+';">';
 
@@ -17945,6 +17945,12 @@ function saveWodEdit(){
   if(isNaN(idx)) return toast('Sélectionne un WOD','#FF3B5C');
   var w=WODS[idx];
   w.duree=parseInt(document.getElementById('wod-edit-cap').value)||15;
+  // ★ FIX DURÉE DÉSYNC : capMinutes et workMin sont des copies de la durée.
+  //   Si on ne les resynchronise pas ici, l'ordre de passage et les badges
+  //   continuent d'afficher l'ANCIENNE durée (ex : WOD passé de 3 à 9 min
+  //   qui restait affiché « 3min »). On les recalcule depuis la source (duree).
+  w.capMinutes=Math.round((w.duree||0)/60);
+  if(w.workMin!=null) w.workMin=Math.round((w.duree||0)/60);
   w.format=document.getElementById('wod-edit-format').value;
   // Mouvements
   var noms=document.querySelectorAll('[data-mov-nom]');
@@ -17964,7 +17970,7 @@ function saveWodEdit(){
     if((h.wodInfo.nom||'')=== wodName||(h.wodInfo.nom||'')=== w.nom){
       var wodInfo={
         nom:w.nom, wodFormat:w.format, type:w.format,
-        duree:(w.duree||15)*60, capSec:(w.duree||15)*60, capMinutes:w.duree,
+        duree:(w.duree||900), capSec:(w.duree||900), capMinutes:Math.round((w.duree||900)/60),  // ★ FIX UNITÉ : w.duree est déjà en SECONDES (pas *60), capMinutes recalculé
         mouvements:_wodEffMovs(w), scoreFinale:w.score,
         interHeat:w.interHeat||90, coupureApres:w.coupureApres||0
       };
@@ -22130,7 +22136,7 @@ async function renderClassementModal(){
       var wname=(h.wodInfo&&h.wodInfo.nom)||h.wodNom||'WOD';
       var wid=String(h.wodId||wname);
       var wfmt=(h.wodInfo&&h.wodInfo.wodFormat)||'amrap';
-      var wcap=(h.wodInfo&&(h.wodInfo.capMinutes||Math.round((h.wodInfo.duree||0)/60)))||0;
+      var wcap=(h.wodInfo&&(h.wodInfo.duree>0?Math.round(h.wodInfo.duree/60):(h.wodInfo.capMinutes||0)))||0;  // ★ duree prioritaire
       if(!cats[cid].wods[wid]) cats[cid].wods[wid]={id:wid,nom:wname,info:h.wodInfo||{},ordre:h.wodOrdreZone||99,fmt:wfmt,cap:wcap};
       if(cats[cid].wodOrder.indexOf(wid)===-1) cats[cid].wodOrder.push(wid);
       cats[cid].totalHeats++;
