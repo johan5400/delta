@@ -4286,7 +4286,7 @@ function renderMatZone(z, mat){
 
 function formatType(w){
   var m={amrap:'AMRAP',fortime:'FOR TIME',emom:'EMOM',rounds:'ROUNDS',open:'OPEN'}[w.wodFormat||w.type||'']||'WOD';
-  var _dm=(w.duree>0?Math.round(w.duree/60):(w.capMinutes||0)); return m+(_dm?' · '+_dm+'min':'');
+  var _ds=(w.duree>0?w.duree:((w.capMinutes||0)*60)); var _dm=(_ds>0?(Math.floor(_ds/60)+'min'+(_ds%60?(_ds%60)+'s':'')):''); return m+(_dm?' · '+_dm:'');
 }
 
 function renderMatChecklist(mat){
@@ -7641,7 +7641,7 @@ function renderZonesSynoptic(){
         html += '<span style="font-family:var(--fc);font-size:10px;font-weight:700;color:var(--ink);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+escHtml(w.nom||'WOD')+'</span>';
         if(w.zone==='12') html += '<span style="font-family:var(--fc);font-size:7px;padding:1px 4px;border-radius:3px;background:rgba(176,110,255,.1);color:#C084FC;flex-shrink:0;">Z1+2</span>';
         html += '<span style="font-family:var(--fc);font-size:7px;font-weight:700;padding:1px 5px;border-radius:3px;background:rgba(77,166,255,.08);color:var(--blue);flex-shrink:0;">'+fmt2+'</span>';
-        var _tc7=(w.duree>0?Math.round(w.duree/60):(w.capMinutes||0)); if(_tc7) html += '<span style="font-size:8px;color:var(--mid);flex-shrink:0;">TC '+_tc7+'</span>';
+        var _tc7s=(w.duree>0?w.duree:((w.capMinutes||0)*60)); var _tc7=(_tc7s>0?(Math.floor(_tc7s/60)+'min'+(_tc7s%60?(_tc7s%60)+'s':'')):''); if(_tc7) html += '<span style="font-size:8px;color:var(--mid);flex-shrink:0;">TC '+_tc7+'</span>';
         // Compte des categories actuellement inversees sur ce WOD
         var invCount = CATEGORIES.filter(function(c){
           return c.wodZoneOverride && c.wodZoneOverride[String(w.id)] != null;
@@ -8498,7 +8498,7 @@ function renderPlanningWod(){
     var zBg    = zNum==='1' ? 'var(--z1-bg)' : 'var(--z2-bg)';
     var zBrd   = zNum==='1' ? 'var(--z1-brd)' : 'var(--z2-brd)';
     var fmt    = (wod.wodFormat||'AMRAP').toUpperCase();
-    var _cm85=(wod.duree>0?Math.round(wod.duree/60):(wod.capMinutes||0)); var cap = _cm85 ? _cm85+'min' : '';
+    var _cm85s=(wod.duree>0?wod.duree:((wod.capMinutes||0)*60)); var cap=(_cm85s>0?(Math.floor(_cm85s/60)+'min'+(_cm85s%60?(_cm85s%60)+'s':'')):'');
 
     var html = '<div style="min-width:0;border:1.5px solid '+zBrd+';border-radius:12px;overflow:hidden;background:'+zBg+';">';
 
@@ -22141,7 +22141,7 @@ async function renderClassementModal(){
       var wname=(h.wodInfo&&h.wodInfo.nom)||h.wodNom||'WOD';
       var wid=String(h.wodId||wname);
       var wfmt=(h.wodInfo&&h.wodInfo.wodFormat)||'amrap';
-      var wcap=(h.wodInfo&&(h.wodInfo.duree>0?Math.round(h.wodInfo.duree/60):(h.wodInfo.capMinutes||0)))||0;  // ★ duree prioritaire
+      var wcap=(h.wodInfo&&(h.wodInfo.duree>0?h.wodInfo.duree:((h.wodInfo.capMinutes||0)*60)))||0;  // ★ secondes (formatage mm:ss à l'affichage)
       if(!cats[cid].wods[wid]) cats[cid].wods[wid]={id:wid,nom:wname,info:h.wodInfo||{},ordre:h.wodOrdreZone||99,fmt:wfmt,cap:wcap};
       if(cats[cid].wodOrder.indexOf(wid)===-1) cats[cid].wodOrder.push(wid);
       cats[cid].totalHeats++;
@@ -22272,7 +22272,7 @@ async function renderClassementModal(){
       html+='<th style="padding:10px 12px;text-align:center;font-weight:900;color:var(--ink);min-width:70px">Total</th>';
       wodIds.forEach(function(wid){
         var w=cat.wods[wid];
-        var capLabel=w.cap?(w.cap+'min'):'';
+        var capLabel=w.cap?(Math.floor(w.cap/60)+'min'+(w.cap%60?(w.cap%60)+'s':'')):'';  // ★ mm:ss exact
         html+='<th style="padding:10px 10px;text-align:center;min-width:120px">'
           +'<div style="font-size:11px;font-weight:900;color:var(--ink)">'+escHtml(w.nom)+'</div>'
           +'<div style="font-size:9px;color:var(--ink3)">'+(w.fmt?w.fmt.toUpperCase().substring(0,3):'')+( capLabel?' · '+capLabel:'')+'</div>'
