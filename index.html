@@ -13740,7 +13740,12 @@ function renderSynGrid(){
       var sec = wodSections[wid];
       var wod = wods.find(function(w){ return String(w.id)===wid; })||{};
       var fmt = (wod.wodFormat||wod.type||'AMRAP').toUpperCase();
-      var dur = wod.duree ? (Math.ceil((wod.duree||0)/60)+'min') : '';
+      var dur = (function(){                 // ★ FIX ARRONDI : afficher la vraie durée (mm:ss),
+      var _s=parseInt(wod.duree||0,10)||0; //   pas Math.ceil qui transformait 2min30s en « 3MIN »
+      if(!_s) return '';
+      var _m=Math.floor(_s/60), _ss=_s%60;
+      return _ss>0 ? _m+'min'+_ss+'s' : _m+'min';
+    })();
       var allHors = sec.heats.map(function(h){ return h.horaires&&h.horaires[wid]?h.horaires[wid]:null; }).filter(Boolean);
       var tStart = allHors.length ? Math.min.apply(null,allHors.map(function(h){return h.debut;})) : null;
       var tEnd   = allHors.length ? Math.max.apply(null,allHors.map(function(h){return h.fin;})) : null;
