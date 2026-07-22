@@ -732,6 +732,25 @@ body{
   </div>
 </div>
 
+
+  <!-- Zone ERGO CUMULÉ (valeur libre par tour, additionnée) -->
+  <div id="j-ergocum-zone" style="display:none;flex-direction:column;flex:1">
+    <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:14px;gap:10px;overflow-y:auto">
+      <div style="font-family:var(--fc);font-size:11px;font-weight:700;color:var(--mid);letter-spacing:1px" id="ec-mvname">MOUVEMENT</div>
+      <div style="font-family:var(--fc);font-size:10px;color:var(--ink2);text-align:center">Saisis la valeur de ce tour, puis AJOUTER. Le total s'additionne.</div>
+      <div style="font-family:var(--fm);font-size:46px;font-weight:900;color:#9F6BFF;line-height:1" id="ec-total">0</div>
+      <div style="font-family:var(--fc);font-size:11px;font-weight:700;color:var(--mid);letter-spacing:1px" id="ec-unit">TOTAL</div>
+      <div style="display:flex;gap:8px;align-items:center;width:100%;max-width:300px;margin-top:4px">
+        <input id="ec-inp" type="number" min="0" inputmode="numeric" placeholder="ce tour"
+          onkeydown="if(event.key==='Enter') ecAdd()"
+          style="flex:1;padding:14px;border-radius:10px;border:1px solid rgba(159,107,255,.35);background:rgba(159,107,255,.07);color:var(--ink);font-family:var(--fm);font-size:24px;font-weight:700;outline:none;text-align:center">
+        <button onclick="ecAdd()" style="padding:14px 16px;border-radius:10px;border:none;background:#7C3AED;color:#fff;font-family:var(--fc);font-size:14px;font-weight:900;cursor:pointer;white-space:nowrap">➕ AJOUTER</button>
+      </div>
+      <button onclick="ecUndo()" style="background:none;border:none;color:var(--ink2);font-size:11px;text-decoration:underline;cursor:pointer;margin-top:2px">↩ annuler le dernier</button>
+      <div id="ec-history" style="display:flex;flex-wrap:wrap;gap:5px;justify-content:center;width:100%;max-width:320px;margin-top:6px"></div>
+      <button onclick="ecNextMove()" id="ec-next" style="margin-top:12px;padding:14px 20px;border-radius:12px;border:none;background:linear-gradient(90deg,#00A876,#00C98D);color:#fff;font-family:var(--fc);font-size:15px;font-weight:900;cursor:pointer;width:100%;max-width:300px">✓ SKIERG FINI → MOUVEMENT SUIVANT</button>
+    </div>
+  </div>
 <!-- DONE -->
 <div class="scr" id="s-done">
   <!-- ★ FIX : annonce prochain heat en HAUT, grande et visible -->
@@ -2590,9 +2609,12 @@ function startJudge(){
   var isEmom=(fmt==='emom'||fmt==='interval');
   var isML=(fmt==='maxload'), isErgo=(fmt==='ergo');
 
+  // ★ ergo cumulé : si un mouvement du WOD est ergo-libre, on prépare la zone dédiée
+  var _hasEcFree=!!(SC.moves&&SC.moves.some(function(mm){return mm&&mm.type==='ergo'&&mm.ergoFree;}));
   $('j-reps-zone').style.display=(isReps||isEmom)?'flex':'none';
   $('j-maxload-zone').style.display=isML?'flex':'none';
-  $('j-ergo-zone').style.display=isErgo?'flex':'none';
+  $('j-ergo-zone').style.display=(isErgo&&!_hasEcFree)?'flex':'none';
+  var _ecz=$('j-ergocum-zone'); if(_ecz) _ecz.style.display='none';  // masqué par défaut, activé par tour dans updateDisplay
   $('j-moves').style.display=(isReps||isEmom)?'flex':'none';
   $('j-emom-bar').style.display=isEmom?'flex':'none';
 
@@ -2604,6 +2626,7 @@ function startJudge(){
     $('j-emom-history').style.display='none'; $('j-emom-reset').style.display='none';
   }
 
+  if(_hasEcFree){ _ecValues=[]; var _m0=(SC.moves||[]).filter(function(mm){return mm&&mm.type==='ergo'&&mm.ergoFree;})[0]||{}; _ecUnit=_m0.ergoUnit||'cal'; ecRefresh(); }
   if(isML){ $('ml-attempts').innerHTML=''; $('ml-best').textContent='—'; $('ml-inp').value=''; }
   if(isErgo){
     var m0=SC.moves[0]||{};
@@ -2720,6 +2743,56 @@ function renderAttempts(){
 }
 
 /* ── Ergo ── */
+// ★ ERGO CUMULÉ : saisie d'une valeur libre par tour, additionnée. Score = total.
+//   Utilisé pour un mouvement type "max cal skierg" / "max mètres bike" dans un EMOM.
+var _ecValues=[];   // toutes les valeurs saisies (une par tour)
+var _ecUnit='';
+function _curMoveIsEcFree(){ var m=SC&&SC.moves&&SC.moves[moveIdx]; return !!(m && m.type==='ergo' && m.ergoFree); }
+function ecRefresh(){
+  var tot=_ecValues.reduce(function(a,b){return a+(parseFloat(b)||0);},0);
+  var tEl=$('ec-total'); if(tEl) tEl.textContent=String(tot);
+  var uEl=$('ec-unit'); if(uEl) uEl.textContent='TOTAL'+(_ecUnit?(' ('+_ecUnit+')'):'');
+  var mEl=$('ec-mvname'); var m=SC&&SC.moves&&SC.moves[moveIdx];
+  if(mEl) mEl.textContent=(m&&m.n?m.n:'MOUVEMENT')+(_ecUnit?(' · '+_ecUnit):'');
+  var h=$('ec-history');
+  if(h){ h.innerHTML=_ecValues.map(function(v,i){
+    return '<span style="background:rgba(159,107,255,.14);border:1px solid rgba(159,107,255,.3);border-radius:6px;padding:3px 8px;font-family:var(--fm);font-size:12px;font-weight:700;color:#9F6BFF">T'+(i+1)+' : '+v+'</span>';
+  }).join(''); }
+  // synchroniser le total dans les variables de score standard
+  totalReps=tot;
+  var jt=$('j-total'); if(jt) jt.textContent=tot>0?('TOTAL : '+tot+(_ecUnit?(' '+_ecUnit):'')):'';
+}
+function ecAdd(){
+  if(!guardScoreEdit('Attends le départ ou la reprise du heat')) return;
+  var raw=$('ec-inp').value;
+  var v=parseFloat(String(raw).replace(',','.'));
+  if(!isFinite(v)||v<0){ $('ec-inp').focus(); toast('Saisis une valeur'); return; }
+  _ecValues.push(v);
+  $('ec-inp').value='';
+  $('ec-inp').focus();
+  vib([30]);
+  ecRefresh();
+  _persistEc();
+}
+function ecUndo(){
+  if(!_ecValues.length){ toast('Rien à annuler'); return; }
+  _ecValues.pop();
+  vib([20,20,20]);
+  ecRefresh();
+  _persistEc();
+}
+function _persistEc(){
+  // pousser le total courant comme score partiel (comme un +REP) pour que le live suive
+  try{ if(typeof _pushLiveScore==='function') _pushLiveScore(); }catch(e){}
+}
+
+function ecNextMove(){
+  // le juge a fini de saisir le skierg de ce tour, passe au mouvement suivant (snatch)
+  if(typeof nextMove==='function'){ nextMove(); }
+  else { moveIdx++; moveReps=0; if(typeof updateDisplay==='function') updateDisplay(); }
+  vib([40,30,40]);
+}
+
 function validateErgo(){
   if(!guardScoreEdit('Attends le départ ou la reprise du heat')) return;
   var val=parseFloat($('ergo-inp').value);
@@ -2731,6 +2804,15 @@ function validateErgo(){
 function updateDisplay(){
   if(!SC) return;
   var m=SC.moves[moveIdx], isAmrap=(SC.fmt==='amrap');
+  // ★ ergo cumulé : si le mouvement courant est ergo-libre, afficher la zone dédiée
+  //   (saisie valeur/tour) et masquer la zone reps ; sinon l'inverse.
+  var _ecz=$('j-ergocum-zone');
+  if(_ecz){
+    var _isEc=_curMoveIsEcFree();
+    _ecz.style.display=_isEc?'flex':'none';
+    var _rz=$('j-reps-zone'); if(_rz && (SC.fmt==='fortime'||SC.fmt==='amrap'||SC.fmt==='emom'||SC.fmt==='interval')) _rz.style.display=_isEc?'none':'flex';
+    if(_isEc){ ecRefresh(); var _ei=$('ec-inp'); if(_ei) setTimeout(function(){try{_ei.focus();}catch(e){}},50); return; }
+  }
   // Afficher les reps du mouvement en cours — pas le total
   $('j-num').textContent=moveReps;
 
@@ -3053,7 +3135,13 @@ function validate(ergoVal){
     var payload={reps:0,finalTime:0,load:0,dist:0,noReps:noReps};
   payload.attempts=mlAttempts.map(function(a){return {kg:a.kg,ok:!!a.ok};});
     var fmt2=(SC.fmt||'').toLowerCase();
-    if(fmt2==='maxload'){
+    // ★ ERGO CUMULÉ : si le WOD a un mouvement ergo-libre, le score = total cumulé
+    var _ecFreeWod=!!(SC.moves&&SC.moves.some(function(mm){return mm&&mm.type==='ergo'&&mm.ergoFree;}));
+    if(_ecFreeWod){
+      var _ecTot=(_ecValues||[]).reduce(function(a,b){return a+(parseFloat(b)||0);},0);
+      payload.dist=_ecTot; payload.ergoVal=_ecTot; payload.reps=_ecTot;
+      payload.ecValues=(_ecValues||[]).slice();
+    } else if(fmt2==='maxload'){
       var best2=0; mlAttempts.forEach(function(a){if(a.ok&&a.kg>best2)best2=a.kg;});
       payload.load=best2;
     } else if(fmt2==='ergo'){
@@ -5431,6 +5519,28 @@ async function judgePurgeLocal(){
 }
 
 /* ── Init — Mode réel uniquement ── */
+// ★ PROTECTION FENÊTRE JUGE : éviter de perdre l'écran de jugement par accident
+//   (swipe retour, message système, fermeture d'onglet). Si un heat est en cours,
+//   on avertit avant de quitter et on bloque le retour arrière tant qu'on juge.
+function _judgeIsActive(){
+  var sj=document.getElementById('s-judge');
+  return !!(sj && (sj.classList.contains('on') || _currentScreen==='s-judge'));
+}
+(function _installJudgeGuards(){
+  // avertissement avant fermeture/rechargement
+  window.addEventListener('beforeunload', function(e){
+    if(_judgeIsActive()){ e.preventDefault(); e.returnValue=''; return ''; }
+  });
+  // blocage permanent du retour arrière pendant le jugement
+  try{ history.pushState(null,'',location.href); }catch(e){}
+  window.addEventListener('popstate', function(){
+    if(_judgeIsActive()){
+      try{ history.pushState(null,'',location.href); }catch(e){}
+      if(typeof toast==='function') toast('⚠️ Jugement en cours — reste sur cette page');
+    }
+  });
+})();
+
 function init(){
   var urlType=parseURL();
   if(urlType){

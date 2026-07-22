@@ -6963,7 +6963,7 @@ function syncWodsToFirebase(){
       mouvements: (_wodEffMovs(w)).map(function(m){
         return {
           nom: m.nom||'', qty: parseInt(m.qty||0,10)||0,
-          type: m.type||'reps', ergoTarget: m.ergoTarget||0,
+          type: m.type||'reps', ergoTarget: m.ergoTarget||0, ergoFree:!!m.ergoFree,
           ergoUnit: m.ergoUnit||'m',
           poids: m.poids||{},
           qtyParCat: m.qtyParCat||{},
@@ -11701,6 +11701,18 @@ function renderMouvements(w) {
         + '</div>'
       )
     + '</div>'
+
+    // ★ VALEUR LIBRE CUMULÉE (ergo type max skierg/bike) : le juge saisit une valeur
+    //   ouverte à chaque tour, additionnée sur tous les tours. Score = total.
+    + (isErgo
+        ? '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;padding:7px 10px;background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.25);border-radius:8px">'
+          + '<input type="checkbox" id="mvfree'+w.id+'_'+i+'" '+(m.ergoFree?'checked':'')+' '
+          + 'onchange="updateMouvement('+w.id+','+i+',\'ergoFree\',this.checked); event.stopPropagation()" '
+          + 'onclick="event.stopPropagation()" style="width:18px;height:18px;accent-color:#7C3AED;cursor:pointer">'
+          + '<label for="mvfree'+w.id+'_'+i+'" onclick="event.stopPropagation()" style="font-size:11px;color:#7C3AED;font-weight:800;cursor:pointer">'
+          + '📊 Valeur libre cumulée <span style="font-weight:400;color:#64748B">(le juge saisit à chaque tour, additionné · ex : max cal skierg, max mètres)</span></label>'
+          + '</div>'
+        : '')
 
     // ── Ligne 3 : Qui travaille + Comment + Note ──
     + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">'
@@ -17119,7 +17131,7 @@ async function generateAndPublishAll(){
       mouvements:(w.mouvements||w.movements||[]).map(function(m){
         return {
           nom:m.nom||m.name||'—', qty:parseInt(m.qty||m.reps||0,10)||0,
-          type:m.type||'reps', ergoTarget:m.ergoTarget||0,
+          type:m.type||'reps', ergoTarget:m.ergoTarget||0, ergoFree:!!m.ergoFree,
           ergoUnit:m.ergoUnit||m.unit||'m',
           poids:m.poids||{}, qtyParCat:m.qtyParCat||{},
           timeParCat:m.timeParCat||{}, distParCat:m.distParCat||{},
