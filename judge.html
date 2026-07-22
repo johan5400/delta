@@ -748,7 +748,7 @@ body{
       </div>
       <button onclick="ecUndo()" style="background:none;border:none;color:var(--ink2);font-size:11px;text-decoration:underline;cursor:pointer;margin-top:2px">↩ annuler le dernier</button>
       <div id="ec-history" style="display:flex;flex-wrap:wrap;gap:5px;justify-content:center;width:100%;max-width:320px;margin-top:6px"></div>
-      <button onclick="ecNextMove()" id="ec-next" style="margin-top:12px;padding:14px 20px;border-radius:12px;border:none;background:linear-gradient(90deg,#00A876,#00C98D);color:#fff;font-family:var(--fc);font-size:15px;font-weight:900;cursor:pointer;width:100%;max-width:300px">✓ SKIERG FINI → MOUVEMENT SUIVANT</button>
+      <button onclick="ecGotoNextInRound()" id="ec-next" style="margin-top:12px;padding:14px 20px;border-radius:12px;border:none;background:linear-gradient(90deg,#00A876,#00C98D);color:#fff;font-family:var(--fc);font-size:14px;font-weight:900;cursor:pointer;width:100%;max-width:300px">✓ SKIERG OK → SNATCH</button>
     </div>
   </div>
 <!-- DONE -->
@@ -2793,6 +2793,23 @@ function ecNextMove(){
   vib([40,30,40]);
 }
 
+function ecGotoNextInRound(){
+  // Passer du skierg (mvt ergo-libre) au mouvement suivant DANS la même minute EMOM.
+  // On avance moveIdx SANS déclencher la fin du WOD ni le changement de round
+  // (le chrono EMOM gère les minutes tout seul).
+  if(moveIdx < (SC.moves.length-1)){
+    moveIdx++; moveReps=0;
+    var m=SC.moves[moveIdx];
+    if(m && typeof toast==='function') toast('▶ '+(m.n||'Mouvement suivant'));
+    try{ vib([50,30,50]); }catch(e){}
+    if(typeof updateDisplay==='function') updateDisplay();
+    if(typeof updateEmomDisplay==='function') updateEmomDisplay();
+    if(db && typeof pushScoreLive==='function') pushScoreLive();
+  } else {
+    if(typeof toast==='function') toast('Dernier mouvement — attends la minute suivante');
+  }
+}
+
 function validateErgo(){
   if(!guardScoreEdit('Attends le départ ou la reprise du heat')) return;
   var val=parseFloat($('ergo-inp').value);
@@ -2804,14 +2821,26 @@ function validateErgo(){
 function updateDisplay(){
   if(!SC) return;
   var m=SC.moves[moveIdx], isAmrap=(SC.fmt==='amrap');
-  // ★ ergo cumulé : si le mouvement courant est ergo-libre, afficher la zone dédiée
-  //   (saisie valeur/tour) et masquer la zone reps ; sinon l'inverse.
+  // ★ ergo cumulé (valeur libre) : si le WOD a un mouvement ergo-libre, on affiche
+  //   la zone de saisie cumulée À LA PLACE du compteur +REP, MAIS sans couper le WOD :
+  //   le chrono et l'avancement des tours (EMOM/AMRAP) continuent normalement.
+  // ★ ergo cumulé : affichage PAR MOUVEMENT (l'un après l'autre dans la minute).
+  //   - mouvement courant = ergo-libre (skierg) → zone de saisie cals
+  //   - mouvement courant = reps (snatch)       → compteur +REP normal
+  //   Le chrono EMOM gère les minutes et remet moveIdx=0 (retour au skierg) tout seul.
   var _ecz=$('j-ergocum-zone');
+  var _curIsEc=_curMoveIsEcFree();
+  var _wodHasEc=!!(SC.moves&&SC.moves.some(function(mm){return mm&&mm.type==='ergo'&&mm.ergoFree;}));
   if(_ecz){
-    var _isEc=_curMoveIsEcFree();
-    _ecz.style.display=_isEc?'flex':'none';
-    var _rz=$('j-reps-zone'); if(_rz && (SC.fmt==='fortime'||SC.fmt==='amrap'||SC.fmt==='emom'||SC.fmt==='interval')) _rz.style.display=_isEc?'none':'flex';
-    if(_isEc){ ecRefresh(); var _ei=$('ec-inp'); if(_ei) setTimeout(function(){try{_ei.focus();}catch(e){}},50); return; }
+    _ecz.style.display=_curIsEc?'flex':'none';
+    var _rz0=$('j-reps-zone');
+    if(_curIsEc){
+      if(_rz0) _rz0.style.display='none';           // skierg → cacher +REP, montrer cals
+      ecRefresh();
+      var _ei=$('ec-inp'); if(_ei) setTimeout(function(){try{_ei.focus();}catch(e){}},50);
+    } else if(_wodHasEc){
+      if(_rz0) _rz0.style.display='flex';            // snatch → remontrer +REP pour compter les reps
+    }
   }
   // Afficher les reps du mouvement en cours — pas le total
   $('j-num').textContent=moveReps;
