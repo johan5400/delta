@@ -730,7 +730,11 @@ function scoreStr(sc,w){
   var isT=(w.wodFormat||'').toLowerCase()==='fortime'||sf==='time';
   if(jm==='maxload'||sf==='load') return (sc.load||0)+' kg';
   if(jm==='ergo'||sf==='dist'||sf==='cal') return (parseFloat(sc.dist||sc.ergoVal||sc.distance)||0)+(sf==='cal'?' cal':(' '+(sc.ergoUnit||'m')));
-  if(isT) return sc.finalTime>0?fmt(sc.finalTime):'CAP';
+  if(isT){                                     // ★ CAP + reps : le public voit le travail accompli
+    if(sc.finalTime>0) return fmt(sc.finalTime);
+    var _r=parseInt(sc.reps||0,10)||0;
+    return _r>0 ? 'CAP · '+_r+' reps' : 'CAP';
+  }
   return (sc.reps||0)+' reps';
 }
 function scoreVal(sc,w){
