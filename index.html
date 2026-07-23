@@ -17967,7 +17967,14 @@ function saveWodEdit(){
   //   continuent d'afficher l'ANCIENNE durée (ex : WOD passé de 3 à 9 min
   //   qui restait affiché « 3min »). On les recalcule depuis la source (duree).
   w.capMinutes=Math.round((w.duree||0)/60);
-  if(w.workMin!=null) w.workMin=Math.round((w.duree||0)/60);
+  // ★ FIX EMOM : NE PAS écraser workMin ! Pour un EMOM/interval, workMin est la DURÉE
+  //   D'UN TOUR (ex : 1min), PAS la durée totale. L'écraser transformait un EMOM 7min
+  //   (7 tours d'1min) en 1 seul tour de 7min → le décompte par tour ne s'affichait plus.
+  //   On ne resynchronise workMin que si le WOD n'est PAS un EMOM/interval.
+  var _fmtEdit=(w.format||w.wodFormat||'').toLowerCase();
+  if(w.workMin!=null && _fmtEdit!=='emom' && _fmtEdit!=='interval'){
+    w.workMin=Math.round((w.duree||0)/60);
+  }
   w.format=document.getElementById('wod-edit-format').value;
   // Mouvements
   var noms=document.querySelectorAll('[data-mov-nom]');
