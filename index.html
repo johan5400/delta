@@ -6397,6 +6397,27 @@ if(typeof fbBuildWodInfo !== 'function'){
       else if(workMin>0) capMinutes = Math.round(workMin/60);
       else capMinutes = 8;
     }
+    // ★ FIX EMOM + TOURS PERSO (Solution B) : quand un EMOM utilise des tours perso,
+    //   la durée d'un tour et le nombre de tours ne sont pas calculés → l'EMOM ne se
+    //   découpe pas. On les dérive ici automatiquement :
+    //   - durée d'un tour = champ Travail (workMin) ou 60s par défaut
+    //   - nombre de tours = nombre de tours perso (ou durée totale / durée d'un tour)
+    var _isEmom = String(wod.wodFormat||'').toLowerCase()==='emom' || String(wod.wodFormat||'').toLowerCase()==='interval';
+    var _emomWorkSec = parseInt(wod.workMin,10)||0;
+    var _emomRestSec = parseInt(wod.restMin,10)||0;
+    var _nbToursPerso = (_tcustom && Array.isArray(wod.toursPerso)) ? wod.toursPerso.length : 0;
+    var _emomRounds = 0;
+    if(_isEmom){
+      if(_emomWorkSec<=0) _emomWorkSec = 60;  // défaut : tours d'1 minute
+      if(_nbToursPerso>0){
+        _emomRounds = _nbToursPerso;           // 1 tour perso = 1 tour EMOM
+      } else {
+        var _totSec = parseInt(wod.duree,10)||0;
+        if(_totSec<=0){ var _cm=parseInt(wod.capMinutes,10)||0; _totSec=_cm*60; }
+        _emomRounds = _totSec>0 ? Math.max(1, Math.round(_totSec/(_emomWorkSec+_emomRestSec||_emomWorkSec))) : 1;
+      }
+    }
+
     return {
       id: wod.id||'',
       zone: String(wod.zone||'1'),
@@ -6439,8 +6460,8 @@ if(typeof fbBuildWodInfo !== 'function'){
       tiebreakDesc: wod.tiebreakDesc||'',
       tiebreakReps: (wod.tiebreakReps!=null)?parseInt(wod.tiebreakReps):null,
       tbCfg: wod.tbCfg||{},  // ★ Nouveau format multi-TB par catégorie
-      rounds: _tcustom ? 1 : (wod.rounds||1),
-      toursCount: _tcustom ? wod.toursPerso.length : (parseInt(wod.rounds||1,10)||1),
+      rounds: (_isEmom && _emomRounds>0) ? _emomRounds : (_tcustom ? wod.toursPerso.length : (wod.rounds||1)),  // ★ EMOM tours perso : vrai nb de tours
+      toursCount: (_isEmom && _emomRounds>0) ? _emomRounds : (_tcustom ? wod.toursPerso.length : (parseInt(wod.rounds||1,10)||1)),
       toursMode: wod.toursMode||'identical',
       pauseEntreToursActive: !!wod.pauseEntreToursActive,
       pauseEntreToursSec: parseInt(wod.pauseEntreToursSec||0)||0,
@@ -6448,8 +6469,12 @@ if(typeof fbBuildWodInfo !== 'function'){
       scoreFinaleUnit: wod.scoreFinaleUnit||'',
       ergoTarget: wod.ergoTarget||0,
       ergoType: wod.ergoType||'dist',
-      workMin: wod.workMin||0,
-      restMin: wod.restMin||0,
+      workMin: _isEmom ? _emomWorkSec : (wod.workMin||0),   // ★ durée d'un tour (EMOM)
+      restMin: _isEmom ? _emomRestSec : (wod.restMin||0),   // ★ repos entre tours (EMOM)
+      emomWork: _isEmom ? _emomWorkSec : 0,
+      emomRest: _isEmom ? _emomRestSec : 0,
+      emomRounds: _isEmom ? _emomRounds : 0,
+
       interHeat: parseInt(wod.interHeat||0,10)||0,
       coupureApres: parseInt(wod.coupureApres||0,10)||0,
       ordreZone: wod.ordreZone!=null ? parseInt(wod.ordreZone,10)||1 : 1
