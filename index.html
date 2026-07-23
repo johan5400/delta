@@ -6414,7 +6414,7 @@ if(typeof fbBuildWodInfo !== 'function'){
       scoreType: wod.scoreType||'reps',
       scoreFields: wod.scoreFields||['reps'],
       scorecardRows: wod.scorecardRows||'',
-      judgeMode: wod.judgeMode||(wod.scoreType==='load'?'maxload':movs.length?'movements':'reps'),
+      judgeMode: (wod.scoreType==='load'?'maxload':(wod.scoreType==='dist'||wod.scoreType==='cal')?'ergo':(wod.judgeMode||(movs.length?'movements':'reps'))),  // ★ FIX CHARGE/LIVE : dériver de scoreType
       mouvements: movs.map(function(m){
         return {
           nom:m.nom||m.name||'—',
@@ -6444,7 +6444,7 @@ if(typeof fbBuildWodInfo !== 'function'){
       toursMode: wod.toursMode||'identical',
       pauseEntreToursActive: !!wod.pauseEntreToursActive,
       pauseEntreToursSec: parseInt(wod.pauseEntreToursSec||0)||0,
-      scoreFinale: wod.scoreFinale||(wod.scoreType==='load'?'load':wod.scoreType==='dist'?'dist':wod.scoreType==='time'?'time':wod.scoreFinale||''),
+      scoreFinale: (wod.scoreType==='load'?'load':wod.scoreType==='dist'?'dist':wod.scoreType==='cal'?'cal':wod.scoreType==='time'?'time':(wod.scoreFinale||'reps')),  // ★ FIX CHARGE/LIVE : scoreType prioritaire
       scoreFinaleUnit: wod.scoreFinaleUnit||'',
       ergoTarget: wod.ergoTarget||0,
       ergoType: wod.ergoType||'dist',
@@ -6963,7 +6963,7 @@ function syncWodsToFirebase(){
       mouvements: (_wodEffMovs(w)).map(function(m){
         return {
           nom: m.nom||'', qty: parseInt(m.qty||0,10)||0,
-          type: m.type||'reps', ergoTarget: m.ergoTarget||0, ergoFree:!!m.ergoFree,
+          type: m.type||'reps', ergoTarget: m.ergoTarget||0, ergoFree:!!m.ergoFree, teamSum:!!m.teamSum, teamCount:parseInt(m.teamCount||2)||2,
           ergoUnit: m.ergoUnit||'m',
           poids: m.poids||{},
           qtyParCat: m.qtyParCat||{},
@@ -11711,6 +11711,28 @@ function renderMouvements(w) {
           + 'onclick="event.stopPropagation()" style="width:18px;height:18px;accent-color:#7C3AED;cursor:pointer">'
           + '<label for="mvfree'+w.id+'_'+i+'" onclick="event.stopPropagation()" style="font-size:11px;color:#7C3AED;font-weight:800;cursor:pointer">'
           + '📊 Valeur libre cumulée <span style="font-weight:400;color:#64748B">(le juge saisit à chaque tour, additionné · ex : max cal skierg, max mètres)</span></label>'
+          + '</div>'
+        : '')
+
+    // ★ SOMME PAR ÉQUIPIER (ladder charge : chaque équipier tape sa barre, on additionne)
+    //   Défini ici dans l'admin ; le juge suit (N champs = N équipiers, total = score).
+    + (!isErgo
+        ? '<div style="margin-bottom:8px;padding:7px 10px;background:rgba(6,182,212,.06);border:1px solid rgba(6,182,212,.25);border-radius:8px">'
+          + '<div style="display:flex;align-items:center;gap:8px">'
+          + '<input type="checkbox" id="mvteam'+w.id+'_'+i+'" '+(m.teamSum?'checked':'')+' '
+          + 'onchange="updateMouvement('+w.id+','+i+',\'teamSum\',this.checked); event.stopPropagation()" '
+          + 'onclick="event.stopPropagation()" style="width:18px;height:18px;accent-color:#0891B2;cursor:pointer">'
+          + '<label for="mvteam'+w.id+'_'+i+'" onclick="event.stopPropagation()" style="font-size:11px;color:#0E7490;font-weight:800;cursor:pointer">'
+          + '👥 Somme par équipier <span style="font-weight:400;color:#64748B">(chaque équipier saisit sa barre, additionné)</span></label>'
+          + '</div>'
+          + (m.teamSum
+              ? '<div style="display:flex;align-items:center;gap:6px;margin-top:6px">'
+                + '<label style="font-size:10px;color:#0E7490;font-weight:700">Nombre d\'équipiers :</label>'
+                + '<input type="number" min="2" max="6" value="'+(m.teamCount||2)+'" '
+                + 'onchange="updateMouvement('+w.id+','+i+',\'teamCount\',parseInt(this.value)||2); event.stopPropagation()" '
+                + 'onclick="event.stopPropagation()" style="width:60px;padding:4px 8px;border:1px solid rgba(6,182,212,.35);border-radius:6px;text-align:center;font-weight:800;color:#0891B2">'
+                + '</div>'
+              : '')
           + '</div>'
         : '')
 
@@ -17131,7 +17153,7 @@ async function generateAndPublishAll(){
       mouvements:(w.mouvements||w.movements||[]).map(function(m){
         return {
           nom:m.nom||m.name||'—', qty:parseInt(m.qty||m.reps||0,10)||0,
-          type:m.type||'reps', ergoTarget:m.ergoTarget||0, ergoFree:!!m.ergoFree,
+          type:m.type||'reps', ergoTarget:m.ergoTarget||0, ergoFree:!!m.ergoFree, teamSum:!!m.teamSum, teamCount:parseInt(m.teamCount||2)||2,
           ergoUnit:m.ergoUnit||m.unit||'m',
           poids:m.poids||{}, qtyParCat:m.qtyParCat||{},
           timeParCat:m.timeParCat||{}, distParCat:m.distParCat||{},
