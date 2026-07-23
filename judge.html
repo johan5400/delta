@@ -733,7 +733,18 @@ body{
 </div>
 
 
-  <!-- Zone ERGO CUMULÉ (valeur libre par tour, additionnée) -->
+  
+  <!-- Zone ÉQUIPIERS (somme des barres, ladder charge N athlètes) -->
+  <div id="j-team-zone" style="display:none;flex-direction:column;flex:1;overflow-y:auto">
+    <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:14px;gap:10px">
+      <div style="font-family:var(--fc);font-size:11px;font-weight:700;color:var(--mid);letter-spacing:1px" id="tm-mvname">CHARGE PAR ÉQUIPIER</div>
+      <div style="font-family:var(--fc);font-size:10px;color:var(--ink2);text-align:center">Saisis la barre de chaque équipier. Le total s'additionne.</div>
+      <div style="font-family:var(--fm);font-size:44px;font-weight:900;color:#0891B2;line-height:1" id="tm-total">0</div>
+      <div style="font-family:var(--fc);font-size:11px;font-weight:700;color:var(--mid);letter-spacing:1px">TOTAL (kg)</div>
+      <div id="tm-fields" style="display:flex;flex-direction:column;gap:8px;width:100%;max-width:300px;margin-top:6px"></div>
+    </div>
+  </div>
+<!-- Zone ERGO CUMULÉ (valeur libre par tour, additionnée) -->
   <div id="j-ergocum-zone" style="display:none;flex-direction:column;flex:1">
     <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:14px;gap:10px;overflow-y:auto">
       <div style="font-family:var(--fc);font-size:11px;font-weight:700;color:var(--mid);letter-spacing:1px" id="ec-mvname">MOUVEMENT</div>
@@ -2830,6 +2841,38 @@ function ecGotoNextInRound(){
   }
 }
 
+// ★ SOMME PAR ÉQUIPIER (ladder charge) : N champs, un par équipier, additionnés.
+var _tmValues=[];  // barre de chaque équipier
+var _tmCount=2;
+function _curMoveIsTeamSum(){ var m=SC&&SC.moves&&SC.moves[moveIdx]; return !!(m && m.teamSum); }
+function tmBuildFields(){
+  var m=SC&&SC.moves&&SC.moves[moveIdx]; if(!m) return;
+  _tmCount=parseInt(m.teamCount||2)||2;
+  if(_tmValues.length!==_tmCount){ var old=_tmValues.slice(); _tmValues=[]; for(var k=0;k<_tmCount;k++) _tmValues[k]=old[k]||0; }
+  var box=$('tm-fields'); if(!box) return;
+  var html='';
+  for(var k=0;k<_tmCount;k++){
+    html+='<div style="display:flex;align-items:center;gap:8px">'
+      +'<span style="font-family:var(--fc);font-size:12px;font-weight:800;color:#0E7490;min-width:78px">Équipier '+(k+1)+'</span>'
+      +'<input type="number" min="0" inputmode="numeric" value="'+(_tmValues[k]||'')+'" placeholder="kg" '
+      +'oninput="tmSet('+k+',this.value)" '
+      +'style="flex:1;padding:12px;border-radius:10px;border:1px solid rgba(6,182,212,.35);background:rgba(6,182,212,.06);color:var(--ink);font-family:var(--fm);font-size:20px;font-weight:700;outline:none;text-align:center">'
+      +'<span style="font-family:var(--fc);font-size:13px;font-weight:700;color:var(--mid)">kg</span>'
+      +'</div>';
+  }
+  box.innerHTML=html;
+  tmRefresh();
+}
+function tmSet(k,val){ _tmValues[k]=parseFloat(String(val).replace(',','.'))||0; tmRefresh(); _persistTeam(); }
+function tmRefresh(){
+  var tot=_tmValues.reduce(function(a,b){return a+(parseFloat(b)||0);},0);
+  var tEl=$('tm-total'); if(tEl) tEl.textContent=String(tot);
+  totalReps=tot;
+  var m=SC&&SC.moves&&SC.moves[moveIdx];
+  var nm=$('tm-mvname'); if(nm && m) nm.textContent=(m.n||'CHARGE')+' · '+_tmCount+' équipiers';
+}
+function _persistTeam(){ try{ if(typeof pushScoreLive==='function') pushScoreLive(); }catch(e){} }
+
 function validateErgo(){
   if(!guardScoreEdit('Attends le départ ou la reprise du heat')) return;
   var val=parseFloat($('ergo-inp').value);
@@ -2848,6 +2891,17 @@ function updateDisplay(){
   //   - mouvement courant = ergo-libre (skierg) → zone de saisie cals
   //   - mouvement courant = reps (snatch)       → compteur +REP normal
   //   Le chrono EMOM gère les minutes et remet moveIdx=0 (retour au skierg) tout seul.
+  // ★ zone équipiers (somme des barres)
+  var _tmz=$('j-team-zone');
+  var _curIsTeam=(typeof _curMoveIsTeamSum==='function' && _curMoveIsTeamSum());
+  if(_tmz){
+    _tmz.style.display=_curIsTeam?'flex':'none';
+    if(_curIsTeam){
+      var _rzt=$('j-reps-zone'); if(_rzt) _rzt.style.display='none';
+      var _mlt=$('j-maxload-zone'); if(_mlt) _mlt.style.display='none';
+      if(typeof tmBuildFields==='function') tmBuildFields();
+    }
+  }
   var _ecz=$('j-ergocum-zone');
   var _curIsEc=_curMoveIsEcFree();
   var _wodHasEc=!!(SC.moves&&SC.moves.some(function(mm){return mm&&mm.type==='ergo'&&mm.ergoFree;}));
@@ -3200,6 +3254,11 @@ function validate(ergoVal){
   payload.attempts=mlAttempts.map(function(a){return {kg:a.kg,ok:!!a.ok};});
     var fmt2=(SC.fmt||'').toLowerCase();
     // ★ ERGO CUMULÉ : si le WOD a un mouvement ergo-libre, le score = total cumulé
+    var _teamWod=!!(SC.moves&&SC.moves.some(function(mm){return mm&&mm.teamSum;}));
+    if(_teamWod){
+      var _tmTot=(_tmValues||[]).reduce(function(a,b){return a+(parseFloat(b)||0);},0);
+      payload.load=_tmTot; payload.reps=_tmTot; payload.teamValues=(_tmValues||[]).slice();
+    }
     var _ecFreeWod=!!(SC.moves&&SC.moves.some(function(mm){return mm&&mm.type==='ergo'&&mm.ergoFree;}));
     if(_ecFreeWod){
       var _ecTot=(_ecValues||[]).reduce(function(a,b){return a+(parseFloat(b)||0);},0);
