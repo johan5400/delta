@@ -3120,6 +3120,21 @@ function getJudgeFortimeFinalSeconds(){
 
 /* ── Validate ── */
 function validate(ergoVal){
+  // ★ PROTECTION ERGO CUMULÉ EN EMOM : ne pas terminer le WOD si le juge est en train
+  //   de saisir une valeur libre sur un mouvement ergo-cumulé pendant un EMOM en cours.
+  //   La saisie doit passer par ecAdd() (cumul), pas par validate() (fin de WOD).
+  var _fmt=String((SC&&SC.fmt)||'').toLowerCase();
+  var _emomActif=(_fmt==='emom'||_fmt==='interval');
+  var _surErgoLibre=(typeof _curMoveIsEcFree==='function' && _curMoveIsEcFree());
+  var _heatEnCours=(HEAT_STATUS==='live'||HEAT_STATUS==='timecap');
+  if(_emomActif && _surErgoLibre && _heatEnCours){
+    // rediriger vers l'ajout cumulé au lieu de terminer
+    if(typeof ecAdd==='function' && ergoVal!=null){
+      var _inp=$('ec-inp'); if(_inp){ _inp.value=ergoVal; ecAdd(); }
+    }
+    toast('➕ Valeur ajoutée — le WOD continue', '#9F6BFF');
+    return;
+  }
   // ★ FIX (remarque du chef) : UNE seule validation par heat. Les pressions
   //   suivantes sont ignorées — le score validé ne peut plus être réécrit
   //   depuis l'appli juge (correction = rôle du TK).
@@ -3296,6 +3311,26 @@ function updateEmomPhase(e){
   var restCd=$('rest-cd-val'); if(restCd&&!emomIsWork) restCd.textContent=fmtT(phaseRem);
 }
 function updateEmomDisplay(){
+  // ★ ERGO CUMULÉ EN EMOM : si le mouvement courant est ergo-libre (max cal skierg /
+  //   max mètres), afficher la zone de saisie cumulée À LA PLACE du compteur +REP.
+  //   Sans ça, le juge voyait le compteur normal et sa saisie terminait le WOD.
+  var _ecz=$('j-ergocum-zone');
+  if(_ecz){
+    var _isEc=(typeof _curMoveIsEcFree==='function' && _curMoveIsEcFree());
+    _ecz.style.display=_isEc?'flex':'none';
+    var _cnt=$('j-counter'); var _bt=$('j-btns')||document.querySelector('.j-btns');
+    if(_isEc){
+      if(_cnt) _cnt.style.display='none';
+      if(_bt) _bt.style.display='none';
+      var _rz=$('j-reps-zone'); if(_rz) _rz.style.display='none';
+      if(typeof ecRefresh==='function') ecRefresh();
+      // laisser tourner le reste pour le chrono/round, mais ne pas ré-afficher le compteur
+    } else {
+      // mouvement normal (snatch) : remontrer le compteur EMOM
+      if(_cnt && _cnt.style.display==='none') _cnt.style.display='flex';
+      if(_bt && _bt.style.display==='none') _bt.style.display='flex';
+    }
+  }
   var fl=(SC.fmt||'').toLowerCase(), work=SC.emomWork||60, rest=SC.emomRest||0;
   var cycle=work+rest, totalRounds=Math.round(SC.cap/cycle);
   var pe=$('emom-phase'),re=$('emom-round'),ce=$('emom-cd');
@@ -3312,8 +3347,9 @@ function updateEmomDisplay(){
   var isResting = !emomIsWork && rest>0;
   if(restScreen){
     restScreen.classList.toggle('show', isResting);
-    if(counter) counter.style.display = isResting?'none':'flex';
-    if(btns)    btns.style.display    = isResting?'none':'flex';
+    var _ecActive=(typeof _curMoveIsEcFree==='function' && _curMoveIsEcFree());
+    if(counter) counter.style.display = (isResting||_ecActive)?'none':'flex';
+    if(btns)    btns.style.display    = (isResting||_ecActive)?'none':'flex';
     if(isResting){
       // Historique dans l'écran repos
       var rh=$('rest-hist');
