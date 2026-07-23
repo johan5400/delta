@@ -2396,7 +2396,8 @@ function launchHeat(zone,hid){
     tkLog('LIVE','Heat '+hid+' Z'+zone+' en LIVE','ok');
     zoneState[zone].ihRem=null;
     // Forcer le démarrage du timer live directement
-    if(!HD[hid]) HD[hid]={};
+    if(typeof HD!=='object'||HD===null){ HD={}; }   // ★ chaos : HD lui-même corrompu
+    if(!HD[hid]||typeof HD[hid]!=='object') HD[hid]={};
     HD[hid].startTimestamp=ts;
     HD[hid].status='live';
     var hh=HD[hid];
@@ -3395,7 +3396,21 @@ function renderHeatRank(zone,hid,h){
   if(!rows.length){root.innerHTML='<div class="empty">AUCUN HEAT</div>'; return;}
   var leaderReps=rows[0].reps;
   root.innerHTML=rows.map(function(r,i){
-    var lbl=r.ok?scoreLabel(r.sc,wod,hid):r.reps+' reps';
+    var lbl=(function(){
+      // ★ FIX SYNCHRO CALS TK/LIVE : pour un WOD ergo (cal/mètres/distance), afficher
+      //   la valeur ergo EN DIRECT (pas seulement à la validation). Avant, tant que
+      //   r.ok était faux (heat en cours), le TK affichait 'r.reps reps' = 0, alors
+      //   que le live montrait déjà les cals depuis sc.dist. D'où live=9cal, TK=0.
+      var _jm=String((wod&&(wod.judgeMode))||'').toLowerCase();
+      var _sf=String((wod&&(wod.scoreFinale||wod.scoreType))||'').toLowerCase();
+      var _isErgo=(_jm==='ergo'||_sf==='dist'||_sf==='cal');
+      if(r.ok) return scoreLabel(r.sc,wod,hid);
+      if(_isErgo){
+        var _v=parseFloat(r.sc&&(r.sc.dist||r.sc.ergoVal||r.sc.distance))||0;
+        return _v+(_sf==='cal'?' cal':(' '+((r.sc&&r.sc.ergoUnit)||'m')));
+      }
+      return r.reps+' reps';
+    })();
     var gapHtml='';
     if(i>0&&isLive&&leaderReps>0){
       var diff=leaderReps-r.reps;

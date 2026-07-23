@@ -893,7 +893,27 @@ function releaseWakeLock(){
 
 // Reacquérir dès que la page redevient visible
 document.addEventListener('visibilitychange', function(){
-  if(document.visibilityState==='visible') acquireWakeLock();
+  if(document.visibilityState==='visible'){
+    acquireWakeLock();
+    // ★ RETOUR D'ARRIÈRE-PLAN (ex : le juge a ouvert un SMS puis est revenu).
+    //   Forcer la re-vérification du heat en cours pour retomber sur l'écran de
+    //   jugement avec les valeurs restaurées, au lieu de rester sur un écran perdu.
+    try{
+      if(typeof FB_HEAT_ID!=='undefined' && FB_HEAT_ID && typeof db!=='undefined' && db){
+        if(typeof _currentScreen!=='undefined' && _currentScreen!=='s-judge'){
+          db.ref('heats/'+FB_HEAT_ID).once('value').then(function(snap){
+            var heat=snap.val()||{};
+            var st=heat.status||'';
+            if((st==='live'||st==='timecap'||!!heat.startTimestamp)){
+              if(typeof _judgeRestoreThenStart==='function'){
+                _judgeRestoreThenStart(heat.startTimestamp||0);
+              }
+            }
+          }).catch(function(){});
+        }
+      }
+    }catch(e){}
+  }
 });
 
 // Renouvellement toutes les 25s (certains navigateurs libèrent après 30s)
@@ -2782,8 +2802,8 @@ function ecUndo(){
   _persistEc();
 }
 function _persistEc(){
-  // pousser le total courant comme score partiel (comme un +REP) pour que le live suive
-  try{ if(typeof _pushLiveScore==='function') _pushLiveScore(); }catch(e){}
+  // pousser le total courant vers Firebase (live + TK) à chaque ajout/retrait
+  try{ if(typeof pushScoreLive==='function') pushScoreLive(); }catch(e){}
 }
 
 function ecNextMove(){
@@ -3783,6 +3803,19 @@ function _judgeRestoreFromScore(sc, runTs){
   var validated=(sc.judgeOk===true)||fTime>0;
   if(!validated && reps<=0 && !(parseInt(sc.noReps||0,10)>0)) return false;
   totalReps=Math.max(0,reps);  // ★ blindage fuzzing : jamais de reps négatifs restaurés
+  // ★ REPRISE ERGO CUMULÉ : si le juge a perdu sa page, restaurer les valeurs saisies.
+  //   On reconstruit _ecValues depuis le total sauvé (dist/ergoVal) pour ne rien perdre.
+  try{
+    if(SC && SC.moves && SC.moves.some(function(mm){return mm&&mm.type==='ergo'&&mm.ergoFree;})){
+      var _savedEc = parseFloat(sc.dist||sc.ergoVal||0)||0;
+      if(sc.ecValues && sc.ecValues.length){ _ecValues = sc.ecValues.slice(); }
+      else if(_savedEc>0){ _ecValues = [_savedEc]; }   // au pire, un bloc avec le total
+      else { _ecValues = []; }
+      var _m0=(SC.moves||[]).filter(function(mm){return mm&&mm.type==='ergo'&&mm.ergoFree;})[0]||{};
+      _ecUnit=_m0.ergoUnit||'cal';
+      if(typeof ecRefresh==='function') ecRefresh();
+    }
+  }catch(e){}
   noReps=Math.max(0,parseInt(sc.noReps||0,10)||0);  // ★ idem
   var maxIdx=(SC&&Array.isArray(SC.moves)&&SC.moves.length)?SC.moves.length-1:0;
   moveIdx=Math.max(0,Math.min(parseInt(sc.curMoveIdx||0,10)||0,maxIdx));
@@ -4369,6 +4402,12 @@ function pushScoreLive(){
     laneNum:parseInt(FB_LANE)||0,
     teamName:(SC&&SC.team)||'',
     reps:totalReps, noReps:noReps,
+    // ★ SYNCHRO TK/LIVE ergo cumulé : pousser aussi dist/ergoVal en direct pour que
+    //   le TK affiche les cals/mètres comme le live (avant : seul reps était poussé,
+    //   le TK cherchait dist/ergoVal → 0 → désync).
+    dist:(function(){ if(SC&&SC.moves&&SC.moves.some(function(mm){return mm&&mm.type==='ergo'&&mm.ergoFree;})){ return (_ecValues||[]).reduce(function(a,b){return a+(parseFloat(b)||0);},0); } return 0; })(),
+    ergoVal:(function(){ if(SC&&SC.moves&&SC.moves.some(function(mm){return mm&&mm.type==='ergo'&&mm.ergoFree;})){ return (_ecValues||[]).reduce(function(a,b){return a+(parseFloat(b)||0);},0); } return 0; })(),
+    ecValues:(function(){ if(SC&&SC.moves&&SC.moves.some(function(mm){return mm&&mm.type==='ergo'&&mm.ergoFree;})){ return (_ecValues||[]).slice(); } return null; })(),
     load:(function(){var b=0;mlAttempts.forEach(function(a){if(a.ok&&a.kg>b)b=a.kg;});return b;})(),
     attempts:mlAttempts.map(function(a){return {kg:a.kg,ok:!!a.ok};}),
     curMoveIdx:moveIdx, moveReps:moveReps, currentRound:currentRound,
@@ -5556,18 +5595,26 @@ function _judgeIsActive(){
   return !!(sj && (sj.classList.contains('on') || _currentScreen==='s-judge'));
 }
 (function _installJudgeGuards(){
-  // avertissement avant fermeture/rechargement
+  // ── 1. Avertir avant fermeture/rechargement de l'onglet ──
   window.addEventListener('beforeunload', function(e){
     if(_judgeIsActive()){ e.preventDefault(); e.returnValue=''; return ''; }
   });
-  // blocage permanent du retour arrière pendant le jugement
-  try{ history.pushState(null,'',location.href); }catch(e){}
+  // ── 2. Bloquer le retour arrière (swipe/back) avec PLUSIEURS états empilés ──
+  //   Un seul pushState ne suffit pas : le swipe mobile consomme l'état d'un coup.
+  //   On empile 3 états, et on réarme à chaque popstate ET en continu.
+  function _armHistory(n){ try{ for(var i=0;i<(n||1);i++) history.pushState({j:1},'',location.href); }catch(e){} }
+  _armHistory(3);
   window.addEventListener('popstate', function(){
     if(_judgeIsActive()){
-      try{ history.pushState(null,'',location.href); }catch(e){}
-      if(typeof toast==='function') toast('⚠️ Jugement en cours — reste sur cette page');
+      _armHistory(2);   // réempiler tout de suite
+      if(typeof toast==='function') toast('⚠️ Jugement en cours — reste sur la page');
+      try{ vib && vib([60,40,60]); }catch(e){}
     }
   });
+  // ── 3. Réarmer périodiquement pendant le jugement (au cas où des états sont consommés) ──
+  setInterval(function(){ if(_judgeIsActive()){ try{ if(history.state&&history.state.j){ /* ok */ } else _armHistory(2); }catch(e){} } }, 4000);
+  // ── 4. Si la page redevient visible après un aller-retour, réarmer ──
+  document.addEventListener('visibilitychange', function(){ if(!document.hidden && _judgeIsActive()) _armHistory(2); });
 })();
 
 function init(){
