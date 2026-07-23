@@ -1241,7 +1241,12 @@ function startClock(z,hid,h,w){
     },100);return;
   }
   var ih=IH[String(z)];
-  if(ih&&ih.active&&ih.target>(now()-4000)){
+  // ★ FIX AFFICHAGE PUBLIC : le WOD en cours a PRIORITÉ sur l'inter-heat.
+  //   Bug : un inter-heat resté marqué actif=true dans Firebase masquait le For Time
+  //   en cours (« le for time n'est plus affiché, ça switch sur l'interheat »).
+  //   Si le heat courant tourne vraiment (status live + chrono démarré), on ignore l'IH.
+  var _heatLiveEnCours = h && h.status==='live' && (h.startTimestamp>0 || (HEATS[hid]&&HEATS[hid].startTimestamp>0));
+  if(ih&&ih.active&&ih.target>(now()-4000) && !_heatLiveEnCours){
     var k='ih:'+ih.target;if(_ivKey[z]===k)return;
     stopClock(z);_ivKey[z]=k;
     var coup=(ih.ihType||'')==='coupure';
