@@ -12138,7 +12138,21 @@ function renderProgWodsList() {
             +   ' onblur="event.stopPropagation();this.value=secToMmss(mmssToSec(this.value));updateWodProg('+w.id+',\'restMin\',mmssToSec(this.value))"'
             +   ' onclick="event.stopPropagation()" onfocus="event.stopPropagation()"'
             +   ' style="'+IS+';color:var(--purple);font-size:16px;text-align:center;letter-spacing:1px"></div>'
-            + '</div>')
+            + '</div>'
+            // ★ DURÉE AUTO EMOM : bandeau qui affiche le calcul (travail+repos)×tours
+            //   Aide le chef à voir la durée totale sans se tromper.
+            + (['emom','interval','tabata'].indexOf(w.wodFormat||'amrap')>=0
+               ? (function(){
+                   var _wk=parseInt(w.workMin,10)||60, _rs=parseInt(w.restMin,10)||0, _tr=parseInt(w.rounds,10)||1;
+                   var _tot=(_wk+_rs)*_tr;
+                   return '<div style="margin-top:12px;padding:11px 13px;background:rgba(6,182,212,.07);border:1px solid rgba(6,182,212,.28);border-radius:9px">'
+                     + '<div style="font-size:10px;color:#0E7490;font-weight:700;letter-spacing:.5px;margin-bottom:4px">⏱ DURÉE TOTALE (calculée automatiquement)</div>'
+                     + '<div style="font-size:20px;font-weight:900;color:#0891B2">'+secToMmss(_tot)+'</div>'
+                     + '<div style="font-size:10px;color:#64748B;margin-top:3px">'+_tr+' tour'+(_tr>1?'s':'')+' × ('+secToMmss(_wk)+' travail'+(_rs>0?' + '+secToMmss(_rs)+' repos':'')+') = '+secToMmss(_tot)+'</div>'
+                     + '</div>';
+                 })()
+               : '')
+            + '')
 
         // ═ ACCORDÉON 3 : TEXTES & OPTIONS ═
         + accSection('textes','📝','Textes & Options', ((w.descComplete||'').trim()?'description ✓':'description —')+' · '+((w.conditions||'').trim()?'règles ✓':'règles —'),
