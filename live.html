@@ -820,6 +820,17 @@ function wodCapSec(w){
     var lv=WD[wid];
     if(!(parseInt(w.duree||0,10)>0)&&lv.duree>0) w=Object.assign({},w,{duree:lv.duree,capSec:lv.capSec||lv.duree,capMinutes:lv.capMinutes||0,workMin:lv.workMin||0});
   }
+  // ★ FIX EMOM 1 TOUR (comme le juge) : cap EMOM = durée d'un tour × nb tours (+ repos).
+  //   Ne pas se fier à duree (peut valoir 1 tour au lieu de 7) → chrono s'arrêtait tôt.
+  var _fmtC=String(w.wodFormat||w.format||'').toLowerCase();
+  if(_fmtC==='emom'||_fmtC==='interval'||_fmtC==='tabata'){
+    var _wk=parseInt(w.workMin||w.emomWork||60,10)||60;
+    var _rst=parseInt(w.restMin||w.emomRest||0,10)||0;
+    var _nbT=parseInt(w.rounds||w.toursCount||w.emomRounds||0,10)||0;
+    if(_nbT<=0 && Array.isArray(w.toursPerso)) _nbT=w.toursPerso.length;
+    if(_nbT<=0) _nbT=1;
+    return (_wk+_rst)*_nbT;
+  }
   var sec=parseInt(w.duree||w.capSec||w.capSeconds||w.durationSec||0,10)||0;
   if(sec>0)return sec;
   var cm=parseInt(w.capMinutes||0,10)||0;

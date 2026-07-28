@@ -776,6 +776,18 @@ function wodCapSec(wod){
     var live=WD[wodId];
     if(!(parseInt(wod.duree||0,10)>0) && live.duree>0) wod=Object.assign({},wod,{duree:live.duree,capSec:live.capSec||live.duree,capMinutes:live.capMinutes||0,workMin:live.workMin||0});
   }
+  // ★ FIX EMOM 1 TOUR (comme le juge) : pour un EMOM, le cap = durée d'un tour ×
+  //   nombre de tours (+ repos). On NE fait PAS confiance à duree qui peut être faux
+  //   (1 tour au lieu de 7) → sinon le chrono TK/live s'arrête après le 1er tour.
+  var _fmtC=String(wod.wodFormat||wod.format||'').toLowerCase();
+  if(_fmtC==='emom'||_fmtC==='interval'||_fmtC==='tabata'){
+    var _wk=parseInt(wod.workMin||wod.emomWork||60,10)||60;
+    var _rst=parseInt(wod.restMin||wod.emomRest||0,10)||0;
+    var _nbT=parseInt(wod.rounds||wod.toursCount||wod.emomRounds||0,10)||0;
+    if(_nbT<=0 && Array.isArray(wod.toursPerso)) _nbT=wod.toursPerso.length;
+    if(_nbT<=0) _nbT=1;
+    return (_wk+_rst)*_nbT;
+  }
   var sec=parseInt(wod.duree||wod.capSec||wod.capSeconds||wod.durationSec||0,10)||0;
   if(sec>0) return sec;
   var textSec=wodTextCapSec(wod);

@@ -1147,8 +1147,23 @@ function wodToScenario(wod){
   else if(wod.judgeMode==='ergo' || wod.scoreFinale==='dist' || wod.scoreFinale==='cal') fmt='ergo';
 
   var fmtLabels={amrap:'AMRAP',fortime:'FOR TIME',maxload:'MAX LOAD',emom:'EMOM',interval:'INTERVAL',rounds:'ROUNDS',ergo:'ERGO'};
+  var _fmtCap=String(wod.wodFormat||wod.format||'').toLowerCase();
+  var _isEmomCap=(_fmtCap==='emom'||_fmtCap==='interval'||_fmtCap==='tabata');
   var cap = parseInt(wod.capSec||wod.capSeconds||wod.durationSec||wod.duree||0,10)||0;
-  if(!cap){
+
+  // ★ FIX EMOM 1 TOUR : pour un EMOM, le cap = durée d'un tour × nombre de tours.
+  //   Bug : si wod.duree valait 60 (1 tour) au lieu de 420, le WOD s'arrêtait après
+  //   le 1er tour et passait au WOD suivant. workMin × rounds est la source de vérité.
+  if(_isEmomCap){
+    var _wk=parseInt(wod.workMin||wod.emomWork||60,10)||60;
+    var _rst=parseInt(wod.restMin||wod.emomRest||0,10)||0;
+    var _nbT=parseInt(wod.rounds||wod.toursCount||wod.emomRounds||0,10)||0;
+    if(_nbT<=0 && Array.isArray(wod.toursPerso)) _nbT=wod.toursPerso.length;
+    if(_nbT<=0) _nbT=1;
+    var _capEmom=(_wk+_rst)*_nbT;
+    // pour un EMOM, le cap calculé est TOUJOURS la référence (pas wod.duree qui peut être faux)
+    cap=_capEmom;
+  } else if(!cap){
     var cm=parseInt(wod.capMinutes||wod.workMin||0,10)||0;
     cap = cm * 60;
   }
