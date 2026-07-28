@@ -3135,6 +3135,11 @@ function updateZoneTimer(zone,hid,h){
   var totalRounds=parseInt(wod.rounds||1)||1;
   var hasPause=!!wod.pauseEntreToursActive && totalRounds>1;
   var pauseSec=parseInt(wod.pauseEntreToursSec||0)||0;
+  // ★ FIX EMOM DÉCOUPAGE TK : un EMOM se découpe TOUJOURS par tour (travail+repos),
+  //   même sans pause. Sinon le TK affichait un décompte global au lieu des tours.
+  var _isEmomTk=(type==='emom'||type==='interval'||type==='tabata');
+  var _emWorkTk=parseInt(wod.workMin||wod.emomWork||60)||60;
+  var _emRestTk=parseInt(wod.restMin||wod.emomRest||0)||0;
   var roundBox=g('z'+zone+'RoundBox');
   var roundN=g('z'+zone+'RoundN');
   var roundT=g('z'+zone+'RoundT');
@@ -3163,12 +3168,13 @@ function updateZoneTimer(zone,hid,h){
     //   minutés + pause), mais FAUX pour un For Time : « 9 min, 5 tours » est UN
     //   seul chrono de 9 min, pas 5 blocs de 1min48. On ne découpe donc QUE si
     //   une pause entre tours est configurée — jamais pour un For Time.
-    if(hasPause && totalRounds>1 && cap>0){
-      var workSec=Math.max(1,Math.round(cap/totalRounds));  // ★ anti division-par-zéro
-      var cycleSec=hasPause?workSec+pauseSec:workSec;
+    if((hasPause||_isEmomTk) && totalRounds>1 && cap>0){
+      var workSec=_isEmomTk?_emWorkTk:Math.max(1,Math.round(cap/totalRounds));
+      var _thisPauseTk=_isEmomTk?_emRestTk:(hasPause?pauseSec:0);
+      var cycleSec=workSec+_thisPauseTk;
       var cycleElapsed=elapsed % cycleSec;
       var curRound=Math.min(totalRounds, Math.floor(elapsed/cycleSec)+1);
-      var isInPause=hasPause && cycleElapsed>=workSec;
+      var isInPause=_thisPauseTk>0 && cycleElapsed>=workSec;
       var remInPhase=isInPause?(cycleSec-cycleElapsed):(workSec-cycleElapsed);
       if(remInPhase<0) remInPhase=0;
 

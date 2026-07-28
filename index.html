@@ -11498,19 +11498,22 @@ function updateWodProg(id, field, val) {
     // ★ CALCUL AUTO DURÉE EMOM : durée = tours × travail (la pause ne compte PAS
     //   dans le WOD). Recalcul dès qu'on change tours, travail, format ou pause.
     //   Évite l'incohérence (7 tours d'1min affichés 7min mais durant plus avec pauses).
-    if(['rounds','workMin','wodFormat','duree','pauseEntreToursSec','pauseEntreToursActive'].indexOf(field)>=0){
+    if(['rounds','workMin','restMin','wodFormat','duree','pauseEntreToursSec','pauseEntreToursActive'].indexOf(field)>=0){
       var _fmt=String(w.wodFormat||'').toLowerCase();
       if(_fmt==='emom'||_fmt==='interval'||_fmt==='tabata'){
         var _work=parseInt(w.workMin,10)||60;
+        var _rest=parseInt(w.restMin,10)||0;        // repos DANS le tour (compte dans le WOD)
         var _tours=parseInt(w.rounds,10)||1;
-        var _dureeWod=_work*_tours;                 // durée de travail pure (le WOD)
+        // ★ durée EMOM = (travail + repos) × tours. Le repos fait partie du WOD
+        //   (chrono continu). Ex : 7 × (1min + 30s) = 10min30.
+        var _dureeWod=(_work+_rest)*_tours;
         if(field!=='duree'){                        // ne pas écraser si l'user tape la durée à la main
           w.duree=_dureeWod;
           w.capMinutes=Math.round(_dureeWod/60);
         }
-        // temps réel total (avec pauses) — info pour le planning
+        // temps réel total (avec pauses ENTRE tours, qui ne comptent PAS dans le WOD) — info planning
         var _pause=(w.pauseEntreToursActive?(parseInt(w.pauseEntreToursSec,10)||0):0);
-        var _intervalles=Math.max(0,_tours-1);      // pauses ENTRE les tours
+        var _intervalles=Math.max(0,_tours-1);
         w._dureeReelle=_dureeWod+_pause*_intervalles;
       }
     }

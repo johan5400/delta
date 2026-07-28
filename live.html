@@ -898,14 +898,22 @@ function getLiveChronoFrame(zone,hid,h,w){
   var totalRounds=parseInt(w.rounds||1,10)||1;
   var hasPause=!!w.pauseEntreToursActive&&totalRounds>1;
   var pauseSec=parseInt(w.pauseEntreToursSec||0,10)||0;
+  // ★ FIX EMOM DÉCOUPAGE LIVE : un EMOM se découpe TOUJOURS par tour (avec le travail
+  //   et le repos de chaque tour), même sans pause entre tours. Sans ça, le live
+  //   affichait un décompte global (ex 6:45) au lieu de "R2/7 · minute qui tourne".
+  var _isEmomLive=(type==='emom'||type==='interval'||type==='tabata');
+  var _emWork=parseInt(w.workMin||w.emomWork||60,10)||60;
+  var _emRest=parseInt(w.restMin||w.emomRest||0,10)||0;
   // ★ FIX CHRONO FOR TIME (même fix que le TK) : ne découper le chrono en
   //   tours que si une pause entre tours est configurée. Un For Time « 9 min,
   //   5 tours » est UN seul chrono de 9 min, pas 5 blocs de 1min48.
-  if(hasPause&&totalRounds>1&&cap>0){
-    var workSec=Math.max(1,Math.round(cap/totalRounds));  // ★ anti division-par-zéro
-    var cycleSec=hasPause?workSec+pauseSec:workSec;
+  if((hasPause||_isEmomLive)&&totalRounds>1&&cap>0){
+    // EMOM : travail + repos par tour. Sinon (For Time avec pause) : découpe uniforme.
+    var workSec=_isEmomLive?_emWork:Math.max(1,Math.round(cap/totalRounds));
+    var _thisPause=_isEmomLive?_emRest:(hasPause?pauseSec:0);
+    var cycleSec=workSec+_thisPause;
     var cycleElapsed=elapsed%cycleSec;          // ★ entier (aligné TK)
-    var isInPause=hasPause&&cycleElapsed>=workSec;
+    var isInPause=_thisPause>0&&cycleElapsed>=workSec;
     var remInPhase=isInPause?(cycleSec-cycleElapsed):(workSec-cycleElapsed);
     if(remInPhase<0) remInPhase=0;
     var curRound=Math.min(totalRounds,Math.floor(elapsed/cycleSec)+1);
