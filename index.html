@@ -11511,10 +11511,10 @@ function updateWodProg(id, field, val) {
           w.duree=_dureeWod;
           w.capMinutes=Math.round(_dureeWod/60);
         }
-        // temps réel total (avec pauses ENTRE tours, qui ne comptent PAS dans le WOD) — info planning
-        var _pause=(w.pauseEntreToursActive?(parseInt(w.pauseEntreToursSec,10)||0):0);
-        var _intervalles=Math.max(0,_tours-1);
-        w._dureeReelle=_dureeWod+_pause*_intervalles;
+        // ★ EMOM : la pause entre tours ne s'applique PAS (le repos gère tout).
+        //   On la neutralise pour éviter le doublon avec le champ Repos.
+        w.pauseEntreToursActive=false;
+        w._dureeReelle=_dureeWod;  // durée réelle = durée WOD (pas de pause en plus)
       }
     }
     // ★ FIX SCORE PRINCIPAL : aligner le mode de saisie du juge + colonnes de
@@ -12071,7 +12071,17 @@ function renderProgWodsList() {
         + accSection('mvts','🔁','Tours & Mouvements', nM+' mvt'+(nM>1?'s':'')+' · '+nT+' tour'+(nT>1?'s':'')+(nTb>0?' · 🎯 '+nTb:''),
             (function(){
               var IS2='background:#EBF0FA;border:1px solid var(--brd2);border-radius:7px;padding:5px 8px;font-size:13px;font-weight:800;color:var(--blue);outline:none;font-family:inherit;width:60px;box-sizing:border-box;';
-              var pauseBlock = '<div style="background:#F0FDF4;border:1px solid rgba(5,150,105,.25);border-radius:8px;padding:8px 10px;margin-top:8px">'
+              // ★ EMOM : cacher la 'Pause entre tours' (doublon avec le champ REPOS).
+              //   Pour un EMOM, le repos entre tours se règle dans TIMING > Repos.
+              //   Entre deux passages d'athlètes = c'est l'INTER-HEAT, pas cette pause.
+              var _isEmomFmt=['emom','interval','tabata'].indexOf(w.wodFormat||'amrap')>=0;
+              var pauseBlock = _isEmomFmt
+                ? '<div style="background:#F8FAFC;border:1px dashed #CBD5E1;border-radius:8px;padding:8px 10px;margin-top:8px;font-size:10px;color:#64748B;line-height:1.5">'
+                  + '☕ <b>Pause entre tours</b> : pas nécessaire pour un EMOM. Utilise le champ '
+                  + '<b>Repos</b> (ci-dessous dans Timing) pour le repos entre les tours. '
+                  + 'Le temps entre deux passages d\'athlètes, c\'est l\'<b>Inter-heat</b>.'
+                  + '</div>'
+                : '<div style="background:#F0FDF4;border:1px solid rgba(5,150,105,.25);border-radius:8px;padding:8px 10px;margin-top:8px">'
                 + '<div style="display:flex;align-items:center;justify-content:space-between">'
                 + '<span style="font-size:10px;font-weight:900;color:#059669;text-transform:uppercase;letter-spacing:.4px">☕ Pause entre les tours</span>'
                 + '<label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:11px;font-weight:700;color:#059669">'
