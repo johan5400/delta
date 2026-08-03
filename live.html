@@ -100,41 +100,16 @@ body{height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-fami
 
 .shell{width:100%;height:calc(100vh - var(--tb));display:grid;
   grid-template-columns:1fr 1fr;
-  grid-template-rows:auto 1fr;
+  grid-template-rows:1fr;
   overflow:hidden}
-/* Chrono — ligne 1, colonnes 1+2 */
-.shared-chrono-col{
-  grid-column:1/3;grid-row:1;
-  display:flex;flex-direction:row;align-items:center;justify-content:center;gap:16px;
-  background:rgba(4,7,13,.99);border-bottom:2px solid rgba(255,255,255,.08);
-  padding:6px 24px;z-index:5;overflow:hidden;flex-shrink:0
-}
-.shared-chrono-col .chrono-band{
-  display:flex;flex-direction:row;align-items:center;justify-content:center;gap:14px;
-  background:none;border:none;padding:0
-}
-.shared-chrono-col .chrono-lbl{
-  font-family:var(--ff);font-size:clamp(11px,1.2vw,18px);
-  letter-spacing:4px;color:var(--ink3);white-space:nowrap
-}
-.shared-chrono-col .chrono-val{
-  font-family:var(--fm);font-weight:900;
-  font-size:clamp(52px,8.5vw,130px);letter-spacing:-3px;line-height:1;color:#fff;transition:color .3s;
-  text-align:center;
-}
-.shared-chrono-col{
-  justify-content:center!important;
-}
-/* Zones — ligne 2, côte à côte, même hauteur */
-#z2{grid-column:1;grid-row:2;min-height:0;overflow:hidden}
-#z1{grid-column:2;grid-row:2;min-height:0;overflow:hidden}
-.shell.solo #z2{grid-column:1/3;grid-row:2}
-.shell.solo #z1{grid-column:1/3;grid-row:2}
-/* en solo : chrono partagé reste visible en haut */
-.shell.solo{grid-template-rows:auto 1fr!important}
-.shell.solo #z2,.shell.solo #z1{grid-row:2!important}
+/* Zones — deux colonnes, chacune avec SON chrono en haut (indépendant) */
+#z2{grid-column:1;grid-row:1;min-height:0;overflow:hidden}
+#z1{grid-column:2;grid-row:1;min-height:0;overflow:hidden}
+.shell.solo{grid-template-rows:1fr!important}
+.shell.solo #z2{grid-column:1/3;grid-row:1}
+.shell.solo #z1{grid-column:1/3;grid-row:1}
+.shell.solo #z2,.shell.solo #z1{grid-row:1!important}
 .shell.solo .zone-col.hidden{display:none}
-.shell.solo .shared-chrono-col{grid-column:1/3}
 .zone-col{display:flex;flex-direction:column;min-height:0;overflow:hidden;position:relative}
 .zone-col.hidden{display:none}
 .zone-col:first-child{border-right:2px solid rgba(255,255,255,.07)}
@@ -169,7 +144,9 @@ body{height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-fami
 .zone-body{flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden;background:rgba(7,9,15,.92)}
 /* Chrono individuel par zone */
 /* chronos par zone supprimés — un seul chrono partagé en haut */
-.zone-chrono{display:none!important}
+.zone-chrono{flex-shrink:0}
+.zone-chrono .chrono-lbl{font-size:clamp(10px,1.1vw,18px);letter-spacing:4px;margin-bottom:1px}
+.zone-chrono .chrono-val{font-size:clamp(42px,6.5vw,120px);letter-spacing:-2px}
 
 /* Chrono — GRAND, halo lumineux dynamique selon état */
 .chrono-band{
@@ -439,10 +416,9 @@ body{height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-fami
 
 /* ── MOBILE : zones empilées verticalement ── */
 @media (max-width:700px){
-  .shell{grid-template-columns:1fr;grid-template-rows:auto 1fr 1fr}
-  .shared-chrono-col{grid-column:1;grid-row:1}
-  #z2{grid-column:1;grid-row:2}
-  #z1{grid-column:1;grid-row:3}
+  .shell{grid-template-columns:1fr;grid-template-rows:1fr 1fr}
+  #z2{grid-column:1;grid-row:1}
+  #z1{grid-column:1;grid-row:2}
   .zone-col:first-child{border-right:none;border-bottom:2px solid rgba(255,255,255,.07)}
   /* Chrono adapté à la largeur mobile */
   .chrono-val{font-size:clamp(40px,16vw,90px);letter-spacing:-3px}
@@ -648,12 +624,6 @@ body{height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-fami
 <div id="live-msg-banner" class="live-msg-banner">📢 MESSAGE LIVE</div>
 
 <div class="shell" id="shell">
-  <div id="shared-chrono" class="shared-chrono-col">
-    <div class="chrono-band" id="cb-s">
-      <div class="chrono-lbl" id="cl-s">⌛ EN ATTENTE</div>
-      <div class="chrono-val idle" id="cv-s">--:--</div>
-    </div>
-  </div>
   <div class="zone-col" id="z2"></div>
   <div class="zone-col" id="z1"></div>
 </div>
@@ -1079,6 +1049,8 @@ function getZoneClockState(zone){
   return{val:_capFb>0?fmt(_capFb):'--:--',vcls:'idle',lbl:'⌛ EN ATTENTE',bcls:''};
 }
 
+// ⚠ NON UTILISÉE depuis le passage aux chronos par zone (chaque zone est peinte
+//   indépendamment par tickZoneClock). Conservée pour référence/rollback.
 function getSharedClockState(){
   // Priorité 1 : IH ou coupure sur n'importe quelle zone
   var ih=IH['1']&&IH['1'].active&&IH['1'].target>now()?IH['1']:
@@ -1128,49 +1100,36 @@ function getSharedClockState(){
   return{val:s1.val,vcls:s1.vcls,lbl:s1.lbl,bcls:s1.bcls};
 }
 
-function tickSharedClock(){
-  var s=getSharedClockState();
-  var cv=document.getElementById('cv-s'),cl=document.getElementById('cl-s'),cb=document.getElementById('cb-s');
-  if(!cv) return;
+// ════ CHRONO PAR ZONE — chaque zone tourne sur SON propre temps ════
+// getZoneClockState(zone) est déjà indépendant (countdown, EMOM par-tour,
+// inter-heat, fin). Ici on ne fait que PEINDRE chaque zone séparément, avec
+// une ancre anti-flash PROPRE à chaque zone (aucun état partagé).
+var _zAnchor={1:null,2:null};
+var _zLastKey={1:null,2:null};
 
-  // ★ FIX ANTI-FLASH "--:--" : le chrono ne doit JAMAIS afficher "--:--" en plein
-  //   live. Causes possibles : transition heat 1 → 2, status=pre éphémère,
-  //   startTimestamp Firebase pas encore arrivé, h null momentanément, etc.
-  //   Solution : mémoriser la dernière valeur "qui descend" + son timestamp
-  //   d'affichage, et si on doit afficher "--:--" ou une valeur statique alors
-  //   qu'on était en train de décompter, continuer à dérouler virtuellement.
-  if(!tickSharedClock._anchor) tickSharedClock._anchor=null;
-  var anchor=tickSharedClock._anchor;
+function tickZoneClock(zone){
+  var cv=document.getElementById('cv-z'+zone),
+      cl=document.getElementById('cl-z'+zone),
+      cb=document.getElementById('cb-z'+zone);
+  if(!cv) return; // zone en attente / non affichée : pas de chrono à peindre
 
-  // ★ Clé du heat courant pour détecter changement de heat (anchor stale)
-  // On compose une clé depuis le lbl (contient Z1/Z2) et un hash du val initial.
-  // Si vcls='fin' ou 'hot' avec label TIMECAP → heat terminé, on lâche l'ancre.
+  var s=getZoneClockState(zone);
+
+  var anchor=_zAnchor[zone];
   var isHeatEnded=(s.vcls==='fin'||(s.lbl&&/TERMIN|TIMECAP|🏁|🔴/.test(s.lbl)));
-  if(isHeatEnded){
-    tickSharedClock._anchor=null;
-    anchor=null;
-  }
+  if(isHeatEnded){ _zAnchor[zone]=null; anchor=null; }
 
-  // Détecter si la valeur courante est un "trou" (--:-- ou label statique pre/idle)
   var isHole=(s.val==='--:--' || s.vcls==='idle');
-  // Détecter si la valeur courante est un chrono actif qui descend
   var isActiveCountdown=(typeof s.val==='string' && /^\d+:\d{2}$/.test(s.val) &&
                         (s.vcls==='run' || s.vcls==='hot' || s.vcls==='warn'));
 
   if(isActiveCountdown){
-    // Mettre à jour l'ancre avec la dernière valeur connue qui descend
     function parseSec(v){
       var p=v.split(':');
       return p.length===2 ? (parseInt(p[0],10)||0)*60 + (parseInt(p[1],10)||0) : (parseInt(v,10)||0);
     }
-    tickSharedClock._anchor={
-      sec:parseSec(s.val),
-      capturedAt:now(),
-      vcls:s.vcls, lbl:s.lbl, bcls:s.bcls
-    };
+    _zAnchor[zone]={sec:parseSec(s.val),capturedAt:now(),vcls:s.vcls,lbl:s.lbl,bcls:s.bcls};
   } else if(isHole && anchor){
-    // Trou détecté : on était en train de décompter, on continue depuis l'ancre.
-    // Tant que l'ancre est récente (≤ 20s) on prend le relais sans rien casser.
     var ageMs=now()-anchor.capturedAt;
     if(ageMs<=20000){
       var newSec=Math.max(0, anchor.sec - Math.floor(ageMs/1000));
@@ -1182,49 +1141,36 @@ function tickSharedClock(){
         bcls: anchor.bcls
       };
     } else {
-      // Trop vieux : on lâche l'ancre, on accepte le "--:--" légitime
-      tickSharedClock._anchor=null;
+      _zAnchor[zone]=null;
     }
   }
 
-  // ★ FIX FREEZE LIVE : ne touche au DOM que si la valeur affichée a changé
+  // Ne touche au DOM que si l'état change ET que l'élément porte encore cet état.
+  // (dataset.k tombe quand renderZone reconstruit la colonne → on repeint.)
   var key=s.val+'|'+s.vcls+'|'+(s.lbl||'')+'|'+(s.bcls||'');
-  if(tickSharedClock._lastKey===key) return;
-  tickSharedClock._lastKey=key;
+  if(_zLastKey[zone]===key && cb && cb.dataset && cb.dataset.k===key) return;
+  _zLastKey[zone]=key;
   cv.textContent=s.val; cv.className='chrono-val '+s.vcls;
   if(cl) cl.textContent=s.lbl;
-  if(cb) cb.className='chrono-band '+(s.bcls||'');
+  if(cb){ cb.className='zone-chrono chrono-band '+(s.bcls||''); if(cb.dataset) cb.dataset.k=key; }
 }
 
-function startSharedClock(){
+function startZoneClocks(){
   if(_scIv)return;
-  tickSharedClock();
-  // ★ FIX FREEZE LIVE : rAF + fallback setInterval.
-  // rAF replanifie au prochain frame dispo après un blocage (rebuild DOM, etc.),
-  // ce qui évite que le chrono accumule du retard. Si l'onglet passe en background,
-  // rAF est mis en pause par le navigateur → on garde un setInterval(250) en fallback
-  // pour continuer de tiquer (à moindre fréquence) quand l'onglet n'est pas visible.
+  [1,2].forEach(tickZoneClock);
   var _rafRunning=false;
   function rafTick(){
     _rafRunning=false;
-    try{ tickSharedClock(); }catch(e){}
-    if(!document.hidden){
-      _rafRunning=true;
-      requestAnimationFrame(rafTick);
-    }
+    try{ [1,2].forEach(tickZoneClock); }catch(e){}
+    if(!document.hidden){ _rafRunning=true; requestAnimationFrame(rafTick); }
   }
   function ensureRunning(){
     if(_rafRunning) return;
-    if(!document.hidden){
-      _rafRunning=true;
-      requestAnimationFrame(rafTick);
-    }
+    if(!document.hidden){ _rafRunning=true; requestAnimationFrame(rafTick); }
   }
   ensureRunning();
-  // Fallback : si le rAF est gelé (onglet arrière-plan), on tique tout de même
-  // toutes les 250 ms via setInterval. Quand l'onglet redevient visible, on relance rAF.
   _scIv=setInterval(function(){
-    try{ tickSharedClock(); }catch(e){}
+    try{ [1,2].forEach(tickZoneClock); }catch(e){}
     ensureRunning();
   }, 250);
   document.addEventListener('visibilitychange', ensureRunning);
@@ -1234,7 +1180,8 @@ function startSharedClock(){
 function applyC(z,txt,vcls,lbl,bcls){
   // Mémorise le dernier état (pour holdLastFrame) mais ne touche plus aux chronos de zone
   _lastFrame[z]={txt:txt,lbl:lbl||'',vcls:vcls,bcls:bcls||''};
-  // Chrono par zone supprimé — un seul chrono partagé en haut (tickSharedClock)
+  // Le chrono de chaque zone est peint par tickZoneClock (lecture directe de
+  // getZoneClockState). applyC ne sert plus qu'à mémoriser _lastFrame (holdLastFrame).
 }
 function holdLastFrame(z,ms){
   var f=_lastFrame[z];
@@ -2229,7 +2176,7 @@ function renderZone(zone){
       +(_hdrMovsHtml?'<div class="mov-row">'+_hdrMovsHtml+'</div>':'')
     +'</div>'
     +'<div class="zone-body">'
-/* chrono zone supprimé */
+      +'<div class="zone-chrono chrono-band" id="cb-z'+zone+'"><div class="chrono-lbl" id="cl-z'+zone+'">⌛ EN ATTENTE</div><div class="chrono-val idle" id="cv-z'+zone+'">--:--</div></div>'
       +'<div class="teams-band" id="tband-'+zone+'">'
         +renderRankCards(heatRows,dw,displaySt,displaySt==='live'||displaySt==='pre',dhFull,displayCatId,displayCatLeader)
       +'</div>'
@@ -2848,7 +2795,7 @@ setInterval(function(){ if(typeof updateSponsorsOverlay==='function'){ var any=(
 if(String(location.hash).indexOf('sponsors-preview')>=0){ setTimeout(function(){ if(typeof updateSponsorsOverlay==='function') updateSponsorsOverlay(); },1500); }
 if(db){
   db.ref('heats').once('value',function(s){
-    HEATS=s.val()||{};renderAll();startSharedClock();
+    HEATS=s.val()||{};renderAll();startZoneClocks();
     db.ref('heats').on('child_changed',function(snap){
       var hid=snap.key,h=snap.val();
       if(!h){delete HEATS[hid];}else{
@@ -3085,7 +3032,7 @@ if(db){
 } else {
   // Firebase indisponible — afficher message d'erreur dans les zones
   window.addEventListener('DOMContentLoaded',function(){
-    startSharedClock();
+    startZoneClocks();
     [1,2].forEach(function(z){
       var root=document.getElementById('z'+z);
       if(root) root.innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:100%;font-family:var(--ff);font-size:18px;letter-spacing:3px;color:var(--err)">⚠ FIREBASE INDISPONIBLE</div>';
