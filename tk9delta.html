@@ -3187,8 +3187,11 @@ function updateZoneTimer(zone,hid,h){
         roundP.className='rp '+(isInPause?'rest':'work');
       }
 
-      // Fin du WOD = tous les tours + pauses passés
-      var totalDur=totalRounds*workSec+(hasPause?(totalRounds-1)*pauseSec:0);
+      // Fin du WOD = tous les tours + repos passés
+      // ★ FIX EMOM AVEC REPOS — l'ancienne formule (tours×travail) ignorait le
+      //   restMin de l'EMOM et coupait le dernier tour. (tours−1)×cycle+travail
+      //   inclut le repos ET reste identique pour les WOD sans repos (cycle=travail).
+      var totalDur=(totalRounds-1)*cycleSec+workSec;
       if(elapsed>=totalDur){
         // ★ FIX FLUIDITÉ — jamais figé sur 0:00, basculer immédiatement sur FIN
         if(zoneState[zone]._lastTimerVal !== '🏁 FIN'){

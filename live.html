@@ -897,9 +897,9 @@ function getLiveChronoFrame(zone,hid,h,w){
     if(remInPhase<0) remInPhase=0;
     var curRound=Math.min(totalRounds,Math.floor(elapsed/cycleSec)+1);
     // ★ FIN d'un EMOM = TOUS les tours accomplis, PAS la fin d'une minute.
-    //   Le "0:00" qui apparaît à chaque rotation de minute ne doit surtout pas
-    //   déclencher l'inter-heat (bug : le live basculait en INTER-HEAT en plein WOD).
-    var _emTotal=totalRounds*workSec+(_thisPause>0?(totalRounds-1)*_thisPause:0);
+    //   (tours−1)×cycle + travail : inclut le repos de chaque tour (même formule
+    //   que le TK), et reste identique pour les WOD sans repos.
+    var _emTotal=(totalRounds-1)*cycleSec+workSec;
     return {
       ts:ts,
       cap:cap,
@@ -987,12 +987,25 @@ function getZoneClockState(zone){
   var st=h.status||'pending';
   var frame=getLiveChronoFrame(zone,hid,h,w);
 
-  // ★ FIX FLASH "--:--" : en 'pre', afficher le cap du WOD plutôt que --:--
-  // (sinon flash visible à chaque transition de heat).
+  // ★ FIX FLASH DÉMARRAGE : en 'pre', afficher la valeur de DÉPART selon le
+  //   format (et non le temps total). Ainsi le passage 'pre'→'live' est continu,
+  //   plus de flash du total (pause comprise) au lancement.
+  //   For Time → 0:00 (montant) · EMOM → 1ère minute · AMRAP → total (il décompte de là).
   if(st==='pre'){
     var _wPre=h.wodInfo||{};
     var _capPre=wodCapSec(_wPre);
-    return{val:_capPre>0?fmt(_capPre):'0:00',vcls:'warn',lbl:'🔔 PRÊT',bcls:''};
+    var _fmtPre=String(_wPre.wodFormat||_wPre.type||'').toLowerCase();
+    var _sfPre=String(_wPre.scoreFinale||_wPre.scoreType||'').toLowerCase();
+    var _valPre;
+    if(_fmtPre==='emom'||_fmtPre==='interval'||_fmtPre==='tabata'){
+      var _wkPre=parseInt(_wPre.workMin||_wPre.emomWork||60,10)||60;
+      _valPre=fmt(_wkPre);                       // première minute de travail
+    } else if(_fmtPre==='fortime'||_sfPre==='time'){
+      _valPre='0:00';                            // For Time part de 0 (montant)
+    } else {
+      _valPre=_capPre>0?fmt(_capPre):'0:00';     // AMRAP : décompte depuis le total
+    }
+    return{val:_valPre,vcls:'warn',lbl:'🔔 PRÊT',bcls:''};
   }
 
   // ★ FIX FLUIDITÉ ZÉRO PAUSE — Helper : si on est en fin de heat (chrono à 0:00
