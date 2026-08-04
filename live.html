@@ -896,11 +896,16 @@ function getLiveChronoFrame(zone,hid,h,w){
     var remInPhase=isInPause?(cycleSec-cycleElapsed):(workSec-cycleElapsed);
     if(remInPhase<0) remInPhase=0;
     var curRound=Math.min(totalRounds,Math.floor(elapsed/cycleSec)+1);
+    // ★ FIN d'un EMOM = TOUS les tours accomplis, PAS la fin d'une minute.
+    //   Le "0:00" qui apparaît à chaque rotation de minute ne doit surtout pas
+    //   déclencher l'inter-heat (bug : le live basculait en INTER-HEAT en plein WOD).
+    var _emTotal=totalRounds*workSec+(_thisPause>0?(totalRounds-1)*_thisPause:0);
     return {
       ts:ts,
       cap:cap,
       elapsed:elapsed,
       isFortime:isFortime,
+      ended:(_emTotal>0 && elapsed>=_emTotal),
       value:fmtPrecise(remInPhase, false),
       lbl:(isInPause?'💤 REPOS':'⚙️ TRAVAIL'),
       round:curRound+'/'+totalRounds,
@@ -1050,9 +1055,10 @@ function getZoneClockState(zone){
       var _cap2=wodCapSec(_w2);
       return{val:_cap2>0?fmt(_cap2):'0:00',vcls:'run',lbl:'⏳ SYNC',bcls:'clr-run'};
     }
-    // ★ FIX FLUIDITÉ — fin de heat en live. Chrono descendant → "0:00" ;
-    //   For Time montant → flag `ended` (la valeur ne passe jamais par 0:00).
-    if(frame.value==='0:00' || frame.ended){
+    // ★ FIX FLUIDITÉ — fin de heat en live. Chrono descendant (AMRAP) → "0:00".
+    //   For Time montant & EMOM → flag `ended` (leur valeur passe par 0:00 sans
+    //   que ce soit la fin : un EMOM a un round → on n'arrête JAMAIS sur son 0:00).
+    if((frame.value==='0:00' && !frame.round) || frame.ended){
       var _ihFrm2=_localIhFrame();
       if(_ihFrm2) return _ihFrm2;
       // Pas d'IH calculé : afficher "FIN" directement, jamais "0:00"
