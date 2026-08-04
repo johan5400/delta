@@ -896,10 +896,10 @@ function getLiveChronoFrame(zone,hid,h,w){
     var remInPhase=isInPause?(cycleSec-cycleElapsed):(workSec-cycleElapsed);
     if(remInPhase<0) remInPhase=0;
     var curRound=Math.min(totalRounds,Math.floor(elapsed/cycleSec)+1);
-    // ★ FIN d'un EMOM = TOUS les tours accomplis, PAS la fin d'une minute.
-    //   (tours−1)×cycle + travail : inclut le repos de chaque tour (même formule
-    //   que le TK), et reste identique pour les WOD sans repos.
-    var _emTotal=(totalRounds-1)*cycleSec+workSec;
+    // ★ FIN d'un EMOM = tous les tours accomplis, REPOS du dernier tour inclus.
+    //   EMOM → tours×cycle (le dernier repos passe avant l'inter-heat) ;
+    //   intervalles à pause classique → (tours−1)×cycle+travail (inchangé).
+    var _emTotal=_isEmomLive?(totalRounds*cycleSec):((totalRounds-1)*cycleSec+workSec);
     return {
       ts:ts,
       cap:cap,
@@ -2314,7 +2314,19 @@ function startTeamBandIH(zone,ihTarget,doneHid,doneH,doneW,catId,catLeader){
   var heatSec=isLast?Math.max(3,Math.round(workSec*0.25)):Math.max(3,Math.round(workSec*0.35));
   var wodSec =isLast?Math.max(3,Math.round(workSec*0.30)):0;
 
-  var phase='heat'; // 'heat' | 'wod' | 'preview'
+  // ★ ANTI-BOUCLE : on mémorise la phase atteinte pour CE heat terminé.
+  //   Quand le compte à rebours expire et que scheduleRender ré-entre ici alors
+  //   que le heat suivant n'a pas encore démarré (ex. attente de coupure), on NE
+  //   REPART PAS aux résultats/classement de la catégorie déjà passée : on
+  //   reprend directement à 'preview'. La séquence n'avance JAMAIS en arrière.
+  if(!startTeamBandIH._ph) startTeamBandIH._ph={};
+  var _phSaved=startTeamBandIH._ph[zone];
+  var _resume=(_phSaved && _phSaved.hid===doneHid)?_phSaved.phase:'heat';
+  // Une fois les résultats passés (wod/preview atteint), toute ré-entrée reprend
+  // à 'preview' : on ne rejoue JAMAIS les résultats ni le classement déjà montrés.
+  var phase=(_resume==='heat')?'heat':'preview'; // 'heat'|'wod'|'preview'
+  startTeamBandIH._ph[zone]={hid:doneHid,phase:phase};
+  function _setPhase(p){ phase=p; startTeamBandIH._ph[zone]={hid:doneHid,phase:p}; renderPhase(); }
 
   // ★ HARMONISATION HEADER : on synchronise le wod-hdr de la zone avec la phase
   //   en cours pour qu'on ne voie JAMAIS à l'écran le WOD précédent ET le
@@ -2450,12 +2462,12 @@ function startTeamBandIH(zone,ihTarget,doneHid,doneH,doneW,catId,catLeader){
     // Transitions de phase
     if(phase==='heat' && t>=heatEnd){
       // Phase wod (classement général) seulement sur le DERNIER heat de la catégorie
-      if(isLast && wodSec>=3){phase='wod';renderPhase();}
-      else if(t>=previewStart){phase='preview';renderPhase();}
+      if(isLast && wodSec>=3){_setPhase('wod');}
+      else if(t>=previewStart){_setPhase('preview');}
     } else if(phase==='wod' && wodEnd && t>=wodEnd){
-      phase='preview';renderPhase();
+      _setPhase('preview');
     } else if(phase!=='preview' && t>=previewStart){
-      phase='preview';renderPhase();
+      _setPhase('preview');
     } else if(phase==='preview'){
       // Re-render preview pour mettre à jour le countdown
       renderPhase();

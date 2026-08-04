@@ -3191,7 +3191,10 @@ function updateZoneTimer(zone,hid,h){
       // ★ FIX EMOM AVEC REPOS — l'ancienne formule (tours×travail) ignorait le
       //   restMin de l'EMOM et coupait le dernier tour. (tours−1)×cycle+travail
       //   inclut le repos ET reste identique pour les WOD sans repos (cycle=travail).
-      var totalDur=(totalRounds-1)*cycleSec+workSec;
+      // ★ EMOM : inclure le REPOS du dernier tour avant l'inter-heat (tours×cycle).
+      //   Intervalles à pause classique : pas de pause après le dernier effort
+      //   → (tours−1)×cycle+travail (comportement d'origine, zéro régression).
+      var totalDur=_isEmomTk?(totalRounds*cycleSec):((totalRounds-1)*cycleSec+workSec);
       if(elapsed>=totalDur){
         // ★ FIX FLUIDITÉ — jamais figé sur 0:00, basculer immédiatement sur FIN
         if(zoneState[zone]._lastTimerVal !== '🏁 FIN'){
