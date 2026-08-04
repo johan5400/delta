@@ -2389,14 +2389,13 @@ function startTeamBandIH(zone,ihTarget,doneHid,doneH,doneW,catId,catLeader){
     if(phase==='heat'){
       syncHeader('done');
       var heatRows=rankHeatEntries(doneHid,HEATS[doneHid]||doneH,doneW);
-      // ★ Logo tournant en haut du cooldown + résultats heat
-      var logoHtml='<div style="text-align:center;padding:16px 0 6px">'
-        +'<img src="'+FOC_LOGO+'" class="logo-spin" style="width:clamp(80px,10vw,150px);height:clamp(80px,10vw,150px);border-radius:50%;object-fit:cover" '
-        +'onerror="this.style.display=\'none\'">'
-        +'</div>';
-      el2.innerHTML=logoHtml
-        +'<div class="p-title">🏁 '+esc(doneW.nom||'WOD')+'</div>'
-        +'<div class="p-sub">'+esc(doneH.catName||'')
+      // ★ VISUEL HEAT FINI — plus de gros logo tournant qui écrase la colonne.
+      //   Résultats propres en cartes (renderRankCards INCHANGÉ → le rendu des
+      //   mouvements/avancement ne change pas). Le compte à rebours inter-heat
+      //   est déjà affiché en haut par le bandeau chrono de la zone.
+      el2.innerHTML=''
+        +'<div class="p-title">🏁 RÉSULTATS'+(doneH.catName?(' · '+esc(doneH.catName)):'')+'</div>'
+        +'<div class="p-sub">'+esc(doneW.nom||'WOD')
         +' · Heat '+(doneH.catHeatNum||'—')+' / '+(doneH.nbHeatsTotal||'—')+'</div>'
         +renderRankCards(heatRows,doneW,'done',false,HEATS[doneHid]||doneH,catId,catLeader);
     } else if(phase==='wod'){
