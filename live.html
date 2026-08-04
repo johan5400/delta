@@ -147,6 +147,15 @@ body{height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-fami
 .zone-chrono{flex-shrink:0}
 .zone-chrono .chrono-lbl{font-size:clamp(10px,1.1vw,18px);letter-spacing:4px;margin-bottom:1px}
 .zone-chrono .chrono-val{font-size:clamp(42px,6.5vw,120px);letter-spacing:-2px}
+/* TOUR X/7 affiché À CÔTÉ du gros chrono (EMOM) */
+.zone-chrono .chrono-mid{display:flex;align-items:baseline;justify-content:center;gap:clamp(8px,1.4vw,22px);width:100%}
+.zone-chrono .chrono-round{font-family:var(--fm);font-weight:900;font-size:clamp(15px,2vw,38px);letter-spacing:1px;color:#4ADE80;text-shadow:0 0 12px rgba(74,222,128,.45);white-space:nowrap;line-height:1}
+/* Animations SOBRES travail / repos (respiration lente, agréable sur la durée) */
+@keyframes chronoWork{0%,100%{opacity:1}50%{opacity:.82}}
+@keyframes chronoRest{0%,100%{opacity:1}50%{opacity:.68}}
+.zone-chrono.ph-work{animation:chronoWork 2s ease-in-out infinite}
+.zone-chrono.ph-rest{animation:chronoRest 3.4s ease-in-out infinite}
+@media (prefers-reduced-motion: reduce){.zone-chrono.ph-work,.zone-chrono.ph-rest{animation:none}}
 
 /* Chrono — GRAND, halo lumineux dynamique selon état */
 .chrono-band{
@@ -893,22 +902,30 @@ function getLiveChronoFrame(zone,hid,h,w){
       elapsed:elapsed,
       isFortime:isFortime,
       value:fmtPrecise(remInPhase, false),
-      lbl:(isInPause?'💤 PAUSE':'⚙️ TRAVAIL')+' · R'+curRound+'/'+totalRounds,
+      lbl:(isInPause?'💤 REPOS':'⚙️ TRAVAIL'),
+      round:curRound+'/'+totalRounds,
+      phase:isInPause?'rest':'work',
       vcls:isInPause?'ih':(remInPhase<=10?'hot':remInPhase<=30?'warn':'run'),
       bcls:isInPause?'clr-ih':(remInPhase<=10?'clr-hot':'clr-run')
     };
   }
   if(isFortime){
-    // Sur le live : toujours afficher le temps RESTANT (descendant), peu importe le format
-    var remFt=cap>0?Math.max(0,cap-elapsed):0;   // ★ entier (aligné TK)
-    var hotFt=cap>0&&remFt<=30;
+    // ★ FOR TIME = chrono MONTANT (le temps EST le score), aligné sur le TK.
+    //   Gros chiffre = temps écoulé qui monte ; le cap passe dans le label
+    //   ("⏱ CAP 9:00") pour rester lisible sans surcharger le grand chiffre.
+    //   Rouge dans la dernière minute. `ended` déclenche le passage à FIN.
+    var remFt=cap>0?Math.max(0,cap-elapsed):0;
+    var endedFt=(cap>0&&elapsed>=cap);
+    var hotFt=cap>0&&remFt<=60;   // dernière minute → rouge
     return {
       ts:ts,
       cap:cap,
       elapsed:elapsed,
       isFortime:true,
-      value:fmtPrecise(remFt, false),
-      vcls:hotFt?'hot':(cap>0&&remFt<=60)?'warn':'run',
+      ended:endedFt,
+      value:fmtPrecise(elapsed, false),
+      lbl: cap>0 ? ('⏱ CAP '+fmt(cap)) : '⏱ FOR TIME',
+      vcls:hotFt?'hot':'run',
       bcls:hotFt?'clr-hot':'clr-run'
     };
   }
@@ -1033,14 +1050,17 @@ function getZoneClockState(zone){
       var _cap2=wodCapSec(_w2);
       return{val:_cap2>0?fmt(_cap2):'0:00',vcls:'run',lbl:'⏳ SYNC',bcls:'clr-run'};
     }
-    // ★ FIX FLUIDITÉ — chrono à 0:00 en live = fin de heat. Jamais figé sur 0:00.
-    if(frame.value==='0:00'){
+    // ★ FIX FLUIDITÉ — fin de heat en live. Chrono descendant → "0:00" ;
+    //   For Time montant → flag `ended` (la valeur ne passe jamais par 0:00).
+    if(frame.value==='0:00' || frame.ended){
       var _ihFrm2=_localIhFrame();
       if(_ihFrm2) return _ihFrm2;
       // Pas d'IH calculé : afficher "FIN" directement, jamais "0:00"
       return{val:'FIN',vcls:'fin',lbl:'🏁 FIN',bcls:'clr-ok'};
     }
-    return{val:frame.value,vcls:frame.vcls,lbl:'⏱ Z'+zone,bcls:frame.bcls};
+    // ★ FIX TOUR EMOM : utiliser le label du frame (ex "⚙️ TRAVAIL · R2/7") quand
+    //   il existe — seul l'EMOM le pose. Les autres formats gardent "Z1/Z2".
+    return{val:frame.value,vcls:frame.vcls,lbl:frame.lbl||('⏱ Z'+zone),bcls:frame.bcls,round:frame.round||'',phase:frame.phase||''};
   }
 
   // ★ FIX FLASH "--:--" : fallback (pending, etc.) — afficher le cap du WOD
@@ -1147,12 +1167,20 @@ function tickZoneClock(zone){
 
   // Ne touche au DOM que si l'état change ET que l'élément porte encore cet état.
   // (dataset.k tombe quand renderZone reconstruit la colonne → on repeint.)
-  var key=s.val+'|'+s.vcls+'|'+(s.lbl||'')+'|'+(s.bcls||'');
+  var key=s.val+'|'+s.vcls+'|'+(s.lbl||'')+'|'+(s.bcls||'')+'|'+(s.round||'')+'|'+(s.phase||'');
   if(_zLastKey[zone]===key && cb && cb.dataset && cb.dataset.k===key) return;
   _zLastKey[zone]=key;
   cv.textContent=s.val; cv.className='chrono-val '+s.vcls;
   if(cl) cl.textContent=s.lbl;
-  if(cb){ cb.className='zone-chrono chrono-band '+(s.bcls||''); if(cb.dataset) cb.dataset.k=key; }
+  // TOUR X/7 à côté du chrono — EMOM seulement (s.round posé par le frame EMOM)
+  var cr=document.getElementById('cr-z'+zone);
+  if(cr){
+    if(s.round){ cr.textContent='TOUR '+s.round; cr.style.display=''; }
+    else { cr.textContent=''; cr.style.display='none'; }
+  }
+  // Animation sobre travail/repos (EMOM) : classe de phase sur le bandeau
+  var _phCls=s.phase==='work'?' ph-work':(s.phase==='rest'?' ph-rest':'');
+  if(cb){ cb.className='zone-chrono chrono-band '+(s.bcls||'')+_phCls; if(cb.dataset) cb.dataset.k=key; }
 }
 
 function startZoneClocks(){
@@ -1908,6 +1936,19 @@ function renderRankCards(rows,w,st,showLiveChips,h,catId,catLeader){
     var _tot=liveReps(sc);
     var _fmt=(w.wodFormat||'').toLowerCase();
     var _totalRounds=parseInt(w.rounds)||1;
+    // ★ FIX EMOM : le tour est dicté par l'HORLOGE (tout le monde sur la même
+    //   minute), pas par la progression jugée. On le calcule depuis le
+    //   startTimestamp du heat, comme le chrono et le TK.
+    if((_fmt==='emom'||_fmt==='interval'||_fmt==='tabata') && _totalRounds>1 && st==='live'){
+      var _emTs=(h&&h.startTimestamp)||0;
+      if(_emTs>0){
+        var _emW=parseInt(w.workMin||w.emomWork||60,10)||60;
+        var _emR=parseInt(w.restMin||w.emomRest||0,10)||0;
+        var _emCycle=Math.max(1,_emW+_emR);
+        var _emEl=Math.max(0,Math.floor((now()-_emTs)/1000));
+        _cRound=Math.min(_totalRounds, Math.floor(_emEl/_emCycle)+1);
+      }
+    }
     var _isRounds=_fmt==='rounds'&&_totalRounds>1;
     var _liveScore=!val&&st==='live'
       ?(_cr>0?String(_cr)+(_q>0?' / '+_q:''):(_tot>0?String(_tot):'—'))
@@ -1918,7 +1959,9 @@ function renderRankCards(rows,w,st,showLiveChips,h,catId,catLeader){
       if(_movName) _subLine+=_movName;
       // ★ Afficher le tour pour TOUS les formats (AMRAP inclus) dès qu'au moins 1 tour complet
       var _isAmrap = _fmt==='amrap' || _fmt==='' || !_fmt;
-      var _showRound = (_totalRounds>1) || _isRounds || (_isAmrap && _cRound>=1);
+      // ★ EMOM : le tour est affiché à côté du chrono (par zone), PAS par équipe.
+      var _isEmomTeam = _fmt==='emom' || _fmt==='interval' || _fmt==='tabata';
+      var _showRound = !_isEmomTeam && ((_totalRounds>1) || _isRounds || (_isAmrap && _cRound>=1));
       if(_showRound){
         var _label = (_totalRounds>1)
           ? ('Tour '+_cRound+'/'+_totalRounds)
@@ -2176,7 +2219,7 @@ function renderZone(zone){
       +(_hdrMovsHtml?'<div class="mov-row">'+_hdrMovsHtml+'</div>':'')
     +'</div>'
     +'<div class="zone-body">'
-      +'<div class="zone-chrono chrono-band" id="cb-z'+zone+'"><div class="chrono-lbl" id="cl-z'+zone+'">⌛ EN ATTENTE</div><div class="chrono-val idle" id="cv-z'+zone+'">--:--</div></div>'
+      +'<div class="zone-chrono chrono-band" id="cb-z'+zone+'"><div class="chrono-lbl" id="cl-z'+zone+'">⌛ EN ATTENTE</div><div class="chrono-mid"><div class="chrono-val idle" id="cv-z'+zone+'">--:--</div><div class="chrono-round" id="cr-z'+zone+'" style="display:none"></div></div></div>'
       +'<div class="teams-band" id="tband-'+zone+'">'
         +renderRankCards(heatRows,dw,displaySt,displaySt==='live'||displaySt==='pre',dhFull,displayCatId,displayCatLeader)
       +'</div>'
