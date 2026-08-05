@@ -755,7 +755,7 @@ body{
         <input id="ec-inp" type="number" min="0" inputmode="numeric" placeholder="ce tour"
           onkeydown="if(event.key==='Enter') ecAdd()"
           style="flex:1;padding:14px;border-radius:10px;border:1px solid rgba(159,107,255,.35);background:rgba(159,107,255,.07);color:var(--ink);font-family:var(--fm);font-size:24px;font-weight:700;outline:none;text-align:center">
-        <button onclick="ecAdd()" style="padding:14px 16px;border-radius:10px;border:none;background:#7C3AED;color:#fff;font-family:var(--fc);font-size:14px;font-weight:900;cursor:pointer;white-space:nowrap">➕ AJOUTER</button>
+        <button onclick="ecAdd()" style="padding:14px 18px;border-radius:10px;border:none;background:linear-gradient(135deg,#7C3AED,#00B894);color:#fff;font-family:var(--fc);font-size:15px;font-weight:900;cursor:pointer;white-space:nowrap">✅ VALIDER CE TOUR</button>
       </div>
       <button onclick="ecUndo()" style="background:none;border:none;color:var(--ink2);font-size:11px;text-decoration:underline;cursor:pointer;margin-top:2px">↩ annuler le dernier</button>
       <div id="ec-history" style="display:flex;flex-wrap:wrap;gap:5px;justify-content:center;width:100%;max-width:320px;margin-top:6px"></div>
@@ -2848,6 +2848,22 @@ function ecAdd(){
   vib([30]);
   ecRefresh();
   _persistEc();
+  // ★ DERNIER TOUR EMOM (demande chef) : « VALIDER CE TOUR » finalise automatiquement
+  //   le score final, comme les autres tours — pas de bouton « VALIDER LE SCORE »
+  //   séparé à la fin. On détecte le dernier tour via l'horloge (emomRound >= nb de
+  //   tours). done=true AVANT validate() pour passer le garde-fou format.
+  try{
+    var _fmtEc=String((SC&&SC.fmt)||'').toLowerCase();
+    if((_fmtEc==='emom'||_fmtEc==='interval') && !done){
+      var _cycEc=Math.max(1,(SC.emomWork||60)+(SC.emomRest||0));
+      var _trEc=Math.max(1,Math.round((SC.cap||0)/_cycEc));
+      if(emomRound>=_trEc){
+        toast('🏁 Dernier tour validé — score final envoyé','#00E5A0',2600);
+        vib([80,50,120]);
+        setTimeout(function(){ if(!done){ done=true; try{ validate(); }catch(e){ console.warn('auto-final EMOM:',e); } } }, 500);
+      }
+    }
+  }catch(e){}
 }
 function ecUndo(){
   if(!_ecValues.length){ toast('Rien à annuler'); return; }
@@ -2869,6 +2885,10 @@ function ecNextMove(){
 }
 
 function ecGotoNextInRound(){
+  // ★ FIX (bug chef « le bouton vert ne valide pas la saisie ») : on VALIDE d'abord la
+  //   valeur en attente dans ec-inp. Avant, le juge qui tapait sa distance puis appuyait
+  //   sur ce bouton vert perdait sa saisie (le bouton n'ajoutait rien, il avançait juste).
+  try{ var _pend=$('ec-inp'); if(_pend && String(_pend.value).trim()!=='') ecAdd(); }catch(e){}
   // Passer du skierg (mvt ergo-libre) au mouvement suivant DANS la même minute EMOM.
   // On avance moveIdx SANS déclencher la fin du WOD ni le changement de round
   // (le chrono EMOM gère les minutes tout seul).
@@ -2881,7 +2901,7 @@ function ecGotoNextInRound(){
     if(typeof updateEmomDisplay==='function') updateEmomDisplay();
     if(db && typeof pushScoreLive==='function') pushScoreLive();
   } else {
-    if(typeof toast==='function') toast('Dernier mouvement — attends la minute suivante');
+    if(typeof toast==='function') toast('✓ Distance validée — attends la minute suivante');
   }
 }
 
@@ -3227,8 +3247,13 @@ function validate(ergoVal){
   var _heatEnCours=(HEAT_STATUS==='live'||HEAT_STATUS==='timecap');
   if(_emomActif && _surErgoLibre && _heatEnCours){
     // rediriger vers l'ajout cumulé au lieu de terminer
-    if(typeof ecAdd==='function' && ergoVal!=null){
-      var _inp=$('ec-inp'); if(_inp){ _inp.value=ergoVal; ecAdd(); }
+    if(typeof ecAdd==='function'){
+      var _inp=$('ec-inp');
+      if(ergoVal!=null && _inp){ _inp.value=ergoVal; ecAdd(); }
+      // ★ FIX : si aucune valeur passée, VALIDER la saisie en attente dans ec-inp
+      //   (avant : toast « valeur ajoutée » mais rien n'était ajouté).
+      else if(_inp && String(_inp.value).trim()!==''){ ecAdd(); }
+      else { toast('Saisis une distance avant de valider'); return; }
     }
     toast('➕ Valeur ajoutée — le WOD continue', '#9F6BFF');
     return;
