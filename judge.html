@@ -3237,7 +3237,13 @@ function validate(ergoVal){
   //   (qui met done=true AVANT d'appeler validate) n'est PAS bloquée.
   if(!done){
     var _vf=(SC&&SC.fmt)||'amrap';
-    var _vtc=(_vf==='amrap'||_vf==='tabata');
+    // ★ EMOM/interval ajoutés (bug chef « valider un snatch = WOD fini ») : ils sont
+    //   pilotés par le CHRONO comme amrap/tabata, le score s'accumule jusqu'au buzzer.
+    //   Sans eux ici, un validate() manuel pendant un EMOM en cours (déclenché en
+    //   validant le snatch, mvt non ergo-libre → la protection ergo-cumulé ne l'attrape
+    //   pas) terminait le heat. La fin d'un EMOM = le chrono, qui auto-valide via
+    //   done=true (non bloqué par ce garde-fou car il est dans if(!done)).
+    var _vtc=(_vf==='amrap'||_vf==='tabata'||_vf==='emom'||_vf==='interval');
     if(_vtc && HEAT_STATUS==='live'){
       toast('⏱ Attends la fin du temps pour valider');
       try{ vib([60,40,60]); }catch(e){}
