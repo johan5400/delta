@@ -6444,6 +6444,12 @@ if(typeof fbBuildWodInfo !== 'function'){
           tour:parseInt(m.tour||0,10)||0,
           ergoTarget:m.ergoTarget||0,
           ergoUnit:m.ergoUnit||m.unit||'m',
+          // ★ FIX RACINE (bug chef « valider rep par rep ») : ce mapping construit le
+          //   wodInfo du heat (lu par le juge/live) et JETAIT ergoFree/teamSum/teamCount.
+          //   Sans ergoFree, le juge ne reconnaît plus la « valeur libre cumulée » (max
+          //   mètres/cals par tour) et retombe sur le comptage rep par rep. Les deux
+          //   autres mappings (fbBuildWodInfo bis) préservent déjà ces flags ; on aligne.
+          ergoFree:!!m.ergoFree, teamSum:!!m.teamSum, teamCount:parseInt(m.teamCount||2)||2,
           // Adaptation par catégorie — inclus complets
           poids: m.poids||{},
           qtyParCat: m.qtyParCat||{},
