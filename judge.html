@@ -1205,6 +1205,14 @@ function wodToScenario(wod){
       type: m.type||'reps',
       ergoTarget: baseDist,
       ergoUnit: m.ergoUnit||'m',
+      // ★ FIX (bug chef) : ces flags étaient PERDUS à la conversion mouvements→moves.
+      //   Sans ergoFree, _curMoveIsEcFree() renvoyait toujours faux → la zone de
+      //   saisie cumulée (max mètres bike / cals par tour) ne s'affichait jamais,
+      //   la saisie tombait sur l'ergo simple qui VALIDE et termine le heat au lieu
+      //   d'additionner les tours. On propage aussi teamSum/teamCount (même bug).
+      ergoFree: !!m.ergoFree,
+      teamSum: !!m.teamSum,
+      teamCount: parseInt(m.teamCount||2)||2,
       qui: m.qui||'',
       comment: m.comment||'',
       note: m.note||'',
