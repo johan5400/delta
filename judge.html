@@ -1212,7 +1212,11 @@ function wodToScenario(wod){
     return {
       n: baseName,
       q: baseQty,
-      poids: basePoids,
+      // ★ FIX POIDS FANTÔME (bug chef) : un mouvement ergo (bike/rameur/skierg =
+      //   distance ou cals) ne porte JAMAIS de poids de barre. Même si la donnée en
+      //   contient un (incohérence poidsGlobal/poids[cat] ou fuite), on ne le propage
+      //   pas au juge, sinon il affiche un « ⚖️ … » absurde sur le bike.
+      poids: ((m.type||'reps')==='ergo') ? '' : basePoids,
       temps: baseTime,
       type: m.type||'reps',
       ergoTarget: baseDist,
@@ -2824,8 +2828,13 @@ function ecRefresh(){
   if(h){ h.innerHTML=_ecValues.map(function(v,i){
     return '<span style="background:rgba(159,107,255,.14);border:1px solid rgba(159,107,255,.3);border-radius:6px;padding:3px 8px;font-family:var(--fm);font-size:12px;font-weight:700;color:#9F6BFF">T'+(i+1)+' : '+v+'</span>';
   }).join(''); }
-  // synchroniser le total dans les variables de score standard
-  totalReps=tot;
+  // ★ FIX RACINE (bug chef, tous WOD reps + valeur libre) : NE PAS écraser totalReps
+  //   (le compteur de reps, ex : snatch) avec le total de distance. Une seule variable
+  //   servait aux deux → dès qu'on saisissait le bike, le compte de reps était remplacé
+  //   par la distance (et le total paraissait « repartir à 0 » / ne plus s'additionner).
+  //   On ne synchronise totalReps=tot QUE pour un WOD purement ergo (aucun mvt en reps).
+  var _hasRepMove=!!(SC&&SC.moves&&SC.moves.some(function(mm){return mm&&mm.type!=='ergo'&&(parseInt((mm.q!=null?mm.q:mm.qty)||0,10)||0)>0;}));
+  if(!_hasRepMove) totalReps=tot;
   var jt=$('j-total'); if(jt) jt.textContent=tot>0?('TOTAL : '+tot+(_ecUnit?(' '+_ecUnit):'')):'';
 }
 function ecAdd(){
@@ -3244,7 +3253,11 @@ function validate(ergoVal){
     //   pas) terminait le heat. La fin d'un EMOM = le chrono, qui auto-valide via
     //   done=true (non bloqué par ce garde-fou car il est dans if(!done)).
     var _vtc=(_vf==='amrap'||_vf==='tabata'||_vf==='emom'||_vf==='interval');
-    if(_vtc && HEAT_STATUS==='live'){
+    // ★ FIX bouton vert (régression du garde-fou) : NE bloquer que pendant le heat qui
+    //   tourne réellement. En fin de chrono, le juge ouvre une fenêtre de grâce
+    //   (judgeIsPostHeatEntryOpen) où HEAT_STATUS est encore 'live' localement — il DOIT
+    //   pouvoir valider là. Sans cette exception, le bouton vert VALIDER ne faisait rien.
+    if(_vtc && HEAT_STATUS==='live' && !judgeIsPostHeatEntryOpen()){
       toast('⏱ Attends la fin du temps pour valider');
       try{ vib([60,40,60]); }catch(e){}
       return;
@@ -3954,7 +3967,7 @@ function _judgeRestoreFromScore(sc, runTs){
       var _savedEc = parseFloat(sc.dist||sc.ergoVal||0)||0;
       if(sc.ecValues && sc.ecValues.length){ _ecValues = sc.ecValues.slice(); }
       else if(_savedEc>0){ _ecValues = [_savedEc]; }   // au pire, un bloc avec le total
-      else { _ecValues = []; }
+      else if(!(_ecValues && _ecValues.length)){ _ecValues = []; }  // ★ ne JAMAIS écraser un cumul local déjà saisi
       var _m0=(SC.moves||[]).filter(function(mm){return mm&&mm.type==='ergo'&&mm.ergoFree;})[0]||{};
       _ecUnit=_m0.ergoUnit||'cal';
       if(typeof ecRefresh==='function') ecRefresh();
