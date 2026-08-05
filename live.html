@@ -1913,6 +1913,14 @@ function gapText(row,lead,w,st){
       }catch(e){}
     }
   }
+  // ★ ERGO/DISTANCE en direct : l'écart entre équipes est en mètres/cals, pas en reps.
+  if(jm==='ergo'||sf==='dist'||sf==='cal'){
+    var _lgv=parseFloat((lead.sc&&(lead.sc.dist||lead.sc.ergoVal||lead.sc.distance))||0)||0;
+    var _rgv=parseFloat((row.sc&&(row.sc.dist||row.sc.ergoVal||row.sc.distance))||0)||0;
+    var _gdd=Math.max(0,_lgv-_rgv);
+    var _gu=(sf==='cal'?'cal':((row.sc&&row.sc.ergoUnit)||'m'));
+    return _gdd>0?('- '+_gdd+' '+_gu):'ÉGALITÉ';
+  }
   if(st==='live' || !row.ok || !lead.ok){
     var dr=Math.max(0,liveReps(lead.sc)-liveReps(row.sc));
     return dr>0?'- '+dr+' reps':'ÉGALITÉ';
@@ -1979,13 +1987,29 @@ function renderRankCards(rows,w,st,showLiveChips,h,catId,catLeader){
       }
     }
     var _isRounds=_fmt==='rounds'&&_totalRounds>1;
+    // ★ FIX AFFICHAGE LIVE ERGO/DISTANCE (bug chef « ça remonte pas ») : pour un WOD
+    //   scoré en distance/cals (bike max mètres, ergo), la carte EN DIRECT doit montrer
+    //   la DISTANCE qui monte, pas un compteur de reps. Avant, la distance n'apparaissait
+    //   qu'une fois le score VALIDÉ (scoreStr) → rien ne remontait pendant la course.
+    var _sfLive=(w.scoreFinale||w.scoreType||'').toLowerCase();
+    var _jmLive=(w.judgeMode||'').toLowerCase();
+    var _isErgoLive=(_jmLive==='ergo'||_sfLive==='dist'||_sfLive==='cal');
+    var _ergoLiveVal=parseFloat(sc.dist||sc.ergoVal||sc.distance)||0;
+    var _ergoLiveUnit=(_sfLive==='cal'?'cal':(sc.ergoUnit||'m'));
+    var _ergoLiveStr=(_ergoLiveVal>0?String(_ergoLiveVal)+' '+_ergoLiveUnit:'—');
     var _liveScore=!val&&st==='live'
-      ?(_cr>0?String(_cr)+(_q>0?' / '+_q:''):(_tot>0?String(_tot):'—'))
+      ?(_isErgoLive?_ergoLiveStr:(_cr>0?String(_cr)+(_q>0?' / '+_q:''):(_tot>0?String(_tot):'—')))
       :'';
     var _subLine='';
     var _roundHtml='';
     if(!val&&st==='live'){
-      if(_movName) _subLine+=_movName;
+      if(_movName){
+        _subLine+=_movName;
+        // ★ Progression du mouvement en cours (ex : « Snatch 4/7 ») qui tique en direct.
+        //   Même sur un WOD scoré en distance, le public doit voir le mouvement compté
+        //   avancer, comme sur un WOD à mouvements classique.
+        if(_q>0) _subLine+=' '+_cr+'/'+_q;
+      }
       // ★ Afficher le tour pour TOUS les formats (AMRAP inclus) dès qu'au moins 1 tour complet
       var _isAmrap = _fmt==='amrap' || _fmt==='' || !_fmt;
       // ★ EMOM : le tour est affiché à côté du chrono (par zone), PAS par équipe.
@@ -2001,7 +2025,7 @@ function renderRankCards(rows,w,st,showLiveChips,h,catId,catLeader){
     var _movHtml=_subLine
       ?'<div style="font-size:.42em;opacity:.45;font-family:var(--fc);letter-spacing:.5px;margin-top:1px">'+_subLine+'</div>'
       :'';
-    var s=val?scoreStr(sc,w):(_tot>0?String(_tot)+' reps':'—');
+    var s=val?scoreStr(sc,w):(_isErgoLive?_ergoLiveStr:(_tot>0?String(_tot)+' reps':'—'));
     var repLead=liveReps(lead.sc),repMe=liveReps(sc);
     // Badge gap : LEADER pour le 1er, écart pour les autres
     var repDiff=repLead-repMe;
