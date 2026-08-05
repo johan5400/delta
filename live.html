@@ -778,7 +778,17 @@ function getHeat(zone){
 }
 function getNext(zone){
   var zs=ZSYNC['z'+zone]||null;
-  if(zs&&zs.nextHeatId&&HEATS[zs.nextHeatId])return{id:zs.nextHeatId,h:HEATS[zs.nextHeatId]};
+  if(zs&&zs.nextHeatId&&HEATS[zs.nextHeatId]){
+    var _zn=HEATS[zs.nextHeatId];
+    // ★ N'accepter le pointeur ZSYNC que s'il désigne un heat réellement À VENIR.
+    //   Un nextHeatId momentanément périmé (latence Firebase) pointant sur un heat
+    //   déjà fini/en cours ferait afficher « l'équipe qui vient de passer » dans la
+    //   preview du prochain heat. On vérifie donc statut ET zone avant de le suivre.
+    var _znz=(parseInt(_zn.catZone!=null?_zn.catZone:_zn.zone)||1);
+    if((_zn.status==='pending'||_zn.status==='pre')&&_znz===zone){
+      return{id:zs.nextHeatId,h:_zn};
+    }
+  }
   var best=null,bn=0;
   Object.keys(HEATS).forEach(function(hid){
     var h=HEATS[hid];if(!h)return;
@@ -2198,8 +2208,14 @@ function renderZone(zone){
   var catLeaders=getLeaders();
   var catLeader=catLeaders[catId]||null;
 
-  // Pour la teams-band : si un heat vient de finir, afficher ses résultats
-  var displayData=doneData||data;
+  // Pour la teams-band : pendant l'IH (ou quand rien ne tourne encore) on affiche
+  // les résultats du heat fini. MAIS dès qu'un heat TOURNE réellement (live/timecap)
+  // hors IH, on affiche CE heat — sinon les équipes du heat qui vient de finir
+  // « bavent » sur le premier rendu du heat suivant (symptôme chef : « l'équipe qui
+  // vient de passer s'affiche dans le prochain heat »). doneData ne doit gagner que
+  // pendant l'inter-heat ou tant qu'aucun heat n'est en cours.
+  var _curRunning = data && data.h && (data.h.status==='live'||data.h.status==='timecap') && !ihOn;
+  var displayData = _curRunning ? data : (doneData||data);
   var dh=displayData.h,dhid=displayData.id,dw=dh.wodInfo||{};
   var displayCatId=String(dh.catId||'');
   var displayCatLeader=catLeaders[displayCatId]||null;

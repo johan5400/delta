@@ -1143,8 +1143,20 @@ function wodToScenario(wod){
   //   "type de score" qui pose judgeMode/scoreFinale SANS toucher wodFormat.
   //   Sans cette bascule, le juge resterait en compteur de reps et n'afficherait
   //   jamais le champ kg (j-maxload-zone) ni le champ ergo (j-ergo-zone).
-  if(wod.judgeMode==='maxload' || wod.scoreFinale==='load') fmt='maxload';
-  else if(wod.judgeMode==='ergo' || wod.scoreFinale==='dist' || wod.scoreFinale==='cal') fmt='ergo';
+  // ★ FIX EMOM SCORÉ EN DISTANCE (bug chef) : le SCORE (dist/cal/charge) ne doit PAS
+  //   écraser le FORMAT quand celui-ci est un format à minutes (emom/interval). Format =
+  //   structure de temps (tours à la minute) ; type de score = indépendant. Sans ce garde,
+  //   un EMOM Bike (max mètres, scoreFinale='dist') devenait un ergo one-shot → le juge ne
+  //   tournait plus les tours et considérait le heat FINI dès la 1re distance saisie, au lieu
+  //   d'additionner. Les mouvements ergoFree (zone ergo cumulé) gèrent la distance PAR TOUR
+  //   À L'INTÉRIEUR de l'EMOM, et la finalisation du score détecte ergoFree indépendamment
+  //   du format (payload.dist = somme des tours). On ne bascule donc en maxload/ergo QUE
+  //   pour les WOD sans structure de temps.
+  var _isTimedFmt=(fmt==='emom'||fmt==='interval');
+  if(!_isTimedFmt){
+    if(wod.judgeMode==='maxload' || wod.scoreFinale==='load') fmt='maxload';
+    else if(wod.judgeMode==='ergo' || wod.scoreFinale==='dist' || wod.scoreFinale==='cal') fmt='ergo';
+  }
 
   var fmtLabels={amrap:'AMRAP',fortime:'FOR TIME',maxload:'MAX LOAD',emom:'EMOM',interval:'INTERVAL',rounds:'ROUNDS',ergo:'ERGO'};
   var _fmtCap=String(wod.wodFormat||wod.format||'').toLowerCase();
@@ -3252,7 +3264,15 @@ function validate(ergoVal){
     startMinute:null
   };
   var score,meta,fmt=(SC.fmt||'').toLowerCase();
-  if(fmt==='maxload'){
+  var _ecFreeDisp=!!(SC.moves&&SC.moves.some(function(mm){return mm&&mm.type==='ergo'&&mm.ergoFree;}));
+  if(_ecFreeDisp){
+    // ★ EMOM/ergo cumulé : le score affiché = total des distances/cals des tours + unité.
+    var _ecDm=(SC.moves.filter(function(mm){return mm&&mm.type==='ergo'&&mm.ergoFree;})[0]||{});
+    var _ecDu=_ecDm.ergoUnit||'m';
+    var _ecDt=(_ecValues||[]).reduce(function(a,b){return a+(parseFloat(b)||0);},0);
+    score=_ecDt+' '+_ecDu;
+    meta=SC.heat+' · Lane '+SC.lane+' · '+SC.wod;
+  } else if(fmt==='maxload'){
     var best=0; mlAttempts.forEach(function(a){if(a.ok&&a.kg>best)best=a.kg;});
     score=best?best+' kg':'—';
     meta=SC.heat+' · Lane '+SC.lane+' · '+SC.wod+' · '+mlAttempts.length+' essai'+(mlAttempts.length>1?'s':'');
