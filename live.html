@@ -2087,13 +2087,23 @@ function renderZone(zone){
   // ★ Calculé TOUJOURS (pas seulement pendant un IH) pour basculer instantanément
   // en mode résultats dès qu'un heat passe en done/timecap, SANS attendre de validation juge.
   var doneData=null;
-  var bestDoneId=null, bestDoneN=0;
+  var bestDoneId=null, bestDoneTs=-1, bestDoneN=-1;
   Object.keys(HEATS).forEach(function(hid){
     var hx=HEATS[hid]; if(!hx) return;
     if((parseInt(hx.catZone!=null?hx.catZone:hx.zone)||1)!==zone) return;
     if(hx.status!=='done'&&hx.status!=='timecap') return;
+    // ★ FIX SÉQUENCE RÉSULTATS : le heat « qui vient de finir » = celui dont le
+    //   startTimestamp est le PLUS RÉCENT (ordre de passage réel), et NON le plus
+    //   grand id. Les ids suivent l'ordre de CRÉATION des catégories : une catégorie
+    //   créée avant mais jouée après a des ids plus petits, donc l'ancien tri par id
+    //   ressortait éternellement les résultats d'une catégorie déjà passée (id plus
+    //   grand) → « résultats d'une catégorie qui ne passe pas » + tout qui se mélange.
+    //   startTimestamp = quand le heat a réellement démarré → toujours le bon.
+    var ts=parseInt(hx.startTimestamp||0,10)||0;
     var n=parseInt(String(hid).replace(/\D/g,''))||0;
-    if(n>bestDoneN){bestDoneN=n;bestDoneId=hid;}
+    if(ts>bestDoneTs || (ts===bestDoneTs && n>bestDoneN)){
+      bestDoneTs=ts; bestDoneN=n; bestDoneId=hid;
+    }
   });
   if(bestDoneId) doneData={id:bestDoneId,h:HEATS[bestDoneId]};
 
