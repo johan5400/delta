@@ -11919,14 +11919,9 @@ function renderProgWodsList() {
   var empty = document.getElementById('prog-empty');
   if (!el) return;
 
-  // ★ INJECTION WOD 1 EMOM TEST : ajoute le WOD Bike+Snatch s'il manque (sans écraser).
-  try{
-    if(!WODS.some(function(w){return w && w.nom && String(w.nom).indexOf('EMOM Bike+Snatch')>=0;})){
-      var _we={id:2101,nom:"WOD 1 · EMOM Bike+Snatch",desc:"EMOM 7min · max mètres Bike + 7 Snatch pour valider · score = total mètres",descComplete:"",conditions:"",scParCat:{},zone:"1",ordreZone:1,jour:1,duree:420,interHeat:90,coupureApres:0,coupureJustif:"",wodFormat:"emom",workMin:60,restMin:0,rounds:7,capMinutes:7,scoreType:"dist",scoreFields:["dist"],scoreFinale:"dist",judgeMode:"ergo",ergoType:"dist",pauseEntreToursActive:false,pauseEntreToursSec:0,hasTiebreak:false,mouvements:[{nom:"Bike (max mètres)",qty:0,type:"ergo",ergoFree:true,ergoUnit:"m",ergoTarget:0,poids:{"1001":"","1002":"","1003":"","1004":"","1005":"","1006":"","1007":""},qtyParCat:{},timeParCat:{},distParCat:{}},{nom:"Snatch",qty:7,type:"reps",ergoTarget:0,ergoUnit:"m",poids:{"1001":"40kg","1002":"30kg","1003":"25kg","1004":"20kg","1005":"15kg","1006":"20kg","1007":"20kg"},qtyParCat:{"1001":7,"1002":7,"1003":7,"1004":7,"1005":7,"1006":7,"1007":7},timeParCat:{},distParCat:{}}]};
-      WODS.unshift(_we);
-      if(typeof ensureWodTiming==='function') ensureWodTiming(_we);
-    }
-  }catch(e){}
+  // ★ (retiré) L'auto-injection du WOD test « EMOM Bike+Snatch » a été supprimée :
+  //   elle réinjectait le WOD à chaque rendu, donc il était impossible à supprimer
+  //   avec la croix. Le WOD se crée/gère maintenant normalement comme les autres.
 
   WODS.forEach(ensureWodTiming);
 
