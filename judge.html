@@ -751,13 +751,10 @@ body{
       <div style="font-family:var(--fc);font-size:10px;color:var(--ink2);text-align:center">Saisis la valeur de ce tour, puis AJOUTER. Le total s'additionne.</div>
       <div style="font-family:var(--fm);font-size:46px;font-weight:900;color:#9F6BFF;line-height:1" id="ec-total">0</div>
       <div style="font-family:var(--fc);font-size:11px;font-weight:700;color:var(--mid);letter-spacing:1px" id="ec-unit">TOTAL</div>
-      <div style="display:flex;gap:8px;align-items:center;width:100%;max-width:300px;margin-top:4px">
-        <input id="ec-inp" type="number" min="0" inputmode="numeric" placeholder="ce tour"
-          onkeydown="if(event.key==='Enter') ecAdd()"
-          style="flex:1;padding:14px;border-radius:10px;border:1px solid rgba(159,107,255,.35);background:rgba(159,107,255,.07);color:var(--ink);font-family:var(--fm);font-size:24px;font-weight:700;outline:none;text-align:center">
-        <button onclick="ecAdd()" style="padding:14px 18px;border-radius:10px;border:none;background:linear-gradient(135deg,#7C3AED,#00B894);color:#fff;font-family:var(--fc);font-size:15px;font-weight:900;cursor:pointer;white-space:nowrap">✅ VALIDER CE TOUR</button>
-      </div>
-      <button onclick="ecUndo()" style="background:none;border:none;color:var(--ink2);font-size:11px;text-decoration:underline;cursor:pointer;margin-top:2px">↩ annuler le dernier</button>
+      <input id="ec-inp" type="number" min="0" inputmode="numeric" placeholder="valeur de ce tour"
+        onkeydown="if(event.key==='Enter') ecAdd()"
+        style="width:100%;max-width:340px;padding:16px;border-radius:12px;border:1px solid rgba(159,107,255,.35);background:rgba(159,107,255,.07);color:var(--ink);font-family:var(--fm);font-size:30px;font-weight:700;outline:none;text-align:center">
+      <button onclick="ecAdd()" style="width:100%;max-width:340px;margin-top:8px;padding:20px;border-radius:14px;border:none;background:linear-gradient(135deg,#00A876,#00E5A0);color:#fff;font-family:var(--fc);font-size:22px;font-weight:900;cursor:pointer;letter-spacing:1px;box-shadow:0 4px 18px rgba(0,200,140,.4)">✅ OK</button>
       <div id="ec-history" style="display:flex;flex-wrap:wrap;gap:5px;justify-content:center;width:100%;max-width:320px;margin-top:6px"></div>
       <button onclick="ecGotoNextInRound()" id="ec-next" style="margin-top:12px;padding:14px 20px;border-radius:12px;border:none;background:linear-gradient(90deg,#00A876,#00C98D);color:#fff;font-family:var(--fc);font-size:14px;font-weight:900;cursor:pointer;width:100%;max-width:300px">✓ SKIERG OK → SNATCH</button>
     </div>

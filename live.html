@@ -2022,9 +2022,18 @@ function renderRankCards(rows,w,st,showLiveChips,h,catId,catLeader){
         _roundHtml='<div style="font-size:.6em;color:#4ADE80;font-family:var(--fm);font-weight:900;letter-spacing:.5px;margin-top:3px;line-height:1;text-shadow:0 0 10px rgba(74,222,128,.4)">'+_label+'</div>';
       }
     }
-    var _movHtml=_subLine
-      ?'<div style="font-size:.42em;opacity:.45;font-family:var(--fc);letter-spacing:.5px;margin-top:1px">'+_subLine+'</div>'
-      :'';
+    var _movHtml='';
+    if(_isErgoLive && st==='live'){
+      // ★ SIMPLE & ROBUSTE (demande chef) : sur un WOD scoré en distance, afficher
+      //   TOUJOURS le nombre de reps du mouvement (ex : snatch) cumulé, à côté de la
+      //   distance — sans dépendre d'un état de validation qui le faisait disparaître.
+      var _repMov=(_movs||[]).filter(function(m){return m&&m.type!=='ergo';})[0]||null;
+      var _repNom=_repMov?(_repMov.nom||'reps'):'reps';
+      var _snCount=parseInt(sc.reps)||0;
+      _movHtml='<div style="font-size:.58em;opacity:.92;color:#7FE0C0;font-weight:800;font-family:var(--fc);letter-spacing:.5px;margin-top:2px">🏋️ '+_snCount+' '+esc(_repNom)+'</div>';
+    } else if(_subLine){
+      _movHtml='<div style="font-size:.42em;opacity:.45;font-family:var(--fc);letter-spacing:.5px;margin-top:2px">'+_subLine+'</div>';
+    }
     var s=val?scoreStr(sc,w):(_isErgoLive?_ergoLiveStr:(_tot>0?String(_tot)+' reps':'—'));
     var repLead=liveReps(lead.sc),repMe=liveReps(sc);
     // Badge gap : LEADER pour le 1er, écart pour les autres
@@ -2038,7 +2047,7 @@ function renderRankCards(rows,w,st,showLiveChips,h,catId,catLeader){
       var meVal   = e.ok   ? scoreVal(e.sc,w)    : repMe;
       var isFortime=(w.wodFormat||'').toLowerCase()==='fortime'||(w.scoreFinale||w.scoreType||'').toLowerCase()==='time';
       var isLoad  =(w.judgeMode||'').toLowerCase()==='maxload'||(w.scoreFinale||w.scoreType||'').toLowerCase()==='load';
-      var isErgo  =(w.scoreFinale||w.scoreType||'').toLowerCase()==='dist';
+      var isErgo  =(w.judgeMode||'').toLowerCase()==='ergo'||(w.scoreFinale||w.scoreType||'').toLowerCase()==='dist'||(w.scoreFinale||w.scoreType||'').toLowerCase()==='cal';
       if(isFortime){
         // ForTime : valeur négative (plus petit = plus rapide) — delta = moi - leader (positif = plus lent)
         var tDiff = meVal - leadVal; // si meVal plus négatif = plus rapide = devant
@@ -2051,9 +2060,14 @@ function renderRankCards(rows,w,st,showLiveChips,h,catId,catLeader){
         if(lDiff<=0){ repGap=leadVal>0?'=':''; gapCls='lead'; }
         else { repGap='- '+lDiff+' kg'; gapCls='gap'; }
       } else if(isErgo){
-        var eDiff=leadVal-meVal;
-        if(eDiff<=0){ repGap=leadVal>0?'=':''; gapCls='lead'; }
-        else { repGap='- '+Math.round(eDiff)+' m'; gapCls='gap'; }
+        // ★ Écart en DISTANCE en direct (dist/ergoVal), pas en reps — sinon pendant le
+        //   live le retard sur le 1er restait à 0 (tout le monde ~même nombre de reps).
+        var _lgv=parseFloat((lead.sc&&(lead.sc.dist||lead.sc.ergoVal||lead.sc.distance))||0)||0;
+        var _mgv=parseFloat((sc.dist||sc.ergoVal||sc.distance))||0;
+        var eDiff=_lgv-_mgv;
+        var _egu=((w.scoreFinale||w.scoreType||'').toLowerCase()==='cal')?'cal':'m';
+        if(eDiff<=0){ repGap=_lgv>0?'=':''; gapCls='lead'; }
+        else { repGap='- '+Math.round(eDiff)+' '+_egu; gapCls='gap'; }
       } else {
         // AMRAP / reps
         var rDiff=leadVal-meVal;
