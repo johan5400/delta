@@ -2024,13 +2024,15 @@ function renderRankCards(rows,w,st,showLiveChips,h,catId,catLeader){
     }
     var _movHtml='';
     if(_isErgoLive && st==='live'){
-      // ★ SIMPLE & ROBUSTE (demande chef) : sur un WOD scoré en distance, afficher
-      //   TOUJOURS le nombre de reps du mouvement (ex : snatch) cumulé, à côté de la
-      //   distance — sans dépendre d'un état de validation qui le faisait disparaître.
+      // ★ Générique pour tout EMOM ergo : afficher le cumul de reps du mouvement compté
+      //   (snatch, thruster, wall ball…) UNIQUEMENT s'il existe un mouvement de reps.
+      //   Un EMOM ergo pur (ex : max mètres vélo seul) n'affiche que la distance.
       var _repMov=(_movs||[]).filter(function(m){return m&&m.type!=='ergo';})[0]||null;
-      var _repNom=_repMov?(_repMov.nom||'reps'):'reps';
-      var _snCount=parseInt(sc.reps)||0;
-      _movHtml='<div style="font-size:.58em;opacity:.92;color:#7FE0C0;font-weight:800;font-family:var(--fc);letter-spacing:.5px;margin-top:2px">🏋️ '+_snCount+' '+esc(_repNom)+'</div>';
+      if(_repMov){
+        var _repNom=_repMov.nom||'reps';
+        var _snCount=parseInt(sc.reps)||0;
+        _movHtml='<div style="font-size:.58em;opacity:.92;color:#7FE0C0;font-weight:800;font-family:var(--fc);letter-spacing:.5px;margin-top:2px">🏋️ '+_snCount+' '+esc(_repNom)+'</div>';
+      }
     } else if(_subLine){
       _movHtml='<div style="font-size:.42em;opacity:.45;font-family:var(--fc);letter-spacing:.5px;margin-top:2px">'+_subLine+'</div>';
     }
