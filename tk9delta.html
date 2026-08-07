@@ -3267,7 +3267,12 @@ var _sharedTickNow=0; // ★ même timestamp serveur pour tous les ticks d'une m
 function startSharedTimerLoop(){
   if(_sharedTimerIv) return;
   function tickAll(){
-    _sharedTickNow = serverNow(); // ★ un seul snapshot pour cette itération
+    // ★ GEL RÉEL DU CHRONO PENDANT L'URGENCE (bug chef) : quand la compétition est
+    //   gelée, on fige le « maintenant » à l'instant du gel (urgence.ts). Ainsi tous
+    //   les chronos qui calculent leur temps via _sharedTickNow s'ARRÊTENT vraiment à
+    //   l'écran, au lieu de continuer à tourner. Le décalage réel du départ se fait
+    //   ensuite à la reprise (resume_exact).
+    _sharedTickNow = (typeof urgence!=='undefined' && urgence.active && urgence.ts) ? urgence.ts : serverNow();
     Object.keys(zoneState||{}).forEach(function(z){
       var fn = zoneState[z] && zoneState[z].tickFn;
       if(typeof fn === 'function'){
@@ -3580,7 +3585,8 @@ function renderLanes(zone,hid,h){
   var cap=wodCapSec(wod);
   var movs=wod.mouvements||[];
   var isLive=st==='live'&&h.startTimestamp;
-  var elapsed=isLive?Math.floor((serverNow()-h.startTimestamp)/1000):0;
+  var _chNow=(typeof _sharedTickNow!=='undefined' && _sharedTickNow)?_sharedTickNow:serverNow();
+  var elapsed=isLive?Math.floor((_chNow-h.startTimestamp)/1000):0;
   var totalRepsWod=0;
 
   var rows=[];
