@@ -853,6 +853,7 @@ function _tbPushArr(){
 var startTs=null, elapsed=0, timerIv=null, done=false, endWarned=false;
 var mlAttempts=[];
 var emomRound=1, emomIsWork=true;
+var _tourValide=false; // ★ tour validé par le juge → écran repos jusqu'au prochain round
 var emomRoundReps=0, emomRoundHistory=[], emomTotalReps=0;
 var _judgeAutoChainEnabled=false;
 var _judgeScheduleEntries=[];
@@ -2858,6 +2859,18 @@ function ecAdd(){
         toast('🏁 Dernier tour validé — score final envoyé','#00E5A0',2600);
         vib([80,50,120]);
         setTimeout(function(){ if(!done){ done=true; try{ validate(); }catch(e){ console.warn('auto-final EMOM:',e); } } }, 500);
+      } else {
+        // ★ PAS le dernier tour : si on vient de valider le DERNIER mouvement du round
+        //   (le vélo/valeur libre est le dernier mvt), on bascule en ATTENTE du prochain
+        //   round → écran repos, plus de saisie possible. Simplifie la vie du juge : il
+        //   valide son tour et l'appli l'attend au prochain départ (rouvre au round suivant).
+        var _lastIdx=(SC&&SC.moves)?(SC.moves.length-1):0;
+        if(moveIdx>=_lastIdx){
+          _tourValide=true;
+          vib([40,30,40]);
+          toast('✅ Tour validé — repos jusqu\'au prochain round','#00E5A0',2000);
+          if(typeof updateEmomDisplay==='function') updateEmomDisplay();
+        }
       }
     }
   }catch(e){}
@@ -3445,13 +3458,14 @@ function updateEmomPhase(e){
       //   On ne garde que le reset des pointeurs de mouvement (nouveau round).
       moveIdx=0; moveReps=0;
     }
+    if(newIsWork && newRound!==wasRound){ _tourValide=false; } // ★ nouveau round → rouvrir la saisie
     updateEmomDisplay();
     if(newIsWork && emomRound>1) vib([80,60,80]);
   }
   var phaseRem=newIsWork?work-pos:cycle-pos;
   var cdEl=$('emom-cd'); if(cdEl) cdEl.textContent=fmtT(phaseRem);
   // ★ Countdown visible sur l'écran repos
-  var restCd=$('rest-cd-val'); if(restCd&&!emomIsWork) restCd.textContent=fmtT(phaseRem);
+  var restCd=$('rest-cd-val'); if(restCd&&(!emomIsWork||_tourValide)) restCd.textContent=fmtT(phaseRem);
 }
 function updateEmomDisplay(){
   // ★ ERGO CUMULÉ EN EMOM : si le mouvement courant est ergo-libre (max cal skierg /
@@ -3460,7 +3474,7 @@ function updateEmomDisplay(){
   var _ecz=$('j-ergocum-zone');
   if(_ecz){
     var _isEc=(typeof _curMoveIsEcFree==='function' && _curMoveIsEcFree());
-    _ecz.style.display=_isEc?'flex':'none';
+    _ecz.style.display=(_isEc && !_tourValide)?'flex':'none';
     var _cnt=$('j-counter'); var _bt=$('j-btns')||document.querySelector('.j-btns');
     if(_isEc){
       if(_cnt) _cnt.style.display='none';
@@ -3485,15 +3499,16 @@ function updateEmomDisplay(){
   if(h1) h1.innerHTML=hh;
   if(h2){h2.innerHTML=hh;h2.style.display=emomRoundHistory.length?'flex':'none';}
 
-  // ★ Écran REPOS — affiché uniquement si phase REST et restSec > 0
+  // ★ Écran REPOS — phase REST configurée OU tour validé par le juge (attente prochain round)
   var restScreen=$('j-rest-screen'), counter=$('j-counter'), btns=$('j-btns')||document.querySelector('.j-btns');
-  var isResting = !emomIsWork && rest>0;
+  var isResting = (!emomIsWork && rest>0) || _tourValide;
   if(restScreen){
     restScreen.classList.toggle('show', isResting);
     var _ecActive=(typeof _curMoveIsEcFree==='function' && _curMoveIsEcFree());
     if(counter) counter.style.display = (isResting||_ecActive)?'none':'flex';
     if(btns)    btns.style.display    = (isResting||_ecActive)?'none':'flex';
     if(isResting){
+      var _rl=document.querySelector('.rest-label'); if(_rl) _rl.textContent=_tourValide?'✅ TOUR VALIDÉ':'REPOS';
       // Historique dans l'écran repos
       var rh=$('rest-hist');
       if(rh) rh.innerHTML=hh;

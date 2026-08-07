@@ -1942,10 +1942,14 @@ function resumeCountdown(){
   // À goAt : décaler les heats live du temps de pause (temps exact) + lever l'urgence
   var wait = Math.max(0, goAt - serverNow());
   setTimeout(function(){
-    if(pausedMs > 1500){
+    // ★ Décalage = pause AVANT le décompte (pausedMs) + durée du décompte lui-même
+    //   (wait). La compétition reste gelée pendant le 3-2-1, donc ce temps compte aussi ;
+    //   sans lui, le chrono sautait de ~3-4 s au redémarrage.
+    var shiftMs = pausedMs + wait;
+    if(shiftMs > 1500){
       Object.keys(HD||{}).forEach(function(hid){
         var h=HD[hid]; if(h && String(h.status||'')==='live' && h.startTimestamp)
-          dbRef('heats/'+hid+'/startTimestamp').set(parseInt(h.startTimestamp,10)+pausedMs);
+          dbRef('heats/'+hid+'/startTimestamp').set(parseInt(h.startTimestamp,10)+shiftMs);
       });
     }
     dbRef('system/urgence').set({active:false,ts:serverNow(),token:'foc2026zk'});
@@ -3268,11 +3272,13 @@ function startSharedTimerLoop(){
   if(_sharedTimerIv) return;
   function tickAll(){
     // ★ GEL RÉEL DU CHRONO PENDANT L'URGENCE (bug chef) : quand la compétition est
-    //   gelée, on fige le « maintenant » à l'instant du gel (urgence.ts). Ainsi tous
-    //   les chronos qui calculent leur temps via _sharedTickNow s'ARRÊTENT vraiment à
-    //   l'écran, au lieu de continuer à tourner. Le décalage réel du départ se fait
-    //   ensuite à la reprise (resume_exact).
-    _sharedTickNow = (typeof urgence!=='undefined' && urgence.active && urgence.ts) ? urgence.ts : serverNow();
+    //   gelée, on N'AVANCE PLUS le snapshot de temps → tous les chronos qui l'utilisent
+    //   restent figés PILE à la dernière valeur avant le gel (aucun saut d'horloge).
+    //   Le décalage réel du départ se fait à la reprise (resume_exact / 3-2-1).
+    if(typeof urgence==='undefined' || !urgence.active || !urgence.ts){
+      _sharedTickNow = serverNow(); // marche normale : le temps avance
+    }
+    if(!_sharedTickNow){ _sharedTickNow = serverNow(); } // filet d'initialisation
     Object.keys(zoneState||{}).forEach(function(z){
       var fn = zoneState[z] && zoneState[z].tickFn;
       if(typeof fn === 'function'){

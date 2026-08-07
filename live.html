@@ -2031,7 +2031,7 @@ function renderRankCards(rows,w,st,showLiveChips,h,catId,catLeader){
       if(_repMov){
         var _repNom=_repMov.nom||'reps';
         var _snCount=parseInt(sc.reps)||0;
-        _movHtml='<div style="font-size:.58em;opacity:.92;color:#7FE0C0;font-weight:800;font-family:var(--fc);letter-spacing:.5px;margin-top:2px">🏋️ '+_snCount+' '+esc(_repNom)+'</div>';
+        _movHtml='<div style="display:inline-block;font-size:.62em;opacity:1;color:#0a1410;background:#7FE0C0;font-weight:900;font-family:var(--fc);letter-spacing:.5px;margin-top:3px;padding:2px 8px;border-radius:6px">🏋️ '+_snCount+' '+esc(_repNom)+'</div>';
       }
     } else if(_subLine){
       _movHtml='<div style="font-size:.42em;opacity:.45;font-family:var(--fc);letter-spacing:.5px;margin-top:2px">'+_subLine+'</div>';
@@ -2110,6 +2110,17 @@ function renderRankCards(rows,w,st,showLiveChips,h,catId,catLeader){
         +'</div>'  
         +'<div style="flex-shrink:0;text-align:right;min-width:80px">'
           +'<div class="tsc '+(val?'vl':st==='live'?'lv':'nd')+'">'+(s||'&mdash;')+'</div>'
+          +(function(){
+            // ★ SNATCH / MOUVEMENT EN BOUT DE LIGNE (demande chef) : sur un WOD scoré en
+            //   distance, afficher le compteur du mouvement (snatch, thruster…) À DROITE
+            //   sous la distance, pour que la ligne BOUGE à chaque rep comme sur tous les
+            //   autres WOD. (Cette insertion manquait : le compteur était calculé mais
+            //   jamais affiché.)
+            if(!(_isErgoLive && st==='live')) return '';
+            var _rmR=(_movs||[]).filter(function(m){return m&&m.type!=='ergo';})[0];
+            if(!_rmR) return '';
+            return '<div style="font-size:.5em;color:#7FE0C0;font-family:var(--fm);font-weight:900;text-align:right;margin-top:2px;letter-spacing:.5px;line-height:1">🏋️ '+(parseInt(sc.reps)||0)+' '+esc(_rmR.nom||'reps')+'</div>';
+          })()
           +_roundHtml
           +(function(){
             var tbs=tbArr(sc);
@@ -2453,6 +2464,13 @@ function startTeamBandIH(zone,ihTarget,doneHid,doneH,doneW,catId,catLeader){
     var el2=document.getElementById('tband-'+zone);
     if(!el2) return;
     if(phase==='heat'){
+      // ★ FIX SÉQUENCE RÉSULTATS (bug chef) : ne JAMAIS afficher en « résultats » un
+      //   heat qui n'est pas réellement TERMINÉ. Si le heat pointé est en fait le
+      //   prochain (pending/pre — cas de latence où le heat fini n'est pas encore passé
+      //   en 'done'), on saute directement à la preview au lieu de montrer « les
+      //   résultats du heat suivant ».
+      var _dhSt=(HEATS[doneHid]&&HEATS[doneHid].status)||(doneH&&doneH.status)||'';
+      if(_dhSt!=='done' && _dhSt!=='timecap'){ _setPhase('preview'); return; }
       syncHeader('done');
       var heatRows=rankHeatEntries(doneHid,HEATS[doneHid]||doneH,doneW);
       // ★ VISUEL HEAT FINI — plus de gros logo tournant qui écrase la colonne.
