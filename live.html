@@ -1819,6 +1819,18 @@ function compareScores(a,b,w){
   if(!a.ok&&b.ok)return 1;
   var av=scoreVal(a.sc,w),bv=scoreVal(b.sc,w);
   if(bv!==av) return bv-av;
+  // ★ CLASSEMENT DYNAMIQUE SUR LE MOUVEMENT (demande chef) : sur un WOD scoré en
+  //   distance/cals, à distance ÉGALE, l'équipe qui a fait PLUS de reps du mouvement
+  //   (ex : snatch) passe devant. Ainsi pendant le round — avant que la distance du
+  //   tour soit saisie — c'est le nombre de snatch qui départage, et le classement
+  //   bouge à chaque rep. 1 snatch d'avance = devant.
+  var _cjm=((w&&w.judgeMode)||'').toLowerCase();
+  var _csf=((w&&(w.scoreFinale||w.scoreType))||'').toLowerCase();
+  if(_cjm==='ergo'||_csf==='dist'||_csf==='cal'){
+    var _ar=parseInt((a.sc&&a.sc.reps)||0,10)||0;
+    var _br=parseInt((b.sc&&b.sc.reps)||0,10)||0;
+    if(_br!==_ar) return _br-_ar;
+  }
   // ★ Multi-TB : comparer chaque TB dans l'ordre (plus petit = plus rapide = meilleur)
   var aTbs=tbArr(a.sc), bTbs=tbArr(b.sc);
   var maxLen=Math.max(aTbs.length,bTbs.length);
@@ -2119,7 +2131,7 @@ function renderRankCards(rows,w,st,showLiveChips,h,catId,catLeader){
             if(!(_isErgoLive && st==='live')) return '';
             var _rmR=(_movs||[]).filter(function(m){return m&&m.type!=='ergo';})[0];
             if(!_rmR) return '';
-            return '<div style="font-size:.5em;color:#7FE0C0;font-family:var(--fm);font-weight:900;text-align:right;margin-top:2px;letter-spacing:.5px;line-height:1">🏋️ '+(parseInt(sc.reps)||0)+' '+esc(_rmR.nom||'reps')+'</div>';
+            return '<div style="font-size:clamp(13px,1.9vw,30px);color:#00E5A0;font-family:var(--fm);font-weight:900;text-align:right;margin-top:3px;letter-spacing:.5px;line-height:1;text-shadow:0 0 10px rgba(0,229,160,.4)">'+(parseInt(sc.reps)||0)+' '+esc(_rmR.nom||'reps')+'</div>';
           })()
           +_roundHtml
           +(function(){

@@ -1767,7 +1767,11 @@ function fillBriefScreen(next){
         sep='<div style="background:linear-gradient(90deg,rgba(255,138,0,.30),rgba(255,138,0,.05));border:1px solid rgba(255,138,0,.4);border-radius:12px;padding:7px 16px;font-family:var(--ff);font-size:16px;letter-spacing:2.5px;color:#FFC078">\ud83d\udd04 TOUR '+m.tour+'</div>';
       }
       var qStr='';
-      if(m.type==='ergo' && m.ergoTarget) qStr=m.ergoTarget+(m.ergoUnit||'m');
+      // ★ FIX BRIEF (bug chef) : un mouvement en VALEUR LIBRE cumulée (ergoFree) n'a pas
+      //   de nombre de reps → afficher « MAX MÈTRES/CALS » et JAMAIS le ×q par défaut
+      //   (le bike gardait un q=10 résiduel → affichait « ×10 »).
+      if(m.type==='ergo' && m.ergoFree) qStr='MAX '+String(m.ergoUnit==='cal'?'CALS':(m.ergoUnit||'m')+'ètres').toUpperCase();
+      else if(m.type==='ergo' && m.ergoTarget) qStr=m.ergoTarget+(m.ergoUnit||'m');
       else if(m.q>0) qStr='×'+m.q;
       else if(m.q===0 && fmt==='amrap') qStr='∞';
       var poidsStr = m.poids ? ' <span style="color:#B06EFF;font-weight:700;font-size:15px">'+escH(m.poids)+'</span>' : '';
