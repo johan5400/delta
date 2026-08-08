@@ -748,7 +748,7 @@ body{
   <div id="j-ergocum-zone" style="display:none;flex-direction:column;flex:1">
     <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:14px;gap:10px;overflow-y:auto">
       <div style="font-family:var(--fc);font-size:11px;font-weight:700;color:var(--mid);letter-spacing:1px" id="ec-mvname">MOUVEMENT</div>
-      <div style="font-family:var(--fc);font-size:10px;color:var(--ink2);text-align:center">Saisis la valeur de ce tour, puis AJOUTER. Le total s'additionne.</div>
+      <div style="font-family:var(--fc);font-size:10px;color:var(--ink2);text-align:center">Saisis la valeur de ce tour, puis OK. Le total s'additionne et l'appli passe à la suite.</div>
       <div style="font-family:var(--fm);font-size:46px;font-weight:900;color:#9F6BFF;line-height:1" id="ec-total">0</div>
       <div style="font-family:var(--fc);font-size:11px;font-weight:700;color:var(--mid);letter-spacing:1px" id="ec-unit">TOTAL</div>
       <input id="ec-inp" type="number" min="0" inputmode="numeric" placeholder="valeur de ce tour"
@@ -756,7 +756,7 @@ body{
         style="width:100%;max-width:340px;padding:16px;border-radius:12px;border:1px solid rgba(159,107,255,.35);background:rgba(159,107,255,.07);color:var(--ink);font-family:var(--fm);font-size:30px;font-weight:700;outline:none;text-align:center">
       <button onclick="ecAdd()" style="width:100%;max-width:340px;margin-top:8px;padding:20px;border-radius:14px;border:none;background:linear-gradient(135deg,#00A876,#00E5A0);color:#fff;font-family:var(--fc);font-size:22px;font-weight:900;cursor:pointer;letter-spacing:1px;box-shadow:0 4px 18px rgba(0,200,140,.4)">✅ OK</button>
       <div id="ec-history" style="display:flex;flex-wrap:wrap;gap:5px;justify-content:center;width:100%;max-width:320px;margin-top:6px"></div>
-      <button onclick="ecGotoNextInRound()" id="ec-next" style="margin-top:12px;padding:14px 20px;border-radius:12px;border:none;background:linear-gradient(90deg,#00A876,#00C98D);color:#fff;font-family:var(--fc);font-size:14px;font-weight:900;cursor:pointer;width:100%;max-width:300px">✓ SKIERG OK → SNATCH</button>
+      <button onclick="ecGotoNextInRound()" id="ec-next" style="display:none;margin-top:12px;padding:14px 20px;border-radius:12px;border:none;background:linear-gradient(90deg,#00A876,#00C98D);color:#fff;font-family:var(--fc);font-size:14px;font-weight:900;cursor:pointer;width:100%;max-width:300px">✓ Mouvement suivant</button>
     </div>
   </div>
 <!-- DONE -->
@@ -2846,38 +2846,39 @@ function ecAdd(){
   if(!isFinite(v)||v<0){ $('ec-inp').focus(); toast('Saisis une valeur'); return; }
   _ecValues.push(v);
   $('ec-inp').value='';
-  $('ec-inp').focus();
   vib([30]);
   ecRefresh();
   _persistEc();
-  // ★ DERNIER TOUR EMOM (demande chef) : « VALIDER CE TOUR » finalise automatiquement
-  //   le score final, comme les autres tours — pas de bouton « VALIDER LE SCORE »
-  //   séparé à la fin. On détecte le dernier tour via l'horloge (emomRound >= nb de
-  //   tours). done=true AVANT validate() pour passer le garde-fou format.
-  try{
-    var _fmtEc=String((SC&&SC.fmt)||'').toLowerCase();
-    if((_fmtEc==='emom'||_fmtEc==='interval') && !done){
-      var _cycEc=Math.max(1,(SC.emomWork||60)+(SC.emomRest||0));
-      var _trEc=Math.max(1,Math.round((SC.cap||0)/_cycEc));
-      if(emomRound>=_trEc){
-        toast('🏁 Dernier tour validé — score final envoyé','#00E5A0',2600);
-        vib([80,50,120]);
-        setTimeout(function(){ if(!done){ done=true; try{ validate(); }catch(e){ console.warn('auto-final EMOM:',e); } } }, 500);
-      } else {
-        // ★ PAS le dernier tour : si on vient de valider le DERNIER mouvement du round
-        //   (le vélo/valeur libre est le dernier mvt), on bascule en ATTENTE du prochain
-        //   round → écran repos, plus de saisie possible. Simplifie la vie du juge : il
-        //   valide son tour et l'appli l'attend au prochain départ (rouvre au round suivant).
-        var _lastIdx=(SC&&SC.moves)?(SC.moves.length-1):0;
-        if(moveIdx>=_lastIdx){
-          _tourValide=true;
-          vib([40,30,40]);
-          toast('✅ Tour validé — repos jusqu\'au prochain round','#00E5A0',2000);
-          if(typeof updateEmomDisplay==='function') updateEmomDisplay();
-        }
-      }
+  // ★ APRÈS OK (demande chef) : plus de saisie possible sur ce tour → on AVANCE tout seul.
+  var _lastIdx=(SC&&SC.moves)?(SC.moves.length-1):0;
+  var _fmtEc=String((SC&&SC.fmt)||'').toLowerCase();
+  var _isTimed=(_fmtEc==='emom'||_fmtEc==='interval');
+  if(moveIdx < _lastIdx){
+    // Il reste un mouvement dans le tour (ex : snatch après le vélo) → y aller directement.
+    moveIdx++; moveReps=0;
+    var _mNext=SC.moves[moveIdx];
+    if(_mNext && typeof toast==='function') toast('▶ '+(_mNext.n||'Mouvement suivant'),'#00E5A0',1500);
+    try{ vib([50,30,50]); }catch(e){}
+    if(typeof updateDisplay==='function') updateDisplay();
+    if(typeof updateEmomDisplay==='function') updateEmomDisplay();
+    if(db && typeof pushScoreLive==='function') pushScoreLive();
+  } else if(_isTimed && !done){
+    // Le vélo est le DERNIER mouvement du tour.
+    var _cycEc=Math.max(1,(SC.emomWork||60)+(SC.emomRest||0));
+    var _trEc=Math.max(1,Math.round((SC.cap||0)/_cycEc));
+    if(emomRound>=_trEc){
+      // Dernier tour → finalisation automatique du score.
+      toast('🏁 Dernier tour validé — score final envoyé','#00E5A0',2600);
+      vib([80,50,120]);
+      setTimeout(function(){ if(!done){ done=true; try{ validate(); }catch(e){ console.warn('auto-final EMOM:',e); } } }, 500);
+    } else {
+      // Pas le dernier tour → repos + attente du prochain round (saisie bloquée).
+      _tourValide=true;
+      vib([40,30,40]);
+      toast('✅ Tour validé — repos jusqu\'au prochain round','#00E5A0',2000);
+      if(typeof updateEmomDisplay==='function') updateEmomDisplay();
     }
-  }catch(e){}
+  }
 }
 function ecUndo(){
   if(!_ecValues.length){ toast('Rien à annuler'); return; }
@@ -4600,6 +4601,9 @@ function pushScoreLive(){
     laneNum:parseInt(FB_LANE)||0,
     teamName:(SC&&SC.team)||'',
     reps:totalReps, noReps:noReps,
+    // ★ Reps DU TOUR en cours (repart à 0 à chaque round) → le live affiche le snatch
+    //   du tour, pas le cumul. curMoveIdx sert à savoir si on est sur le mouvement compté.
+    roundReps:(typeof emomRoundReps!=='undefined'?emomRoundReps:0),
     // ★ SYNCHRO TK/LIVE ergo cumulé : pousser aussi dist/ergoVal en direct pour que
     //   le TK affiche les cals/mètres comme le live (avant : seul reps était poussé,
     //   le TK cherchait dist/ergoVal → 0 → désync).
