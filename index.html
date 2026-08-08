@@ -10022,18 +10022,29 @@ function deleteWod(id){
   WODS=WODS.filter(function(w){return w.id!==id;});
   renderWodsList(); autoSave();
 }
+// ★ Rafraîchit TOUTES les vues planning/synoptique après un changement d'ordre des WOD.
+//   (Le fix ordreZone régénère les heats pour TK/live, mais les vues d'index ont
+//   chacune leur propre fonction de rendu qu'il faut rappeler — sinon rien ne bouge
+//   à l'écran dans l'orga.) Chaque fonction est protégée : si son onglet/DOM n'est
+//   pas affiché, elle se saute sans erreur.
+function _refreshAllPlannings(){
+  ['renderProgWodsList','renderWodsList','renderPlanningView','renderPlanningWod',
+   'renderPlanningCF','renderSynoptique','renderZonesSynoptic','renderJudgePlanningTab',
+   'computeProgramme'].forEach(function(fn){
+    try{ if(typeof window[fn]==='function') window[fn](); }catch(e){ console.warn('refresh '+fn+':', e&&e.message); }
+  });
+}
+
 function moveWod(id, dir){
   var idx=WODS.findIndex(function(w){return w.id===id;});
   if(idx<0) return;
   var newIdx=idx+dir;
   if(newIdx<0||newIdx>=WODS.length) return;
   var tmp=WODS[idx]; WODS[idx]=WODS[newIdx]; WODS[newIdx]=tmp;
-  // ★ FIX (bug chef) : renuméroter ordreZone + régénérer, sinon plannings/synoptique ne bougent pas
+  // ★ FIX (bug chef) : renuméroter ordreZone + régénérer + rafraîchir TOUTES les vues
   WODS.forEach(function(w,i){ w.ordreZone = i+1; });
   if(typeof generateHeats==='function') generateHeats();
-  renderWodsList();
-  if(typeof renderProgWodsList==='function') renderProgWodsList();
-  if(typeof computeProgramme==='function') computeProgramme();
+  _refreshAllPlannings();
   autoSave();
 }
 
@@ -10044,12 +10055,10 @@ function setWodOrderIndex(id, pos){
   if(newIdx===idx){ renderWodsList(); return; }
   var moved=WODS.splice(idx,1)[0];
   WODS.splice(newIdx,0,moved);
-  // ★ FIX (bug chef) : renuméroter ordreZone + régénérer, sinon plannings/synoptique ne bougent pas
+  // ★ FIX (bug chef) : renuméroter ordreZone + régénérer + rafraîchir TOUTES les vues
   WODS.forEach(function(w,i){ w.ordreZone = i+1; });
   if(typeof generateHeats==='function') generateHeats();
-  renderWodsList();
-  renderZonesSynoptic();
-  if(typeof computeProgramme==='function') computeProgramme();
+  _refreshAllPlannings();
   autoSave();
 }
 
@@ -15324,8 +15333,7 @@ function wodDrop(event, targetWodId){
   if(card) card.style.opacity = '1';
   _wodDragId = null;
   generateHeats();
-  renderProgWodsList();
-  computeProgramme();
+  _refreshAllPlannings();
   autoSave();
   toast('✅ Ordre des WODs mis à jour', '#2E7D32');
 }
