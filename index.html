@@ -10028,7 +10028,13 @@ function moveWod(id, dir){
   var newIdx=idx+dir;
   if(newIdx<0||newIdx>=WODS.length) return;
   var tmp=WODS[idx]; WODS[idx]=WODS[newIdx]; WODS[newIdx]=tmp;
-  renderWodsList(); autoSave();
+  // ★ FIX (bug chef) : renuméroter ordreZone + régénérer, sinon plannings/synoptique ne bougent pas
+  WODS.forEach(function(w,i){ w.ordreZone = i+1; });
+  if(typeof generateHeats==='function') generateHeats();
+  renderWodsList();
+  if(typeof renderProgWodsList==='function') renderProgWodsList();
+  if(typeof computeProgramme==='function') computeProgramme();
+  autoSave();
 }
 
 function setWodOrderIndex(id, pos){
@@ -10038,8 +10044,12 @@ function setWodOrderIndex(id, pos){
   if(newIdx===idx){ renderWodsList(); return; }
   var moved=WODS.splice(idx,1)[0];
   WODS.splice(newIdx,0,moved);
+  // ★ FIX (bug chef) : renuméroter ordreZone + régénérer, sinon plannings/synoptique ne bougent pas
+  WODS.forEach(function(w,i){ w.ordreZone = i+1; });
+  if(typeof generateHeats==='function') generateHeats();
   renderWodsList();
   renderZonesSynoptic();
+  if(typeof computeProgramme==='function') computeProgramme();
   autoSave();
 }
 
@@ -15304,6 +15314,11 @@ function wodDrop(event, targetWodId){
   // Move wod
   var moved = WODS.splice(fromIdx, 1)[0];
   WODS.splice(toIdx, 0, moved);
+  // ★ FIX (bug chef) : renuméroter ordreZone d'après le NOUVEL ordre du tableau. Sans
+  //   ça, generateHeats et tous les plannings/synoptique — qui trient par ordreZone,
+  //   PAS par la position du tableau — continuaient d'utiliser l'ancien ordre et rien
+  //   ne changeait à l'écran après un glisser-déposer.
+  WODS.forEach(function(w,i){ w.ordreZone = i+1; });
   // Restore opacity
   var card = document.getElementById('wod-card-'+_wodDragId);
   if(card) card.style.opacity = '1';
