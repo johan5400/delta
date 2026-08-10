@@ -9402,6 +9402,11 @@ function generateHeats(){
   renderCategories();
   renderPlanningCF();
   autoSave();
+  // ★ FIX (bug chef planning/synoptique/planning juge) : generateHeats ne rafraîchissait
+  //   QUE certaines vues. On rafraîchit maintenant TOUTES les vues planning à chaque
+  //   génération (réordonnancement ET « générer et publier »), sinon synoptique, planning
+  //   juge et planning WOD restaient figés alors que TK/live se mettaient à jour.
+  if(typeof _refreshAllPlannings==='function') _refreshAllPlannings();
   toast('⚡ '+allHeats.length+' heat(s) générés !');
   setTimeout(function(){ showJudgeCoverageFlash(allHeats,5000); },120);
 }
@@ -10028,9 +10033,10 @@ function deleteWod(id){
 //   à l'écran dans l'orga.) Chaque fonction est protégée : si son onglet/DOM n'est
 //   pas affiché, elle se saute sans erreur.
 function _refreshAllPlannings(){
-  ['renderProgWodsList','renderWodsList','renderPlanningView','renderPlanningWod',
-   'renderPlanningCF','renderSynoptique','renderZonesSynoptic','renderJudgePlanningTab',
-   'computeProgramme'].forEach(function(fn){
+  try{ if(typeof renderHeatsTable==='function' && typeof HEATS_RESULT!=='undefined' && HEATS_RESULT) renderHeatsTable(HEATS_RESULT); }catch(e){}
+  ['renderProgWodsList','renderWodsList','renderCategories',
+   'renderPlanningView','renderPlanningWod','renderPlanningCF','renderSynoptique',
+   'renderZonesSynoptic','renderJudgePlanningTab','computeProgramme'].forEach(function(fn){
     try{ if(typeof window[fn]==='function') window[fn](); }catch(e){ console.warn('refresh '+fn+':', e&&e.message); }
   });
 }
