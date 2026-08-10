@@ -7744,10 +7744,19 @@ function setWodZoneOrdre(wodId, pos){
     zoneWods.forEach(function(w, idx){ w.ordreZone = idx + 1; });
   });
 
-  renderZonesSynoptic();
-  renderProgWodsList();
-  if(typeof computeProgramme === 'function') computeProgramme();
-  autoSave();
+  // ★ FIX RACINE (bug chef planning/synoptique/bénévole/juge/impression) : cette fonction
+  //   renumérotait bien ordreZone MAIS ne régénérait PAS les heats (generateHeats absent).
+  //   Du coup toutes les vues lisaient l'ancien HEATS_RESULT et rien ne bougeait. On
+  //   régénère maintenant les heats (ce qui rafraîchit aussi TOUTES les vues + autoSave).
+  if(typeof generateHeats === 'function'){
+    generateHeats();
+  } else {
+    renderZonesSynoptic();
+    renderProgWodsList();
+    if(typeof computeProgramme === 'function') computeProgramme();
+    if(typeof _refreshAllPlannings === 'function') _refreshAllPlannings();
+    autoSave();
+  }
   toast('✅ WOD placé en position ' + target, '#2E7D32');
 }
 
@@ -7765,8 +7774,15 @@ function moveCatZoneOrdre(catId, dir){
   var tmp = zoneCats[idx].ordreZone||idx+1;
   zoneCats[idx].ordreZone = zoneCats[newIdx].ordreZone||newIdx+1;
   zoneCats[newIdx].ordreZone = tmp;
-  renderCategories();
-  autoSave();
+  // ★ FIX (bug chef) : régénérer les heats + rafraîchir TOUTES les vues (avant : seul
+  //   renderCategories, donc synoptique/plannings figés).
+  if(typeof generateHeats === 'function'){
+    generateHeats();
+  } else {
+    renderCategories();
+    if(typeof _refreshAllPlannings === 'function') _refreshAllPlannings();
+    autoSave();
+  }
 }
 function updateCatOrdreZone(catId, pos){
   var cat = CATEGORIES.find(function(c){ return c.id===catId; });
