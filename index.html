@@ -12478,7 +12478,7 @@ function computeProgramme() {
   // ── Calcul des blocs WOD ──
   var totalStart = Math.min(cursorJ1, cursorJ2);
   var blocs = []; // {type:'wod'|'pause', wod?, label, debut, fin, color}
-  WODS.forEach(function(wod, wi) {
+  WODS.slice().sort(function(a,b){ return ((a.jour||1)-(b.jour||1)) || ((a.ordreZone||99)-(b.ordreZone||99)); }).forEach(function(wod, wi) {
     ensureWodTiming(wod);
     var wodJour = (wod.jour || 1);
     var zones = wodZonesArray(wod);
@@ -14481,7 +14481,7 @@ function computeHorairesOnly(){
     1: {1:startJ1, 2:startJ1},
     2: {1:startJ2, 2:startJ2}
   };
-  WODS.forEach(function(wod, wi){
+  WODS.slice().sort(function(a,b){ return ((a.jour||1)-(b.jour||1)) || ((a.ordreZone||99)-(b.ordreZone||99)); }).forEach(function(wod, wi){
     ensureWodTiming(wod);
     var isJ2 = (wod.jour||1) === 2;
     var day = isJ2 ? 2 : 1;
