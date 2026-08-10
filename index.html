@@ -11797,9 +11797,10 @@ function renderMouvements(w) {
       )
     + '</div>'
 
-    // ★ VALEUR LIBRE CUMULÉE (ergo type max skierg/bike) : le juge saisit une valeur
-    //   ouverte à chaque tour, additionnée sur tous les tours. Score = total.
-    + (isErgo
+    // ★ VALEUR LIBRE CUMULÉE — dispo sur ergo ET reps (demande chef) : le juge saisit une
+    //   valeur ouverte à chaque tour, additionnée sur tous les tours (ex : max mètres/cals,
+    //   ou max reps d'un mouvement). Score = total cumulé.
+    + (true
         ? '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;padding:7px 10px;background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.25);border-radius:8px">'
           + '<input type="checkbox" id="mvfree'+w.id+'_'+i+'" '+(m.ergoFree?'checked':'')+' '
           + 'onchange="updateMouvement('+w.id+','+i+',\'ergoFree\',this.checked); event.stopPropagation()" '
