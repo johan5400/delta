@@ -634,38 +634,14 @@ body{
     <button class="btn-validate" onclick="validate()">✅ VALIDER LE SCORE</button>
     <div id="j-round-history" style="display:none;flex-wrap:wrap;gap:5px;padding:6px 12px;border-bottom:1px solid var(--brd);flex-shrink:0"></div>
     <!-- ★ ÉCRAN REPOS — s'affiche par-dessus le compteur en phase REST -->
-    <div id="j-rest-screen">
-      <svg width="160" height="120" viewBox="0 0 160 120" style="margin-bottom:4px">
-        <!-- Athlète affalé qui se repose - style cartoon -->
-        <!-- Sol -->
-        <rect x="10" y="95" width="140" height="6" rx="3" fill="rgba(255,255,255,.1)"/>
-        <!-- Corps allongé -->
-        <ellipse cx="80" cy="90" rx="50" ry="9" fill="#FF5722" opacity=".9"/>
-        <!-- Tête -->
-        <circle cx="118" cy="82" r="14" fill="#FFCC80"/>
-        <!-- Casque/bandeau -->
-        <path d="M106 76 Q118 70 130 76" stroke="#FF5722" stroke-width="4" fill="none" stroke-linecap="round"/>
-        <!-- Oeil fermé (qui dort) -->
-        <path d="M112 82 Q115 80 118 82" stroke="#5D4037" stroke-width="2" fill="none" stroke-linecap="round"/>
-        <path d="M120 82 Q123 80 126 82" stroke="#5D4037" stroke-width="2" fill="none" stroke-linecap="round"/>
-        <!-- Sourire -->
-        <path d="M113 87 Q118 91 124 87" stroke="#5D4037" stroke-width="2" fill="none" stroke-linecap="round"/>
-        <!-- Bras sous la tête -->
-        <ellipse cx="108" cy="88" rx="12" ry="5" fill="#FFCC80" transform="rotate(-10 108 88)"/>
-        <!-- Haltère à côté -->
-        <rect x="28" y="84" width="32" height="6" rx="3" fill="rgba(255,255,255,.2)"/>
-        <rect x="24" y="80" width="8" height="14" rx="3" fill="rgba(255,255,255,.35)"/>
-        <rect x="56" y="80" width="8" height="14" rx="3" fill="rgba(255,255,255,.35)"/>
-        <!-- ZZZ -->
-        <text x="128" y="68" font-size="11" fill="rgba(255,255,255,.7)" font-weight="900">z</text>
-        <text x="135" y="58" font-size="14" fill="rgba(255,255,255,.6)" font-weight="900">z</text>
-        <text x="143" y="46" font-size="17" fill="rgba(255,255,255,.5)" font-weight="900">z</text>
-      </svg>
-      <div class="rest-label">REPOS</div>
-      <div class="rest-cd-lbl">prochain round dans</div>
-      <div class="rest-cd" id="rest-cd-val">—</div>
-      <div class="rest-round" id="rest-round-info">—</div>
-      <div class="rest-hist" id="rest-hist"></div>
+    <div id="j-rest-screen" style="background:radial-gradient(circle at 50% 35%,#141a17,#050706);position:absolute;inset:0;z-index:40;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:20px">
+      <div id="rest-emoji" style="font-size:64px;line-height:1;margin-bottom:2px">😮‍💨</div>
+      <div class="rest-label" style="font-size:26px;font-weight:900;letter-spacing:3px;color:#fff">REPOS</div>
+      <div id="rest-funny" style="font-size:15px;color:#7FE0C0;font-weight:700;max-width:300px;margin:10px auto 18px;line-height:1.45">Souffle, champion.</div>
+      <div class="rest-cd-lbl" style="font-size:11px;color:rgba(255,255,255,.4);letter-spacing:2px;text-transform:uppercase">prochain tour dans</div>
+      <div class="rest-cd" id="rest-cd-val" style="font-size:64px;font-weight:900;color:#00E5A0;font-family:var(--fm);line-height:1;text-shadow:0 0 24px rgba(0,229,160,.4)">—</div>
+      <div class="rest-round" id="rest-round-info" style="font-size:12px;color:rgba(255,255,255,.35);margin-top:10px;letter-spacing:1px">—</div>
+      <div class="rest-hist" id="rest-hist" style="margin-top:14px;display:flex;gap:6px;flex-wrap:wrap;justify-content:center"></div>
     </div>
     <!-- Compteur normal -->
     <div class="j-counter" id="j-counter" onclick="addRep()">
@@ -854,6 +830,22 @@ var startTs=null, elapsed=0, timerIv=null, done=false, endWarned=false;
 var mlAttempts=[];
 var emomRound=1, emomIsWork=true;
 var _tourValide=false; // ★ tour validé par le juge → écran repos jusqu'au prochain round
+var _wasResting=false; // ★ pour ne choisir le message rigolo qu'une fois par repos
+var _restMsgs=[
+  {e:'😮‍💨',t:'Souffle un coup, ça repart vite.'},
+  {e:'🫁',t:'Respire. Bois. Prépare-toi à souffrir.'},
+  {e:'😈',t:'Repos mérité… profite, la suite pique.'},
+  {e:'🚴',t:'Le vélo te fait des clins d\'œil.'},
+  {e:'💦',t:'Essuie la sueur, y\'en aura d\'autre.'},
+  {e:'🥵',t:'T\'inquiète, c\'est presque fini… ou pas.'},
+  {e:'⛈️',t:'Le calme avant la tempête.'},
+  {e:'🔋',t:'Recharge : mode bête dans 3, 2, 1…'},
+  {e:'☕',t:'Pause café. Sans le café. Ni la pause.'},
+  {e:'🦵',t:'Tes jambes te détestent déjà.'},
+  {e:'🏋️',t:'La barre s\'ennuie sans toi.'},
+  {e:'😅',t:'Respire par le nez, champion.'},
+  {e:'🧘',t:'Petit moment zen. Savoure-le.'}
+];
 var emomRoundReps=0, emomRoundHistory=[], emomTotalReps=0;
 var _judgeAutoChainEnabled=false;
 var _judgeScheduleEntries=[];
@@ -3514,6 +3506,14 @@ function updateEmomDisplay(){
     if(btns)    btns.style.display    = (isResting||_ecActive)?'none':'flex';
     if(isResting){
       var _rl=document.querySelector('.rest-label'); if(_rl) _rl.textContent=_tourValide?'✅ TOUR VALIDÉ':'REPOS';
+      // ★ Message rigolo aléatoire — choisi UNE fois à l'entrée en repos (pas à chaque tick)
+      if(!_wasResting){
+        var _pk=_restMsgs[Math.floor(Math.random()*_restMsgs.length)];
+        var _fn=$('rest-funny'); if(_fn) _fn.textContent=_pk.t;
+        var _em=$('rest-emoji'); if(_em) _em.textContent=_pk.e;
+      }
+      // masquer la zone de saisie ergo pendant le repos (écran noir propre)
+      var _ecz2=$('j-ergocum-zone'); if(_ecz2) _ecz2.style.display='none';
       // Historique dans l'écran repos
       var rh=$('rest-hist');
       if(rh) rh.innerHTML=hh;
@@ -3521,6 +3521,7 @@ function updateEmomDisplay(){
       if(ri) ri.textContent='Round '+emomRound+' / '+totalRounds+' · '+emomRoundReps+' reps';
     }
   }
+  _wasResting=isResting;
   // Pousser roundPhase vers Firebase pour live.html et TK
   if(typeof db!=='undefined' && db && typeof db.ref==='function' && typeof FB_HEAT_ID!=='undefined' && FB_HEAT_ID){
     var phase = isResting ? 'rest' : 'work';
