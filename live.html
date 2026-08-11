@@ -2007,9 +2007,13 @@ function renderRankCards(rows,w,st,showLiveChips,h,catId,catLeader){
     //   qu'une fois le score VALIDÉ (scoreStr) → rien ne remontait pendant la course.
     var _sfLive=(w.scoreFinale||w.scoreType||'').toLowerCase();
     var _jmLive=(w.judgeMode||'').toLowerCase();
-    var _isErgoLive=(_jmLive==='ergo'||_sfLive==='dist'||_sfLive==='cal');
+    // ★ FIX LIVE (bug chef) : détecter un mouvement en VALEUR LIBRE (ergoFree) — même si le
+    //   WOD n'est pas typé 'ergo' (ex : Max Bike en type reps + valeur libre). Sinon la
+    //   distance cumulée du bike ne s'affichait pas sur le live.
+    var _freeMov=(_movs||[]).filter(function(m){return m&&m.ergoFree;})[0]||null;
+    var _isErgoLive=(_jmLive==='ergo'||_sfLive==='dist'||_sfLive==='cal'||!!_freeMov);
     var _ergoLiveVal=parseFloat(sc.dist||sc.ergoVal||sc.distance)||0;
-    var _ergoLiveUnit=(_sfLive==='cal'?'cal':(sc.ergoUnit||'m'));
+    var _ergoLiveUnit=(_freeMov&&_freeMov.ergoUnit)?_freeMov.ergoUnit:(_sfLive==='cal'?'cal':(sc.ergoUnit||'m'));
     var _ergoLiveStr=(_ergoLiveVal>0?String(_ergoLiveVal)+' '+_ergoLiveUnit:'—');
     var _liveScore=!val&&st==='live'
       ?(_isErgoLive?_ergoLiveStr:(_cr>0?String(_cr)+(_q>0?' / '+_q:''):(_tot>0?String(_tot):'—')))
@@ -2097,7 +2101,7 @@ function renderRankCards(rows,w,st,showLiveChips,h,catId,catLeader){
     if(showLiveChips&&st==='live'&&!val&&(w.mouvements||[]).length){
       chipsHtml='<div class="chips">'+(w.mouvements||[]).map(function(m,mi){
         var q=adaptedQtyForMove(m,catId);
-        var cl='chip',lb=esc(m.nom||'')+(q?' ×'+q:'');
+        var cl='chip',lb=esc(m.nom||'')+(m.ergoFree?' MAX':(q?' ×'+q:''));
       if(m.tour>0&&(mi===0||((w.mouvements||[])[mi-1]||{}).tour!==m.tour)) lb='T'+m.tour+'· '+lb;
         if(mi<ci){cl+=' d';lb='✓ '+lb;}else if(mi===ci){cl+=' a';lb='▶ '+lb+(q>0?' ('+(cr||0)+'/'+q+')':'');}
         return '<span class="'+cl+'">'+lb+'</span>';
@@ -2267,7 +2271,7 @@ function renderZone(zone){
     var tags='';
     if(m.qui) tags+='<span style="background:rgba(45,156,255,.2);color:#93C5FD;border-radius:3px;padding:0 5px;font-size:10px;font-weight:700;margin-left:3px">'+(QLBLS[m.qui]||esc(m.qui))+'</span>';
     if(m.comment) tags+='<span style="background:rgba(5,150,105,.18);color:#6EE7B7;border-radius:3px;padding:0 5px;font-size:10px;margin-left:2px">'+(CLBLS[m.comment]||esc(m.comment))+'</span>';
-    return '<div class="mov">'+_tb+'<span class="mov-q">×'+m.q+'</span><span class="mov-n">'+esc(m.nom)+'</span>'+(m.poids?'<span class="mov-p">'+esc(m.poids)+'</span>':'')+tags+'</div>';
+    return '<div class="mov">'+_tb+'<span class="mov-q">'+(m.ergoFree?'MAX':'×'+m.q)+'</span><span class="mov-n">'+esc(m.nom)+'</span>'+(m.poids?'<span class="mov-p">'+esc(m.poids)+'</span>':'')+tags+'</div>';
   }).join('');
   var ST={'live':'LIVE','timecap':'TIMECAP','pre':'PRÊT','done':'TERMINÉ','pending':'ATTENTE'};
   var catLeaders=getLeaders();
@@ -2309,7 +2313,7 @@ function renderZone(zone){
       var tags='';
       if(m.qui) tags+='<span style="background:rgba(45,156,255,.2);color:#93C5FD;border-radius:3px;padding:0 5px;font-size:10px;font-weight:700;margin-left:3px">'+(QLBLS[m.qui]||esc(m.qui))+'</span>';
       if(m.comment) tags+='<span style="background:rgba(5,150,105,.18);color:#6EE7B7;border-radius:3px;padding:0 5px;font-size:10px;margin-left:2px">'+(CLBLS[m.comment]||esc(m.comment))+'</span>';
-      return '<div class="mov">'+_tb+'<span class="mov-q">×'+m.q+'</span><span class="mov-n">'+esc(m.nom)+'</span>'+(m.poids?'<span class="mov-p">'+esc(m.poids)+'</span>':'')+tags+'</div>';
+      return '<div class="mov">'+_tb+'<span class="mov-q">'+(m.ergoFree?'MAX':'×'+m.q)+'</span><span class="mov-n">'+esc(m.nom)+'</span>'+(m.poids?'<span class="mov-p">'+esc(m.poids)+'</span>':'')+tags+'</div>';
     }).join('');
   }
 
@@ -2432,7 +2436,7 @@ function startTeamBandIH(zone,ihTarget,doneHid,doneH,doneW,catId,catLeader){
       var tags='';
       if(qLbl) tags+='<span style="background:rgba(45,156,255,.2);color:#93C5FD;border-radius:3px;padding:0 5px;font-size:10px;font-weight:700;margin-left:3px">'+esc(qLbl)+'</span>';
       if(cLbl) tags+='<span style="background:rgba(5,150,105,.18);color:#6EE7B7;border-radius:3px;padding:0 5px;font-size:10px;margin-left:2px">'+esc(cLbl)+'</span>';
-      return '<div class="mov">'+_tb+'<span class="mov-q">×'+q+'</span><span class="mov-n">'+esc(m.nom||'')+'</span>'+(pw?'<span class="mov-p">'+esc(pw)+'</span>':'')+tags+'</div>';
+      return '<div class="mov">'+_tb+'<span class="mov-q">'+(m.ergoFree?'MAX':'×'+q)+'</span><span class="mov-n">'+esc(m.nom||'')+'</span>'+(pw?'<span class="mov-p">'+esc(pw)+'</span>':'')+tags+'</div>';
     }).join('');
   }
   function syncHeader(mode){

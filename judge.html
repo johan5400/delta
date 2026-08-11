@@ -1845,7 +1845,7 @@ function toggleWodRecall(){
     var col=isDone?'rgba(52,211,153,.15)':isAct?'rgba(255,107,42,.18)':'rgba(255,255,255,.05)';
     var bord=isDone?'#34D399':isAct?'var(--fire)':'rgba(255,255,255,.12)';
     var mark=isDone?'✓ ':isAct?'▶ ':'';
-    var q=(m&&m.q>0)?' ×'+m.q:'';
+    var q=(m&&m.ergoFree)?' MAX':((m&&m.q>0)?' ×'+m.q:'');
     var extra=(m&&m.poids?' · '+escH(m.poids):'')+(m&&m.temps?' · '+escH(m.temps):'');
     return '<div style="background:'+col+';border:1px solid '+bord+';border-radius:10px;padding:9px 13px;margin-bottom:6px;font-size:15px;font-weight:800;color:#fff">'+mark+escH((m&&m.n)||'Mouv')+q+'<span style="color:rgba(255,255,255,.5);font-size:.85em">'+extra+'</span></div>';
   }
@@ -2985,7 +2985,7 @@ function updateDisplay(){
   var _curIsEc=_curMoveIsEcFree();
   var _wodHasEc=!!(SC.moves&&SC.moves.some(function(mm){return mm&&mm.ergoFree;}));
   if(_ecz){
-    _ecz.style.display=_curIsEc?'flex':'none';
+    _ecz.style.display=(_curIsEc && !_tourValide)?'flex':'none';
     var _rz0=$('j-reps-zone');
     if(_curIsEc){
       if(_rz0) _rz0.style.display='none';           // skierg → cacher +REP, montrer cals
@@ -3020,7 +3020,7 @@ function updateDisplay(){
     var nEl=$('j-next-move'); if(!nEl) return;
     var txt='';
     var nx=SC.moves[moveIdx+1];
-    if(nx && nx.n){ txt='→ '+nx.n+(nx.q>0?' ×'+nx.q:''); }
+    if(nx && nx.n){ txt='→ '+nx.n+(nx.ergoFree?' MAX':(nx.q>0?' ×'+nx.q:'')); }
     else if(SC.fmt==='rounds' && (SC.rounds||1)>1 && currentRound<(SC.rounds||1)){
       var first=SC.moves[0]; txt='→ Tour '+(currentRound+1)+(first&&first.n?' · '+first.n:'');
     }
@@ -3057,7 +3057,7 @@ function updateDisplay(){
     var pct=isDone?100:(isAct&&m2.q>0?Math.min(100,Math.round(moveReps/m2.q*100)):0);
     var cls=isDone?'mv done':isAct?'mv active':'mv pending';
     var lbl=(isDone?'✓ ':isAct?'▶ ':'')+escH(m2.n);
-    if(m2.q>0) lbl+=' ×'+m2.q;
+    if(m2.ergoFree) lbl+=' MAX'; else if(m2.q>0) lbl+=' ×'+m2.q;
     if(m2.poids) lbl+=' · <span style="color:#C084FC;font-size:.8em">'+escH(m2.poids)+'</span>';
     if(m2.temps) lbl+=' · <span style="color:#6EE7B7;font-size:.8em">'+escH(m2.temps)+'</span>';
     var qTag='',cTag='';
