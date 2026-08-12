@@ -3498,7 +3498,7 @@ function updateEmomDisplay(){
 
   // ★ Écran REPOS — phase REST configurée OU tour validé par le juge (attente prochain round)
   var restScreen=$('j-rest-screen'), counter=$('j-counter'), btns=$('j-btns')||document.querySelector('.j-btns');
-  var isResting = (!emomIsWork && rest>0) || _tourValide;
+  var isResting = (!emomIsWork) || _tourValide;
   if(restScreen){
     restScreen.classList.toggle('show', isResting);
     var _ecActive=(typeof _curMoveIsEcFree==='function' && _curMoveIsEcFree());

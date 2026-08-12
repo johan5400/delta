@@ -2262,7 +2262,7 @@ function renderZone(zone){
   var movDefs=moves.map(function(m){
     var q=(catId&&m.qtyParCat&&m.qtyParCat[catId]!=null&&m.qtyParCat[catId]!=='')?parseInt(m.qtyParCat[catId])||0:parseInt(m.qty||m.ergoTarget||0)||0;
     var pw=(catId&&m.poids&&typeof m.poids==='object'&&m.poids[catId])?m.poids[catId]:(typeof m.poids==='string'?m.poids:'');
-    return{nom:m.nom||'',q:q,poids:pw,qui:m.qui||'',comment:m.comment||'',note:m.note||'',tour:parseInt(m.tour||0,10)||0};
+    return{nom:m.nom||'',q:q,poids:pw,qui:m.qui||'',comment:m.comment||'',note:m.note||'',tour:parseInt(m.tour||0,10)||0,ergoFree:!!m.ergoFree,ergoUnit:m.ergoUnit||''};
   });
   var QLBLS={'A':'A','B':'B','A+B':'A+B','relay':'Relais','both':'x2'};
   var CLBLS={'synchro':'sync','solo':'solo','share':'libre','relay':'relais','alt':'alt'};
@@ -2306,7 +2306,7 @@ function renderZone(zone){
     var _hdrMoves=(_hdrW.mouvements||[]).map(function(m){
       var q=(displayCatId&&m.qtyParCat&&m.qtyParCat[displayCatId]!=null&&m.qtyParCat[displayCatId]!=='')?parseInt(m.qtyParCat[displayCatId])||0:parseInt(m.qty||m.ergoTarget||0)||0;
       var pw=(displayCatId&&m.poids&&typeof m.poids==='object'&&m.poids[displayCatId])?m.poids[displayCatId]:(typeof m.poids==='string'?m.poids:'');
-      return{nom:m.nom||'',q:q,poids:pw,qui:m.qui||'',comment:m.comment||'',tour:parseInt(m.tour||0,10)||0};
+      return{nom:m.nom||'',q:q,poids:pw,qui:m.qui||'',comment:m.comment||'',tour:parseInt(m.tour||0,10)||0,ergoFree:!!m.ergoFree,ergoUnit:m.ergoUnit||''};
     });
     _hdrMovsHtml = _hdrMoves.map(function(m,_i){
       var _tb=(m.tour>0&&(_i===0||(_hdrMoves[_i-1]||{}).tour!==m.tour))?'<span style="background:rgba(255,209,102,.16);color:#FFD166;border:1px solid rgba(255,209,102,.4);border-radius:4px;padding:0 5px;font-size:10px;font-weight:900;letter-spacing:.5px;display:inline-flex;align-items:center;flex-shrink:0;margin-right:4px">T'+m.tour+'</span>':'';
