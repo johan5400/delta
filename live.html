@@ -789,13 +789,16 @@ function getNext(zone){
       return{id:zs.nextHeatId,h:_zn};
     }
   }
-  var best=null,bn=0;
+  var best=null,bestSeq=Infinity;
   Object.keys(HEATS).forEach(function(hid){
     var h=HEATS[hid];if(!h)return;
     if((parseInt(h.catZone!=null?h.catZone:h.zone)||1)!==zone)return;
     if(h.status!=='pending'&&h.status!=='pre')return;
-    var n=parseInt(String(hid).replace(/\D/g,''))||0;
-    if(n>bn){bn=n;best=hid;}
+    // ★ FIX : le PROCHAIN heat = le plus petit numéro d'ordre EN ATTENTE (ordre du
+    //   planning via globalNum), PAS le plus grand. Avant (n>bn) ça prenait le dernier
+    //   heat en attente → séquence cassée entre 2 WOD.
+    var seq=parseInt(h.globalNum||String(hid).replace(/\D/g,'')||0,10)||0;
+    if(seq>0 && seq<bestSeq){bestSeq=seq;best=hid;}
   });
   return best?{id:best,h:HEATS[best]}:null;
 }
