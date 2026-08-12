@@ -2684,6 +2684,7 @@ function startJudge(){
 
   if(isEmom){
     emomRound=1; emomIsWork=true; emomRoundReps=0; emomRoundHistory=[]; emomTotalReps=0;
+    _tourValide=false; _wasResting=false; // ★ FIX : repartir propre à chaque heat (sinon repos fantôme + message 1 fois sur 2)
     $('j-emom-history').style.display='flex'; $('j-emom-history').innerHTML='';
     $('j-emom-reset').style.display='flex'; updateEmomDisplay();
   } else {
