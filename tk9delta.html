@@ -2743,7 +2743,7 @@ function _zoneWodSequence(zone, day){
   var ids=heatsForZone(zone), seq=[], seen={};
   for(var i=0;i<ids.length;i++){
     var h=HD[ids[i]]||{};
-    var d=parseInt(h.jour||h.catJour||1,10)||1;
+    var d=heatDay(h); // ★ FIX : même calcul de jour que heatsForZone (cohérence synchro coupure)
     if(day && d!==day) continue;
     var wn=(h.wodInfo&&h.wodInfo.nom)||'';
     if(wn && !seen[wn]){ seen[wn]=true; seq.push(wn); }
@@ -2761,7 +2761,9 @@ function _otherZoneHasTransition(otherZone, idx, day){
 }
 function _heatDay(hid){
   var h=HD[hid]||{};
-  return parseInt(h.jour||h.catJour||_dayLaunchedDay||1,10)||1;
+  // ★ FIX SYNC COUPURE : MÊME priorité que heatDay()/heatsForZone (catJour d'abord),
+  //   sinon _heatDay (jour d'abord) donnait un jour différent → séquence vide → pas de synchro.
+  return parseInt((h.catJour!=null&&h.catJour!=='')?h.catJour:(h.jour!=null?h.jour:(_dayLaunchedDay||1)),10)||1;
 }
 
 // Affiche un état "en attente de l'autre zone" sans lancer de countdown
