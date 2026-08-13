@@ -3395,6 +3395,10 @@ function validate(ergoVal){
   //   montre au capitaine, tape « VU PAR L'ÉQUIPE », puis le cheminement normal
   //   reprend (consignes du prochain passage via showNextScreen).
   var _vb=$('done-vu-btn'); if(_vb) _vb.style.display='';
+  // ★ FIN DE HEAT (fix EMOM) : couper l'écran repos EMOM (sinon il couvre le récap +
+  //   la consigne « reste sur ta ligne / change de ligne / repos »).
+  _tourValide=false; _wasResting=false;
+  var _rsEnd=document.getElementById('j-rest-screen'); if(_rsEnd){ _rsEnd.classList.remove('show'); _rsEnd.style.display='none'; }
   _fillDoneNextInfo();
   setTimeout(function(){ show('s-done'); }, 400);
   // ★ FILET DE SÉCURITÉ : si le juge ne tape pas « VU PAR L'ÉQUIPE » sous 45s
@@ -3499,7 +3503,7 @@ function updateEmomDisplay(){
 
   // ★ Écran REPOS — phase REST configurée OU tour validé par le juge (attente prochain round)
   var restScreen=$('j-rest-screen'), counter=$('j-counter'), btns=$('j-btns')||document.querySelector('.j-btns');
-  var isResting = (!emomIsWork) || _tourValide;
+  var isResting = !done && ((!emomIsWork) || _tourValide); // ★ jamais de repos si le heat est fini (laisse la consigne s'afficher)
   if(restScreen){
     restScreen.classList.toggle('show', isResting);
     var _ecActive=(typeof _curMoveIsEcFree==='function' && _curMoveIsEcFree());
