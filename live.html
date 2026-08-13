@@ -608,6 +608,7 @@ body{height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-fami
     <div style="font-size:clamp(11px,1.5vw,13px);font-weight:800;letter-spacing:6px;color:#FF8A00;text-transform:uppercase">FOC 2026 · ZONE K</div>
     <div style="font-family:'Bebas Neue',sans-serif;font-size:clamp(40px,7vw,76px);letter-spacing:3px;line-height:.92;text-align:center;color:#fff">MERCI À NOS <span style="color:#FF8A00">PARTENAIRES</span></div>
     <div style="font-size:clamp(12px,1.6vw,15px);color:#8CA3BF;font-weight:600;letter-spacing:1px;text-align:center;margin-top:-6px">Ils rendent cette compétition possible</div>
+    <div id="sp-ov-reprise" style="font-size:clamp(14px,2vw,20px);font-weight:900;letter-spacing:2px;color:#00E5A0;text-transform:uppercase;text-align:center;text-shadow:0 0 22px rgba(0,229,160,.45);padding:8px 18px;border:1px solid rgba(0,229,160,.35);border-radius:12px;background:rgba(0,229,160,.06)">Reprise dans —</div>
     <div id="sp-ov-grid" style="display:grid;gap:clamp(12px,1.8vw,20px);width:100%;max-width:1000px;margin-top:10px"></div>
     <div style="font-size:clamp(11px,1.4vw,13px);color:#647A96;font-weight:600;letter-spacing:2px;text-transform:uppercase;margin-top:8px">Hybride Center · Toul</div>
   </div>
@@ -2963,8 +2964,18 @@ function _bothZonesInCoupure(){
 }
 function updateSponsorsOverlay(){
   // Aperçu forcé depuis l'admin
-  if(String(location.hash).indexOf('sponsors-preview')>=0){ showSponsorsOverlay(); return; }
-  if(_bothZonesInCoupure()){ showSponsorsOverlay(); } else { hideSponsorsOverlay(); }
+  if(String(location.hash).indexOf('sponsors-preview')>=0){ showSponsorsOverlay(); _updateRepriseLabel(); return; }
+  if(_bothZonesInCoupure()){ showSponsorsOverlay(); _updateRepriseLabel(); } else { hideSponsorsOverlay(); }
+}
+// ★ « Reprise du prochain WOD dans X » affiché sur la page sponsors pendant la coupure
+function _updateRepriseLabel(){
+  var el=document.getElementById('sp-ov-reprise'); if(!el) return;
+  var tgt=0; // la coupure qui finit le plus tard (les 2 zones sont synchronisées)
+  ['1','2'].forEach(function(z){ var ih=IH[z]; if(ih&&ih.active&&ih.ihType==='coupure'&&ih.target>tgt) tgt=ih.target; });
+  if(tgt<=0){ el.textContent='Reprise imminente'; return; }
+  var rem=Math.max(0,Math.ceil((tgt-now())/1000));
+  var m=Math.floor(rem/60), s=rem%60;
+  el.textContent='Reprise du prochain WOD dans '+m+':'+(s<10?'0':'')+s;
 }
 
 var _rd=null;function scheduleRender(){clearTimeout(_rd);_rd=setTimeout(renderAll,0);}
