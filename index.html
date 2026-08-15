@@ -6351,7 +6351,7 @@ function openMailAfterPDF(){ ouvrirMailDepuisPDF(); }
 
 
 // SAUVEGARDE
-var SAVE_KEY="zonek_foc_v12_vide"; // Nouvelle clé = reset automatique des anciennes données
+var SAVE_KEY="zonek_foc_v12"; // _vide retiré : la clé _vide empêchait la restauration au rechargement
 function getStateToSave(){
   return{ev:{nom:document.getElementById("ev-nom").value,date1:document.getElementById("ev-date1").value,date2:document.getElementById("ev-date2").value,lieu:document.getElementById("ev-lieu").value,resp:document.getElementById("ev-resp").value,email:document.getElementById("ev-email").value,compStart:document.getElementById("comp-start").value,compEnd:document.getElementById("comp-end").value,rotDur:"2",compStart2:(document.getElementById("comp-start2")||{}).value,compEnd2:(document.getElementById("comp-end2")||{}).value,rotDur2:((document.getElementById("rotation-dur2")||{})||{}).value,notesJ1:(document.getElementById("notes-j1")||{}).value||"",notesJ2:(document.getElementById("notes-j2")||{}).value||""},stations:STATIONS,benevoles:BENEVOLES,presence:PRESENCE,heureArr:HEURE_ARR,notesJour:NOTES_JOUR,categories:CATEGORIES,heatsResult:HEATS_RESULT,zones:ZONES,wods:WODS,zone1Resp:(document.getElementById("zone1-resp")||{}).value||"",zone1Contact:(document.getElementById("zone1-contact")||{}).value||"",zone1Desc:(document.getElementById("zone1-desc")||{}).value||"",zone2Resp:(document.getElementById("zone2-resp")||{}).value||"",zone2Contact:(document.getElementById("zone2-contact")||{}).value||"",zone2Desc:(document.getElementById("zone2-desc")||{}).value||"",savedAt:new Date().toISOString()};
 }
