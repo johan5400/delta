@@ -2736,7 +2736,12 @@ function startJudge(){
     }
     elapsed=Math.max(0,Math.floor((serverNow()-startTs)/1000));
     var isAmrap=(fmt==='amrap'), isEmomT=(fmt==='emom'||fmt==='interval');
-    if(isEmomT) updateEmomPhase(elapsed);
+    if(isEmomT){
+      updateEmomPhase(elapsed);
+      // ★ FIX REPOS 1er heat : forcer updateEmomDisplay à chaque tick
+      // (la condition de changement de phase ne se déclenche pas au 1er round)
+      updateEmomDisplay();
+    }
     var rem=(isAmrap||isEmomT)?Math.max(0,SC.cap-elapsed):elapsed;
     var tel=$('j-timer'); tel.textContent=fmtT(rem);
     var left=SC.cap-elapsed; tel.className='j-timer '+(left>120?'ok':left>30?'warn':'danger');

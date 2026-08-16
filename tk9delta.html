@@ -2578,7 +2578,13 @@ function _seamlessEndOfHeat(zone, hid){
     // ★ FIX SYNC ZONES : synchro par rang de transition (WODs différents OK)
     var _tDay=_heatDay(hid);
     var _tIdx=_zoneTransitionIdx(zone, doneWodName, _tDay);
-    var needsSync = typ==='coupure' && sec>0 && doneWodName && _otherZoneHasTransition(otherZ, _tIdx, _tDay);
+    // ★ FIX SYNC : synchroniser dès qu'une coupure est en jeu,
+    // même si l'autre zone n'a pas de WOD avec ce nom exact.
+    // On vérifie juste que l'autre zone a des heats ce jour-là.
+    var _otherHasHeats = heatsForZone(otherZ).some(function(hid2){
+      return _heatDay(hid2) === _tDay;
+    });
+    var needsSync = typ==='coupure' && sec>0 && doneWodName && _otherHasHeats;
 
     if(sec>0 && !needsSync){
       // ÉTAPE 1 (instantanée, locale) : démarrer le tick visuel IH
@@ -2689,9 +2695,11 @@ function getInterHeatDelay(zone, donHid){
   var hasCoupure = coupure > 0;
   var hasInterHeat = wod.interHeat!=null && String(wod.interHeat)!=='';
   
-  // Si WOD suivant différent → coupure
-  if(doneWod && nextWod && doneWod !== nextWod){
-    if(hasCoupure) return {seconds: coupure, type:'coupure', label:'✂️ Coupure — '+(nextWod||'WOD suivant')};
+  // ★ FIX COUPURE : déclencher dès que le WOD change OU que c'est le dernier heat du WOD
+  // Avant : seulement si nextWod !== doneWod → ratait le 1er WOD (next = même WOD, même nom)
+  var isLastHeatOfWod = !nextWod || (doneWod && nextWod !== doneWod);
+  if(hasCoupure && isLastHeatOfWod){
+    return {seconds: coupure, type:'coupure', label:'✂️ Coupure — '+(nextWod||'Fin WOD')};
   }
   // Sinon inter-heat du WOD courant
   var ih = parseInt(wod.interHeat)||0;
