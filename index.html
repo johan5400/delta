@@ -17304,6 +17304,47 @@ async function generateAndPublishAll(){
   });
   publishUpdates['wods'] = Object.keys(wodsObj).length ? wodsObj : null;
 
+  // ── Publish Coupures ───────────────────────────────────────
+  // Liste des coupures inter-WOD par jour, avec un ID fixe et unique
+  // Le TK utilisera cet ID comme clé de synchro Firebase (les 2 zones se retrouvent toujours)
+  var coupuresObj = {};
+  try {
+    // Construire la liste des WODs triés par jour + ordreZone
+    var _wodsArr = (typeof WODS !== 'undefined' ? WODS : []) || [];
+    // Grouper par jour
+    var _wodsByDay = {};
+    _wodsArr.forEach(function(w) {
+      if (!w || !w.id) return;
+      var jour = parseInt(w.jour || 1, 10) || 1;
+      if (!_wodsByDay[jour]) _wodsByDay[jour] = [];
+      _wodsByDay[jour].push(w);
+    });
+    // Pour chaque jour, trier par ordreZone et trouver les coupures
+    Object.keys(_wodsByDay).forEach(function(jour) {
+      var _wods = _wodsByDay[jour].slice().sort(function(a, b) {
+        return (parseInt(a.ordreZone || 0) || 0) - (parseInt(b.ordreZone || 0) || 0);
+      });
+      var _coupureIdx = 1;
+      _wods.forEach(function(w) {
+        var _coupureSecs = parseInt(w.coupureApres || 0, 10) || 0;
+        if (_coupureSecs > 0) {
+          var _coupureId = 'd' + jour + '_c' + _coupureIdx;
+          coupuresObj[_coupureId] = {
+            id: _coupureId,
+            jour: parseInt(jour, 10),
+            coupureIdx: _coupureIdx,
+            wodIdBefore: String(w.id),
+            wodNomBefore: w.nom || '',
+            ordreZoneBefore: parseInt(w.ordreZone || 0) || 0,
+            secs: _coupureSecs
+          };
+          _coupureIdx++;
+        }
+      });
+    });
+  } catch(e) { console.warn('coupures publish:', e.message); }
+  publishUpdates['system/coupures'] = Object.keys(coupuresObj).length ? coupuresObj : null;
+
   // ── Publish Categories ─────────────────────────────────────
   var catsObj={};
   ((typeof CATEGORIES!=='undefined'?CATEGORIES:[])||[]).forEach(function(c){
