@@ -7045,7 +7045,19 @@ function syncCategoriesToFirebase(){
 function autoSave(){
   try{
     var state=getStateToSave();
-    localStorage.setItem(SAVE_KEY,JSON.stringify(state));
+    // ★ FIX (bug chef : l'index ne gardait plus en mémoire) : si le quota localStorage est
+    //   dépassé (les heats sauvegardés sont trop gros), on retombe sur une sauvegarde SANS
+    //   les heats — ils se régénèrent depuis WODS+CATEGORIES au chargement. Sans ça, la
+    //   sauvegarde échouait en silence et SAVE_KEY restait bloqué sur un vieil état.
+    try{
+      localStorage.setItem(SAVE_KEY,JSON.stringify(state));
+    }catch(_quota){
+      try{
+        var _lite=Object.assign({},state); _lite.heatsResult=null;
+        localStorage.setItem(SAVE_KEY,JSON.stringify(_lite));
+        console.warn('autoSave: quota localStorage dépassé → sauvegarde allégée (sans heats, ils se régénèrent).');
+      }catch(_quota2){ console.warn('autoSave: échec de sauvegarde même allégée', _quota2); }
+    }
     localStorage.setItem('zonek-data',JSON.stringify({
       benevoles: BENEVOLES||[],
       categories: CATEGORIES||[],

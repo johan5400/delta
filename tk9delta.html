@@ -2854,18 +2854,28 @@ function coordinateCoupure(zone, donHid, delay){
     } else {
       // L'autre zone n'est pas encore prête → attendre
       _showCoupureWaiting(zone, otherZone, label);
-      // Écouter Firebase : dès que le target apparaît → démarrer
-      var ref=dbRef(syncPath+'/target');
-      var handler=function(tSnap){
+      var refT=dbRef(syncPath+'/target');
+      var refOther=dbRef(syncPath+'/z'+otherZone);
+      var _resolved=false;
+      function _cleanup(){ try{refT.off('value',hT);}catch(e){} try{refOther.off('value',hO);}catch(e){} delete _coupureSyncListeners[zone]; }
+      var hT=function(tSnap){
         var t=tSnap.val();
-        if(t && t > serverNow()-500){
-          ref.off('value',handler);
-          delete _coupureSyncListeners[zone];
-          _startCoupureFromTarget(zone, t, label);
+        if(t && t > serverNow()-500 && !_resolved){ _resolved=true; _cleanup(); _startCoupureFromTarget(zone, t, label); }
+      };
+      // ★ FIX (bug chef : coupure bloquée en attente) : on écoute AUSSI le signal « prête »
+      //   de l'autre zone. Dès qu'il arrive, cette zone fixe le départ commun. Ça résout la
+      //   course où les 2 zones s'attendaient mutuellement sans que personne ne fixe le target.
+      var hO=function(oSnap){
+        if(oSnap.val() && !_resolved){
+          _resolved=true;
+          var st=serverNow()+coupureSecs*1000;
+          try{ dbRef(syncPath+'/target').set(st); }catch(e){}
+          _cleanup(); _startCoupureFromTarget(zone, st, label);
         }
       };
-      ref.on('value', handler);
-      _coupureSyncListeners[zone]=function(){ ref.off('value',handler); };
+      refT.on('value', hT);
+      refOther.on('value', hO);
+      _coupureSyncListeners[zone]=_cleanup;
     }
   });
 }

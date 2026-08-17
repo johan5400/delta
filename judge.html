@@ -2309,6 +2309,7 @@ function goMenu(){
   clearInterval(timerIv); clearInterval(tbIv); clearInterval(window._cdIv);
   clearTimeout(_judgeNextHeatDelayTm);
   done=false; endWarned=false; dismissTB();
+  _wasResting=false; _tourValide=false; // ★ FIX (message repos 1er heat) : reset repos sur TOUS les chemins de démarrage
   moveIdx=0; moveReps=0; totalReps=0; noReps=0;
   currentRound=1; // ★ FIX : repartir à 1 pour chaque nouveau heat
   tbTs=0; tbPhase=0; tbCapTs=null; elapsed=0; _tbCaptured=[];
@@ -3003,7 +3004,13 @@ function updateDisplay(){
   /* ★ nom mouvement animé */
   var mn=m?m.n:'—', mel=$('j-move');
   if(mel.textContent!==mn){mel.style.animation='none';void mel.offsetWidth;mel.style.animation='move-flash .22s ease';mel.textContent=mn;}
-  var lbl=$('j-lbl'); if(lbl) lbl.textContent=m?m.n:'Mouvement en cours';
+  var lbl=$('j-lbl');
+  if(lbl){
+    // ★ EMOM plus clair : consigne d'action au lieu de dupliquer le nom du mouvement
+    var _fmtLbl=String((SC&&SC.fmt)||'').toLowerCase();
+    if((_fmtLbl==='emom'||_fmtLbl==='interval') && m){ lbl.textContent='👆 Compte — appuie à chaque rep'; }
+    else lbl.textContent=m?m.n:'Mouvement en cours';
+  }
 
   /* target : X / quota + numéro de tour pour Rounds */
   if(m&&m.q>0){
@@ -3498,8 +3505,8 @@ function updateEmomDisplay(){
   var fl=(SC.fmt||'').toLowerCase(), work=SC.emomWork||60, rest=SC.emomRest||0;
   var cycle=work+rest, totalRounds=Math.round(SC.cap/cycle);
   var pe=$('emom-phase'),re=$('emom-round'),ce=$('emom-cd');
-  if(pe){pe.textContent=emomIsWork?'WORK':'REST';pe.className='emom-phase '+(emomIsWork?'work':'rest');}
-  if(re) re.textContent='Round '+emomRound+' / '+totalRounds+(emomIsWork?' · '+emomRoundReps+' reps':'');
+  if(pe){pe.textContent=emomIsWork?'EN COURS':'REPOS';pe.className='emom-phase '+(emomIsWork?'work':'rest');}
+  if(re) re.textContent='TOUR '+emomRound+' / '+totalRounds+(emomIsWork?' · '+emomRoundReps+' reps':'');
   if(ce) ce.className='emom-countdown '+(emomIsWork?'work':'rest');
   var hh=emomRoundHistory.map(function(r,i){ return '<span class="emom-rnd-chip'+(i===emomRound-2?' current':'')+'">R'+(i+1)+': '+r+'</span>'; }).join('');
   var h1=$('j-emom-history'),h2=$('j-round-history');

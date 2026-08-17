@@ -2141,7 +2141,7 @@ function renderRankCards(rows,w,st,showLiveChips,h,catId,catLeader){
             if(!(_isErgoLive && st==='live')) return '';
             var _rmR=(_movs||[]).filter(function(m){return m&&m.type!=='ergo';})[0];
             if(!_rmR) return '';
-            return '<div style="font-size:clamp(13px,1.9vw,30px);color:#00E5A0;font-family:var(--fm);font-weight:900;text-align:right;margin-top:3px;letter-spacing:.5px;line-height:1;text-shadow:0 0 10px rgba(0,229,160,.4)">'+(parseInt(sc.roundReps||0)||0)+' '+esc(_rmR.nom||'reps')+'</div>';
+            return '<div style="font-size:clamp(13px,1.9vw,30px);color:#00E5A0;font-family:var(--fm);font-weight:900;text-align:right;margin-top:3px;letter-spacing:.5px;line-height:1;text-shadow:0 0 10px rgba(0,229,160,.4)">'+(parseInt((sc.ok?sc.reps:sc.roundReps)||0)||0)+' '+esc(_rmR.nom||'reps')+'</div>';
           })()
           +_roundHtml
           +(function(){
