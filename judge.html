@@ -3515,7 +3515,7 @@ function updateEmomDisplay(){
 
   // ★ Écran REPOS — phase REST configurée OU tour validé par le juge (attente prochain round)
   var restScreen=$('j-rest-screen'), counter=$('j-counter'), btns=$('j-btns')||document.querySelector('.j-btns');
-  var isResting = !done && ((!emomIsWork) || _tourValide); // ★ jamais de repos si le heat est fini (laisse la consigne s'afficher)
+  var isResting = !done && _tourValide; // ★ FIX +REP : repos SEULEMENT après validation de la distance (sinon le compteur/+REP étaient cachés pendant le comptage du snatch)
   if(restScreen){
     restScreen.classList.toggle('show', isResting);
     var _ecActive=(typeof _curMoveIsEcFree==='function' && _curMoveIsEcFree());
