@@ -830,7 +830,8 @@ var startTs=null, elapsed=0, timerIv=null, done=false, endWarned=false;
 var mlAttempts=[];
 var emomRound=1, emomIsWork=true;
 var _tourValide=false; // ★ tour validé par le juge → écran repos jusqu'au prochain round
-var _wasResting=false; // ★ pour ne choisir le message rigolo qu'une fois par repos
+var _wasResting=false;
+var _capFinalizeScheduled=false; // ★ finalisation auto une seule fois par heat au cap EMOM
 var _restMsgs=[
   {e:'😮‍💨',t:'Souffle un coup, ça repart vite.'},
   {e:'🫁',t:'Respire. Bois. Prépare-toi à souffrir.'},
@@ -1142,7 +1143,7 @@ function wodToScenario(wod){
   //   À L'INTÉRIEUR de l'EMOM, et la finalisation du score détecte ergoFree indépendamment
   //   du format (payload.dist = somme des tours). On ne bascule donc en maxload/ergo QUE
   //   pour les WOD sans structure de temps.
-  var _isTimedFmt=(fmt==='emom'||fmt==='interval');
+  var _isTimedFmt=(fmt==='emom'||fmt==='interval'||fmt==='deathby');
   if(!_isTimedFmt){
     if(wod.judgeMode==='maxload' || wod.scoreFinale==='load') fmt='maxload';
     else if(wod.judgeMode==='ergo' || wod.scoreFinale==='dist' || wod.scoreFinale==='cal') fmt='ergo';
@@ -1150,7 +1151,7 @@ function wodToScenario(wod){
 
   var fmtLabels={amrap:'AMRAP',fortime:'FOR TIME',maxload:'MAX LOAD',emom:'EMOM',interval:'INTERVAL',rounds:'ROUNDS',ergo:'ERGO'};
   var _fmtCap=String(wod.wodFormat||wod.format||'').toLowerCase();
-  var _isEmomCap=(_fmtCap==='emom'||_fmtCap==='interval'||_fmtCap==='tabata');
+  var _isEmomCap=(_fmtCap==='emom'||_fmtCap==='interval'||_fmtCap==='tabata'||_fmtCap==='deathby');
   var cap = parseInt(wod.capSec||wod.capSeconds||wod.durationSec||wod.duree||0,10)||0;
 
   // ★ FIX EMOM 1 TOUR : pour un EMOM, le cap = durée d'un tour × nombre de tours.
@@ -2309,7 +2310,7 @@ function goMenu(){
   clearInterval(timerIv); clearInterval(tbIv); clearInterval(window._cdIv);
   clearTimeout(_judgeNextHeatDelayTm);
   done=false; endWarned=false; dismissTB();
-  _wasResting=false; _tourValide=false; // ★ FIX (message repos 1er heat) : reset repos sur TOUS les chemins de démarrage
+  _wasResting=false; _tourValide=false; _capFinalizeScheduled=false; // ★ FIX : reset repos + finalisation cap sur TOUS les chemins de démarrage
   moveIdx=0; moveReps=0; totalReps=0; noReps=0;
   currentRound=1; // ★ FIX : repartir à 1 pour chaque nouveau heat
   tbTs=0; tbPhase=0; tbCapTs=null; elapsed=0; _tbCaptured=[];
@@ -2389,7 +2390,7 @@ function goPre(){
   } else if(SC.fmt==='ergo'){
     var m0=SC.moves[0]||{};
     html='Objectif : <strong>'+(m0.ergoTarget?m0.ergoTarget+' '+(m0.ergoUnit||'m'):'voir machine')+'</strong><br>Saisis le résultat affiché sur la machine à la fin.';
-  } else if(SC.fmt==='emom'){
+  } else if(SC.fmt==='emom'||SC.fmt==='deathby'){
     html='À chaque minute :<br>'+SC.moves.map(function(m){ return '<strong>'+(m.q?m.q+'× ':'')+escH(m.n)+'</strong>'; }).join(' + ')+'<br><span style="font-size:11px;opacity:.6">Les reps repartent à 0 au début de chaque round.</span>';
   } else if(SC.fmt==='interval'){
     html=SC.moves.map(function(m){ return '<strong>'+(m.q?m.q+'× ':'')+m.n+'</strong>'; }).join(' · ')+'<br>'
@@ -2671,7 +2672,7 @@ function startJudge(){
 
   var fmt=SC.fmt;
   var isReps=(fmt==='fortime'||fmt==='amrap');
-  var isEmom=(fmt==='emom'||fmt==='interval');
+  var isEmom=(fmt==='emom'||fmt==='interval'||fmt==='deathby');
   var isML=(fmt==='maxload'), isErgo=(fmt==='ergo');
 
   // ★ ergo cumulé : si un mouvement du WOD est ergo-libre, on prépare la zone dédiée
@@ -2685,7 +2686,7 @@ function startJudge(){
 
   if(isEmom){
     emomRound=1; emomIsWork=true; emomRoundReps=0; emomRoundHistory=[]; emomTotalReps=0;
-    _tourValide=false; _wasResting=false; // ★ FIX : repartir propre à chaque heat (sinon repos fantôme + message 1 fois sur 2)
+    _tourValide=false; _wasResting=false; _capFinalizeScheduled=false; // ★ FIX : repartir propre à chaque heat
     $('j-emom-history').style.display='flex'; $('j-emom-history').innerHTML='';
     $('j-emom-reset').style.display='flex'; updateEmomDisplay();
   } else {
@@ -2851,7 +2852,7 @@ function ecAdd(){
   // ★ APRÈS OK (demande chef) : plus de saisie possible sur ce tour → on AVANCE tout seul.
   var _lastIdx=(SC&&SC.moves)?(SC.moves.length-1):0;
   var _fmtEc=String((SC&&SC.fmt)||'').toLowerCase();
-  var _isTimed=(_fmtEc==='emom'||_fmtEc==='interval');
+  var _isTimed=(_fmtEc==='emom'||_fmtEc==='interval'||_fmtEc==='deathby');
   if(moveIdx < _lastIdx){
     // Il reste un mouvement dans le tour (ex : snatch après le vélo) → y aller directement.
     moveIdx++; moveReps=0;
@@ -3008,7 +3009,7 @@ function updateDisplay(){
   if(lbl){
     // ★ EMOM plus clair : consigne d'action au lieu de dupliquer le nom du mouvement
     var _fmtLbl=String((SC&&SC.fmt)||'').toLowerCase();
-    if((_fmtLbl==='emom'||_fmtLbl==='interval') && m){ lbl.textContent='👆 Compte — appuie à chaque rep'; }
+    if((_fmtLbl==='emom'||_fmtLbl==='interval'||_fmtLbl==='deathby') && m){ lbl.textContent='👆 Compte — appuie à chaque rep'; }
     else lbl.textContent=m?m.n:'Mouvement en cours';
   }
 
@@ -3458,7 +3459,22 @@ function equipeVu(){
 /* ── EMOM / Intervalles ── */
 function updateEmomPhase(e){
   var work=SC.emomWork||60, rest=SC.emomRest||0, cycle=work+rest, pos=e%cycle;
+  // ★ FIX (demande chef) : l'EMOM s'ARRÊTE au nombre de tours défini. Le tour ne dépasse
+  //   jamais le total, et passé le cap la saisie est bloquée (plus de tour 11/10).
+  var _totRounds=Math.max(1,Math.round((SC.cap||0)/cycle));
+  var _isDeathBy=String((SC&&SC.fmt)||'').toLowerCase()==='deathby'; // ★ Death By : tours ILLIMITÉS jusqu'au TC
+  var _capReached=((SC.cap||0)>0 && e>=(SC.cap||0));
   var newIsWork=rest===0?true:pos<work, newRound=Math.floor(e/cycle)+1;
+  if(newRound>_totRounds && !_isDeathBy){ newRound=_totRounds; }
+  if(_capReached){
+    if(!_isDeathBy) newRound=_totRounds; newIsWork=false;
+    if(!done){
+      _tourValide=true;
+      // ★ FIX (fin EMOM + enchaînement) : finaliser une seule fois à la fin du cap, si le
+      //   juge n'a pas déjà validé. Sans ça le heat restait "ouvert" → le TK n'enchaînait pas.
+      if(!_capFinalizeScheduled){ _capFinalizeScheduled=true; setTimeout(function(){ if(!done){ done=true; try{ validate(); }catch(_e){} } }, 500); }
+    }
+  }
   if(newRound!==emomRound||newIsWork!==emomIsWork){
     var wasWork=emomIsWork, wasRound=emomRound;
     emomIsWork=newIsWork; emomRound=newRound;

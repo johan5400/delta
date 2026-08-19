@@ -659,7 +659,6 @@ function toast(msg,color,dur){
   _toastIv=setTimeout(function(){ el.style.opacity='0'; },dur);
 }
 var HD={}, SC={}, WD={}, CATS={}, ACTIVE_DAY=1, AUTO=true; var AUTO_LAUNCH_DELAY=0; var INTER_HEAT_DELAY=60; var REQUIRE_JUDGES_READY=false; var AUTO_VALIDATE_ON_DONE=true;
-var COUPURES={}; // system/coupures — liste des coupures publiées par index.html
 var AUTO_COUNTDOWN_SECS=10;
 var JUDGE_TIMEOUT=30; // secondes avant de forcer les scores non valides (mode AUTO)
 var zoneState={1:{selected:null,timerIv:null,ihIv:null,ihRem:null,jtIv:null,jtHid:null,_lastDoneHid:null},2:{selected:null,timerIv:null,ihIv:null,ihRem:null,jtIv:null,jtHid:null,_lastDoneHid:null}};
@@ -1143,8 +1142,6 @@ if(db){
     }
   });;
   dbRef('heats').on('value',function(s){HD=s.val()||{}; refreshAll();});
-  // Listener coupures/ — liste des coupures publiées par index.html (clés de synchro)
-  dbRef('system/coupures').on('value',function(s){ COUPURES=s.val()||{}; });
   // Listener wods/ — maintient WD à jour pour que le chrono ait toujours duree/capSec corrects
   dbRef('wods').on('value',function(s){
     WD=s.val()||{};
@@ -2815,37 +2812,17 @@ function _startCoupureFromTarget(zone, sharedTarget, label){
 var _overrideCoupureTarget={};
 
 // Coordination principale : appelée dans zoneDone quand coupure + l'autre zone est concernée
-// ★ Trouver l'ID de coupure publié par index.html pour ce WOD
-// Retourne ex: "d1_c1" ou null si non trouvé
-function getCoupureId(donHid){
-  var doneH = HD[donHid] || {};
-  var wodId = String(doneH.wodId || '');
-  var jour = parseInt(doneH.catJour || doneH.jour || 1, 10) || 1;
-  if (!wodId) return null;
-  // Chercher dans COUPURES la coupure dont wodIdBefore === wodId et jour === jour
-  var found = null;
-  Object.keys(COUPURES || {}).forEach(function(cid) {
-    var c = COUPURES[cid];
-    if (c && String(c.wodIdBefore) === wodId && parseInt(c.jour, 10) === jour) {
-      found = cid;
-    }
-  });
-  return found;
-}
-
 function coordinateCoupure(zone, donHid, delay){
   var doneH=HD[donHid]||{};
   var wodName=(doneH.wodInfo&&doneH.wodInfo.nom)||'';
   var coupureSecs=delay.seconds;
   var label=delay.label||'';
   var otherZone=zone===1?2:1;
+  // ★ FIX SYNC ZONES : clé commune par rang de transition + jour
+  //   (les 2 zones se retrouvent même avec des WODs de noms différents)
   var _ccDay=_heatDay(donHid);
-  // ★ FIX SYNC PATH : utiliser l'ID de coupure publié par index.html
-  // Clé fixe et identique pour les 2 zones — calculée par index au moment du "Générer & Publier"
-  var _coupureId = getCoupureId(donHid);
-  var syncPath = _coupureId
-    ? 'system/coupureSync/'+_coupureId
-    : 'system/coupureSync/d'+_ccDay+'_fallback_'+Math.round(serverNow()/60000); // fallback si non trouvé
+  var _ccIdx=_zoneTransitionIdx(zone, wodName, _ccDay);
+  var syncPath='system/coupureSync/d'+_ccDay+'_t'+_ccIdx;
 
   // Nettoyage éventuel d'un ancien listener
   if(_coupureSyncListeners[zone]){
@@ -2932,16 +2909,13 @@ function zoneDone(zone){
       // dans ce WOD → coordonner pour démarrer le WOD suivant en même temps
       var _doneWodName=(HD[hid]&&HD[hid].wodInfo&&HD[hid].wodInfo.nom)||'';
       var _otherZ=zone===1?2:1;
-      // ★ FIX SYNC COUPURE : synchro dès que l'autre zone a des heats ce jour-là
-      // (les noms de WODs peuvent être différents par zone → on ne compare plus les séquences)
+      // ★ FIX SYNC ZONES : synchro par rang de transition (WODs différents OK)
       var _tDay2=_heatDay(hid);
-      var _otherHasHeatsToday = heatsForZone(_otherZ).some(function(hid2){
-        return _heatDay(hid2) === _tDay2;
-      });
+      var _tIdx2=_zoneTransitionIdx(zone, _doneWodName, _tDay2);
       var _needsSync = delay.type==='coupure'
         && delay.seconds>0
         && _doneWodName
-        && _otherHasHeatsToday;
+        && _otherZoneHasTransition(_otherZ, _tIdx2, _tDay2);
       if(_needsSync){
         coordinateCoupure(zone, hid, delay);
         publishZoneSync(zone);

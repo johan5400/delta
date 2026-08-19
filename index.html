@@ -6402,7 +6402,7 @@ if(typeof fbBuildWodInfo !== 'function'){
     //   découpe pas. On les dérive ici automatiquement :
     //   - durée d'un tour = champ Travail (workMin) ou 60s par défaut
     //   - nombre de tours = nombre de tours perso (ou durée totale / durée d'un tour)
-    var _isEmom = String(wod.wodFormat||'').toLowerCase()==='emom' || String(wod.wodFormat||'').toLowerCase()==='interval';
+    var _isEmom = String(wod.wodFormat||'').toLowerCase()==='emom' || String(wod.wodFormat||'').toLowerCase()==='interval' || String(wod.wodFormat||'').toLowerCase()==='deathby';
     var _emomWorkSec = parseInt(wod.workMin,10)||0;
     var _emomRestSec = parseInt(wod.restMin,10)||0;
     var _nbToursPerso = (_tcustom && Array.isArray(wod.toursPerso)) ? wod.toursPerso.length : 0;
@@ -11559,7 +11559,7 @@ function updateWodProg(id, field, val) {
     //   Évite l'incohérence (7 tours d'1min affichés 7min mais durant plus avec pauses).
     if(['rounds','workMin','restMin','wodFormat','duree','pauseEntreToursSec','pauseEntreToursActive'].indexOf(field)>=0){
       var _fmt=String(w.wodFormat||'').toLowerCase();
-      if(_fmt==='emom'||_fmt==='interval'||_fmt==='tabata'){
+      if(_fmt==='emom'||_fmt==='interval'||_fmt==='tabata'||_fmt==='deathby'){
         var _work=parseInt(w.workMin,10)||60;
         var _rest=parseInt(w.restMin,10)||0;        // repos DANS le tour (compte dans le WOD)
         var _tours=parseInt(w.rounds,10)||1;
@@ -12101,7 +12101,7 @@ function renderProgWodsList() {
         +     '</select></div>'
         +   '<div><label style="'+LABEL+'">Format</label>'
         +     '<select onchange="updateWodFmt('+w.id+',this.value)" style="'+IS+';border:1.5px solid #BFDBFE;background:#fff;padding:7px 8px;font-size:11px" onclick="event.stopPropagation()">'
-        +     [{v:'amrap',l:'⏱ AMRAP'},{v:'fortime',l:'🏁 For Time'},{v:'open',l:'🏅 Open'},{v:'rounds',l:'🔄 Rounds'},{v:'emom',l:'📡 EMOM'},{v:'tabata',l:'💥 Tabata'}]
+        +     [{v:'amrap',l:'⏱ AMRAP'},{v:'fortime',l:'🏁 For Time'},{v:'open',l:'🏅 Open'},{v:'rounds',l:'🔄 Rounds'},{v:'emom',l:'📡 EMOM'},{v:'tabata',l:'💥 Tabata'},{v:'deathby',l:'💀 Death By'}]
             .map(function(o){return '<option value="'+o.v+'"'+((w.wodFormat||'amrap')===o.v?' selected':'')+'>'+o.l+'</option>';}).join('')
         +     '</select></div>'
         +   '<div><label style="'+LABEL+'">Score</label>'
@@ -17303,47 +17303,6 @@ async function generateAndPublishAll(){
     };
   });
   publishUpdates['wods'] = Object.keys(wodsObj).length ? wodsObj : null;
-
-  // ── Publish Coupures ───────────────────────────────────────
-  // Liste des coupures inter-WOD par jour, avec un ID fixe et unique
-  // Le TK utilisera cet ID comme clé de synchro Firebase (les 2 zones se retrouvent toujours)
-  var coupuresObj = {};
-  try {
-    // Construire la liste des WODs triés par jour + ordreZone
-    var _wodsArr = (typeof WODS !== 'undefined' ? WODS : []) || [];
-    // Grouper par jour
-    var _wodsByDay = {};
-    _wodsArr.forEach(function(w) {
-      if (!w || !w.id) return;
-      var jour = parseInt(w.jour || 1, 10) || 1;
-      if (!_wodsByDay[jour]) _wodsByDay[jour] = [];
-      _wodsByDay[jour].push(w);
-    });
-    // Pour chaque jour, trier par ordreZone et trouver les coupures
-    Object.keys(_wodsByDay).forEach(function(jour) {
-      var _wods = _wodsByDay[jour].slice().sort(function(a, b) {
-        return (parseInt(a.ordreZone || 0) || 0) - (parseInt(b.ordreZone || 0) || 0);
-      });
-      var _coupureIdx = 1;
-      _wods.forEach(function(w) {
-        var _coupureSecs = parseInt(w.coupureApres || 0, 10) || 0;
-        if (_coupureSecs > 0) {
-          var _coupureId = 'd' + jour + '_c' + _coupureIdx;
-          coupuresObj[_coupureId] = {
-            id: _coupureId,
-            jour: parseInt(jour, 10),
-            coupureIdx: _coupureIdx,
-            wodIdBefore: String(w.id),
-            wodNomBefore: w.nom || '',
-            ordreZoneBefore: parseInt(w.ordreZone || 0) || 0,
-            secs: _coupureSecs
-          };
-          _coupureIdx++;
-        }
-      });
-    });
-  } catch(e) { console.warn('coupures publish:', e.message); }
-  publishUpdates['system/coupures'] = Object.keys(coupuresObj).length ? coupuresObj : null;
 
   // ── Publish Categories ─────────────────────────────────────
   var catsObj={};
