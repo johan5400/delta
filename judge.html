@@ -664,6 +664,7 @@ body{
     <div class="j-btns">
       <button class="btn-rep" id="btn-rep" onclick="addRep()">+ REP</button>
       <button class="btn-tb" id="btn-tb" onclick="manualTB()" style="display:none">🎯<br>TB</button>
+      <button class="btn-tb" id="btn-drop" onclick="deathByDrop()" style="display:none;background:rgba(255,59,92,.15);border-color:rgba(255,59,92,.5);color:#FF6B85">🏳️<br>LÂCHE</button>
     </div>
   </div>
 
@@ -827,6 +828,18 @@ function _tbPushArr(){
   return a;
 }
 var startTs=null, elapsed=0, timerIv=null, done=false, endWarned=false;
+var _dbOut=false; // ★ Death By : athlète hors course (a lâché)
+// ★ Death By — l'athlète abandonne : on fige son score (nb de reps) et on finalise.
+function deathByDrop(){
+  if(done){ toast('Déjà terminé','#888'); return; }
+  var _n=(typeof totalReps!=='undefined'?totalReps:0)||0;
+  if(!confirm('🏳️ L\'athlète abandonne ?\n\nSon score sera figé à '+_n+' répétitions et il passera « hors course ».')) return;
+  _dbOut=true;
+  try{ vib([80,40,80]); }catch(e){}
+  toast('🏳️ Hors course — '+_n+' reps','#FF3B5C',2600);
+  done=true;
+  try{ validate(); }catch(e){ console.warn('deathByDrop validate:',e); }
+}
 var mlAttempts=[];
 var emomRound=1, emomIsWork=true;
 var _tourValide=false; // ★ tour validé par le juge → écran repos jusqu'au prochain round
@@ -1108,6 +1121,13 @@ function show(id){
   ['s-wait','s-pre','s-cd','s-judge','s-done','s-next','s-purge','s-brief'].forEach(function(s){
     var el=$(s); if(el) el.classList.remove('on');
   });
+  // ★ FIX (interheat coupé en deux sur le juge) : masquer les overlays du heat précédent
+  //   (consigne fin de heat + écran repos) dès qu'on quitte l'écran de jugement, sinon ils
+  //   restaient affichés par-dessus le brief du prochain heat → écran coupé en deux.
+  if(id!=='s-judge'){
+    var _ovEnd=$('j-end-overlay'); if(_ovEnd) _ovEnd.style.display='none';
+    var _rsScr=$('j-rest-screen'); if(_rsScr){ _rsScr.classList.remove('show'); _rsScr.style.display='none'; }
+  }
   var target=$(id);
   if(target) target.classList.add('on');
   _currentScreen = id;
@@ -1143,7 +1163,7 @@ function wodToScenario(wod){
   //   À L'INTÉRIEUR de l'EMOM, et la finalisation du score détecte ergoFree indépendamment
   //   du format (payload.dist = somme des tours). On ne bascule donc en maxload/ergo QUE
   //   pour les WOD sans structure de temps.
-  var _isTimedFmt=(fmt==='emom'||fmt==='interval'||fmt==='deathby');
+  var _isTimedFmt=(fmt==='emom'||fmt==='interval');
   if(!_isTimedFmt){
     if(wod.judgeMode==='maxload' || wod.scoreFinale==='load') fmt='maxload';
     else if(wod.judgeMode==='ergo' || wod.scoreFinale==='dist' || wod.scoreFinale==='cal') fmt='ergo';
@@ -1151,7 +1171,7 @@ function wodToScenario(wod){
 
   var fmtLabels={amrap:'AMRAP',fortime:'FOR TIME',maxload:'MAX LOAD',emom:'EMOM',interval:'INTERVAL',rounds:'ROUNDS',ergo:'ERGO'};
   var _fmtCap=String(wod.wodFormat||wod.format||'').toLowerCase();
-  var _isEmomCap=(_fmtCap==='emom'||_fmtCap==='interval'||_fmtCap==='tabata'||_fmtCap==='deathby');
+  var _isEmomCap=(_fmtCap==='emom'||_fmtCap==='interval'||_fmtCap==='tabata');
   var cap = parseInt(wod.capSec||wod.capSeconds||wod.durationSec||wod.duree||0,10)||0;
 
   // ★ FIX EMOM 1 TOUR : pour un EMOM, le cap = durée d'un tour × nombre de tours.
@@ -2311,6 +2331,7 @@ function goMenu(){
   clearTimeout(_judgeNextHeatDelayTm);
   done=false; endWarned=false; dismissTB();
   _wasResting=false; _tourValide=false; _capFinalizeScheduled=false; // ★ FIX : reset repos + finalisation cap sur TOUS les chemins de démarrage
+  _dbOut=false; // ★ Death By : repartir non hors-course
   moveIdx=0; moveReps=0; totalReps=0; noReps=0;
   currentRound=1; // ★ FIX : repartir à 1 pour chaque nouveau heat
   tbTs=0; tbPhase=0; tbCapTs=null; elapsed=0; _tbCaptured=[];
@@ -2390,7 +2411,7 @@ function goPre(){
   } else if(SC.fmt==='ergo'){
     var m0=SC.moves[0]||{};
     html='Objectif : <strong>'+(m0.ergoTarget?m0.ergoTarget+' '+(m0.ergoUnit||'m'):'voir machine')+'</strong><br>Saisis le résultat affiché sur la machine à la fin.';
-  } else if(SC.fmt==='emom'||SC.fmt==='deathby'){
+  } else if(SC.fmt==='emom'){
     html='À chaque minute :<br>'+SC.moves.map(function(m){ return '<strong>'+(m.q?m.q+'× ':'')+escH(m.n)+'</strong>'; }).join(' + ')+'<br><span style="font-size:11px;opacity:.6">Les reps repartent à 0 au début de chaque round.</span>';
   } else if(SC.fmt==='interval'){
     html=SC.moves.map(function(m){ return '<strong>'+(m.q?m.q+'× ':'')+m.n+'</strong>'; }).join(' · ')+'<br>'
@@ -2672,7 +2693,7 @@ function startJudge(){
 
   var fmt=SC.fmt;
   var isReps=(fmt==='fortime'||fmt==='amrap');
-  var isEmom=(fmt==='emom'||fmt==='interval'||fmt==='deathby');
+  var isEmom=(fmt==='emom'||fmt==='interval');
   var isML=(fmt==='maxload'), isErgo=(fmt==='ergo');
 
   // ★ ergo cumulé : si un mouvement du WOD est ergo-libre, on prépare la zone dédiée
@@ -2852,7 +2873,7 @@ function ecAdd(){
   // ★ APRÈS OK (demande chef) : plus de saisie possible sur ce tour → on AVANCE tout seul.
   var _lastIdx=(SC&&SC.moves)?(SC.moves.length-1):0;
   var _fmtEc=String((SC&&SC.fmt)||'').toLowerCase();
-  var _isTimed=(_fmtEc==='emom'||_fmtEc==='interval'||_fmtEc==='deathby');
+  var _isTimed=(_fmtEc==='emom'||_fmtEc==='interval');
   if(moveIdx < _lastIdx){
     // Il reste un mouvement dans le tour (ex : snatch après le vélo) → y aller directement.
     moveIdx++; moveReps=0;
@@ -2962,6 +2983,9 @@ function validateErgo(){
 /* ── Affichage compteur ── */
 function updateDisplay(){
   if(!SC) return;
+  // ★ Death By : bouton LÂCHE visible dès qu'on est en Death By et pas encore fini
+  var _dbB=$('btn-drop');
+  if(_dbB){ _dbB.style.display=(String((SC&&SC.fmt)||'').toLowerCase()==='deathby' && !done)?'flex':'none'; }
   var m=SC.moves[moveIdx], isAmrap=(SC.fmt==='amrap');
   // ★ ergo cumulé (valeur libre) : si le WOD a un mouvement ergo-libre, on affiche
   //   la zone de saisie cumulée À LA PLACE du compteur +REP, MAIS sans couper le WOD :
@@ -3009,7 +3033,7 @@ function updateDisplay(){
   if(lbl){
     // ★ EMOM plus clair : consigne d'action au lieu de dupliquer le nom du mouvement
     var _fmtLbl=String((SC&&SC.fmt)||'').toLowerCase();
-    if((_fmtLbl==='emom'||_fmtLbl==='interval'||_fmtLbl==='deathby') && m){ lbl.textContent='👆 Compte — appuie à chaque rep'; }
+    if((_fmtLbl==='emom'||_fmtLbl==='interval') && m){ lbl.textContent='👆 Compte — appuie à chaque rep'; }
     else lbl.textContent=m?m.n:'Mouvement en cours';
   }
 
@@ -3359,6 +3383,7 @@ function validate(ergoVal){
   if(db){
     clearInterval(_scoreIv);
     var payload={reps:0,finalTime:0,load:0,dist:0,noReps:noReps};
+    payload.dbOut=_dbOut; // ★ Death By : statut hors course dans le score final
   payload.attempts=mlAttempts.map(function(a){return {kg:a.kg,ok:!!a.ok};});
     var fmt2=(SC.fmt||'').toLowerCase();
     // ★ ERGO CUMULÉ : si le WOD a un mouvement ergo-libre, le score = total cumulé
@@ -3537,13 +3562,15 @@ function updateEmomDisplay(){
     var _ecActive=(typeof _curMoveIsEcFree==='function' && _curMoveIsEcFree());
     if(counter) counter.style.display = (isResting||_ecActive)?'none':'flex';
     if(btns)    btns.style.display    = (isResting||_ecActive)?'none':'flex';
+    // ★ Death By : bouton LÂCHE visible pendant le comptage (pas en repos/saisie ec)
+    var _dbBtn=$('btn-drop');
+    if(_dbBtn){ _dbBtn.style.display=(String((SC&&SC.fmt)||'').toLowerCase()==='deathby' && !done && !isResting && !_ecActive)?'flex':'none'; }
     if(isResting){
       var _rl=document.querySelector('.rest-label'); if(_rl) _rl.textContent=_tourValide?'✅ TOUR VALIDÉ':'REPOS';
       // ★ Message rigolo aléatoire — choisi UNE fois à l'entrée en repos (pas à chaque tick)
       if(!_wasResting){
-        var _pk=_restMsgs[Math.floor(Math.random()*_restMsgs.length)];
-        var _fn=$('rest-funny'); if(_fn) _fn.textContent=_pk.t;
-        var _em=$('rest-emoji'); if(_em) _em.textContent=_pk.e;
+        var _fn=$('rest-funny'); if(_fn) _fn.textContent='';   // ★ pas de message de repos (demande chef)
+        var _em=$('rest-emoji'); if(_em) _em.textContent='⏳';
       }
       // masquer la zone de saisie ergo pendant le repos (écran noir propre)
       var _ecz2=$('j-ergocum-zone'); if(_ecz2) _ecz2.style.display='none';
@@ -4638,6 +4665,7 @@ function pushScoreLive(){
     // ★ Reps DU TOUR en cours (repart à 0 à chaque round) → le live affiche le snatch
     //   du tour, pas le cumul. curMoveIdx sert à savoir si on est sur le mouvement compté.
     roundReps:(typeof emomRoundReps!=='undefined'?emomRoundReps:0),
+    dbOut:_dbOut,
     // ★ SYNCHRO TK/LIVE ergo cumulé : pousser aussi dist/ergoVal en direct pour que
     //   le TK affiche les cals/mètres comme le live (avant : seul reps était poussé,
     //   le TK cherchait dist/ergoVal → 0 → désync).

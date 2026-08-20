@@ -6402,7 +6402,7 @@ if(typeof fbBuildWodInfo !== 'function'){
     //   découpe pas. On les dérive ici automatiquement :
     //   - durée d'un tour = champ Travail (workMin) ou 60s par défaut
     //   - nombre de tours = nombre de tours perso (ou durée totale / durée d'un tour)
-    var _isEmom = String(wod.wodFormat||'').toLowerCase()==='emom' || String(wod.wodFormat||'').toLowerCase()==='interval' || String(wod.wodFormat||'').toLowerCase()==='deathby';
+    var _isEmom = String(wod.wodFormat||'').toLowerCase()==='emom' || String(wod.wodFormat||'').toLowerCase()==='interval';
     var _emomWorkSec = parseInt(wod.workMin,10)||0;
     var _emomRestSec = parseInt(wod.restMin,10)||0;
     var _nbToursPerso = (_tcustom && Array.isArray(wod.toursPerso)) ? wod.toursPerso.length : 0;
@@ -12216,6 +12216,21 @@ function renderProgWodsList() {
                      + '<div style="font-size:10px;color:#64748B;margin-top:3px">'+_tr+' tour'+(_tr>1?'s':'')+' × ('+secToMmss(_wk)+' travail'+(_rs>0?' + '+secToMmss(_rs)+' repos':'')+') = '+secToMmss(_tot)+'</div>'
                      + '</div>';
                  })()
+               : '')
+            + (String(w.wodFormat||'').toLowerCase()==='deathby'
+               ? '<div style="margin-top:12px;padding:11px 13px;background:rgba(220,38,38,.06);border:1px solid rgba(220,38,38,.28);border-radius:9px">'
+                 + '<div style="font-size:10px;color:#B91C1C;font-weight:800;letter-spacing:.5px;margin-bottom:8px">💀 DEATH BY — pas de limite de tours, jusqu\'au time cap</div>'
+                 + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
+                 +   '<div><label style="'+LABEL+'">⏱ 1 rep toutes les… (sec)</label>'
+                 +   '<input type="number" min="1" max="60" value="'+(w.dbIntervalSec||3)+'" onchange="event.stopPropagation();updateWodProg('+w.id+',\'dbIntervalSec\',parseInt(this.value)||3)" onclick="event.stopPropagation()" style="'+IS+';color:#DC2626;font-size:16px;text-align:center"></div>'
+                 +   '<div><label style="'+LABEL+'">Mode</label>'
+                 +   '<select onchange="event.stopPropagation();updateWodProg('+w.id+',\'dbMode\',this.value)" onclick="event.stopPropagation()" style="'+IS+'">'
+                 +     '<option value="free"'+((w.dbMode||'free')==='free'?' selected':'')+'>Compte libre</option>'
+                 +     '<option value="progressive"'+(w.dbMode==='progressive'?' selected':'')+'>Reps progressives (1,2,3…)</option>'
+                 +   '</select></div>'
+                 + '</div>'
+                 + '<div style="font-size:10px;color:#64748B;margin-top:6px">Le juge compte les reps + bouton « 🏳️ Lâche » quand l\'athlète abandonne. Le time cap ci-dessus = durée du WOD.</div>'
+                 + '</div>'
                : '')
             + '')
 

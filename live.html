@@ -2059,6 +2059,8 @@ function renderRankCards(rows,w,st,showLiveChips,h,catId,catLeader){
       _movHtml='<div style="font-size:.42em;opacity:.45;font-family:var(--fc);letter-spacing:.5px;margin-top:2px">'+_subLine+'</div>';
     }
     var s=val?scoreStr(sc,w):(_isErgoLive?_ergoLiveStr:(_tot>0?String(_tot)+' reps':'—'));
+    // ★ Death By : marquer l'athlète hors course
+    if(sc&&sc.dbOut){ s='🏳️ '+((parseInt(sc.reps)||0)||_tot||0)+' reps · HORS COURSE'; }
     var repLead=liveReps(lead.sc),repMe=liveReps(sc);
     // Badge gap : LEADER pour le 1er, écart pour les autres
     var repDiff=repLead-repMe;
@@ -2164,6 +2166,7 @@ function renderZone(zone){
   var root=document.getElementById('z'+zone);if(!root)return;
 
   var data=getHeat(zone);
+  var _preIhHeat=data; // ★ FIX #6 : heat courant AVANT réassignation getNext (celui qui vient de tourner)
   var ih=IH[String(zone)],ihOn=ih&&ih.active&&ih.target>(now()-4000);
 
   // Heat terminé dont on veut afficher les résultats dans la teams-band
@@ -2288,7 +2291,8 @@ function renderZone(zone){
   // vient de passer s'affiche dans le prochain heat »). doneData ne doit gagner que
   // pendant l'inter-heat ou tant qu'aucun heat n'est en cours.
   var _curRunning = data && data.h && (data.h.status==='live'||data.h.status==='timecap') && !ihOn;
-  var displayData = _curRunning ? data : (doneData||data);
+  var _preIhOk = _preIhHeat && _preIhHeat.h && _preIhHeat.h.status!=='pending' && _preIhHeat.h.status!=='pre';
+  var displayData = _curRunning ? data : (doneData || (_preIhOk ? _preIhHeat : data));
   var dh=displayData.h,dhid=displayData.id,dw=dh.wodInfo||{};
   var displayCatId=String(dh.catId||'');
   var displayCatLeader=catLeaders[displayCatId]||null;
