@@ -1141,6 +1141,7 @@ function show(id){
 function wodToScenario(wod){
   wod = wod || {};
   var fmt = String(wod.wodFormat || wod.type || 'amrap').toLowerCase();
+  var _isDeathBy = (fmt==='deathby'); // ★ Death By : garder l'identité (comptage = amrap, mais bouton LÂCHE + hors course)
   // Normaliser le format
   if(fmt==='fortime') fmt='fortime';
   else if(fmt==='maxload') fmt='maxload';
@@ -1293,7 +1294,8 @@ function wodToScenario(wod){
     emomWork: parseInt(wod.workMin||60)||60,
     emomRest: parseInt(wod.restMin||0)||0,
     scoreFinale: wod.scoreFinale||'',
-    judgeMode: wod.judgeMode||'reps'
+    judgeMode: wod.judgeMode||'reps',
+    deathBy: _isDeathBy
   };
 }
 function canFinalizeNow(){
@@ -2985,7 +2987,7 @@ function updateDisplay(){
   if(!SC) return;
   // ★ Death By : bouton LÂCHE visible dès qu'on est en Death By et pas encore fini
   var _dbB=$('btn-drop');
-  if(_dbB){ _dbB.style.display=(String((SC&&SC.fmt)||'').toLowerCase()==='deathby' && !done)?'flex':'none'; }
+  if(_dbB){ _dbB.style.display=(SC&&SC.deathBy && !done)?'flex':'none'; }
   var m=SC.moves[moveIdx], isAmrap=(SC.fmt==='amrap');
   // ★ ergo cumulé (valeur libre) : si le WOD a un mouvement ergo-libre, on affiche
   //   la zone de saisie cumulée À LA PLACE du compteur +REP, MAIS sans couper le WOD :
@@ -3564,13 +3566,14 @@ function updateEmomDisplay(){
     if(btns)    btns.style.display    = (isResting||_ecActive)?'none':'flex';
     // ★ Death By : bouton LÂCHE visible pendant le comptage (pas en repos/saisie ec)
     var _dbBtn=$('btn-drop');
-    if(_dbBtn){ _dbBtn.style.display=(String((SC&&SC.fmt)||'').toLowerCase()==='deathby' && !done && !isResting && !_ecActive)?'flex':'none'; }
+    if(_dbBtn){ _dbBtn.style.display=(SC&&SC.deathBy && !done && !isResting && !_ecActive)?'flex':'none'; }
     if(isResting){
       var _rl=document.querySelector('.rest-label'); if(_rl) _rl.textContent=_tourValide?'✅ TOUR VALIDÉ':'REPOS';
       // ★ Message rigolo aléatoire — choisi UNE fois à l'entrée en repos (pas à chaque tick)
       if(!_wasResting){
-        var _fn=$('rest-funny'); if(_fn) _fn.textContent='';   // ★ pas de message de repos (demande chef)
-        var _em=$('rest-emoji'); if(_em) _em.textContent='⏳';
+        var _pk=_restMsgs[Math.floor(Math.random()*_restMsgs.length)];
+        var _fn=$('rest-funny'); if(_fn) _fn.textContent=_pk.t;   // ★ message rigolo au milieu (demande chef)
+        var _em=$('rest-emoji'); if(_em) _em.textContent=_pk.e;
       }
       // masquer la zone de saisie ergo pendant le repos (écran noir propre)
       var _ecz2=$('j-ergocum-zone'); if(_ecz2) _ecz2.style.display='none';
