@@ -12115,7 +12115,10 @@ function renderProgWodsList() {
         +     ' style="'+IS+';border:1.5px solid #BFDBFE;background:#fff;padding:7px 8px;font-size:12px;text-align:center;color:var(--blue);letter-spacing:1px"></div>'
         +   '<div><label style="'+LABEL+'">Tours</label>'
         +     (String(w.wodFormat||'').toLowerCase()==='deathby'
-              ? '<div style="border:1.5px solid #FCA5A5;background:#FEF2F2;border-radius:8px;padding:7px 8px;font-size:11px;font-weight:900;color:#DC2626;text-align:center">∞ Illimité</div>'
+              ? '<select onchange="event.stopPropagation();updateWodProg('+w.id+',\'rounds\',parseInt(this.value)||0);renderProgWodsList()" onclick="event.stopPropagation()" style="'+IS+';border:1.5px solid #FCA5A5;background:#FEF2F2;color:#DC2626;padding:7px 8px;font-size:11px;font-weight:900;text-align:center">'
+                + '<option value="0"'+(!(w.rounds>0)?' selected':'')+'>∞ Illimité</option>'
+                + (function(){var o='';for(var _n=1;_n<=20;_n++){o+='<option value="'+_n+'"'+(w.rounds===_n?' selected':'')+'>'+_n+' tour'+(_n>1?'s':'')+'</option>';}return o;})()
+                + '</select>'
               : (_cust
               ? '<div style="border:1.5px solid #C4B5FD;background:#FAF5FF;border-radius:8px;padding:7px 8px;font-size:11px;font-weight:900;color:#6D28D9;text-align:center">'+nT+' · perso</div>'
               : '<input type="number" min="1" max="20" value="'+(w.rounds||1)+'" onchange="updateWodProg('+w.id+',\'rounds\',parseInt(this.value)||1);renderProgWodsList()" onclick="event.stopPropagation()" style="'+IS+';border:1.5px solid #BFDBFE;background:#fff;padding:7px 8px;font-size:12px;text-align:center;font-weight:900">'))
