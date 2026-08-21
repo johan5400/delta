@@ -1830,11 +1830,12 @@ function compareScores(a,b,w){
   //   bouge à chaque rep. 1 snatch d'avance = devant.
   var _cjm=((w&&w.judgeMode)||'').toLowerCase();
   var _csf=((w&&(w.scoreFinale||w.scoreType))||'').toLowerCase();
-  if((_cjm==='ergo'||_csf==='dist'||_csf==='cal') && !a.ok && !b.ok){
-    // (uniquement en DIRECT — scores non validés — sinon le dernier tour fausserait
-    //  le départage du classement final, qui reste sur la distance puis les tiebreaks)
-    var _ar=parseInt((a.sc&&(a.sc.roundReps!=null?a.sc.roundReps:a.sc.reps))||0,10)||0;
-    var _br=parseInt((b.sc&&(b.sc.roundReps!=null?b.sc.roundReps:b.sc.reps))||0,10)||0;
+  if(_cjm==='ergo'||_csf==='dist'||_csf==='cal'){
+    // ★ RÈGLE CHEF : bike (distance) d'abord, PUIS le nombre de snatch (départage) —
+    //   en DIRECT ET au FINAL. Une équipe à 0 bike reste classée par ses snatch.
+    //   Validé → snatch total (sc.reps) ; en direct → snatch du tour (roundReps).
+    var _ar=a.ok ? (parseInt((a.sc&&a.sc.reps)||0,10)||0) : (parseInt((a.sc&&(a.sc.roundReps!=null?a.sc.roundReps:a.sc.reps))||0,10)||0);
+    var _br=b.ok ? (parseInt((b.sc&&b.sc.reps)||0,10)||0) : (parseInt((b.sc&&(b.sc.roundReps!=null?b.sc.roundReps:b.sc.reps))||0,10)||0);
     if(_br!==_ar) return _br-_ar;
   }
   // ★ Multi-TB : comparer chaque TB dans l'ordre (plus petit = plus rapide = meilleur)
@@ -2950,8 +2951,8 @@ function _coupureSponsorWindow(ih){
   if(tgt<=n) return false;                       // coupure finie
   if(secs<=0) return tgt>n;                       // durée inconnue → sponsors tant que ça dure
   var start=tgt-secs*1000;
-  var afterClassement=start+Math.round(secs*1000*0.55);            // après résultat + classement
-  var previewReserveMs=Math.max(10000,Math.round(secs*1000*0.22)); // temps réservé pour le prochain heat
+  var afterClassement=start+Math.round(secs*1000*0.30);            // ★ #3 : sponsors PLUS VITE (résultat court)
+  var previewReserveMs=Math.max(8000,Math.round(secs*1000*0.15));  // ★ #7 : prochain heat à 15% du temps restant
   var sponEnd=tgt-previewReserveMs;
   if(sponEnd<=afterClassement) return false;      // coupure trop courte → on saute les sponsors
   return n>=afterClassement && n<sponEnd;

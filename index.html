@@ -17797,6 +17797,7 @@ async function renderClassementTK(){
       Object.keys(wodGroups).forEach(function(wname){
         var grp=wodGroups[wname].slice().sort(function(a,b){
           if(b.val!==a.val) return b.val-a.val;
+          { var _wsf=String((a.wInfo&&(a.wInfo.scoreFinale||a.wInfo.scoreType||a.wInfo.judgeMode))||"").toLowerCase(); if(_wsf==="dist"||_wsf==="cal"||_wsf==="ergo"){ var _ars=parseInt((a.sc&&a.sc.reps)||0,10)||0,_brs=parseInt((b.sc&&b.sc.reps)||0,10)||0; if(_brs!==_ars) return _brs-_ars; } }
           return (a.tb>0?a.tb:999999)-(b.tb>0?b.tb:999999);
         });
         // ★ Barème CrossFit Team : 1er=100, 2e=95… (grille)
@@ -18599,6 +18600,7 @@ function renderClassementAdmin(heatsData, scoresData){
     });
     grp.sort(function(a,b){
       if(b.val!==a.val) return b.val-a.val;
+          { var _wsf=String((a.wInfo&&(a.wInfo.scoreFinale||a.wInfo.scoreType||a.wInfo.judgeMode))||"").toLowerCase(); if(_wsf==="dist"||_wsf==="cal"||_wsf==="ergo"){ var _ars=parseInt((a.sc&&a.sc.reps)||0,10)||0,_brs=parseInt((b.sc&&b.sc.reps)||0,10)||0; if(_brs!==_ars) return _brs-_ars; } }
       // ★ Multi-TB en cascade
       var aTbs=Array.isArray(a.tb)?a.tb:(a.tb>0?[a.tb]:[]);
       var bTbs=Array.isArray(b.tb)?b.tb:(b.tb>0?[b.tb]:[]);
@@ -22398,7 +22400,8 @@ async function renderClassementModal(){
             grp.push({team:tname,val:scoreVal(e.sc,e.wodInfo),tb:parseInt(e.sc.tiebreak||0,10)||0,sc:e.sc,wInfo:e.wodInfo});
           });
         });
-        grp.sort(function(a,b){ if(b.val!==a.val) return b.val-a.val; return (a.tb>0?a.tb:999999)-(b.tb>0?b.tb:999999); });
+        grp.sort(function(a,b){ if(b.val!==a.val) return b.val-a.val;
+          { var _wsf=String((a.wInfo&&(a.wInfo.scoreFinale||a.wInfo.scoreType||a.wInfo.judgeMode))||"").toLowerCase(); if(_wsf==="dist"||_wsf==="cal"||_wsf==="ergo"){ var _ars=parseInt((a.sc&&a.sc.reps)||0,10)||0,_brs=parseInt((b.sc&&b.sc.reps)||0,10)||0; if(_brs!==_ars) return _brs-_ars; } } return (a.tb>0?a.tb:999999)-(b.tb>0?b.tb:999999); });
         // ★ Barème CrossFit Team : 1er=100, 2e=95…
         function _cfPts(rang){var g=[100,95,90,85,80,75,70,65,60,55,50,45,40,35,30,25,20,15,10,0];return (rang>=1&&rang<=g.length)?g[rang-1]:0;}
         var rankPos=1;
