@@ -12114,9 +12114,11 @@ function renderProgWodsList() {
         +     ' onclick="event.stopPropagation()" onfocus="event.stopPropagation()"'
         +     ' style="'+IS+';border:1.5px solid #BFDBFE;background:#fff;padding:7px 8px;font-size:12px;text-align:center;color:var(--blue);letter-spacing:1px"></div>'
         +   '<div><label style="'+LABEL+'">Tours</label>'
-        +     (_cust
+        +     (String(w.wodFormat||'').toLowerCase()==='deathby'
+              ? '<div style="border:1.5px solid #FCA5A5;background:#FEF2F2;border-radius:8px;padding:7px 8px;font-size:11px;font-weight:900;color:#DC2626;text-align:center">∞ Illimité</div>'
+              : (_cust
               ? '<div style="border:1.5px solid #C4B5FD;background:#FAF5FF;border-radius:8px;padding:7px 8px;font-size:11px;font-weight:900;color:#6D28D9;text-align:center">'+nT+' · perso</div>'
-              : '<input type="number" min="1" max="20" value="'+(w.rounds||1)+'" onchange="updateWodProg('+w.id+',\'rounds\',parseInt(this.value)||1);renderProgWodsList()" onclick="event.stopPropagation()" style="'+IS+';border:1.5px solid #BFDBFE;background:#fff;padding:7px 8px;font-size:12px;text-align:center;font-weight:900">')
+              : '<input type="number" min="1" max="20" value="'+(w.rounds||1)+'" onchange="updateWodProg('+w.id+',\'rounds\',parseInt(this.value)||1);renderProgWodsList()" onclick="event.stopPropagation()" style="'+IS+';border:1.5px solid #BFDBFE;background:#fff;padding:7px 8px;font-size:12px;text-align:center;font-weight:900">'))
         +   '</div>'
         + '</div>'
 
