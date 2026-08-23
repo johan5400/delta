@@ -2418,19 +2418,30 @@ function startTeamBandIH(zone,ihTarget,doneHid,doneH,doneW,catId,catLeader){
   var heatSec=isLast?Math.max(3,Math.round(workSec*0.25)):Math.max(3,Math.round(workSec*0.35));
   var wodSec =isLast?Math.max(3,Math.round(workSec*0.30)):0;
 
-  // ★ ANTI-BOUCLE : on mémorise la phase atteinte pour CE heat terminé.
-  //   Quand le compte à rebours expire et que scheduleRender ré-entre ici alors
-  //   que le heat suivant n'a pas encore démarré (ex. attente de coupure), on NE
-  //   REPART PAS aux résultats/classement de la catégorie déjà passée : on
-  //   reprend directement à 'preview'. La séquence n'avance JAMAIS en arrière.
-  if(!startTeamBandIH._ph) startTeamBandIH._ph={};
-  var _phSaved=startTeamBandIH._ph[zone];
-  var _resume=(_phSaved && _phSaved.hid===doneHid)?_phSaved.phase:'heat';
-  // Une fois les résultats passés (wod/preview atteint), toute ré-entrée reprend
-  // à 'preview' : on ne rejoue JAMAIS les résultats ni le classement déjà montrés.
-  var phase=(_resume==='heat')?'heat':'preview'; // 'heat'|'wod'|'preview'
-  startTeamBandIH._ph[zone]={hid:doneHid,phase:phase};
-  function _setPhase(p){ phase=p; startTeamBandIH._ph[zone]={hid:doneHid,phase:p}; renderPhase(); }
+  // ★ FIX #3 (classement général zappé) + #4 (résultat sauté avant coupure) :
+  //   PLANNING PERSISTANT par heat terminé. scheduleRender rappelle cette fonction
+  //   souvent ; avant, chaque ré-entrée recalculait la phase et collapsait 'wod'
+  //   (classement général) → 'preview', ce qui le faisait disparaître. Désormais on
+  //   calcule les timestamps de transition UNE fois par heat fini, on les réutilise,
+  //   et la phase est DÉDUITE du temps courant (jamais en arrière, jamais collapsée).
+  if(!startTeamBandIH._sched) startTeamBandIH._sched={};
+  var _sc=startTeamBandIH._sched[zone];
+  var heatEnd, wodEnd, previewStart;
+  if(_sc && _sc.hid===doneHid){
+    heatEnd=_sc.heatEnd; wodEnd=_sc.wodEnd; previewStart=_sc.previewStart;
+  } else {
+    heatEnd=now()+heatSec*1000;
+    wodEnd=isLast?(heatEnd+wodSec*1000):null;
+    previewStart=ihTarget-reserveSec*1000;
+    // La preview ne doit jamais démarrer avant la fin du résultat/classement.
+    if(wodEnd){ if(previewStart<wodEnd) previewStart=wodEnd; }
+    else { if(previewStart<heatEnd) previewStart=heatEnd; }
+    startTeamBandIH._sched[zone]={hid:doneHid,heatEnd:heatEnd,wodEnd:wodEnd,previewStart:previewStart};
+  }
+  // Phase initiale déduite du planning (jamais rejouée en arrière car le temps avance).
+  var _t0=now();
+  var phase=(_t0<heatEnd)?'heat':((wodEnd&&_t0<wodEnd)?'wod':'preview'); // 'heat'|'wod'|'preview'
+  function _setPhase(p){ phase=p; renderPhase(); }
 
   // ★ HARMONISATION HEADER : on synchronise le wod-hdr de la zone avec la phase
   //   en cours pour qu'on ne voie JAMAIS à l'écran le WOD précédent ET le
@@ -2557,10 +2568,7 @@ function startTeamBandIH(zone,ihTarget,doneHid,doneH,doneW,catId,catLeader){
   // Phase initiale : résultats heat
   renderPhase();
 
-  // Planifier les transitions
-  var heatEnd=now()+heatSec*1000;
-  var wodEnd=isLast?(heatEnd+wodSec*1000):null;
-  var previewStart=ihTarget-reserveSec*1000;
+  // Planifier les transitions (heatEnd/wodEnd/previewStart : planning persistant calculé plus haut)
 
   _teamIv[zone]=setInterval(function(){
     var el2=document.getElementById('tband-'+zone);

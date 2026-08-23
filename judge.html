@@ -1049,6 +1049,10 @@ function showInterheatBanner(data){
   var _ihTotal=Math.max(0,Math.ceil(((data.target||serverNow())-serverNow())/1000));
   var _ihMidTriggered=false;
   _ihIv=setInterval(function(){
+    // ★ FIX #2 (juge coupé en deux) : filet actif pendant TOUT l'inter-heat.
+    //   Si un écran résiduel (s-judge/s-done du heat précédent) se ré-affiche par-dessus
+    //   le brief, on le retire → jamais deux .scr empilés. On garde l'écran courant.
+    if(typeof enforceSingleScreen==='function' && _currentScreen){ enforceSingleScreen(_currentScreen); }
     var rem=Math.max(0,Math.ceil(((data.target||serverNow())-serverNow())/1000));
     var str=fmtT(rem);
     if(cd) cd.textContent=str;
@@ -1117,17 +1121,22 @@ function hideInterheatBanner(){
   }
 }
 
-function show(id){
-  ['s-wait','s-pre','s-cd','s-judge','s-done','s-next','s-purge','s-brief'].forEach(function(s){
-    var el=$(s); if(el) el.classList.remove('on');
-  });
-  // ★ FIX (interheat coupé en deux sur le juge) : masquer les overlays du heat précédent
-  //   (consigne fin de heat + écran repos) dès qu'on quitte l'écran de jugement, sinon ils
-  //   restaient affichés par-dessus le brief du prochain heat → écran coupé en deux.
-  if(id!=='s-judge'){
+// ★ FIX #2 : garantit qu'UN SEUL écran .scr est visible (celui passé en argument).
+//   Balaye TOUS les .scr du DOM (pas une liste codée en dur, qui pouvait rater un id)
+//   + masque les overlays hors-flux du heat précédent (consigne fin de heat, repos)
+//   dès qu'on n'est plus sur l'écran de jugement. Réutilisable comme filet pendant l'IH.
+function enforceSingleScreen(keepId){
+  var all=document.querySelectorAll('.scr');
+  for(var i=0;i<all.length;i++){
+    if(all[i].id!==keepId) all[i].classList.remove('on');
+  }
+  if(keepId!=='s-judge'){
     var _ovEnd=$('j-end-overlay'); if(_ovEnd) _ovEnd.style.display='none';
     var _rsScr=$('j-rest-screen'); if(_rsScr){ _rsScr.classList.remove('show'); _rsScr.style.display='none'; }
   }
+}
+function show(id){
+  enforceSingleScreen(id);
   var target=$(id);
   if(target) target.classList.add('on');
   _currentScreen = id;
@@ -1961,6 +1970,11 @@ function hideBriefScreen(){
   clearInterval(_briefCdIv); _briefCdIv=null;
   clearInterval(_briefSpacerIv); _briefSpacerIv=null;
   clearTimeout(_briefTm); _briefTm=null;
+  // ★ FIX #2 (juge coupé en deux) : hideBriefScreen ne masquait JAMAIS l'écran s-brief
+  //   (il coupait juste les timers). Le brief gardait donc sa classe .on et pouvait
+  //   s'empiler avec un autre écran. On le masque explicitement + on remet le spacer à 0.
+  var _brScr=$('s-brief'); if(_brScr && _currentScreen!=='s-brief') _brScr.classList.remove('on');
+  var _brSp=$('brief-ih-spacer'); if(_brSp) _brSp.style.height='0';
 }
 
 function showNextScreen(){
