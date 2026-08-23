@@ -2062,6 +2062,11 @@ function renderRankCards(rows,w,st,showLiveChips,h,catId,catLeader){
     var s=val?scoreStr(sc,w):(_isErgoLive?_ergoLiveStr:(_tot>0?String(_tot)+' reps':'—'));
     // ★ Death By : marquer l'athlète hors course
     if(sc&&sc.dbOut){ s='🏳️ '+((parseInt(sc.reps)||0)||_tot||0)+' reps · HORS COURSE'; }
+    // ★ Death By (en cours) : total + reps de l'intervalle courant (roundReps se remet à 0
+    //   à chaque intervalle côté juge et est poussé en direct → le live reflète le reset).
+    else if(!val && w && String(w.wodFormat||'').toLowerCase()==='deathby'){
+      s='☠️ '+(_tot||0)+' reps · tour: '+(parseInt(sc&&sc.roundReps)||0);
+    }
     var repLead=liveReps(lead.sc),repMe=liveReps(sc);
     // Badge gap : LEADER pour le 1er, écart pour les autres
     var repDiff=repLead-repMe;

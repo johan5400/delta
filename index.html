@@ -6481,6 +6481,12 @@ if(typeof fbBuildWodInfo !== 'function'){
       emomRest: _isEmom ? _emomRestSec : 0,
       emomRounds: _isEmom ? _emomRounds : 0,
 
+      // ★ DEATH BY : intervalle (sec) pilotant le reset du compteur + mode de comptage.
+      //   Lus par judge.html et live.html. Sans ça, la config Death By de l'index ne
+      //   remontait jamais jusqu'aux apps.
+      dbIntervalSec: parseInt(wod.dbIntervalSec||0,10)||0,
+      dbMode: wod.dbMode||'free',
+
       interHeat: parseInt(wod.interHeat||0,10)||0,
       coupureApres: parseInt(wod.coupureApres||0,10)||0,
       ordreZone: wod.ordreZone!=null ? parseInt(wod.ordreZone,10)||1 : 1

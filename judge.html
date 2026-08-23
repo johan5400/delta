@@ -1168,6 +1168,7 @@ function wodToScenario(wod){
   else if(fmt==='interval'||fmt==='intervals') fmt='interval';
   else if(fmt==='rounds') fmt='rounds';
   else if(fmt==='ergo') fmt='ergo';
+  else if(fmt==='deathby') fmt='emom'; // ★ Death By : routé par la machinerie EMOM (cycle = dbIntervalSec). SC.deathBy garde l'identité (bouton LÂCHE, tours illimités).
   else fmt='amrap';
   // ★ FIX SAISIE CHARGE/ERGO : 'maxload' et 'ergo' ne sont PAS des wodFormat
   //   (absents de la liste des 6 formats). Ils sont définis par le sélecteur
@@ -1310,8 +1311,10 @@ function wodToScenario(wod){
     tbAuto: tbAuto,
     tbList: tbList,  // ★ Nouveau : liste multi-TB
     tiebreakDesc: wod.tiebreakDesc||'',
-    emomWork: parseInt(wod.workMin||60)||60,
-    emomRest: parseInt(wod.restMin||0)||0,
+    emomWork: _isDeathBy ? (parseInt(wod.dbIntervalSec||3,10)||3) : (parseInt(wod.workMin||60)||60),
+    emomRest: _isDeathBy ? 0 : (parseInt(wod.restMin||0)||0),
+    dbIntervalSec: parseInt(wod.dbIntervalSec||3,10)||3, // ★ Death By : intervalle (sec) → reset compteur
+    dbMode: (wod.dbMode||'free'),                        // ★ Death By : 'free' (compte libre) | 'progressive' (1,2,3…)
     scoreFinale: wod.scoreFinale||'',
     judgeMode: wod.judgeMode||'reps',
     deathBy: _isDeathBy
@@ -3530,7 +3533,7 @@ function updateEmomPhase(e){
   // ★ FIX (demande chef) : l'EMOM s'ARRÊTE au nombre de tours défini. Le tour ne dépasse
   //   jamais le total, et passé le cap la saisie est bloquée (plus de tour 11/10).
   var _totRounds=Math.max(1,Math.round((SC.cap||0)/cycle));
-  var _isDeathBy=String((SC&&SC.fmt)||'').toLowerCase()==='deathby'; // ★ Death By : tours ILLIMITÉS jusqu'au TC
+  var _isDeathBy=!!(SC&&SC.deathBy); // ★ Death By : tours ILLIMITÉS jusqu'au TC (SC.fmt='emom' après normalisation, donc on lit le flag)
   var _capReached=((SC.cap||0)>0 && e>=(SC.cap||0));
   var newIsWork=rest===0?true:pos<work, newRound=Math.floor(e/cycle)+1;
   if(newRound>_totRounds && !_isDeathBy){ newRound=_totRounds; }
@@ -3590,12 +3593,23 @@ function updateEmomDisplay(){
   var cycle=work+rest, totalRounds=Math.round(SC.cap/cycle);
   var pe=$('emom-phase'),re=$('emom-round'),ce=$('emom-cd');
   if(pe){pe.textContent=emomIsWork?'EN COURS':'REPOS';pe.className='emom-phase '+(emomIsWork?'work':'rest');}
-  if(re) re.textContent='TOUR '+emomRound+' / '+totalRounds+(emomIsWork?' · '+emomRoundReps+' reps':'');
-  if(ce) ce.className='emom-countdown '+(emomIsWork?'work':'rest');
-  var hh=emomRoundHistory.map(function(r,i){ return '<span class="emom-rnd-chip'+(i===emomRound-2?' current':'')+'">R'+(i+1)+': '+r+'</span>'; }).join('');
-  var h1=$('j-emom-history'),h2=$('j-round-history');
-  if(h1) h1.innerHTML=hh;
-  if(h2){h2.innerHTML=hh;h2.style.display=emomRoundHistory.length?'flex':'none';}
+  if(SC && SC.deathBy){
+    // ★ DEATH BY : intervalle courant (illimité jusqu'au TC) + cible si mode progressif.
+    //   Pas de "/ total" (tours illimités) ni d'historique à rallonge (intervalles courts).
+    var _dbProg=(SC.dbMode==='progressive');
+    if(re) re.textContent='INTERVALLE '+emomRound+(_dbProg?(' · '+moveReps+' / '+emomRound):(' · '+moveReps+' reps'));
+    if(ce) ce.className='emom-countdown work';
+    var _dh1=$('j-emom-history'),_dh2=$('j-round-history');
+    if(_dh1) _dh1.innerHTML='';
+    if(_dh2){ _dh2.innerHTML=''; _dh2.style.display='none'; }
+  } else {
+    if(re) re.textContent='TOUR '+emomRound+' / '+totalRounds+(emomIsWork?' · '+emomRoundReps+' reps':'');
+    if(ce) ce.className='emom-countdown '+(emomIsWork?'work':'rest');
+    var hh=emomRoundHistory.map(function(r,i){ return '<span class="emom-rnd-chip'+(i===emomRound-2?' current':'')+'">R'+(i+1)+': '+r+'</span>'; }).join('');
+    var h1=$('j-emom-history'),h2=$('j-round-history');
+    if(h1) h1.innerHTML=hh;
+    if(h2){h2.innerHTML=hh;h2.style.display=emomRoundHistory.length?'flex':'none';}
+  }
 
   // ★ Écran REPOS — phase REST configurée OU tour validé par le juge (attente prochain round)
   var restScreen=$('j-rest-screen'), counter=$('j-counter'), btns=$('j-btns')||document.querySelector('.j-btns');
