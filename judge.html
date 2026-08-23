@@ -304,6 +304,11 @@ body{
   pointer-events:all;
 }
 #j-rest-screen.show{display:flex;animation:fade-up .28s ease}
+/* ★ FIX #2 (split/flash prochain heat) : quand le brief du prochain heat est affiché,
+   s-judge (avec sa zone ergo 669/OK/T1/T2) ne doit JAMAIS coexister. Cette règle
+   !important gagne sur tout .on parasite ré-ajouté par un re-render, SANS dépendre
+   du garde-fou 300ms (donc plus aucun flash ni empilement moitié/moitié). */
+body.brief-mode #s-judge{display:none!important}
 .rest-ico{font-size:72px;animation:blink 1.4s ease infinite}
 .rest-label{font-family:var(--ff);font-size:min(24vw,110px);font-weight:900;letter-spacing:4px;
   color:var(--err);line-height:1;
@@ -781,6 +786,8 @@ body{
     <div style="flex:1;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:10px;text-align:center">
       <div style="font-size:9px;font-weight:900;letter-spacing:1px;color:rgba(255,255,255,.45);text-transform:uppercase">Poste</div>
       <div id="brief-poste" style="font-family:var(--ff);font-size:22px;color:#4DA6FF;letter-spacing:1px;margin-top:3px">—</div>
+      <!-- ★ Action à faire pour ce prochain heat (repos / reste sur ta ligne / change de zone…) -->
+      <div id="brief-action" style="display:none;margin:8px auto 0;padding:7px 18px;border-radius:999px;font-family:var(--ff);font-size:19px;letter-spacing:1.5px;font-weight:900;line-height:1.2"></div>
     </div>
   </div>
   <div style="margin:0 14px 12px;padding:14px;background:linear-gradient(135deg,rgba(176,110,255,.15),rgba(176,110,255,.05));border:1px solid rgba(176,110,255,.3);border-radius:14px;text-align:center;flex-shrink:0">
@@ -1137,6 +1144,9 @@ function enforceSingleScreen(keepId){
 }
 function show(id){
   enforceSingleScreen(id);
+  // ★ FIX #2 : brief-mode ON uniquement quand l'écran voulu EST le brief. Dès qu'un
+  //   autre écran est demandé (s-cd/s-judge du prochain heat…), on lève le verrou.
+  document.body.classList.toggle('brief-mode', id==='s-brief');
   var target=$(id);
   if(target) target.classList.add('on');
   _currentScreen = id;
@@ -1781,6 +1791,22 @@ function fillBriefScreen(next){
     // Remplir les éléments
     var teamEl=$('brief-team'); if(teamEl) teamEl.textContent=(next.team||next.teamName||'—');
     var posteEl=$('brief-poste'); if(posteEl) posteEl.textContent='Z'+(next.zone||'?')+' · L'+(next.lane||'?');
+    // ★ Annonce l'action que le juge doit faire pour ce prochain heat (repos/ligne/zone).
+    //   Réutilise la logique déjà éprouvée du j-end-overlay (judgeBuildNextInstruction).
+    var _actEl=$('brief-action');
+    if(_actEl){
+      var _ins=(typeof judgeBuildNextInstruction==='function')?judgeBuildNextInstruction():null;
+      if(_ins && _ins.title){
+        var _briefIco={same_lane:'✅',same_zone:'↗️',zone_change:'➡️',pause:'⏸',wait:'⏳',end:'🏁',endday:'🎉',next:'📍'};
+        var _briefCol={same_lane:'#4ade80',same_zone:'#fb923c',zone_change:'#fb923c',pause:'#f87171',wait:'#9CCCFF',end:'#4DA6FF',endday:'#FFB020',next:'#9CCCFF'};
+        var _bc=_briefCol[_ins.kind]||'#FFB020';
+        _actEl.textContent=(_briefIco[_ins.kind]||'📍')+' '+String(_ins.title).toUpperCase();
+        _actEl.style.color=_bc;
+        _actEl.style.background='rgba(255,255,255,.06)';
+        _actEl.style.border='1px solid '+_bc+'66';
+        _actEl.style.display='inline-block';
+      } else { _actEl.style.display='none'; }
+    }
     var wnEl=$('brief-wod-name'); if(wnEl) wnEl.textContent=scen.wod||'WOD';
     var wfEl=$('brief-wod-fmt'); if(wfEl) wfEl.textContent=fmtLine;
 
@@ -1967,6 +1993,7 @@ function showBriefScreen(next, secondsUntilStartHint){
 
 function hideBriefScreen(){
   _briefActive=false;
+  document.body.classList.remove('brief-mode'); // ★ FIX #2 : ne jamais laisser le verrou coincé
   clearInterval(_briefCdIv); _briefCdIv=null;
   clearInterval(_briefSpacerIv); _briefSpacerIv=null;
   clearTimeout(_briefTm); _briefTm=null;
@@ -3572,7 +3599,11 @@ function updateEmomDisplay(){
 
   // ★ Écran REPOS — phase REST configurée OU tour validé par le juge (attente prochain round)
   var restScreen=$('j-rest-screen'), counter=$('j-counter'), btns=$('j-btns')||document.querySelector('.j-btns');
-  var isResting = !done && _tourValide; // ★ FIX +REP : repos SEULEMENT après validation de la distance (sinon le compteur/+REP étaient cachés pendant le comptage du snatch)
+  // ★ FIX +REP : repos après validation de la distance (le compteur/+REP restent visibles
+  //   pendant le comptage snatch). ★ AJOUT : aussi pendant la phase de repos CONFIGURÉE de
+  //   l'EMOM (!emomIsWork && rest>0) → l'écran REPOS + phrase humoristique sort bien au milieu
+  //   sans jamais masquer le comptage (en phase work emomIsWork=true donc exclu).
+  var isResting = !done && (_tourValide || (!emomIsWork && rest>0));
   if(restScreen){
     restScreen.classList.toggle('show', isResting);
     var _ecActive=(typeof _curMoveIsEcFree==='function' && _curMoveIsEcFree());
