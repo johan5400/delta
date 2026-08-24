@@ -1509,6 +1509,54 @@ function checkPassword(){
       <div style="font-size:11px;color:var(--ink2);margin-bottom:12px">Liste complète des bénévoles/juges, mode paysage.</div>
       <button class="btn btn-purple" onclick="printBenevolesList()" style="width:100%;justify-content:center;font-size:12px">🖨️ Imprimer</button>
     </div>
+    <div class="card">
+      <div class="sh-card-title">👥 Planning bénévoles (sans QR)</div>
+      <div style="font-size:11px;color:var(--ink2);margin-bottom:10px">Groupé par fonction, avec disponibilités J1/J2 et rotation. Choisis « Toutes » ou une fonction précise. Aucun QR.</div>
+      <select id="ben-plan-fn" style="width:100%;background:#fff;border:1px solid #ccc;border-radius:6px;color:var(--ink);padding:7px 8px;font-size:11px;outline:none;font-family:inherit;margin-bottom:8px">
+        <option value="all">Toutes les fonctions</option>
+        <option value="Juge">Juge</option>
+        <option value="Juge principal">Juge principal / Head judge</option>
+        <option value="Table de marque">Table de marque / Scoreur</option>
+        <option value="Saisie scores">Saisie scores</option>
+        <option value="Vidéo review">Vidéo / Review</option>
+        <option value="Chargeur">Chargeur (loader)</option>
+        <option value="Barbell crew">Barbell crew</option>
+        <option value="Reset plateau">Reset plateau</option>
+        <option value="Matériel plateau">Matériel plateau</option>
+        <option value="Chrono / TK">Chrono / Timekeeper</option>
+        <option value="Speaker">Speaker / Annonceur</option>
+        <option value="Régie son">Régie son / Musique</option>
+        <option value="Régie technique">Régie technique / AV</option>
+        <option value="Streaming">Streaming / Live</option>
+        <option value="Warm-up">Warm-up / Échauffement</option>
+        <option value="Corral / Staging">Corral / Appel athlètes</option>
+        <option value="Accompagnateur athlètes">Accompagnateur athlètes</option>
+        <option value="Accueil">Accueil / Check-in</option>
+        <option value="Billetterie">Billetterie</option>
+        <option value="Accréditation">Accréditation / Bracelets</option>
+        <option value="Point info">Point info</option>
+        <option value="Logistique">Logistique / Matériel</option>
+        <option value="Montage / Démontage">Montage / Démontage</option>
+        <option value="Nettoyage">Nettoyage / Propreté</option>
+        <option value="Déchets">Gestion déchets</option>
+        <option value="Sécurité">Sécurité</option>
+        <option value="Contrôle accès">Contrôle accès</option>
+        <option value="Médical">Médical / Secours</option>
+        <option value="Ravitaillement">Ravitaillement / Buvette</option>
+        <option value="Cuisine">Cuisine / Repas bénévoles</option>
+        <option value="Hydratation">Hydratation / Eau</option>
+        <option value="Média">Média / Photo-Vidéo</option>
+        <option value="Réseaux sociaux">Réseaux sociaux</option>
+        <option value="Parking">Parking</option>
+        <option value="Navette">Navette / Transport</option>
+        <option value="Signalétique">Signalétique</option>
+        <option value="Coordinateur zone">Coordinateur / Responsable zone</option>
+        <option value="Runner">Runner / Coursier</option>
+        <option value="Boutique">Boutique / Merchandising</option>
+        <option value="Polyvalent">Polyvalent</option>
+      </select>
+      <button class="btn btn-purple" onclick="printBenevolesPlanning()" style="width:100%;justify-content:center;font-size:12px">🖨️ Imprimer</button>
+    </div>
     <div class="card" style="grid-column:1/-1">
       <div class="sh-card-title">🧑‍⚖️ Planning individuel d'un juge</div>
       <div style="font-size:11px;color:var(--ink2);margin-bottom:12px">La fiche de passages d'un juge précis.</div>
@@ -5667,6 +5715,17 @@ function editBen(id){
     var waveEl=document.getElementById("m-wave");if(waveEl){fillJudgeCategorySelect(b.wave||"");waveEl.value=b.wave||"";}
     var lineEl=document.getElementById("m-linked-line");if(lineEl)lineEl.value=b.ligne||"";
     var zoneAssignEl=document.getElementById("m-zone-assign");if(zoneAssignEl)zoneAssignEl.value=(b.zoneAssign!=null?String(b.zoneAssign):"");
+    // ★ Fonction : mappe le rôle courant sur une option du menu (Juge Z1/Z2 → Juge)
+    var fonctionEl=document.getElementById("m-fonction");
+    if(fonctionEl){
+      var _r=String(b.role||"").toLowerCase();
+      var _val;
+      if(_r.indexOf("principal")!==-1||_r.indexOf("chef")!==-1||_r.indexOf("head")!==-1) _val="Juge principal";
+      else if(_r.indexOf("juge")!==-1||_r.indexOf("judge")!==-1||_r==="") _val="Juge";
+      else _val=(b.role||"Juge");
+      var _ok=Array.prototype.some.call(fonctionEl.options,function(o){return o.value===_val;});
+      fonctionEl.value=_ok?_val:"Juge";
+    }
     updQLabel();
     // Dispos J1/J2
     var _sj1=b.slotJ1||(b.jours==="2"?"absent":(b.slot||"Journée"));
@@ -5720,6 +5779,7 @@ function saveBen(){
     raceDay:document.getElementById("m-race-day").value,
     raceDur:parseInt(document.getElementById("m-race-duration").value)||12,
     zoneAssign:(document.getElementById("m-zone-assign")||{}).value||"",
+    role:((document.getElementById("m-fonction")||{}).value)||"Juge",
     prefStation:document.getElementById("m-pref-station").value,linkedId:parseInt(document.getElementById("m-linked").value)||null};
   var isNew=!editBenId;
   var newId=isNew?Math.floor(Date.now()):editBenId;
@@ -6035,6 +6095,82 @@ function printBenevolesList(){
     +'<scr'+'ipt>window.onload=function(){setTimeout(function(){window.print();},400);}<\/scr'+'ipt>'
     +'</body></html>');
   pw.document.close();
+}
+
+// ★ PLANNING BÉNÉVOLES SANS QR : groupé PAR FONCTION, avec DISPONIBILITÉS (J1/J2), zone
+//   et rotation station (si le bénévole est dans le planning généré). Filtrable par
+//   fonction via le menu du centre d'impression. À afficher au mur / distribuer.
+function printBenevolesPlanning(filterFn){
+  if(!BENEVOLES||!BENEVOLES.length){ toast('Aucun bénévole à imprimer','#E65100'); return; }
+  if(typeof closeModal==='function'){ try{ closeModal('print-modal'); }catch(e){} }
+  var nom_ev=(document.getElementById('ev-nom')||{}).value||'FOC 2026';
+  var pick = filterFn || ((document.getElementById('ben-plan-fn')||{}).value) || 'all';
+
+  function dispo(s){ if(!s||s==='absent') return '<span class="cell-pause">✕ absent</span>'; return '<span class="cell-assign">'+s+'</span>'; }
+
+  // Rotation station par bénévole (si planning généré) : id -> {j1:[labels], j2:[labels]}
+  var rot={};
+  function buildRot(R,key){
+    if(!R||!R.benPlanning) return;
+    R.benPlanning.forEach(function(b){
+      var arr=(b.planning||[]).filter(function(p){return p.type==='station';})
+        .map(function(p){ return ((p.slot&&p.slot.label)?p.slot.label+' ':'')+((p.station&&p.station.name)||'Poste'); });
+      if(arr.length){ (rot[String(b.id)]=rot[String(b.id)]||{})[key]=arr; }
+    });
+  }
+  if(typeof RESULT!=='undefined'&&RESULT){ buildRot(RESULT.day1,'j1'); buildRot(RESULT.day2,'j2'); }
+
+  // Grouper par fonction (role), filtre éventuel
+  var groups={};
+  BENEVOLES.forEach(function(b){
+    var fn=(b.role||'Polyvalent');
+    if(pick!=='all' && fn!==pick) return;
+    (groups[fn]=groups[fn]||[]).push(b);
+  });
+  var fnNames=Object.keys(groups).sort();
+  if(!fnNames.length){ toast('Aucun bénévole pour cette fonction','#E65100'); return; }
+
+  var body='';
+  fnNames.forEach(function(fn){
+    var list=groups[fn].slice().sort(function(a,b){ return String(a.nom||'').localeCompare(String(b.nom||'')); });
+    body+='<h2>'+fn+' · '+list.length+' bénévole'+(list.length>1?'s':'')+'</h2>';
+    body+='<table><thead><tr><th class="nm">Bénévole</th><th>Zone</th><th>Dispo J1</th><th>Dispo J2</th><th>Rotation J1</th><th>Rotation J2</th></tr></thead><tbody>';
+    list.forEach(function(b){
+      var r=rot[String(b.id)]||{};
+      body+='<tr><td class="nm">'+((b.prenom||'')+' '+(b.nom||''))+(b.isAthlete?' <span class="ath">🏃</span>':'')+'</td>'
+        +'<td>'+(b.zoneAssign?('Z'+b.zoneAssign):'Toutes')+'</td>'
+        +'<td>'+dispo(b.slotJ1)+'</td><td>'+dispo(b.slotJ2)+'</td>'
+        +'<td class="rot">'+((r.j1&&r.j1.length)?r.j1.join('<br>'):'<span class="e">—</span>')+'</td>'
+        +'<td class="rot">'+((r.j2&&r.j2.length)?r.j2.join('<br>'):'<span class="e">—</span>')+'</td>'
+        +'</tr>';
+    });
+    body+='</tbody></table>';
+  });
+
+  var titleSuffix = pick==='all' ? 'toutes fonctions' : ('fonction : '+pick);
+  var w=window.open('','_blank','width=1100,height=800');
+  if(!w){ toast('Popup bloquée','#D32F2F'); return; }
+  w.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Planning bénévoles · '+nom_ev+'</title>'
+    +'<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Inter,sans-serif;font-size:10px;color:#0F172A;margin:0;padding:16px}'
+    +'h1{font-size:14px;font-weight:900;margin:0 0 4px}h2{font-size:12px;font-weight:900;color:#0F172A;margin:16px 0 6px}'
+    +'.sub{font-size:10px;color:#64748B;margin-bottom:12px}'
+    +'table{border-collapse:collapse;width:100%;font-size:9px;margin-bottom:10px}'
+    +'th{background:#0F172A;color:#fff;padding:5px 6px;text-align:center;font-weight:800;white-space:nowrap}'
+    +'td{padding:4px 6px;border:1px solid #E2E8F0;text-align:center;vertical-align:middle}'
+    +'tr:nth-child(even) td{background:#F8FAFF}'
+    +'td.nm{text-align:left;font-weight:700;white-space:nowrap}th.nm{text-align:left}td.rot{text-align:left;font-size:9px;color:#1D4ED8}'
+    +'.cell-assign{background:#DBEAFE;color:#1D4ED8;font-weight:800;border-radius:3px;padding:2px 4px}'
+    +'.cell-pause{background:#FEF3C7;color:#B45309;font-weight:700;border-radius:3px;padding:2px 4px}'
+    +'.cell-empty,.e{color:#CBD5E1}.ath{color:#9333EA}'
+    +'.no-print{margin-bottom:12px}@media print{body{padding:8px}.no-print{display:none}@page{size:A4 landscape;margin:8mm}}'
+    +'</style></head><body>'
+    +'<div class="no-print"><button onclick="window.print()" style="padding:7px 16px;background:#0F172A;color:#fff;border:none;border-radius:6px;font-weight:700;cursor:pointer;margin-right:8px">🖨️ Imprimer</button><button onclick="window.close()" style="padding:7px 16px;background:#e2e8f0;border:none;border-radius:6px;cursor:pointer">✕ Fermer</button></div>'
+    +'<h1>👥 Planning bénévoles · '+nom_ev+'</h1>'
+    +'<div class="sub">Par fonction · disponibilités J1/J2 · '+titleSuffix+' · sans QR · imprimé le '+new Date().toLocaleDateString('fr-FR')+'</div>'
+    +body
+    +'<scr'+'ipt>window.onload=function(){setTimeout(function(){window.print();},500);}<\\/scr'+'ipt>'
+    +'</body></html>');
+  w.document.close();
 }
 
 // MAIL
@@ -13568,6 +13704,23 @@ function renderSynMain(){
 
       var span = Math.max(tMax-tMin, 1);
 
+      // ★ SURVOL PAR CATÉGORIE : timeline des WOD de CHAQUE catégorie de la zone.
+      //   catWods[cat] = liste ordonnée {wid, nom, tMin, tMax} → permet de calculer la
+      //   pause qu'une catégorie donnée vit entre deux de SES WOD (et pas de la zone).
+      var catWods={};
+      zHeats.forEach(function(h){
+        var cat=h.catNom||h.catName||'—';
+        var wid=String(h.wodId||h.wodNom||'');
+        var hor=h.horaires&&Object.values(h.horaires)[0];
+        if(!hor) return;
+        if(!catWods[cat]) catWods[cat]=[];
+        var e=null; for(var _q=0;_q<catWods[cat].length;_q++){ if(catWods[cat][_q].wid===wid){ e=catWods[cat][_q]; break; } }
+        if(!e){ e={wid:wid,nom:h.wodNom||'WOD',tMin:9999,tMax:0}; catWods[cat].push(e); }
+        if(hor.debut<e.tMin) e.tMin=hor.debut;
+        if(hor.fin>e.tMax) e.tMax=hor.fin;
+      });
+      Object.keys(catWods).forEach(function(c){ catWods[c].sort(function(a,b){return a.tMin-b.tMin;}); });
+
       html += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">';
       // Label zone
       html += '<div style="flex-shrink:0;background:linear-gradient(135deg,'+zColor+','+zColor2+');color:#fff;border-radius:6px;padding:4px 8px;font-size:10px;font-weight:900;letter-spacing:1px;min-width:28px;text-align:center">Z'+zone+'</div>';
@@ -13582,12 +13735,21 @@ function renderSynMain(){
         var pW = Math.max((w.tMax-w.tMin)/span*100, 4);
         var hStart = minToTimeStr(w.tMin);
         var hEnd   = minToTimeStr(w.tMax);
-        // ★ SURVOL : pause avant le prochain WOD de la zone (= le temps de bascule que
-        //   vit la catégorie entre deux WOD). gap = début du suivant − fin de celui-ci.
-        var _nextW=null;
-        for(var _k=_wi+1;_k<wodOrder.length;_k++){ var _c=wodBlocs[wodOrder[_k]]; if(_c&&_c.tMin!==9999){ _nextW=_c; break; } }
-        var _pauseTxt='';
-        if(_nextW){ var _gap=_nextW.tMin - w.tMax; _pauseTxt=(_gap>0?(' · pause avant '+_nextW.nom+' : '+_gap+' min'):(_gap===0?' · enchaîné (0 min)':'')); }
+        // ★ SURVOL PAR CATÉGORIE : pour chaque catégorie présente sur ce WOD, pause vers
+        //   SON prochain WOD (fin de ce WOD pour la catégorie → début du suivant pour elle).
+        var _catsHere={}; w.heats.forEach(function(h){ _catsHere[h.catNom||h.catName||'—']=true; });
+        var _pauseLines=[];
+        Object.keys(_catsHere).forEach(function(cat){
+          var arr=catWods[cat]||[]; var idx=-1;
+          for(var _p=0;_p<arr.length;_p++){ if(arr[_p].wid===String(wid)){ idx=_p; break; } }
+          if(idx>=0 && idx+1<arr.length){
+            var _g=arr[idx+1].tMin - arr[idx].tMax;
+            _pauseLines.push(cat+' : '+(_g>0?('pause '+_g+' min → '+arr[idx+1].nom):(_g===0?'enchaîné → '+arr[idx+1].nom:'—')));
+          } else if(idx>=0){
+            _pauseLines.push(cat+' : dernier WOD');
+          }
+        });
+        var _pauseTxt=_pauseLines.length?('\n— Pause avant prochain WOD —\n'+_pauseLines.join('\n')):'';
 
         html += '<div style="position:absolute;left:'+pL+'%;width:'+pW+'%;top:3px;bottom:3px;'
           +'background:'+w.col+';border-radius:6px;overflow:hidden;'
@@ -22638,6 +22800,74 @@ function exportClassementCSV(){
         <div style="display:none"><select id="m-pref-station"></select></div>
       </div>
       <div class="form-group" style="margin-bottom:10px">
+        <div class="form-group"><label>🎽 Fonction</label>
+          <select id="m-fonction" style="width:100%;background:#fff;border:1px solid #ccc;border-radius:6px;color:var(--ink);padding:7px 8px;font-size:11px;outline:none;font-family:inherit">
+            <optgroup label="⚖️ Jugeage (apparaît dans le planning juge)">
+              <option value="Juge">Juge</option>
+              <option value="Juge principal">Juge principal / Head judge</option>
+            </optgroup>
+            <optgroup label="📊 Score & données">
+              <option value="Table de marque">Table de marque / Scoreur</option>
+              <option value="Saisie scores">Saisie scores / Data entry</option>
+              <option value="Vidéo review">Vidéo / Review</option>
+            </optgroup>
+            <optgroup label="🏋️ Plateau / Floor">
+              <option value="Chargeur">Chargeur (loader)</option>
+              <option value="Barbell crew">Barbell crew / Change de charge</option>
+              <option value="Reset plateau">Reset plateau / Floor reset</option>
+              <option value="Matériel plateau">Matériel plateau</option>
+            </optgroup>
+            <optgroup label="🎙️ Régie & chrono">
+              <option value="Chrono / TK">Chrono / Timekeeper</option>
+              <option value="Speaker">Speaker / Annonceur</option>
+              <option value="Régie son">Régie son / Musique</option>
+              <option value="Régie technique">Régie technique / AV</option>
+              <option value="Streaming">Streaming / Live</option>
+            </optgroup>
+            <optgroup label="🏃 Athlètes">
+              <option value="Warm-up">Warm-up / Échauffement</option>
+              <option value="Corral / Staging">Corral / Appel athlètes</option>
+              <option value="Accompagnateur athlètes">Accompagnateur athlètes</option>
+            </optgroup>
+            <optgroup label="🎟️ Accueil & public">
+              <option value="Accueil">Accueil / Check-in</option>
+              <option value="Billetterie">Billetterie</option>
+              <option value="Accréditation">Accréditation / Bracelets</option>
+              <option value="Point info">Point info</option>
+            </optgroup>
+            <optgroup label="📦 Logistique">
+              <option value="Logistique">Logistique / Matériel</option>
+              <option value="Montage / Démontage">Montage / Démontage</option>
+              <option value="Nettoyage">Nettoyage / Propreté</option>
+              <option value="Déchets">Gestion déchets</option>
+            </optgroup>
+            <optgroup label="🛟 Sécurité & santé">
+              <option value="Sécurité">Sécurité</option>
+              <option value="Contrôle accès">Contrôle accès</option>
+              <option value="Médical">Médical / Secours</option>
+            </optgroup>
+            <optgroup label="🥤 Ravitaillement">
+              <option value="Ravitaillement">Ravitaillement / Buvette</option>
+              <option value="Cuisine">Cuisine / Repas bénévoles</option>
+              <option value="Hydratation">Hydratation / Eau</option>
+            </optgroup>
+            <optgroup label="📸 Média">
+              <option value="Média">Média / Photo-Vidéo</option>
+              <option value="Réseaux sociaux">Réseaux sociaux</option>
+            </optgroup>
+            <optgroup label="🚗 Extérieur">
+              <option value="Parking">Parking</option>
+              <option value="Navette">Navette / Transport</option>
+              <option value="Signalétique">Signalétique</option>
+            </optgroup>
+            <optgroup label="🧭 Coordination">
+              <option value="Coordinateur zone">Coordinateur / Responsable zone</option>
+              <option value="Runner">Runner / Coursier</option>
+              <option value="Boutique">Boutique / Merchandising</option>
+              <option value="Polyvalent">Polyvalent</option>
+            </optgroup>
+          </select>
+        </div>
         <div class="form-group"><label>📍 Zone assignée</label>
           <select id="m-zone-assign" style="width:100%;background:#fff;border:1px solid #ccc;border-radius:6px;color:var(--ink);padding:7px 8px;font-size:11px;outline:none;font-family:inherit">
             <option value="">Toutes zones</option>
