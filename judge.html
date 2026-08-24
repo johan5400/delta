@@ -1212,7 +1212,11 @@ function wodToScenario(wod){
     var _wk=parseInt(wod.workMin||wod.emomWork||60,10)||60;
     var _rst=parseInt(wod.restMin||wod.emomRest||0,10)||0;
     var _nbT=parseInt(wod.rounds||wod.toursCount||wod.emomRounds||0,10)||0;
-    if(_nbT<=0 && Array.isArray(wod.toursPerso)) _nbT=wod.toursPerso.length;
+    // ★ BELT « passe au heat au bout de 1 tour » : si des TOURS PERSO sont définis et
+    //   sont PLUS nombreux que le compte publié (ex. rounds retombé à 1 à cause d'une
+    //   durée totale mal réglée), on fait confiance aux tours perso réellement présents.
+    //   Empêche l'EMOM de finaliser au tour 1 alors que N tours sont configurés.
+    if(Array.isArray(wod.toursPerso) && wod.toursPerso.length > _nbT) _nbT=wod.toursPerso.length;
     if(_nbT<=0) _nbT=1;
     var _capEmom=(_wk+_rst)*_nbT;
     // pour un EMOM, le cap calculé est TOUJOURS la référence (pas wod.duree qui peut être faux)
@@ -1312,8 +1316,8 @@ function wodToScenario(wod){
     fmtLabel: fmtLabels[fmt]||fmt.toUpperCase(),
     cap: cap,
     moves: moves,
-    rounds: parseInt(wod.rounds||1)||1,
-    toursCount: parseInt(wod.toursCount||wod.rounds||1,10)||1,
+    rounds: (_isEmomCap && _nbT>0) ? _nbT : (parseInt(wod.rounds||1)||1),
+    toursCount: (_isEmomCap && _nbT>0) ? _nbT : (parseInt(wod.toursCount||wod.rounds||1,10)||1),
     toursMode: wod.toursMode||'identical',
     pauseEntreToursActive: !!wod.pauseEntreToursActive,
     pauseEntreToursSec: parseInt(wod.pauseEntreToursSec||0)||0,
