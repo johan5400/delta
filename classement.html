@@ -433,7 +433,7 @@ function scoreDisplay(sc,wod,h,hid){
     else if(sc.timecap||sc.status==='timecap'||(sc.reps>0&&!sc.finalTime)) out=(sc.reps||0)+' reps (TC)';
     else out='—';
   }
-  else out=(sc.reps||0)+' reps';
+  else out=(sc.reps||0)+' reps'+(sc.dbOut?' · HC':'');
   // ★ Affichage multi-TB
   var tbs=tbArrCl(sc);
   if(tbs.length>0){

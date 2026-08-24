@@ -884,22 +884,23 @@ function getLiveChronoFrame(zone,hid,h,w){
   // ★ FLUIDE : on garde elapsed en flottant pour les centièmes
   var elapsedF=Math.max(0,(now()-ts)/1000);
   var elapsed=Math.floor(elapsedF);
-  // ★ DEATH BY : le chrono se remet à 0 à CHAQUE intervalle (dbIntervalSec), comme un
-  //   EMOM à intervalle court. Décompte = intervalle − (elapsed % intervalle). Time cap = durée.
-  //   1 rep = 1 intervalle = 1 tour. Le n° d'intervalle courant = tour courant.
+  // ★ DEATH BY échelle : le chrono compte le temps du TOUR (dbRoundSec) et se remet à 0
+  //   à chaque tour. Objectif du tour N = départ + inc×(N-1). Time cap = durée max.
   if(type==='deathby'){
-    var _dbInt=parseInt(w.dbIntervalSec||3,10)||3; if(_dbInt<1)_dbInt=1;
+    var _dbInt=parseInt(w.dbRoundSec||60,10)||60; if(_dbInt<1)_dbInt=1;
     var _dbRem=_dbInt-(elapsed%_dbInt); if(_dbRem<0)_dbRem=0;
     var _dbCur=Math.floor(elapsed/_dbInt)+1;
+    var _dbS=parseInt(w.dbStartReps||1,10)||1, _dbI=parseInt(w.dbIncPerRound||0,10)||0;
+    var _dbTgt=_dbS+_dbI*(_dbCur-1);
     return {
       ts:ts, cap:cap, elapsed:elapsed, isFortime:false,
       ended:(cap>0 && elapsed>=cap),
       value:fmtPrecise(_dbRem, false),
-      lbl:'☠️ INTERVALLE '+_dbCur,
+      lbl:'☠️ TOUR '+_dbCur+' · obj '+_dbTgt,
       round:_dbCur,
       phase:'work',
-      vcls:(_dbRem<=2?'hot':'run'),
-      bcls:(_dbRem<=2?'clr-hot':'clr-run')
+      vcls:(_dbRem<=5?'hot':'run'),
+      bcls:(_dbRem<=5?'clr-hot':'clr-run')
     };
   }
   // ★ FIX SYNC LIVE/TK : pour aligner exactement l'affichage entier avec le TK,
@@ -2118,14 +2119,12 @@ function renderRankCards(rows,w,st,showLiveChips,h,catId,catLeader){
         var _egu=((w.scoreFinale||w.scoreType||'').toLowerCase()==='cal')?'cal':'m';
         // ★ REPS DE RETARD AU SNATCH (demande chef) : départage après la distance. En
         //   direct on compare le snatch du tour (roundReps), validé le total (reps).
-        //   Affiché en plus de l'écart distance → la ligne bouge à chaque snatch dès le
-        //   début du tour, avant même que la distance bike soit saisie.
+        //   La ligne bouge à chaque snatch dès le début du tour, avant la saisie bike.
         var _lsn=parseInt((lead.sc&&(lead.sc.ok?lead.sc.reps:lead.sc.roundReps))||0,10)||0;
         var _msn=parseInt((sc.ok?sc.reps:sc.roundReps)||0,10)||0;
         var _snDiff=_lsn-_msn;
         var _snTxt=(_snDiff>0?'- '+_snDiff+' snatch':'');
         if(eDiff<=0){
-          // même distance (ou devant) → c'est le snatch qui départage
           if(_snDiff>0){ repGap=_snTxt; gapCls='gap'; }
           else { repGap=_lgv>0?'=':''; gapCls='lead'; }
         } else {
@@ -2389,8 +2388,7 @@ function renderZone(zone){
   // ★ FIX FLASH « PROCHAIN HEAT » : ne démarrer la séquence résultats→preview QUE si le
   //   heat fini est réellement connu (doneData = statut done/timecap). Si l'inter-heat
   //   s'active avant que Firebase ait basculé le heat en done, on garde l'affichage
-  //   courant (résultats du heat qui vient de tourner) et on attend le prochain render —
-  //   ça supprime le flash preview d'~1s au tout début de la séquence.
+  //   courant et on attend le prochain render — supprime le flash preview d'~1s.
   if(ihOn&&ih.target>now()&&doneData){
     startTeamBandIH(zone,ih.target,dhid,dh,dw,displayCatId,displayCatLeader);
   }

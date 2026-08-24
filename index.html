@@ -6486,6 +6486,11 @@ if(typeof fbBuildWodInfo !== 'function'){
       //   remontait jamais jusqu'aux apps.
       dbIntervalSec: parseInt(wod.dbIntervalSec||0,10)||0,
       dbMode: wod.dbMode||'free',
+      // ★ DEATH BY échelle ascendante (nouveau modèle) : reps de départ, incrément par
+      //   tour, durée d'un tour en secondes. Lus par judge.html / live.html / classement.
+      dbStartReps: parseInt(wod.dbStartReps||1,10)||1,
+      dbIncPerRound: parseInt(wod.dbIncPerRound!=null?wod.dbIncPerRound:1,10)||0,
+      dbRoundSec: parseInt(wod.dbRoundSec||60,10)||60,
 
       interHeat: parseInt(wod.interHeat||0,10)||0,
       coupureApres: parseInt(wod.coupureApres||0,10)||0,
@@ -12230,17 +12235,22 @@ function renderProgWodsList() {
                : '')
             + (String(w.wodFormat||'').toLowerCase()==='deathby'
                ? '<div style="margin-top:12px;padding:11px 13px;background:rgba(220,38,38,.06);border:1px solid rgba(220,38,38,.28);border-radius:9px">'
-                 + '<div style="font-size:10px;color:#B91C1C;font-weight:800;letter-spacing:.5px;margin-bottom:8px">💀 DEATH BY — pas de limite de tours, jusqu\'au time cap</div>'
-                 + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
-                 +   '<div><label style="'+LABEL+'">⏱ 1 rep toutes les… (sec)</label>'
-                 +   '<input type="number" min="1" max="60" value="'+(w.dbIntervalSec||3)+'" onchange="event.stopPropagation();updateWodProg('+w.id+',\'dbIntervalSec\',parseInt(this.value)||3)" onclick="event.stopPropagation()" style="'+IS+';color:#DC2626;font-size:16px;text-align:center"></div>'
-                 +   '<div><label style="'+LABEL+'">Mode</label>'
-                 +   '<select onchange="event.stopPropagation();updateWodProg('+w.id+',\'dbMode\',this.value)" onclick="event.stopPropagation()" style="'+IS+'">'
-                 +     '<option value="free"'+((w.dbMode||'free')==='free'?' selected':'')+'>Compte libre</option>'
-                 +     '<option value="progressive"'+(w.dbMode==='progressive'?' selected':'')+'>Reps progressives (1,2,3…)</option>'
+                 + '<div style="font-size:10px;color:#B91C1C;font-weight:800;letter-spacing:.5px;margin-bottom:8px">💀 DEATH BY — échelle ascendante, jusqu\'au time cap</div>'
+                 + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">'
+                 +   '<div><label style="'+LABEL+'">Reps de départ</label>'
+                 +   '<select onchange="event.stopPropagation();updateWodProg('+w.id+',\'dbStartReps\',parseInt(this.value)||1)" onclick="event.stopPropagation()" style="'+IS+';color:#DC2626;font-weight:800;text-align:center">'
+                 +     Array.from({length:30},function(_x,i){return i+1;}).map(function(n){return '<option value="'+n+'"'+((parseInt(w.dbStartReps||1,10))===n?' selected':'')+'>'+n+'</option>';}).join('')
+                 +   '</select></div>'
+                 +   '<div><label style="'+LABEL+'">+ par tour</label>'
+                 +   '<select onchange="event.stopPropagation();updateWodProg('+w.id+',\'dbIncPerRound\',parseInt(this.value)||0)" onclick="event.stopPropagation()" style="'+IS+';color:#DC2626;font-weight:800;text-align:center">'
+                 +     Array.from({length:11},function(_x,i){return i;}).map(function(n){return '<option value="'+n+'"'+((parseInt(w.dbIncPerRound!=null?w.dbIncPerRound:1,10))===n?' selected':'')+'>+'+n+'</option>';}).join('')
+                 +   '</select></div>'
+                 +   '<div><label style="'+LABEL+'">Durée/tour (sec)</label>'
+                 +   '<select onchange="event.stopPropagation();updateWodProg('+w.id+',\'dbRoundSec\',parseInt(this.value)||60)" onclick="event.stopPropagation()" style="'+IS+';color:#DC2626;font-weight:800;text-align:center">'
+                 +     [20,30,40,45,60,75,90,120].map(function(s){return '<option value="'+s+'"'+((parseInt(w.dbRoundSec||60,10))===s?' selected':'')+'>'+s+'</option>';}).join('')
                  +   '</select></div>'
                  + '</div>'
-                 + '<div style="font-size:10px;color:#64748B;margin-top:6px">Le juge compte les reps + bouton « 🏳️ Lâche » quand l\'athlète abandonne. Le time cap ci-dessus = durée du WOD.</div>'
+                 + '<div style="font-size:10px;color:#64748B;margin-top:6px">Tour N = départ + (N−1)×incrément reps, à boucler dans la durée/tour. Le juge a « 🏳️ Lâche » ; pas bouclé dans le temps → hors course. Time cap ci-dessus = durée max.</div>'
                  + '</div>'
                : '')
             + '')
@@ -13565,18 +13575,24 @@ function renderSynMain(){
       // Barre proportionnelle
       html += '<div style="flex:1;position:relative;height:36px;background:#F1F5F9;border-radius:8px;overflow:hidden;border:1px solid #E2E8F0">';
 
-      wodOrder.forEach(function(wid){
+      wodOrder.forEach(function(wid,_wi){
         var w = wodBlocs[wid];
         if(w.tMin===9999) return;
         var pL = (w.tMin-tMin)/span*100;
         var pW = Math.max((w.tMax-w.tMin)/span*100, 4);
         var hStart = minToTimeStr(w.tMin);
         var hEnd   = minToTimeStr(w.tMax);
+        // ★ SURVOL : pause avant le prochain WOD de la zone (= le temps de bascule que
+        //   vit la catégorie entre deux WOD). gap = début du suivant − fin de celui-ci.
+        var _nextW=null;
+        for(var _k=_wi+1;_k<wodOrder.length;_k++){ var _c=wodBlocs[wodOrder[_k]]; if(_c&&_c.tMin!==9999){ _nextW=_c; break; } }
+        var _pauseTxt='';
+        if(_nextW){ var _gap=_nextW.tMin - w.tMax; _pauseTxt=(_gap>0?(' · pause avant '+_nextW.nom+' : '+_gap+' min'):(_gap===0?' · enchaîné (0 min)':'')); }
 
         html += '<div style="position:absolute;left:'+pL+'%;width:'+pW+'%;top:3px;bottom:3px;'
           +'background:'+w.col+';border-radius:6px;overflow:hidden;'
           +'box-shadow:0 1px 4px '+w.col+'55;border:1.5px solid rgba(255,255,255,.4)"'
-          +' title="'+w.nom+' · '+hStart+'→'+hEnd+' · '+w.heats.length+'H">'
+          +' title="'+w.nom+' · '+hStart+'→'+hEnd+' · '+w.heats.length+'H'+_pauseTxt+'">'
           +'<div style="padding:0 6px;height:100%;display:flex;flex-direction:column;justify-content:center;overflow:hidden">'
           +'<div style="font-size:9px;font-weight:900;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2">'+w.nom+'</div>'
           +'<div style="font-size:8px;color:rgba(255,255,255,.85);white-space:nowrap">'+hStart+'→'+hEnd+'</div>'
