@@ -884,6 +884,24 @@ function getLiveChronoFrame(zone,hid,h,w){
   // ★ FLUIDE : on garde elapsed en flottant pour les centièmes
   var elapsedF=Math.max(0,(now()-ts)/1000);
   var elapsed=Math.floor(elapsedF);
+  // ★ DEATH BY : le chrono se remet à 0 à CHAQUE intervalle (dbIntervalSec), comme un
+  //   EMOM à intervalle court. Décompte = intervalle − (elapsed % intervalle). Time cap = durée.
+  //   1 rep = 1 intervalle = 1 tour. Le n° d'intervalle courant = tour courant.
+  if(type==='deathby'){
+    var _dbInt=parseInt(w.dbIntervalSec||3,10)||3; if(_dbInt<1)_dbInt=1;
+    var _dbRem=_dbInt-(elapsed%_dbInt); if(_dbRem<0)_dbRem=0;
+    var _dbCur=Math.floor(elapsed/_dbInt)+1;
+    return {
+      ts:ts, cap:cap, elapsed:elapsed, isFortime:false,
+      ended:(cap>0 && elapsed>=cap),
+      value:fmtPrecise(_dbRem, false),
+      lbl:'☠️ INTERVALLE '+_dbCur,
+      round:_dbCur,
+      phase:'work',
+      vcls:(_dbRem<=2?'hot':'run'),
+      bcls:(_dbRem<=2?'clr-hot':'clr-run')
+    };
+  }
   // ★ FIX SYNC LIVE/TK : pour aligner exactement l'affichage entier avec le TK,
   // on calcule le temps restant à partir de `elapsed` (entier) et non `elapsedF`.
   // Sinon Math.floor(cap - elapsedF) = cap - ceil(elapsedF) → 1s d'avance permanente.
