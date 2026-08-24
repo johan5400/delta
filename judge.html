@@ -1060,6 +1060,16 @@ function showInterheatBanner(data){
     //   Si un écran résiduel (s-judge/s-done du heat précédent) se ré-affiche par-dessus
     //   le brief, on le retire → jamais deux .scr empilés. On garde l'écran courant.
     if(typeof enforceSingleScreen==='function' && _currentScreen){ enforceSingleScreen(_currentScreen); }
+    // ★ FIX « coupé en deux » (suite) : le bandeau flottant inter-heat (fb-ih, position
+    //   fixed en haut) ne doit JAMAIS se superposer à un écran de JUGEMENT. Quand
+    //   startJudgeLocked réaffiche s-judge verrouillé (~-15/25s), celui-ci a déjà son
+    //   propre compte à rebours ; le bandeau flottant par-dessus donnait l'écran coupé
+    //   en deux. On ne montre le bandeau que sur les écrans d'attente/brief.
+    if(_currentScreen==='s-judge'||_currentScreen==='s-cd'||_currentScreen==='s-pre'){
+      box.classList.remove('show');
+    } else {
+      box.classList.add('show');
+    }
     var rem=Math.max(0,Math.ceil(((data.target||serverNow())-serverNow())/1000));
     var str=fmtT(rem);
     if(cd) cd.textContent=str;
@@ -3620,6 +3630,11 @@ function updateEmomDisplay(){
   var isResting = !done && (_tourValide || (!emomIsWork && rest>0));
   if(restScreen){
     restScreen.classList.toggle('show', isResting);
+    // ★ FIX SPLIT INTER-HEAT : pendant l'écran repos plein écran, on masque le bandeau
+    //   d'instruction du haut (j-end-overlay) pour ne pas "couper l'écran en deux".
+    //   L'instruction de fin de heat (repos/pause/prochain heat) est de toute façon
+    //   affichée en plein écran sur s-next après validation.
+    var _ovEndR=$('j-end-overlay'); if(_ovEndR){ if(isResting) _ovEndR.style.display='none'; }
     var _ecActive=(typeof _curMoveIsEcFree==='function' && _curMoveIsEcFree());
     if(counter) counter.style.display = (isResting||_ecActive)?'none':'flex';
     if(btns)    btns.style.display    = (isResting||_ecActive)?'none':'flex';

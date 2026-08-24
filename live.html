@@ -2116,8 +2116,21 @@ function renderRankCards(rows,w,st,showLiveChips,h,catId,catLeader){
         var _mgv=parseFloat((sc.dist||sc.ergoVal||sc.distance))||0;
         var eDiff=_lgv-_mgv;
         var _egu=((w.scoreFinale||w.scoreType||'').toLowerCase()==='cal')?'cal':'m';
-        if(eDiff<=0){ repGap=_lgv>0?'=':''; gapCls='lead'; }
-        else { repGap='- '+Math.round(eDiff)+' '+_egu; gapCls='gap'; }
+        // ★ REPS DE RETARD AU SNATCH (demande chef) : départage après la distance. En
+        //   direct on compare le snatch du tour (roundReps), validé le total (reps).
+        //   Affiché en plus de l'écart distance → la ligne bouge à chaque snatch dès le
+        //   début du tour, avant même que la distance bike soit saisie.
+        var _lsn=parseInt((lead.sc&&(lead.sc.ok?lead.sc.reps:lead.sc.roundReps))||0,10)||0;
+        var _msn=parseInt((sc.ok?sc.reps:sc.roundReps)||0,10)||0;
+        var _snDiff=_lsn-_msn;
+        var _snTxt=(_snDiff>0?'- '+_snDiff+' snatch':'');
+        if(eDiff<=0){
+          // même distance (ou devant) → c'est le snatch qui départage
+          if(_snDiff>0){ repGap=_snTxt; gapCls='gap'; }
+          else { repGap=_lgv>0?'=':''; gapCls='lead'; }
+        } else {
+          repGap='- '+Math.round(eDiff)+' '+_egu+(_snTxt?' · '+_snTxt:''); gapCls='gap';
+        }
       } else {
         // AMRAP / reps
         var rDiff=leadVal-meVal;
@@ -2373,7 +2386,12 @@ function renderZone(zone){
 
   startClock(zone,hid,h,w);
 
-  if(ihOn&&ih.target>now()){
+  // ★ FIX FLASH « PROCHAIN HEAT » : ne démarrer la séquence résultats→preview QUE si le
+  //   heat fini est réellement connu (doneData = statut done/timecap). Si l'inter-heat
+  //   s'active avant que Firebase ait basculé le heat en done, on garde l'affichage
+  //   courant (résultats du heat qui vient de tourner) et on attend le prochain render —
+  //   ça supprime le flash preview d'~1s au tout début de la séquence.
+  if(ihOn&&ih.target>now()&&doneData){
     startTeamBandIH(zone,ih.target,dhid,dh,dw,displayCatId,displayCatLeader);
   }
 }
@@ -2982,7 +3000,7 @@ function _coupureSponsorWindow(ih){
   if(tgt<=n) return false;                       // coupure finie
   if(secs<=0) return tgt>n;                       // durée inconnue → sponsors tant que ça dure
   var start=tgt-secs*1000;
-  var afterClassement=start+Math.round(secs*1000*0.30);            // ★ #3 : sponsors PLUS VITE (résultat court)
+  var afterClassement=start+Math.round(secs*1000*0.12);            // ★ #3 : sponsors ENCORE PLUS VITE (résultat très court, 12%)
   var previewReserveMs=Math.max(8000,Math.round(secs*1000*0.15));  // ★ #7 : prochain heat à 15% du temps restant
   var sponEnd=tgt-previewReserveMs;
   if(sponEnd<=afterClassement) return false;      // coupure trop courte → on saute les sponsors
