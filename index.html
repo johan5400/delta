@@ -1453,6 +1453,11 @@ function checkPassword(){
       <div style="font-size:11px;color:var(--ink2);margin-bottom:12px">Tableau d'affectation des juges par zone et par heat.</div>
       <button class="btn" onclick="printJudgePlanning()" style="width:100%;justify-content:center;font-size:12px;background:linear-gradient(135deg,#1E3A5F,#2563EB);color:#fff">🖨️ Imprimer</button>
     </div>
+    <div class="card">
+      <div class="sh-card-title">🧑‍⚖️ Planning head judge</div>
+      <div style="font-size:11px;color:var(--ink2);margin-bottom:12px">Heats supervisés par chaque head judge (auto par zone ou sélection manuelle dans sa fiche).</div>
+      <button class="btn" onclick="printHeadJudgePlanning()" style="width:100%;justify-content:center;font-size:12px;background:linear-gradient(135deg,#1E3A5F,#2563EB);color:#fff">🖨️ Imprimer</button>
+    </div>
   </div>
 
   <!-- ░░ QR CODES ░░ -->
@@ -5759,6 +5764,53 @@ function hjToggleHeat(id, heatId, on){
   else if(!on && i!==-1) arr.splice(i,1);
   b.hjHeats=arr;
   _hjPersist();
+}
+
+// ★ PLANNING HEAD JUDGE (imprimable) : lit l'assignation DÉJÀ définie dans la fiche —
+//   auto (hjHeats vide = toute la zone) ou manuel (heats cochés). Rien d'autre à régler.
+function printHeadJudgePlanning(){
+  var hjs=getHeadJudges();
+  if(!hjs.length){ toast('Aucun head judge — mets la fonction « Head judge » sur un bénévole','#E65100'); return; }
+  if(!HEATS_RESULT||!HEATS_RESULT.length){ toast('Génère d\'abord le planning (⚡)','#E65100'); return; }
+  if(typeof closeModal==='function'){ try{ closeModal('print-modal'); }catch(e){} }
+  var nom_ev=(document.getElementById('ev-nom')||{}).value||'FOC 2026';
+  hjs.sort(function(a,b){ return String(a.nom||'').localeCompare(String(b.nom||'')); });
+  var body='';
+  hjs.forEach(function(hj){
+    var zone=headJudgeZone(hj);
+    var zoneHeats=_hjHeatsOfZone(zone, hj.jours);
+    var manual=(Array.isArray(hj.hjHeats)&&hj.hjHeats.length)?hj.hjHeats.map(String):null;
+    var heats=manual?zoneHeats.filter(function(h){ return manual.indexOf(String(h.id))!==-1; }):zoneHeats;
+    var modeLbl=manual?('✋ Manuel · '+heats.length+' heat'+(heats.length>1?'s':'')):('🌍 Auto · toute la zone '+zone);
+    body+='<h2>'+(hj.prenom||'')+' '+(hj.nom||'')+' · Zone '+zone+' · '+modeLbl+'</h2>';
+    if(!heats.length){ body+='<div class="sub">Aucun heat supervisé.</div>'; return; }
+    body+='<table><thead><tr><th>Heat</th><th class="nm">WOD</th><th class="nm">Catégorie</th><th>Jour</th></tr></thead><tbody>';
+    heats.forEach(function(h){
+      body+='<tr><td class="cell-assign">H'+h.num+'</td><td class="nm">'+(h.wod||'—')+'</td><td class="nm">'+(h.cat||'—')+'</td><td>J'+h.jour+'</td></tr>';
+    });
+    body+='</tbody></table>';
+  });
+  var w=window.open('','_blank','width=1100,height=800');
+  if(!w){ toast('Popup bloquée','#D32F2F'); return; }
+  w.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Planning head judge · '+nom_ev+'</title>'
+    +'<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Inter,sans-serif;font-size:10px;color:#0F172A;margin:0;padding:16px}'
+    +'h1{font-size:14px;font-weight:900;margin:0 0 4px}h2{font-size:12px;font-weight:900;color:#0F172A;margin:16px 0 6px}'
+    +'.sub{font-size:10px;color:#64748B;margin-bottom:12px}'
+    +'table{border-collapse:collapse;width:100%;font-size:9px;margin-bottom:10px}'
+    +'th{background:#0F172A;color:#fff;padding:5px 6px;text-align:center;font-weight:800;white-space:nowrap}'
+    +'td{padding:4px 6px;border:1px solid #E2E8F0;text-align:center;vertical-align:middle}'
+    +'tr:nth-child(even) td{background:#F8FAFF}'
+    +'td.nm{text-align:left;font-weight:700}th.nm{text-align:left}'
+    +'.cell-assign{background:#DBEAFE;color:#1D4ED8;font-weight:800;border-radius:3px;padding:2px 4px}'
+    +'.no-print{margin-bottom:12px}@media print{body{padding:8px}.no-print{display:none}@page{size:A4 landscape;margin:8mm}}'
+    +'</style></head><body>'
+    +'<div class="no-print"><button onclick="window.print()" style="padding:7px 16px;background:#0F172A;color:#fff;border:none;border-radius:6px;font-weight:700;cursor:pointer;margin-right:8px">🖨️ Imprimer</button><button onclick="window.close()" style="padding:7px 16px;background:#e2e8f0;border:none;border-radius:6px;cursor:pointer">✕ Fermer</button></div>'
+    +'<h1>🧑‍⚖️ Planning head judge · '+nom_ev+'</h1>'
+    +'<div class="sub">Heats supervisés (auto par zone ou sélection manuelle) · '+hjs.length+' head judge'+(hjs.length>1?'s':'')+' · imprimé le '+new Date().toLocaleDateString('fr-FR')+'</div>'
+    +body
+    +'<scr'+'ipt>window.onload=function(){setTimeout(function(){window.print();},500);}<\\/scr'+'ipt>'
+    +'</body></html>');
+  w.document.close();
 }
 
 function benTab(tab){
