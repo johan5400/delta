@@ -3632,7 +3632,8 @@ function updateEmomDisplay(){
     //   à boucler dans la durée du tour. Tours illimités jusqu'au time cap.
     var _dbS=parseInt(SC.dbStartReps||1,10)||1, _dbI=parseInt(SC.dbIncPerRound||0,10)||0;
     var _tgt=_dbS+_dbI*(emomRound-1);
-    if(re) re.textContent='TOUR '+emomRound+' · '+moveReps+' / '+_tgt;
+    var _dbMov=(SC.moves&&SC.moves.length)?SC.moves.map(function(m){return (m&&m.n)||'';}).filter(Boolean).join(' + '):'';
+    if(re) re.textContent='TOUR '+emomRound+' · '+moveReps+' / '+_tgt+(_dbMov?' · '+_dbMov:'');
     if(ce) ce.className='emom-countdown work';
     var _dh1=$('j-emom-history'),_dh2=$('j-round-history');
     if(_dh1) _dh1.innerHTML='';

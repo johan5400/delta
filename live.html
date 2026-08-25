@@ -892,11 +892,12 @@ function getLiveChronoFrame(zone,hid,h,w){
     var _dbCur=Math.floor(elapsed/_dbInt)+1;
     var _dbS=parseInt(w.dbStartReps||1,10)||1, _dbI=parseInt(w.dbIncPerRound||0,10)||0;
     var _dbTgt=_dbS+_dbI*(_dbCur-1);
+    var _dbMov=(Array.isArray(w.mouvements)&&w.mouvements.length)?w.mouvements.map(function(m){return (m&&(m.nom||m.name))||'';}).filter(Boolean).join(' + '):'';
     return {
       ts:ts, cap:cap, elapsed:elapsed, isFortime:false,
       ended:(cap>0 && elapsed>=cap),
       value:fmtPrecise(_dbRem, false),
-      lbl:'☠️ TOUR '+_dbCur+' · obj '+_dbTgt,
+      lbl:'☠️ TOUR '+_dbCur+' · obj '+_dbTgt+(_dbMov?' · '+_dbMov:''),
       round:_dbCur,
       phase:'work',
       vcls:(_dbRem<=5?'hot':'run'),
