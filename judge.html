@@ -3230,6 +3230,14 @@ function addRep(){
     toast('✅ Séquence terminée — score validé au buzzer'); vib([100,50,200]); return;
   }
 
+  // ★ DEATH BY : ne PAS dépasser la cible du tour (réduit la marge d'erreur — demande chef).
+  //   Le juge tape jusqu'à la cible (1, puis 2…) ; au-delà c'est bloqué. Le tour repart à 0
+  //   tout seul à la fin de la minute (auto-validation).
+  if(SC && SC.deathBy){
+    var _dbTgtNow=(parseInt(SC.dbStartReps||1,10)||1)+(parseInt(SC.dbIncPerRound||0,10)||0)*(emomRound-1);
+    if(moveReps>=_dbTgtNow){ toast('✅ Cible '+_dbTgtNow+' atteinte — attends le prochain tour'); vib([60,40,120]); return; }
+  }
+
   totalReps++; moveReps++;
   // ★ FIX TIEBREAK AUTO — DOIT être testé AVANT nextMove() / amrapLoop() /
   //   roundsLoop() car ces fonctions remettent moveReps=0 (et nextMove
