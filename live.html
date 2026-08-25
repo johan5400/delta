@@ -2458,12 +2458,11 @@ function startTeamBandIH(zone,ihTarget,doneHid,doneH,doneW,catId,catLeader){
   //   intermédiaires les scores changent (équipes qui zigzaguent → confusion public).
   var reserveSec=Math.max(4,Math.min(6,Math.round(totalSec*0.08)));
   var workSec=Math.max(4,totalSec-reserveSec);
-  // ★ CHEF (partie 1) : résultats affichés PLUS VITE et plus COURTS → le prochain heat
-  //   est annoncé dès que possible et reste affiché longtemps (avec décompte).
-  //   Résultat heat = fenêtre courte (5–12s). Sur le dernier heat : résultat court +
-  //   classement général, puis preview.
-  var heatSec=isLast?Math.max(4,Math.min(10,Math.round(workSec*0.20))):Math.max(5,Math.min(12,Math.round(workSec*0.20)));
-  var wodSec =isLast?Math.max(3,Math.round(workSec*0.28)):0;
+  // ★ CHEF (partie 1) : résultats laissés en PAUSE ~20 s pour être bien lus. Se réduit
+  //   automatiquement si l'inter-heat est court (sinon plus de place pour annoncer le
+  //   prochain heat). Puis preview du prochain heat jusqu'au départ (avec décompte).
+  var heatSec=isLast?Math.max(6,Math.min(20,Math.round(workSec*0.35))):Math.max(6,Math.min(20,Math.round(workSec*0.45)));
+  var wodSec =isLast?Math.max(5,Math.min(14,Math.round(workSec*0.26))):0;
 
   // ★ FIX #3 (classement général zappé) + #4 (résultat sauté avant coupure) :
   //   PLANNING PERSISTANT par heat terminé. scheduleRender rappelle cette fonction
