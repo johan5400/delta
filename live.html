@@ -349,30 +349,33 @@ body{height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-fami
    ════════════════════════════════════════════════════════════════════ */
 .np-hdr{
   position:relative;overflow:hidden;
-  padding:clamp(12px,1.6vw,20px) 18px;border-radius:14px;margin-bottom:14px;text-align:center;
+  padding:clamp(8px,1vw,13px) 16px;border-radius:13px;margin-bottom:10px;text-align:center;
   background:linear-gradient(135deg,rgba(255,87,34,.18),rgba(255,138,0,.06) 55%,rgba(45,156,255,.08));
   border:2px solid rgba(255,138,0,.4);
   box-shadow:0 0 40px rgba(255,138,0,.18),inset 0 0 26px rgba(255,138,0,.06)
 }
 .np-hdr-lbl{
-  font-family:var(--ff);font-size:clamp(18px,2.6vw,34px);letter-spacing:6px;
+  font-family:var(--ff);font-size:clamp(15px,1.9vw,26px);letter-spacing:3px;white-space:nowrap;
   background:linear-gradient(90deg,#FFD166,#FF8A00,#FF5722,#FFD166);background-size:200% auto;
   -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
   animation:np-shine 4s linear infinite;filter:drop-shadow(0 0 16px rgba(255,138,0,.5))
 }
 @keyframes np-shine{0%{background-position:0% center}100%{background-position:200% center}}
 .np-cd{
-  font-family:var(--fm);font-size:clamp(30px,5vw,66px);font-weight:900;
-  color:#fff;line-height:1;margin-top:6px;letter-spacing:-1px;
+  font-family:var(--fm);font-size:clamp(26px,3.6vw,46px);font-weight:900;
+  color:#fff;line-height:1;margin-top:4px;letter-spacing:-1px;
   filter:drop-shadow(0 0 20px rgba(45,156,255,.5))
 }
+/* ★ Décompte 30 s avant départ : passe en rouge pulsé pour bien marquer l'imminence */
+.np-cd.imminent{color:#FF5C6C;filter:drop-shadow(0 0 22px rgba(255,92,108,.6));animation:np-cdpulse 1s ease-in-out infinite}
+@keyframes np-cdpulse{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
 .np-wod{
-  font-family:var(--fc);font-weight:900;font-size:clamp(12px,1.6vw,20px);letter-spacing:2px;
-  color:#9DD4FF;margin-top:6px;text-transform:uppercase
+  font-family:var(--fc);font-weight:900;font-size:clamp(11px,1.3vw,16px);letter-spacing:2px;
+  color:#9DD4FF;margin-top:4px;text-transform:uppercase
 }
 .np-team{
   position:relative;overflow:hidden;
-  display:flex;align-items:center;gap:14px;padding:clamp(10px,1.3vw,16px) 18px;border-radius:11px;margin-bottom:8px;
+  display:flex;align-items:center;gap:10px;padding:clamp(6px,0.9vw,10px) 16px;border-radius:10px;margin-bottom:5px;
   background:linear-gradient(90deg,rgba(45,156,255,.10) 0%,rgba(155,93,229,.04) 60%,transparent 100%);
   border-left:5px solid #2D9CFF;
   animation:np-slide .5s cubic-bezier(.2,.85,.2,1.05) both
@@ -388,12 +391,12 @@ body{height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-fami
 .np-team:nth-child(8){animation-delay:.42s}
 @keyframes np-slide{from{opacity:0;transform:translateX(-20px)}to{opacity:1;transform:translateX(0)}}
 .np-lane{
-  font-family:var(--fm);font-weight:900;font-size:clamp(15px,2.2vw,26px);min-width:54px;text-align:center;
-  color:#fff;background:rgba(0,0,0,.35);border-radius:8px;padding:6px 0;border:1px solid rgba(255,255,255,.10)
+  font-family:var(--fm);font-weight:900;font-size:clamp(13px,1.7vw,20px);min-width:44px;text-align:center;
+  color:#fff;background:rgba(0,0,0,.35);border-radius:8px;padding:4px 0;border:1px solid rgba(255,255,255,.10)
 }
 .np-team:nth-child(odd) .np-lane{color:#5BB6FF;border-color:rgba(45,156,255,.3)}
 .np-team:nth-child(even) .np-lane{color:#C9A0FF;border-color:rgba(155,93,229,.3)}
-.np-nm{font-family:var(--ff);font-size:clamp(20px,3.4vw,40px);letter-spacing:.5px;color:#F2F6FC;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.np-nm{font-family:var(--ff);font-size:clamp(16px,2.4vw,28px);letter-spacing:.5px;color:#F2F6FC;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .p-timer{font-family:var(--fm);font-size:13px;color:var(--ink3);text-align:center;margin-top:5px}
 
 #mcd-logo{
@@ -2455,8 +2458,12 @@ function startTeamBandIH(zone,ihTarget,doneHid,doneH,doneW,catId,catLeader){
   //   intermédiaires les scores changent (équipes qui zigzaguent → confusion public).
   var reserveSec=Math.max(4,Math.min(6,Math.round(totalSec*0.08)));
   var workSec=Math.max(4,totalSec-reserveSec);
-  var heatSec=isLast?Math.max(3,Math.round(workSec*0.25)):Math.max(3,Math.round(workSec*0.35));
-  var wodSec =isLast?Math.max(3,Math.round(workSec*0.30)):0;
+  // ★ CHEF (partie 1) : résultats affichés PLUS VITE et plus COURTS → le prochain heat
+  //   est annoncé dès que possible et reste affiché longtemps (avec décompte).
+  //   Résultat heat = fenêtre courte (5–12s). Sur le dernier heat : résultat court +
+  //   classement général, puis preview.
+  var heatSec=isLast?Math.max(4,Math.min(10,Math.round(workSec*0.20))):Math.max(5,Math.min(12,Math.round(workSec*0.20)));
+  var wodSec =isLast?Math.max(3,Math.round(workSec*0.28)):0;
 
   // ★ FIX #3 (classement général zappé) + #4 (résultat sauté avant coupure) :
   //   PLANNING PERSISTANT par heat terminé. scheduleRender rappelle cette fonction
@@ -2579,6 +2586,8 @@ function startTeamBandIH(zone,ihTarget,doneHid,doneH,doneW,catId,catLeader){
       var existingCd=document.getElementById('prev-cd-'+zone);
       if(existingCd){
         existingCd.textContent=cdTxt;
+        // ★ CHEF : décompte 30 s avant départ → rouge pulsé
+        if(remP<=30) existingCd.classList.add('imminent'); else existingCd.classList.remove('imminent');
         return;
       }
       // Premier rendu de la preview : on construit tout une seule fois
@@ -2591,7 +2600,7 @@ function startTeamBandIH(zone,ihTarget,doneHid,doneH,doneW,catId,catLeader){
       var _wodSub=(_nWod||_nCat)?('<div class="np-wod">'+[_nWod,_nCat].filter(Boolean).join(' · ')+'</div>'):'';
       el2.innerHTML='<div class="np-hdr">'
           +'<div class="np-hdr-lbl">⚡ PROCHAIN HEAT</div>'
-          +'<div class="np-cd" id="prev-cd-'+zone+'">'+cdTxt+'</div>'
+          +'<div class="np-cd'+(remP<=30?' imminent':'')+'" id="prev-cd-'+zone+'">'+cdTxt+'</div>'
           +_wodSub
         +'</div>'
         +laneKeys.map(function(ln){
