@@ -862,6 +862,7 @@ function checkPassword(){
     <button class="tab" onclick="show('benevoles',this)">👥 Bénévoles</button>
     <button class="tab" onclick="show('planning',this)">📋 Planning</button>
     <button class="tab" onclick="show('planning-juge',this)">🧑‍⚖️ Planning juge</button>
+    <button class="tab" onclick="show('planning-hj',this)">🧑‍⚖️ Planning head judge</button>
     <button class="tab" onclick="show('printcenter',this);setTimeout(function(){if(typeof renderPrintCenter==='function')renderPrintCenter();},40)">🖨️ Impression</button>
     <button class="tab" onclick="show('mailcenter',this);setTimeout(function(){if(typeof renderMailCenter==='function')renderMailCenter();},40)">📧 Mails</button>
     <button class="tab" onclick="show('synoptique',this)">🗓 Synoptique</button>
@@ -1425,6 +1426,18 @@ function checkPassword(){
     <span id="judge-plan-info" style="font-size:10px;color:var(--ink2);margin-left:4px"></span>
   </div>
   <div id="judge-planning-content"></div>
+</div>
+
+<div id="planning-hj" class="sheet">
+<div style="display:flex;align-items:center;gap:14px;margin-bottom:16px;padding-bottom:14px;border-bottom:2px solid var(--brd2)">
+  <div style="flex:1">
+    <div style="font-size:20px;font-weight:900;color:var(--ink);letter-spacing:.3px">🧑‍⚖️ Planning head judge</div>
+    <div style="font-size:11px;color:var(--ink3);margin-top:3px;font-weight:600">Pour chaque head judge : coche les heats qu'il supervise (ou « toute la zone »). Le head judge ne juge pas de ligne.</div>
+  </div>
+  <button class="btn" onclick="renderHeadJudgePlanningTab()" style="font-size:11px;background:#F1F5F9;color:#3A5270">🔄</button>
+  <button class="btn" onclick="printHeadJudgePlanning()" style="font-size:11px;background:linear-gradient(135deg,#1E3A5F,#2563EB);color:#fff">🖨️ Imprimer</button>
+</div>
+  <div id="hj-planning-content"></div>
 </div>
 
 <div id="printcenter" class="sheet">
@@ -4079,6 +4092,7 @@ function show(id,btn){
   if(id==="categories"){setTimeout(function(){renderCategories();},80);}
   if(id==="planning"){generateHeatsSilent();computeHorairesOnly();syncHeatsToFirebase();setPlanDay(activePlanDay);setTimeout(function(){if(typeof syncJudgeAssignmentsNow==='function')syncJudgeAssignmentsNow();},2000);setTimeout(renderPlanningCF,50);}
   if(id==="planning-juge"){generateHeatsSilent();computeHorairesOnly();setTimeout(function(){if(typeof syncJudgeAssignmentsNow==='function')syncJudgeAssignmentsNow();},1200);setTimeout(renderJudgePlanningTab,60);}
+  if(id==="planning-hj"){try{generateHeatsSilent();computeHorairesOnly();}catch(e){}setTimeout(function(){if(typeof renderHeadJudgePlanningTab==='function')renderHeadJudgePlanningTab();},60);}
   if(id==="programme"){setTimeout(function(){renderProgWodsList();computeProgramme();},50);}
   if(id==="recap") setTimeout(function(){if(typeof renderRecapView==='function')renderRecapView();},50);
   if(id==="firebase") setTimeout(function(){if(typeof fbInitData==='function')fbInitData();},50);
@@ -5740,6 +5754,41 @@ function _hjGetBen(id){ return BENEVOLES.find(function(b){return String(b.id)===
 function _hjPersist(){
   reactiveUpdate(); syncBenevolesToFirebase();
   setTimeout(function(){ if(typeof renderBenQRPane==='function') renderBenQRPane(); }, 30);
+  // ★ onglet dédié : rafraîchir la liste head judge après chaque coche
+  setTimeout(function(){ var _p=document.getElementById('hj-planning-content'); if(_p && typeof renderHeadJudgePlanningTab==='function') renderHeadJudgePlanningTab(); }, 30);
+}
+
+// ★ ONGLET PLANNING HEAD JUDGE : un bloc par head judge avec son picker (auto zone ou
+//   coche manuelle des heats). Réutilise renderHjHeatPicker (même mécanique que la fiche).
+function renderHeadJudgePlanningTab(){
+  var el=document.getElementById('hj-planning-content'); if(!el) return;
+  if(typeof generateHeatsSilent==='function' && (typeof HEATS_RESULT==='undefined' || !HEATS_RESULT || !HEATS_RESULT.length)){ try{ generateHeatsSilent(); }catch(e){} }
+  var hjs=getHeadJudges();
+  if(!hjs.length){
+    el.innerHTML='<div style="text-align:center;padding:30px 18px;color:var(--ink2);font-size:12px;border:1px dashed #E2E8F0;border-radius:12px">'
+      +'<div style="font-size:26px;margin-bottom:8px">🧑‍⚖️</div>'
+      +'<div style="font-weight:800;color:var(--ink);margin-bottom:4px">Aucun head judge</div>'
+      +'Mets la fonction <b>« Juge principal / Head judge »</b> sur un bénévole (onglet Bénévoles → fiche → Fonction).</div>';
+    return;
+  }
+  if(typeof HEATS_RESULT==='undefined' || !HEATS_RESULT || !HEATS_RESULT.length){
+    el.innerHTML='<div style="text-align:center;padding:30px 18px;color:#B45309;font-size:12px;border:1px dashed #FDBA74;border-radius:12px;background:#FFFBEB">'
+      +'⚡ Génère d\'abord le planning (onglet Catégories) pour pouvoir cocher les heats.</div>';
+    return;
+  }
+  hjs.sort(function(a,b){ return String(a.nom||'').localeCompare(String(b.nom||'')); });
+  el.innerHTML=hjs.map(function(hj){
+    var jours=hj.jours==='12'?'J1 + J2':hj.jours==='2'?'Jour 2':'Jour 1';
+    var _hz=headJudgeZone(hj);
+    return '<div style="border:1px solid var(--brd2);border-radius:12px;padding:14px;margin-bottom:14px;background:#fff">'
+      +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">'
+      +'<div style="width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,#C2410C,#F59E0B);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:14px;flex-shrink:0">'+(((hj.prenom||'?').charAt(0))+((hj.nom||'').charAt(0))).toUpperCase()+'</div>'
+      +'<div style="flex:1;min-width:0"><div style="font-weight:900;color:var(--ink);font-size:14px">'+escHtml((hj.prenom||'')+' '+(hj.nom||''))+'</div>'
+      +'<div style="font-size:10px;color:var(--ink2)">Zone '+_hz+' · '+escHtml(jours)+'</div></div>'
+      +'</div>'
+      +renderHjHeatPicker(hj)
+      +'</div>';
+  }).join('');
 }
 function hjSetAuto(id){
   var b=_hjGetBen(id); if(!b) return;

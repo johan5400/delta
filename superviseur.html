@@ -148,7 +148,7 @@ if(IS_HJ){
 }
 
 function hZone(h){return String(h.catZone||h.zone||1);}
-function hDay(h){return parseInt(h.jour||h.day||1,10)||1;}
+function hDay(h){return parseInt(h.catJour||h.jour||h.day||1,10)||1;}
 function hStatus(h){return (h.status||'pending');}
 function activeDay(){
   // jour avec au moins un heat live/timecap, sinon le plus petit jour non terminé
@@ -187,12 +187,26 @@ function curHeatForZone(z,day){
   var nx=arr.find(function(o){return hStatus(o.h)==='pending'||hStatus(o.h)==='pre';});if(nx)return nx;
   return arr.length?arr[arr.length-1]:null;
 }
+// ★ HEAD JUDGE : trouve le heat courant PARMI SES HEATS SUPERVISÉS (auto = sa zone, ou
+//   manuel = sa liste hjHeats), SANS filtre jour fragile. Corrige le « reste en attente »
+//   quand le TK tourne : le heat live est bien détecté même si la zone/jour ne matchaient
+//   pas pile le filtre de zone précédent.
+function curHeatForHJ(){
+  var arr=Object.keys(HEATS).map(function(id){return {id:id,h:HEATS[id]};})
+    .filter(function(o){return o.h && hjSupervisesHeat(o.id,o.h);});
+  arr.sort(function(a,b){return (a.h.globalNum||a.h.catHeatNum||0)-(b.h.globalNum||b.h.catHeatNum||0);});
+  var live=arr.find(function(o){return hStatus(o.h)==='live';});if(live)return live;
+  var tc=arr.find(function(o){return hStatus(o.h)==='timecap';});if(tc)return tc;
+  var pre=arr.find(function(o){return hStatus(o.h)==='pre';});if(pre)return pre;
+  var nx=arr.find(function(o){return hStatus(o.h)==='pending';});if(nx)return nx;
+  return arr.length?arr[arr.length-1]:null;
+}
 function renderZones(){
   var day=activeDay(),out='';
   // ★ HEAD JUDGE : n'afficher que sa zone. Sinon les deux zones (superviseur global).
   var zonesToShow=IS_HJ?[HJ_ZONE]:[1,2];
   zonesToShow.forEach(function(z){
-    var o=curHeatForZone(z,day);
+    var o=IS_HJ?curHeatForHJ():curHeatForZone(z,day);
     if(!o){out+='<div class="zone"><div class="zone-hd"><div class="zone-name">ZONE <span>'+z+'</span></div><div class="badge idle">—</div></div><div class="empty-note">Aucun heat</div></div>';return;}
     var h=o.h,st=hStatus(h),w=wodOf(h),cap=wodCap(w);
     var badge=st==='live'?'<div class="badge live">● En cours</div>':st==='timecap'?'<div class="badge trans">Timecap</div>':st==='pre'?'<div class="badge trans">Briefing</div>':'<div class="badge idle">En attente</div>';
