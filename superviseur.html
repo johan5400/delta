@@ -88,6 +88,29 @@ function now(){return Date.now()+SRV_OFF;}
 var HEATS={},SCORES={},CATS={},WODS={},MCD=null;
 var ONLINE_MS=90000; // un juge "actif" si activité < 90s
 
+// ★ HEAD JUDGE : mode zone filtrée. URL #hj/<id>/<zone> ou ?zone=<z> → ne montrer que cette zone.
+//   Sans paramètre : mode superviseur global (toutes zones), comportement historique.
+var HJ_ZONE=null, HJ_ID=null, HJ_HEATS=null;
+(function parseHjParams(){
+  var h=(location.hash||'').replace(/^#/,'');
+  // format #hj/<id>/<zone>
+  var m=h.match(/^hj\/([^\/]+)\/([12])/i);
+  if(m){ HJ_ID=m[1]; HJ_ZONE=parseInt(m[2],10); return; }
+  // format #zone=1 ou ?zone=1
+  var mz=h.match(/zone=([12])/i) || (location.search||'').match(/zone=([12])/i);
+  if(mz){ HJ_ZONE=parseInt(mz[1],10); }
+  var mi=h.match(/hj=([^&]+)/i) || (location.search||'').match(/hj=([^&]+)/i);
+  if(mi){ HJ_ID=decodeURIComponent(mi[1]); }
+})();
+var IS_HJ=(HJ_ZONE===1||HJ_ZONE===2);
+
+// Liste des heats supervisés : override manuel (benevoles/<id>/hjHeats) sinon toute la zone
+function hjSupervisesHeat(hid,h){
+  if(!IS_HJ) return true;
+  if(HJ_HEATS && HJ_HEATS.length){ return HJ_HEATS.indexOf(String(hid))!==-1; }
+  return hZone(h)===String(HJ_ZONE);
+}
+
 db.ref('.info/connected').on('value',function(s){
   var on=s.val()===true,el=document.getElementById('conn');
   el.className='live-dot '+(on?'on':'off');
@@ -98,6 +121,31 @@ db.ref('scores').on('value',function(s){SCORES=s.val()||{};scheduleRender();dete
 db.ref('categories').on('value',function(s){CATS=s.val()||{};scheduleRender();});
 db.ref('wods').on('value',function(s){WODS=s.val()||{};scheduleRender();});
 db.ref('system/morningCountdown').on('value',function(s){MCD=s.val()||null;});
+
+// ★ HEAD JUDGE : charger les infos du HJ (nom, zone, override manuel des heats)
+if(IS_HJ){
+  // titre immédiat
+  (function(){
+    var hEl=document.querySelector('.hdr h1'); if(hEl) hEl.textContent='HEAD JUDGE';
+    var sEl=document.querySelector('.hdr .sub'); if(sEl) sEl.textContent='Zone '+HJ_ZONE+' · supervision';
+  })();
+  if(HJ_ID){
+    db.ref('benevoles').on('value',function(s){
+      var arr=s.val()||{};
+      var list=Array.isArray(arr)?arr:Object.values(arr);
+      var me=list.filter(Boolean).find(function(b){return String(b.id)===String(HJ_ID);});
+      if(me){
+        // zone du HJ (si non fournie dans l'URL, on la déduit)
+        if(HJ_ZONE==null){ HJ_ZONE=(parseInt(me.hjZone||me.zoneAssign||me.zone,10)===2)?2:1; }
+        // override manuel des heats supervisés
+        if(me.hjHeats){ HJ_HEATS=(Array.isArray(me.hjHeats)?me.hjHeats:Object.values(me.hjHeats)).map(String); }
+        var sEl=document.querySelector('.hdr .sub');
+        if(sEl) sEl.textContent=(me.prenom||'')+' · Zone '+HJ_ZONE+' · supervision';
+      }
+      scheduleRender();
+    });
+  }
+}
 
 function hZone(h){return String(h.catZone||h.zone||1);}
 function hDay(h){return parseInt(h.jour||h.day||1,10)||1;}
@@ -141,7 +189,9 @@ function curHeatForZone(z,day){
 }
 function renderZones(){
   var day=activeDay(),out='';
-  [1,2].forEach(function(z){
+  // ★ HEAD JUDGE : n'afficher que sa zone. Sinon les deux zones (superviseur global).
+  var zonesToShow=IS_HJ?[HJ_ZONE]:[1,2];
+  zonesToShow.forEach(function(z){
     var o=curHeatForZone(z,day);
     if(!o){out+='<div class="zone"><div class="zone-hd"><div class="zone-name">ZONE <span>'+z+'</span></div><div class="badge idle">—</div></div><div class="empty-note">Aucun heat</div></div>';return;}
     var h=o.h,st=hStatus(h),w=wodOf(h),cap=wodCap(w);
@@ -173,11 +223,11 @@ function renderZones(){
 }
 
 function allTeams(){var n=0;Object.values(CATS).forEach(function(c){if(c&&c.teams)n+=(Array.isArray(c.teams)?c.teams.length:Object.keys(c.teams).length);});return n;}
-function heatStats(){var day=activeDay(),done=0,total=0,live=0;Object.values(HEATS).forEach(function(h){if(!h||hDay(h)!==day)return;total++;var st=hStatus(h);if(st==='done')done++;if(st==='live')live++;});return {done:done,total:total,live:live};}
+function heatStats(){var day=activeDay(),done=0,total=0,live=0;Object.keys(HEATS).forEach(function(id){var h=HEATS[id];if(!h||hDay(h)!==day)return;if(!hjSupervisesHeat(id,h))return;total++;var st=hStatus(h);if(st==='done')done++;if(st==='live')live++;});return {done:done,total:total,live:live};}
 function scoreStats(){
   // sur heats done+timecap+live : lignes avec équipe vs scores validés
   var day=activeDay(),expected=0,validated=0;
-  Object.keys(HEATS).forEach(function(id){var h=HEATS[id];if(!h||hDay(h)!==day)return;var st=hStatus(h);if(st!=='done'&&st!=='timecap')return;var nb=laneCount(h);for(var i=1;i<=nb;i++){var L=laneTeam(h,i);if(L&&L.teamName&&!L.teamAbsent){expected++;var sc=laneScore(id,i);if(sc&&(sc.judgeOk||sc.scoreFinal!=null||sc.finalTime>0||sc.reps!=null))validated++;}}});
+  Object.keys(HEATS).forEach(function(id){var h=HEATS[id];if(!h||hDay(h)!==day)return;if(!hjSupervisesHeat(id,h))return;var st=hStatus(h);if(st!=='done'&&st!=='timecap')return;var nb=laneCount(h);for(var i=1;i<=nb;i++){var L=laneTeam(h,i);if(L&&L.teamName&&!L.teamAbsent){expected++;var sc=laneScore(id,i);if(sc&&(sc.judgeOk||sc.scoreFinal!=null||sc.finalTime>0||sc.reps!=null))validated++;}}});
   return {expected:expected,validated:validated,missing:Math.max(0,expected-validated)};
 }
 function renderStats(){
@@ -195,7 +245,7 @@ function stat(l,v,s,vc){return '<div class="stat"><div class="stat-l">'+l+'</div
 
 function renderRadar(){
   var day=activeDay(),al=[];
-  Object.keys(HEATS).forEach(function(id){var h=HEATS[id];if(!h||hDay(h)!==day)return;var st=hStatus(h);var nb=laneCount(h);
+  Object.keys(HEATS).forEach(function(id){var h=HEATS[id];if(!h||hDay(h)!==day)return;if(!hjSupervisesHeat(id,h))return;var st=hStatus(h);var nb=laneCount(h);
     // lignes sans juge (live ou à venir proche)
     if(st==='live'||st==='pre'||st==='pending'){for(var i=1;i<=nb;i++){var L=laneTeam(h,i);if(L&&L.teamName&&!L.teamAbsent&&!laneJudgeId(L)){al.push({lv:st==='live'?'crit':'info',ic:'🚩',t:'Ligne sans juge',d:'Zone '+hZone(h)+' · Heat '+(h.catHeatNum||h.globalNum||'?')+' · <b>Ligne '+i+'</b> a une équipe mais aucun juge.',fix:'→ Assigne un juge ou un renfort',time:st});}}}
     if(st==='live'){
@@ -217,7 +267,7 @@ function cfPts(pos){var g=[100,95,90,85,80,75,70,65,60,55,50,45,40,35,30,25,20,1
 function renderRank(){
   // collecte des scores par (catégorie, wod) → valeur comparable
   var byCatWod={}; // cat -> wod -> [{team,v,isTime}]
-  Object.keys(HEATS).forEach(function(id){var h=HEATS[id];if(!h)return;var st=hStatus(h);if(st!=='done'&&st!=='timecap'&&st!=='live')return;
+  Object.keys(HEATS).forEach(function(id){var h=HEATS[id];if(!h)return;if(!hjSupervisesHeat(id,h))return;var st=hStatus(h);if(st!=='done'&&st!=='timecap'&&st!=='live')return;
     var cat=h.catName||h.catNom||'?';var wid=h.wodId||(wodOf(h).nom)||'wod';var w=wodOf(h);
     var sf=String((w.scoreFinale||w.scoreType||'').toLowerCase());var isTime=(sf.indexOf('time')>=0||sf==='fortime');
     var nb=laneCount(h);
@@ -240,7 +290,10 @@ function renderRank(){
 function renderJudges(){
   // tous les juges présents = entrées scores avec judgeName + ts récent
   var seen={},list=[];
-  Object.keys(SCORES).forEach(function(k){var s=SCORES[k];if(!s||!s.judgeName)return;var nm=s.judgeName;var prev=seen[nm];if(!prev||(s.ts||0)>(prev.ts||0)){seen[nm]={ts:s.ts,heat:s.heat,lane:s.lane,prenom:s.judgePrenom||nm};}});
+  Object.keys(SCORES).forEach(function(k){var s=SCORES[k];if(!s||!s.judgeName)return;
+    // ★ HEAD JUDGE : ne garder que les juges des heats supervisés
+    if(IS_HJ){ var _hid=s.heat||String(k).split('_')[0]; var _h=HEATS[_hid]; if(!_h||!hjSupervisesHeat(_hid,_h)) return; }
+    var nm=s.judgeName;var prev=seen[nm];if(!prev||(s.ts||0)>(prev.ts||0)){seen[nm]={ts:s.ts,heat:s.heat,lane:s.lane,prenom:s.judgePrenom||nm};}});
   Object.keys(seen).forEach(function(nm){var s=seen[nm];var age=now()-(s.ts||0);var state=age<ONLINE_MS?'on':age<ONLINE_MS*4?'idle':'off';list.push({nm:s.prenom||nm,heat:s.heat,lane:s.lane,age:age,state:state});});
   list.sort(function(a,b){var o={on:0,idle:1,off:2};return o[a.state]-o[b.state]||a.age-b.age;});
   var on=list.filter(function(j){return j.state==='on';}).length;
@@ -257,8 +310,8 @@ function renderJudges(){
 var _feedState={heat:{},score:{}},FEED=[];
 function pushFeed(ic,txt){FEED.unshift({ic:ic,txt:txt,t:now()});if(FEED.length>30)FEED.pop();renderFeed();}
 function detectFeed(){
-  Object.keys(HEATS).forEach(function(id){var h=HEATS[id];if(!h)return;var st=hStatus(h);var prev=_feedState.heat[id];if(prev&&prev!==st){if(st==='live')pushFeed('▶️','<b>Heat '+(h.catHeatNum||h.globalNum||'?')+' lancé</b> — Zone '+hZone(h));else if(st==='done')pushFeed('🏁','<b>Heat '+(h.catHeatNum||h.globalNum||'?')+' terminé</b> — Zone '+hZone(h));else if(st==='timecap')pushFeed('⏱️','Timecap — Zone '+hZone(h)+' · Heat '+(h.catHeatNum||h.globalNum||'?'));}_feedState.heat[id]=st;});
-  Object.keys(SCORES).forEach(function(k){var s=SCORES[k];if(!s)return;var ok=!!(s.judgeOk);var prev=_feedState.score[k];if(prev===false&&ok)pushFeed('✅','Score validé — <b>L'+(s.lane||'?')+'</b>'+(s.judgePrenom?' · '+esc(s.judgePrenom):''));_feedState.score[k]=ok;});
+  Object.keys(HEATS).forEach(function(id){var h=HEATS[id];if(!h)return;if(!hjSupervisesHeat(id,h))return;var st=hStatus(h);var prev=_feedState.heat[id];if(prev&&prev!==st){if(st==='live')pushFeed('▶️','<b>Heat '+(h.catHeatNum||h.globalNum||'?')+' lancé</b> — Zone '+hZone(h));else if(st==='done')pushFeed('🏁','<b>Heat '+(h.catHeatNum||h.globalNum||'?')+' terminé</b> — Zone '+hZone(h));else if(st==='timecap')pushFeed('⏱️','Timecap — Zone '+hZone(h)+' · Heat '+(h.catHeatNum||h.globalNum||'?'));}_feedState.heat[id]=st;});
+  Object.keys(SCORES).forEach(function(k){var s=SCORES[k];if(!s)return;if(IS_HJ){var _hid=s.heat||String(k).split('_')[0];var _h=HEATS[_hid];if(!_h||!hjSupervisesHeat(_hid,_h))return;}var ok=!!(s.judgeOk);var prev=_feedState.score[k];if(prev===false&&ok)pushFeed('✅','Score validé — <b>L'+(s.lane||'?')+'</b>'+(s.judgePrenom?' · '+esc(s.judgePrenom):''));_feedState.score[k]=ok;});
 }
 function renderFeed(){var el=document.getElementById('feed');if(!FEED.length){el.innerHTML='<div class="empty-note">En attente d\'activité…</div>';return;}el.innerHTML=FEED.map(function(f){return '<div class="fe"><div class="fe-ic">'+f.ic+'</div><div class="fe-t">'+f.txt+'</div><div class="fe-time">'+new Date(f.t).toLocaleTimeString('fr-FR')+'</div></div>';}).join('');}
 

@@ -2762,7 +2762,8 @@ function startJudge(){
   var isML=(fmt==='maxload'), isErgo=(fmt==='ergo');
 
   // ★ ergo cumulé : si un mouvement du WOD est ergo-libre, on prépare la zone dédiée
-  var _hasEcFree=!!(SC.moves&&SC.moves.some(function(mm){return mm&&mm.ergoFree;}));
+  // ★ FIX DEATH BY : en Death By, ergoFree n'active PAS la zone ergocum (le juge compte des reps)
+  var _hasEcFree=!!(SC.moves&&SC.moves.some(function(mm){return mm&&mm.ergoFree;})) && !(SC.deathBy);
   $('j-reps-zone').style.display=(isReps||isEmom)?'flex':'none';
   $('j-maxload-zone').style.display=isML?'flex':'none';
   $('j-ergo-zone').style.display=(isErgo&&!_hasEcFree)?'flex':'none';
@@ -2905,7 +2906,14 @@ function renderAttempts(){
 //   Utilisé pour un mouvement type "max cal skierg" / "max mètres bike" dans un EMOM.
 var _ecValues=[];   // toutes les valeurs saisies (une par tour)
 var _ecUnit='';
-function _curMoveIsEcFree(){ var m=SC&&SC.moves&&SC.moves[moveIdx]; return !!(m && m.ergoFree); }
+function _curMoveIsEcFree(){
+  // ★ FIX DEATH BY : en Death By, le mouvement ergoFree sert à afficher "MAX"
+  //   dans le brief (charge max du thruster), mais le juge compte des REPS —
+  //   pas une valeur libre. Activer la zone ergocum ici masquerait le compteur
+  //   +REP et provoquerait un écran noir. On court-circuite pour Death By.
+  if(SC && SC.deathBy) return false;
+  var m=SC&&SC.moves&&SC.moves[moveIdx]; return !!(m && m.ergoFree);
+}
 function ecRefresh(){
   var tot=_ecValues.reduce(function(a,b){return a+(parseFloat(b)||0);},0);
   var tEl=$('ec-total'); if(tEl) tEl.textContent=String(tot);
@@ -3418,7 +3426,9 @@ function validate(ergoVal){
     startMinute:null
   };
   var score,meta,fmt=(SC.fmt||'').toLowerCase();
-  var _ecFreeDisp=!!(SC.moves&&SC.moves.some(function(mm){return mm&&mm.ergoFree;}));
+  // ★ FIX DEATH BY : en Death By, ergoFree est cosmétique (label "MAX" dans le brief).
+  //   Le score = totalReps (reps de thruster), pas une valeur libre ergocum.
+  var _ecFreeDisp=!!(SC.moves&&SC.moves.some(function(mm){return mm&&mm.ergoFree;})) && !(SC&&SC.deathBy);
   if(_ecFreeDisp){
     // ★ EMOM/ergo cumulé : le score affiché = total des distances/cals des tours + unité.
     var _ecDm=(SC.moves.filter(function(mm){return mm&&mm.ergoFree;})[0]||{});
@@ -3457,7 +3467,9 @@ function validate(ergoVal){
       var _tmTot=(_tmValues||[]).reduce(function(a,b){return a+(parseFloat(b)||0);},0);
       payload.load=_tmTot; payload.reps=_tmTot; payload.teamValues=(_tmValues||[]).slice();
     }
-    var _ecFreeWod=!!(SC.moves&&SC.moves.some(function(mm){return mm&&mm.ergoFree;}));
+    // ★ FIX DEATH BY : même garde que _ecFreeDisp — en Death By, ergoFree est cosmétique.
+    //   Le score Firebase = totalReps (chemin else ci-dessous), pas _ecValues (vide).
+    var _ecFreeWod=!!(SC.moves&&SC.moves.some(function(mm){return mm&&mm.ergoFree;})) && !(SC&&SC.deathBy);
     if(_ecFreeWod){
       var _ecTot=(_ecValues||[]).reduce(function(a,b){return a+(parseFloat(b)||0);},0);
       payload.dist=_ecTot; payload.ergoVal=_ecTot; payload.reps=_ecTot;
@@ -4767,9 +4779,10 @@ function pushScoreLive(){
     // ★ SYNCHRO TK/LIVE ergo cumulé : pousser aussi dist/ergoVal en direct pour que
     //   le TK affiche les cals/mètres comme le live (avant : seul reps était poussé,
     //   le TK cherchait dist/ergoVal → 0 → désync).
-    dist:(function(){ if(SC&&SC.moves&&SC.moves.some(function(mm){return mm&&mm.ergoFree;})){ return (_ecValues||[]).reduce(function(a,b){return a+(parseFloat(b)||0);},0); } return 0; })(),
-    ergoVal:(function(){ if(SC&&SC.moves&&SC.moves.some(function(mm){return mm&&mm.ergoFree;})){ return (_ecValues||[]).reduce(function(a,b){return a+(parseFloat(b)||0);},0); } return 0; })(),
-    ecValues:(function(){ if(SC&&SC.moves&&SC.moves.some(function(mm){return mm&&mm.ergoFree;})){ return (_ecValues||[]).slice(); } return null; })(),
+    // ★ FIX DEATH BY : en Death By, ergoFree est cosmétique — dist reste 0, reps est le vrai score.
+    dist:(function(){ if(!SC||SC.deathBy) return 0; if(SC.moves&&SC.moves.some(function(mm){return mm&&mm.ergoFree;})){ return (_ecValues||[]).reduce(function(a,b){return a+(parseFloat(b)||0);},0); } return 0; })(),
+    ergoVal:(function(){ if(!SC||SC.deathBy) return 0; if(SC.moves&&SC.moves.some(function(mm){return mm&&mm.ergoFree;})){ return (_ecValues||[]).reduce(function(a,b){return a+(parseFloat(b)||0);},0); } return 0; })(),
+    ecValues:(function(){ if(!SC||SC.deathBy) return null; if(SC.moves&&SC.moves.some(function(mm){return mm&&mm.ergoFree;})){ return (_ecValues||[]).slice(); } return null; })(),
     load:(function(){var b=0;mlAttempts.forEach(function(a){if(a.ok&&a.kg>b)b=a.kg;});return b;})(),
     attempts:mlAttempts.map(function(a){return {kg:a.kg,ok:!!a.ok};}),
     curMoveIdx:moveIdx, moveReps:moveReps, currentRound:currentRound,

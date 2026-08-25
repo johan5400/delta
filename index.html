@@ -3668,6 +3668,9 @@ function normalizeBenevoleRecord(raw){
   b.exp = String(b.exp || seed.exp || defaultJudgeExp(b.zone, qualif)).trim();
   b.notes = String(b.notes || seed.notes || '').trim();
   b.isAthlete = !!b.isAthlete;
+  // ★ HEAD JUDGE : conserver la zone supervisée et l'override manuel des heats
+  b.hjZone = (b.hjZone!=null && b.hjZone!=='') ? String(b.hjZone) : (seed.hjZone!=null && seed.hjZone!=='' ? String(seed.hjZone) : '');
+  b.hjHeats = Array.isArray(b.hjHeats) ? b.hjHeats.map(String) : (Array.isArray(seed.hjHeats) ? seed.hjHeats.map(String) : []);
   return b;
 }
 
@@ -5527,17 +5530,43 @@ function isJudgeQrRole(ben){
   return role.indexOf('juge')!==-1 || role.indexOf('judge')!==-1;
 }
 
+// ★ HEAD JUDGE : un juge principal / head judge ne prend PAS de ligne — il supervise
+//   une zone. Détecté via son rôle ("Juge principal / Head judge") ou un flag explicite.
+function isHeadJudge(ben){
+  if(!ben) return false;
+  if(ben.isHeadJudge===true) return true;
+  var role=normalizeQrRoleLabel(ben.role);
+  return role.indexOf('principal')!==-1 || role.indexOf('head')!==-1 || role.indexOf('chef')!==-1;
+}
+
+// Zone supervisée par un head judge (défaut : sa zoneAssign, sinon zone 1)
+function headJudgeZone(ben){
+  if(!ben) return 1;
+  var z=parseInt(ben.hjZone!=null&&ben.hjZone!==''?ben.hjZone:(ben.zoneAssign!=null&&ben.zoneAssign!==''?ben.zoneAssign:ben.zone),10);
+  return (z===2)?2:1;
+}
+
+// Liste des head judges (non-athlètes, rôle head judge)
+function getHeadJudges(){
+  return (BENEVOLES||[]).filter(function(b){ return !b.isAthlete && isHeadJudge(b); });
+}
+
 function hasDedicatedQrRole(ben){
   return !!(ben && !ben.isAthlete && (isJudgeQrRole(ben) || isSpeakerQrRole(ben)));
 }
 
 function getJudgingBenevoles(){
-  return (BENEVOLES||[]).filter(function(b){ return !b.isAthlete && isJudgeQrRole(b); });
+  // ★ HEAD JUDGE : exclus du pool — ils supervisent, ne prennent pas de ligne.
+  //   (En cas de besoin ponctuel, ils passent par le QR de secours.)
+  return (BENEVOLES||[]).filter(function(b){ return !b.isAthlete && isJudgeQrRole(b) && !isHeadJudge(b); });
 }
 
 function getPlanningQrBenevoles(){
   var byRole=getJudgingBenevoles();
-  if(byRole.length) return byRole;
+  // ★ HEAD JUDGE : réintégrés ici — exclus du judging (pas de ligne) mais ils
+  //   ont leur propre QR (vue superviseur de zone).
+  var heads=getHeadJudges();
+  if(byRole.length || heads.length) return byRole.concat(heads);
   // ★ FIX QR JUGES : règle métier "1 bénévole = 1 juge" — si aucun bénévole
   //   n'a explicitement le rôle juge, tous les non-athlètes sont juges.
   return (BENEVOLES||[]).filter(function(b){ return !b.isAthlete; });
@@ -5560,13 +5589,22 @@ function renderBenQRPane(){
   }
 
   var base=location.href.split('/').slice(0,-1).join('/')+'/';
-  var judgeMode=isJudgeQrRole(ben);
+  var headMode=isHeadJudge(ben);
+  var judgeMode=isJudgeQrRole(ben) && !headMode;
   var targetUrl='';
   var qrTitle='';
   var qrDesc='';
   var actionHref='';
   var actionLabel='';
-  if(judgeMode){
+  if(headMode){
+    // ★ HEAD JUDGE : QR vers la vue superviseur filtrée sur sa zone
+    var _hz=headJudgeZone(ben);
+    targetUrl=base+'superviseur.html#hj/'+encodeURIComponent(ben.id||'')+'/'+_hz;
+    qrTitle='🧭 QR HEAD JUDGE · ZONE '+_hz;
+    qrDesc='Ce QR ouvre la supervision temps réel de la zone '+_hz;
+    actionHref='superviseur.html#hj/'+ben.id+'/'+_hz;
+    actionLabel='🧭 OUVRIR LA SUPERVISION';
+  } else if(judgeMode){
     targetUrl=base+'entry.html?id='+encodeURIComponent(ben.id||'');
     qrTitle='📱 QR INTERFACE JUGE';
     qrDesc='Ce QR donne accès direct à l’interface de scoring';
@@ -5590,8 +5628,12 @@ function renderBenQRPane(){
     +'<div style="font-size:9px;color:#555;margin-top:4px;">'+qrDesc+'</div>'
     +'</div>';
 
-  if(judgeMode){
-    html+='<div style="font-size:10px;font-weight:800;color:var(--ink);letter-spacing:1px;margin-bottom:8px;">📋 O&Ugrave; IL JUGE · '+escHtml(jours)+'</div>';
+  if(headMode){
+    var _hz2=headJudgeZone(ben);
+    html+='<div style="font-size:10px;font-weight:800;color:var(--ink);letter-spacing:1px;margin-bottom:8px;">🧭 HEATS SUPERVISÉS · ZONE '+_hz2+' · '+escHtml(jours)+'</div>';
+    html+='<a href="'+actionHref+'" style="display:block;text-align:center;background:linear-gradient(135deg,#C2410C,#F59E0B);color:#fff;text-decoration:none;border-radius:8px;padding:11px;font-size:13px;font-weight:900;letter-spacing:1px;margin-bottom:10px;">'+actionLabel+'</a>';
+    html+=renderHjHeatPicker(ben);
+  } else if(judgeMode){
     if(assignments.length){
       assignments.forEach(function(a){
         var zColor=a.zone===1?'#1E88E5':'#16A34A';
@@ -5629,6 +5671,94 @@ function renderBenQRPane(){
   }
 
   pane.innerHTML=html;
+}
+
+// ★ HEAD JUDGE — sélecteur des heats supervisés (auto zone + override manuel)
+function _hjHeatsOfZone(zone, jours){
+  // renvoie les heats de la zone (filtrés par jours du HJ si dispo), triés
+  var heats = HEATS_RESULT||[];
+  var wantDays = [];
+  if(jours==='1') wantDays=[1]; else if(jours==='2') wantDays=[2]; else wantDays=[1,2];
+  return heats.filter(function(h){
+    var z=parseInt(h.catZone||h.zone||1,10)||1;
+    if(z!==parseInt(zone,10)) return false;
+    var d=parseInt(h.catJour||h.jour||1,10)||1;
+    return wantDays.indexOf(d)!==-1;
+  }).map(function(h){
+    return {
+      id: String(h.globalNum||h.id||getHeatDisplayNum(h)),
+      num: getHeatDisplayNum(h),
+      cat: h.catNom||h.catName||'—',
+      jour: parseInt(h.catJour||h.jour||1,10)||1,
+      wod: (h.wodInfo&&(h.wodInfo.nom||h.wodInfo.name))||''
+    };
+  }).sort(function(a,b){ return (a.jour-b.jour)||(parseInt(a.num,10)-parseInt(b.num,10)); });
+}
+
+function renderHjHeatPicker(ben){
+  var zone=headJudgeZone(ben);
+  var list=_hjHeatsOfZone(zone, ben.jours);
+  if(!list.length){
+    return '<div style="text-align:center;padding:18px;color:var(--ink2);font-size:11px;border:1px dashed #E2E8F0;border-radius:9px;">'
+      +'Aucun heat en zone '+zone+' — génère le planning d’abord (onglet Catégories ⚡)'
+      +'</div>';
+  }
+  // override manuel : liste d'ids stockée sur le bénévole ; vide = auto (toute la zone)
+  var manual = Array.isArray(ben.hjHeats) ? ben.hjHeats.map(String) : null;
+  var isAuto = !manual || !manual.length;
+  var html='';
+  html+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">'
+    +'<span style="font-size:10px;font-weight:800;color:var(--ink2)">Mode :</span>'
+    +'<button onclick="hjSetAuto('+ben.id+')" style="flex:1;padding:7px;border-radius:7px;border:1.5px solid '+(isAuto?'#F59E0B':'#E2E8F0')+';background:'+(isAuto?'#FFF7ED':'#fff')+';color:'+(isAuto?'#C2410C':'#64748B')+';font-size:11px;font-weight:800;cursor:pointer">🌍 Toute la zone '+zone+'</button>'
+    +'<button onclick="hjStartManual('+ben.id+')" style="flex:1;padding:7px;border-radius:7px;border:1.5px solid '+(!isAuto?'#F59E0B':'#E2E8F0')+';background:'+(!isAuto?'#FFF7ED':'#fff')+';color:'+(!isAuto?'#C2410C':'#64748B')+';font-size:11px;font-weight:800;cursor:pointer">✋ Sélection manuelle</button>'
+    +'</div>';
+  if(isAuto){
+    html+='<div style="font-size:10px;color:var(--ink2);margin-bottom:8px;line-height:1.4">Ce head judge supervise automatiquement <b>tous les '+list.length+' heats</b> de la zone '+zone+'.</div>';
+  } else {
+    html+='<div style="font-size:10px;color:var(--ink2);margin-bottom:8px;line-height:1.4">Coche les heats supervisés (<b>'+manual.length+'</b> sélectionné'+(manual.length>1?'s':'')+').</div>';
+  }
+  var curDay=0;
+  list.forEach(function(h){
+    if(h.jour!==curDay){ curDay=h.jour; html+='<div style="font-size:10px;font-weight:800;color:#F59E0B;letter-spacing:1px;margin:8px 0 4px">JOUR '+curDay+'</div>'; }
+    var checked = isAuto || manual.indexOf(h.id)!==-1;
+    var dis = isAuto ? 'opacity:.55;pointer-events:none' : '';
+    html+='<label style="display:flex;align-items:center;gap:9px;background:#F8FAFF;border:1px solid var(--brd);border-radius:8px;padding:8px 10px;margin-bottom:5px;cursor:pointer;'+dis+'">'
+      +'<input type="checkbox" '+(checked?'checked':'')+' onchange="hjToggleHeat('+ben.id+',\''+h.id+'\',this.checked)" style="width:16px;height:16px;accent-color:#F59E0B">'
+      +'<span style="font-weight:900;color:var(--ink);font-size:12px;min-width:52px">Heat '+h.num+'</span>'
+      +'<span style="flex:1;font-size:11px;color:#3A5270;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+escHtml(h.cat)+(h.wod?' · '+escHtml(h.wod):'')+'</span>'
+      +'</label>';
+  });
+  return html;
+}
+
+function _hjGetBen(id){ return BENEVOLES.find(function(b){return String(b.id)===String(id);}); }
+function _hjPersist(){
+  reactiveUpdate(); syncBenevolesToFirebase();
+  setTimeout(function(){ if(typeof renderBenQRPane==='function') renderBenQRPane(); }, 30);
+}
+function hjSetAuto(id){
+  var b=_hjGetBen(id); if(!b) return;
+  b.hjHeats=[]; // vide = auto toute la zone
+  toast('🌍 Supervision : toute la zone');
+  _hjPersist();
+}
+function hjStartManual(id){
+  var b=_hjGetBen(id); if(!b) return;
+  // démarre la sélection manuelle en pré-cochant toute la zone
+  if(!Array.isArray(b.hjHeats) || !b.hjHeats.length){
+    b.hjHeats=_hjHeatsOfZone(headJudgeZone(b), b.jours).map(function(h){return h.id;});
+  }
+  toast('✋ Sélection manuelle activée');
+  _hjPersist();
+}
+function hjToggleHeat(id, heatId, on){
+  var b=_hjGetBen(id); if(!b) return;
+  var arr=Array.isArray(b.hjHeats)?b.hjHeats.map(String):[];
+  var i=arr.indexOf(String(heatId));
+  if(on && i===-1) arr.push(String(heatId));
+  else if(!on && i!==-1) arr.splice(i,1);
+  b.hjHeats=arr;
+  _hjPersist();
 }
 
 function benTab(tab){
@@ -5683,6 +5813,8 @@ function openAddBen(){
   ["m-prenom","m-nom","m-email","m-tel","m-exp","m-notes","m-dossard"].forEach(function(id){document.getElementById(id).value="";});var waveEl=document.getElementById("m-wave");if(waveEl)waveEl.value="";var lineEl=document.getElementById("m-linked-line");if(lineEl)lineEl.value="";
   fillJudgeCategorySelect("");
   var zoneAssignEl=document.getElementById("m-zone-assign");if(zoneAssignEl)zoneAssignEl.value="";
+  var hjZoneEl0=document.getElementById("m-hj-zone");if(hjZoneEl0)hjZoneEl0.value="1";
+  if(typeof toggleHjZone==="function") toggleHjZone();
   document.getElementById("m-qualif").value=5;updQLabel();
   document.getElementById("m-tshirt").value="M";
   setDispoJ1("Journée");setDispoJ2("Journée");
@@ -5726,6 +5858,10 @@ function editBen(id){
       var _ok=Array.prototype.some.call(fonctionEl.options,function(o){return o.value===_val;});
       fonctionEl.value=_ok?_val:"Juge";
     }
+    // ★ HEAD JUDGE : restaurer la zone supervisée + afficher le bloc si besoin
+    var hjZoneEl=document.getElementById("m-hj-zone");
+    if(hjZoneEl) hjZoneEl.value=(b.hjZone!=null&&b.hjZone!==""?String(b.hjZone):(b.zoneAssign!=null&&b.zoneAssign!==""?String(b.zoneAssign):"1"));
+    if(typeof toggleHjZone==="function") toggleHjZone();
     updQLabel();
     // Dispos J1/J2
     var _sj1=b.slotJ1||(b.jours==="2"?"absent":(b.slot||"Journée"));
@@ -5780,6 +5916,7 @@ function saveBen(){
     raceDur:parseInt(document.getElementById("m-race-duration").value)||12,
     zoneAssign:(document.getElementById("m-zone-assign")||{}).value||"",
     role:((document.getElementById("m-fonction")||{}).value)||"Juge",
+    hjZone:((document.getElementById("m-hj-zone")||{}).value)||"",
     prefStation:document.getElementById("m-pref-station").value,linkedId:parseInt(document.getElementById("m-linked").value)||null};
   var isNew=!editBenId;
   var newId=isNew?Math.floor(Date.now()):editBenId;
@@ -5803,6 +5940,14 @@ function saveBen(){
 }
 function deleteBen(id){if(!confirm("Supprimer ce bénévole ?"))return;BENEVOLES=BENEVOLES.filter(function(b){return b.id!==id;});reactiveUpdate();toast("Supprimé","#E65100");syncBenevolesToFirebase();}
 function toggleAthleteFields(){document.getElementById("athlete-fields").style.display=document.getElementById("m-is-athlete").checked?"block":"none";}
+// ★ HEAD JUDGE : affiche le sélecteur de zone supervisée quand la fonction = Juge principal
+function toggleHjZone(){
+  var f=document.getElementById("m-fonction"); var g=document.getElementById("hj-zone-group");
+  if(!f||!g) return;
+  var v=String(f.value||"").toLowerCase();
+  var isHead=(v.indexOf("principal")!==-1||v.indexOf("head")!==-1||v.indexOf("chef")!==-1);
+  g.style.display=isHead?"block":"none";
+}
 function applyRacePreset(){}
 function updateRaceDurPreview(){
   var el=document.getElementById("race-dur-preview");if(!el)return;
@@ -7063,7 +7208,10 @@ function syncBenevolesToFirebase(){
         zone: b.zone||1,
         zoneAssign: b.zoneAssign!=null ? String(b.zoneAssign) : '',
         prefStation: b.prefStation||'',
-        isAthlete: !!b.isAthlete
+        isAthlete: !!b.isAthlete,
+        isHeadJudge: !!(typeof isHeadJudge==='function' && isHeadJudge(b)),
+        hjZone: (b.hjZone!=null && b.hjZone!=='') ? String(b.hjZone) : '',
+        hjHeats: Array.isArray(b.hjHeats) ? b.hjHeats.map(String) : []
       };
     });
     var fbRef = (typeof LS_FB_DB !== 'undefined' && LS_FB_DB) ? LS_FB_DB : (typeof db !== 'undefined' ? db : null);
@@ -22801,7 +22949,7 @@ function exportClassementCSV(){
       </div>
       <div class="form-group" style="margin-bottom:10px">
         <div class="form-group"><label>🎽 Fonction</label>
-          <select id="m-fonction" style="width:100%;background:#fff;border:1px solid #ccc;border-radius:6px;color:var(--ink);padding:7px 8px;font-size:11px;outline:none;font-family:inherit">
+          <select id="m-fonction" onchange="toggleHjZone()" style="width:100%;background:#fff;border:1px solid #ccc;border-radius:6px;color:var(--ink);padding:7px 8px;font-size:11px;outline:none;font-family:inherit">
             <optgroup label="⚖️ Jugeage (apparaît dans le planning juge)">
               <option value="Juge">Juge</option>
               <option value="Juge principal">Juge principal / Head judge</option>
@@ -22868,7 +23016,14 @@ function exportClassementCSV(){
             </optgroup>
           </select>
         </div>
-        <div class="form-group"><label>📍 Zone assignée</label>
+        <div class="form-group" id="hj-zone-group" style="display:none;background:#FFF7ED;border:1.5px solid #FED7AA;border-radius:8px;padding:8px 10px;margin-top:6px">
+          <label style="color:#C2410C;font-weight:800">🧭 Zone supervisée (Head Judge)</label>
+          <select id="m-hj-zone" style="width:100%;background:#fff;border:1px solid #FDBA74;border-radius:6px;color:var(--ink);padding:7px 8px;font-size:11px;outline:none;font-family:inherit">
+            <option value="1">Zone 1</option>
+            <option value="2">Zone 2</option>
+          </select>
+          <div style="font-size:10px;color:#9A3412;margin-top:5px;line-height:1.4">Ce head judge ne prend pas de ligne. Il supervise tous les heats de cette zone via son QR dédié.</div>
+        </div>
           <select id="m-zone-assign" style="width:100%;background:#fff;border:1px solid #ccc;border-radius:6px;color:var(--ink);padding:7px 8px;font-size:11px;outline:none;font-family:inherit">
             <option value="">Toutes zones</option>
             <option value="1">Zone 1</option>
