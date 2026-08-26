@@ -2910,6 +2910,35 @@ function renderAttempts(){
 //   Utilisé pour un mouvement type "max cal skierg" / "max mètres bike" dans un EMOM.
 var _ecValues=[];   // toutes les valeurs saisies (une par tour)
 var _ecUnit='';
+// ★ EMOM SKI+SNATCH (distance conditionnée aux reps) : dans un EMOM où un tour = un
+//   mouvement ergo-libre (ski erg = distance/cals) SUIVI d'un mouvement à quota (snatch),
+//   la distance du tour n'est VALIDÉE que si le quota de snatch est atteint dans la minute.
+//   Sinon elle est jetée. On ne pousse donc PAS direct dans _ecValues : on garde la
+//   distance « en attente » du tour courant, et la validation se joue au passage de tour.
+var _pendingDist=null;   // distance pré-saisie du tour courant, pas encore validée
+function _isEcCondWod(){
+  // Cas ciblé : EMOM/interval + un mouvement ergoFree + AU MOINS un autre mouvement à quota (q>0).
+  //   Ne s'active PAS pour un EMOM bike-seul (un seul mouvement) → comportement historique intact.
+  if(!SC || SC.deathBy) return false;
+  var _f=String(SC.fmt||'').toLowerCase();
+  if(_f!=='emom' && _f!=='interval') return false;
+  var ms=SC.moves||[];
+  var hasEcFree=ms.some(function(m){return m&&m.ergoFree;});
+  var hasRepMove=ms.some(function(m){return m&&!m.ergoFree&&(parseInt(m.q||0,10)||0)>0;});
+  return hasEcFree && hasRepMove;
+}
+function _snatchTargetThisRound(){
+  // Cible de reps du/des mouvement(s) NON ergo du tour (ex : 7 snatch). Somme des quotas
+  //   des mouvements à reps du tour courant (gère l'échelle : q peut varier par catégorie/tour).
+  var ms=(SC&&SC.moves)||[], t=0;
+  ms.forEach(function(m){ if(m&&!m.ergoFree){ t+=(parseInt(m.q||0,10)||0); } });
+  return t;
+}
+function _snatchDoneThisRound(){
+  // Reps de snatch réellement comptées sur le tour courant.
+  //   emomRoundReps agrège les reps du tour (les mouvements ergoFree n'incrémentent pas).
+  return (parseInt(emomRoundReps||0,10)||0);
+}
 function _curMoveIsEcFree(){
   // ★ FIX DEATH BY : en Death By, le mouvement ergoFree sert à afficher "MAX"
   //   dans le brief (charge max du thruster), mais le juge compte des REPS —
@@ -2925,9 +2954,17 @@ function ecRefresh(){
   var mEl=$('ec-mvname'); var m=SC&&SC.moves&&SC.moves[moveIdx];
   if(mEl) mEl.textContent=(m&&m.n?m.n:'MOUVEMENT')+(_ecUnit?(' · '+_ecUnit):'');
   var h=$('ec-history');
-  if(h){ h.innerHTML=_ecValues.map(function(v,i){
+  if(h){
+    var _chips=_ecValues.map(function(v,i){
     return '<span style="background:rgba(159,107,255,.14);border:1px solid rgba(159,107,255,.3);border-radius:6px;padding:3px 8px;font-family:var(--fm);font-size:12px;font-weight:700;color:#9F6BFF">T'+(i+1)+' : '+v+'</span>';
-  }).join(''); }
+    }).join('');
+    // ★ EMOM SKI+SNATCH : chip « en attente » pour la distance du tour courant (pas encore
+    //   validée — elle ne comptera que si les snatch du tour sont bouclés).
+    if(_isEcCondWod() && _pendingDist!=null){
+      _chips+='<span style="background:rgba(255,183,77,.16);border:1px dashed rgba(255,183,77,.6);border-radius:6px;padding:3px 8px;font-family:var(--fm);font-size:12px;font-weight:700;color:#FFB74D">⏳ '+_pendingDist+' (à valider)</span>';
+    }
+    h.innerHTML=_chips;
+  }
   // ★ FIX RACINE (bug chef, tous WOD reps + valeur libre) : NE PAS écraser totalReps
   //   (le compteur de reps, ex : snatch) avec le total de distance. Une seule variable
   //   servait aux deux → dès qu'on saisissait le bike, le compte de reps était remplacé
@@ -2942,6 +2979,29 @@ function ecAdd(){
   var raw=$('ec-inp').value;
   var v=parseFloat(String(raw).replace(',','.'));
   if(!isFinite(v)||v<0){ $('ec-inp').focus(); toast('Saisis une valeur'); return; }
+  // ★ EMOM SKI+SNATCH : la distance ne compte QUE si le quota de snatch du tour est atteint.
+  //   On la met « en attente » ; la validation (garder ou jeter) se fait au passage de tour.
+  //   Le juge saisit la distance à la sortie du bike, puis compte les snatch tranquillement.
+  if(_isEcCondWod()){
+    _pendingDist=v;
+    $('ec-inp').value='';
+    vib([30]);
+    ecRefresh();
+    _persistEc();
+    // Passer au comptage des snatch (mouvement suivant du tour) si on est encore sur l'ergo.
+    var _lastIdxC=(SC&&SC.moves)?(SC.moves.length-1):0;
+    if(moveIdx < _lastIdxC){
+      moveIdx++; moveReps=0;
+      var _mN=SC.moves[moveIdx];
+      var _tgtC=_snatchTargetThisRound();
+      if(_mN && typeof toast==='function') toast('▶ '+(_mN.n||'Snatch')+(_tgtC>0?' ×'+_tgtC:''),'#00E5A0',1600);
+      try{ vib([50,30,50]); }catch(e){}
+      if(typeof updateDisplay==='function') updateDisplay();
+      if(typeof updateEmomDisplay==='function') updateEmomDisplay();
+      if(db && typeof pushScoreLive==='function') pushScoreLive();
+    }
+    return;
+  }
   _ecValues.push(v);
   $('ec-inp').value='';
   vib([30]);
@@ -3437,6 +3497,16 @@ function validate(ergoVal){
     zone:parseInt((SC&&SC.zone)||1,10)||1,
     startMinute:null
   };
+  // ★ EMOM SKI+SNATCH : valider (ou jeter) la distance en attente du DERNIER tour.
+  //   Le passage de tour ne se rejoue pas au time cap → sans ça la distance du dernier
+  //   tour serait perdue. Même règle : gardée seulement si les snatch du tour sont bouclés.
+  if(_isEcCondWod() && _pendingDist!=null){
+    var _tgtFin=_snatchTargetThisRound();
+    var _doneFin=(parseInt(emomRoundReps||0,10)||0);
+    if(_tgtFin>0 && _doneFin>=_tgtFin){ _ecValues.push(_pendingDist); }
+    _pendingDist=null;
+    try{ ecRefresh(); }catch(_e){}
+  }
   var score,meta,fmt=(SC.fmt||'').toLowerCase();
   // ★ FIX DEATH BY : en Death By, ergoFree est cosmétique (label "MAX" dans le brief).
   //   Le score = totalReps (reps de thruster), pas une valeur libre ergocum.
@@ -3593,6 +3663,27 @@ function updateEmomPhase(e){
     var wasWork=emomIsWork, wasRound=emomRound;
     emomIsWork=newIsWork; emomRound=newRound;
     if(wasWork&&(rest===0?wasRound!==newRound:!newIsWork)){
+      // ★ EMOM SKI+SNATCH : au passage de tour, décider du sort de la distance pré-saisie.
+      //   Si les snatch requis pour CE tour sont bouclés → la distance est VALIDÉE (cumul).
+      //   Sinon → distance JETÉE (0). Dans les deux cas on repart à 0 pour le tour suivant.
+      if(_isEcCondWod()){
+        var _tgtR=_snatchTargetThisRound();
+        var _doneR=(parseInt(emomRoundReps||0,10)||0);
+        if(_pendingDist!=null){
+          if(_tgtR>0 && _doneR>=_tgtR){
+            _ecValues.push(_pendingDist);
+            try{ toast('✅ Tour '+wasRound+' validé — '+_pendingDist+' '+(_ecUnit||'')+' ajoutés','#00E5A0',2200); }catch(_e){}
+          } else {
+            try{ toast('🚫 Tour '+wasRound+' : '+_doneR+'/'+_tgtR+' snatch — distance annulée','#FF3B5C',2600); }catch(_e){}
+          }
+        }
+        _pendingDist=null;
+        try{ ecRefresh(); }catch(_e){}
+        try{ _persistEc(); }catch(_e){}
+        // archiver les reps du tour puis repartir à 0 (snatch remis à 0)
+        emomRoundHistory[wasRound-1]=emomRoundReps; emomTotalReps+=emomRoundReps; emomRoundReps=0;
+        moveIdx=0; moveReps=0;
+      } else {
       // ★ DEATH BY échelle : au passage de tour, si le tour qui vient de se terminer n'a
       //   PAS atteint sa cible (départ + inc×(tour-1)), l'athlète est HORS COURSE (auto).
       if(SC && SC.deathBy && !_dbOut && !done){
@@ -3609,6 +3700,7 @@ function updateEmomPhase(e){
         }
       }
       emomRoundHistory[wasRound-1]=emomRoundReps; emomTotalReps+=emomRoundReps; emomRoundReps=0;
+      }
     }
     if((SC.fmt||'').toLowerCase()==='emom'&&newIsWork&&newRound!==wasRound){
       // ★ FIX AFFICHAGE EMOM : ne PLUS réécrire emomRoundHistory ici.
