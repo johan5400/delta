@@ -219,19 +219,19 @@ body{height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-fami
   text-shadow:0 0 18px rgba(45,156,255,.5)}
 
 /* Cartes équipes */
-.tc{flex-shrink:0;padding:6px 12px;border-radius:8px;
+.tc{flex-shrink:0;padding:5px 14px;border-radius:8px;
   border:1px solid rgba(255,255,255,.07);background:rgba(12,18,30,.9);transition:border-color .3s,background .3s}
 .tc.ok{border-color:rgba(0,229,160,.25);background:rgba(0,229,160,.05)}
 .tm{display:flex;align-items:center;gap:12px}
 .tcol{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
-.tmeta{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:4px}
-.rk{font-family:var(--ff);font-size:clamp(22px,3vw,52px);line-height:1;min-width:40px;text-align:center;color:var(--gold)}
+.tmeta{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:3px}
+.rk{font-family:var(--ff);font-size:clamp(20px,2.1vw,34px);line-height:1;min-width:36px;text-align:center;color:var(--gold)}
 .rk.r1{color:#FFD700}.rk.r2{color:#C0C0C0}.rk.r3{color:#CD7F32}
-.tn{font-family:var(--ff);font-size:clamp(18px,2.8vw,46px);letter-spacing:.5px;color:#fff;
+.tn{font-family:var(--ff);font-size:clamp(16px,2vw,30px);letter-spacing:.5px;color:#fff;
   flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.tsc{font-family:var(--fm);font-size:clamp(14px,2.2vw,36px);font-weight:900;text-align:right;flex-shrink:0}
+.tsc{font-family:var(--fm);font-size:clamp(14px,1.8vw,26px);font-weight:900;text-align:right;flex-shrink:0}
 .tsc.lv{color:#FFB020}.tsc.vl{color:#00E5A0}.tsc.nd{color:var(--ink3)}
-.crown{display:inline-block;font-size:clamp(20px,2.6vw,38px);margin-left:6px;vertical-align:middle;
+.crown{display:inline-block;font-size:clamp(16px,1.8vw,26px);margin-left:6px;vertical-align:middle;
   filter:drop-shadow(0 0 8px rgba(255,209,102,.6))}
 .mini{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:4px;
   font-family:var(--fm);font-size:clamp(12px,1.4vw,20px);font-weight:700;
@@ -2088,7 +2088,12 @@ function renderRankCards(rows,w,st,showLiveChips,h,catId,catLeader){
     // ★ Death By (en cours) : total + reps de l'intervalle courant (roundReps se remet à 0
     //   à chaque intervalle côté juge et est poussé en direct → le live reflète le reset).
     else if(!val && w && String(w.wodFormat||'').toLowerCase()==='deathby'){
-      s='☠️ '+(_tot||0)+' reps · tour: '+(parseInt(sc&&sc.roundReps)||0);
+      var _dbIntL=parseInt(w.dbRoundSec||60,10)||60; if(_dbIntL<1)_dbIntL=1;
+      var _dbElL=(h&&h.startTimestamp)?Math.floor((now()-h.startTimestamp)/1000):0; if(_dbElL<0)_dbElL=0;
+      var _dbCurL=Math.floor(_dbElL/_dbIntL)+1;
+      var _dbSL=parseInt(w.dbStartReps||1,10)||1, _dbIL=parseInt(w.dbIncPerRound||0,10)||0;
+      var _dbObjL=_dbSL+_dbIL*(_dbCurL-1);
+      s='☠️ TOUR '+_dbCurL+' · obj '+_dbObjL+' · '+(_tot||0)+' reps';
     }
     var repLead=liveReps(lead.sc),repMe=liveReps(sc);
     // Badge gap : LEADER pour le 1er, écart pour les autres
@@ -2553,8 +2558,14 @@ function startTeamBandIH(zone,ihTarget,doneHid,doneH,doneW,catId,catLeader){
       //   prochain (pending/pre — cas de latence où le heat fini n'est pas encore passé
       //   en 'done'), on saute directement à la preview au lieu de montrer « les
       //   résultats du heat suivant ».
+      // ★ FIX FLASH PROCHAIN HEAT (bug chef) : on n'entre dans cette phase QUE parce que
+      //   la séquence a démarré sur un heat réellement fini (gate doneData en amont). Le
+      //   statut Firebase peut avoir un léger lag (pas encore 'done') → avant, on sautait
+      //   en preview = FLASH « prochain heat » en début de séquence. On affiche donc les
+      //   résultats du heat pointé (doneHid) sans sauter, tant qu'il n'est pas 'pending'/'pre'
+      //   (= un vrai prochain heat, cas à éviter). Plus de flash.
       var _dhSt=(HEATS[doneHid]&&HEATS[doneHid].status)||(doneH&&doneH.status)||'';
-      if(_dhSt!=='done' && _dhSt!=='timecap'){ _setPhase('preview'); return; }
+      if(_dhSt==='pending' || _dhSt==='pre'){ _setPhase('preview'); return; }
       syncHeader('done');
       var heatRows=rankHeatEntries(doneHid,HEATS[doneHid]||doneH,doneW);
       // ★ VISUEL HEAT FINI — plus de gros logo tournant qui écrase la colonne.
