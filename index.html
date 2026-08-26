@@ -5704,12 +5704,17 @@ function _hjHeatsOfZone(zone, jours){
     var d=parseInt(h.catJour||h.jour||1,10)||1;
     return wantDays.indexOf(d)!==-1;
   }).map(function(h){
+    var _wn=h.wodNom||(h.wodInfo&&h.wodInfo.nom)||'';
+    if(!_wn && typeof WODS!=='undefined' && WODS && WODS.length){
+      var _w=WODS.find(function(x){ return String(x.id)===String(h.wodId); });
+      if(_w) _wn=_w.nom||'';
+    }
     return {
       id: String(h.globalNum||h.id||getHeatDisplayNum(h)),
       num: getHeatDisplayNum(h),
       cat: h.catNom||h.catName||'—',
       jour: parseInt(h.catJour||h.jour||1,10)||1,
-      wod: (h.wodInfo&&(h.wodInfo.nom||h.wodInfo.name))||''
+      wod: _wn||''
     };
   }).sort(function(a,b){ return (a.jour-b.jour)||(parseInt(a.num,10)-parseInt(b.num,10)); });
 }
@@ -5736,16 +5741,29 @@ function renderHjHeatPicker(ben){
   } else {
     html+='<div style="font-size:10px;color:var(--ink2);margin-bottom:8px;line-height:1.4">Coche les heats supervisés (<b>'+manual.length+'</b> sélectionné'+(manual.length>1?'s':'')+').</div>';
   }
-  var curDay=0;
+  // ★ arborescence : regroupé par WOD (WOD en tête, ses heats cochables en dessous)
+  var _grp={}, _ord=[];
   list.forEach(function(h){
-    if(h.jour!==curDay){ curDay=h.jour; html+='<div style="font-size:10px;font-weight:800;color:#F59E0B;letter-spacing:1px;margin:8px 0 4px">JOUR '+curDay+'</div>'; }
-    var checked = isAuto || manual.indexOf(h.id)!==-1;
-    var dis = isAuto ? 'opacity:.55;pointer-events:none' : '';
-    html+='<label style="display:flex;align-items:center;gap:9px;background:#F8FAFF;border:1px solid var(--brd);border-radius:8px;padding:8px 10px;margin-bottom:5px;cursor:pointer;'+dis+'">'
-      +'<input type="checkbox" '+(checked?'checked':'')+' onchange="hjToggleHeat('+ben.id+',\''+h.id+'\',this.checked)" style="width:16px;height:16px;accent-color:#F59E0B">'
-      +'<span style="font-weight:900;color:var(--ink);font-size:12px;min-width:52px">Heat '+h.num+'</span>'
-      +'<span style="flex:1;font-size:11px;color:#3A5270;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+escHtml(h.cat)+(h.wod?' · '+escHtml(h.wod):'')+'</span>'
-      +'</label>';
+    var _k=(h.wod&&String(h.wod).trim())?String(h.wod).trim():'—';
+    if(!_grp[_k]){ _grp[_k]=[]; _ord.push(_k); }
+    _grp[_k].push(h);
+  });
+  _ord.sort(function(a,b){ var fa=_grp[a][0], fb=_grp[b][0]; return (fa.jour-fb.jour)||(parseInt(fa.num,10)-parseInt(fb.num,10)); });
+  _ord.forEach(function(_wn){
+    var _items=_grp[_wn].slice().sort(function(a,b){ return (a.jour-b.jour)||(parseInt(a.num,10)-parseInt(b.num,10)); });
+    html+='<div style="display:flex;align-items:center;gap:8px;margin:11px 0 6px">'
+      +'<span style="font-size:12px;font-weight:900;color:var(--ink);letter-spacing:.3px">'+(_wn==='—'?'Sans WOD':escHtml(_wn))+'</span>'
+      +'<span style="font-size:9px;font-weight:800;color:#C2410C;background:#FFF7ED;border:1px solid #FDBA74;border-radius:999px;padding:2px 7px">'+_items.length+' heat'+(_items.length>1?'s':'')+'</span>'
+      +'</div>';
+    _items.forEach(function(h){
+      var checked = isAuto || manual.indexOf(h.id)!==-1;
+      var dis = isAuto ? 'opacity:.55;pointer-events:none' : '';
+      html+='<label style="display:flex;align-items:center;gap:9px;background:#F8FAFF;border:1px solid var(--brd);border-radius:8px;padding:8px 10px;margin:0 0 5px 12px;cursor:pointer;'+dis+'">'
+        +'<input type="checkbox" '+(checked?'checked':'')+' onchange="hjToggleHeat('+ben.id+',\''+h.id+'\',this.checked)" style="width:16px;height:16px;accent-color:#F59E0B">'
+        +'<span style="font-weight:900;color:var(--ink);font-size:12px;min-width:52px">Heat '+h.num+'</span>'
+        +'<span style="flex:1;font-size:11px;color:#3A5270;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+escHtml(h.cat)+' · J'+h.jour+'</span>'
+        +'</label>';
+    });
   });
   return html;
 }
