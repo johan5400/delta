@@ -11755,7 +11755,10 @@ function init(){
       }
       var finalizeWithCurrentState = function(source){
         var rosterSeeded = false;
-        if((!BENEVOLES || !BENEVOLES.length) && ensureInitialRealJudgeRoster(false)){
+        // ★ FIX BÉNÉVOLES/JUGES : ne semer le roster par défaut QUE si Firebase a déjà
+        //   répondu ET qu'il est réellement vide. Sinon on masquerait la liste du chef
+        //   pendant le court instant avant le retour du backup Firebase.
+        if((!BENEVOLES || !BENEVOLES.length) && window._deltaBackupLoadedOnce && ensureInitialRealJudgeRoster(false)){
           rosterSeeded = true;
           source = source || 'real_judges_seeded';
         }
@@ -11771,7 +11774,11 @@ function init(){
         }
         if(typeof generateHeatsSilent==='function') generateHeatsSilent();
         if(typeof syncHeatsToFirebase==='function') syncHeatsToFirebase();
-        if(typeof syncBenevolesToFirebase==='function') syncBenevolesToFirebase();
+        // ★ FIX BÉNÉVOLES/JUGES : NE PLUS repousser automatiquement les bénévoles locaux
+        //   vers Firebase au démarrage. Firebase (chef) fait autorité — repousser nos
+        //   locaux écrasait/masquait la liste à jour de Steph. La synchro d'écriture ne
+        //   se fait plus QUE sur action explicite (ajout/modif d'un bénévole dans l'admin).
+        // if(typeof syncBenevolesToFirebase==='function') syncBenevolesToFirebase();
         if(typeof renderZonesSynoptic==='function') renderZonesSynoptic();
         if(typeof renderPlanningCF==='function') renderPlanningCF();
         console.log('🔥 Firebase prêt — heats synchronisés');
@@ -11782,7 +11789,19 @@ function init(){
           finalizeWithCurrentState(source);
         });
       } else {
-        finalizeWithCurrentState(false);
+        // ★ FIX BÉNÉVOLES/JUGES (autorité Firebase) : même si on a un état local, on force
+        //   un chargement du backup Firebase au démarrage pour que les données du chef
+        //   (Steph) fassent AUTORITÉ et remplacent les bénévoles/juges locaux obsolètes.
+        //   Le listener admin_backup.on('value') gère ensuite les mises à jour en direct.
+        //   Sans ça, un état local non vide masquait la liste à jour de Firebase.
+        if(!window._deltaRestoreAttempted){
+          window._deltaRestoreAttempted = true;
+          restoreFromFirebaseBackup(_db).then(function(source){
+            finalizeWithCurrentState(false); // ne pas re-pousser nos locaux (voir finalize)
+          });
+        } else {
+          finalizeWithCurrentState(false);
+        }
       }
     } else if(attempt < 30){
       setTimeout(function(){ waitForDb(attempt+1); }, 500);
