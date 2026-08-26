@@ -222,7 +222,7 @@ body{
 .j-hdr{background:linear-gradient(160deg,var(--s1),var(--s2));border-bottom:1px solid var(--brd);padding:10px 13px;flex-shrink:0;padding-top:calc(var(--sat) + 10px)}
 .j-hdr-r1{display:flex;align-items:center;gap:8px;margin-bottom:5px}
 .j-heat-lbl{font-family:var(--fc);font-size:10px;font-weight:800;letter-spacing:2px;color:var(--ember);text-transform:uppercase;flex-shrink:0}
-.j-team{font-family:var(--fc);font-size:clamp(14px,4vw,20px);font-weight:900;color:var(--ink);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.j-team{font-family:var(--fc);font-size:clamp(16px,4.6vw,23px);font-weight:900;color:var(--ink);flex:1;line-height:1.12;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:break-word}
 .j-lane{font-family:var(--fc);font-size:9px;font-weight:800;padding:3px 8px;border-radius:5px;background:rgba(255,255,255,.07);color:var(--ink2);border:1px solid var(--brd);flex-shrink:0}
 .j-hdr-r2{display:flex;align-items:center;gap:8px}
 .j-wod-lbl{font-family:var(--fc);font-size:11px;font-weight:600;color:var(--ink2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -629,8 +629,7 @@ body.brief-mode #s-judge{display:none!important}
   </div>
   <div class="emom-history" id="j-emom-history" style="display:none"></div>
   <div class="emom-reset-row" id="j-emom-reset" style="display:none">
-    <button class="btn-emom-rst" onclick="resetRound()">↺ Reset ce round</button>
-    <button class="btn-emom-rst-all" onclick="resetAllRounds()">✕ Tout remettre à 0</button>
+    <button class="btn-emom-rst-all" onclick="repMinusOne()" style="flex:1">➖ Rep invalide (−1)</button>
   </div>
   <div class="j-moves" id="j-moves"></div>
 
@@ -3655,9 +3654,11 @@ function updateEmomDisplay(){
     var _dbMov=(SC.moves&&SC.moves.length)?SC.moves.map(function(m){return (m&&m.n)||'';}).filter(Boolean).join(' + '):'';
     if(re) re.textContent='TOUR '+emomRound+' · '+moveReps+' / '+_tgt+(_dbMov?' · '+_dbMov:'');
     if(ce) ce.className='emom-countdown work';
+    // ★ CHEF : reps TOUR PAR TOUR sur le Death By (comme le live) — un chip par tour bouclé.
+    var _dbHist=emomRoundHistory.map(function(r,i){ return '<span class="emom-rnd-chip'+(i===emomRound-2?' current':'')+'">T'+(i+1)+': '+r+'</span>'; }).join('');
     var _dh1=$('j-emom-history'),_dh2=$('j-round-history');
-    if(_dh1) _dh1.innerHTML='';
-    if(_dh2){ _dh2.innerHTML=''; _dh2.style.display='none'; }
+    if(_dh1) _dh1.innerHTML=_dbHist;
+    if(_dh2){ _dh2.innerHTML=_dbHist; _dh2.style.display=emomRoundHistory.length?'flex':'none'; }
   } else {
     if(re) re.textContent='TOUR '+emomRound+' / '+totalRounds+(emomIsWork?' · '+emomRoundReps+' reps':'');
     if(ce) ce.className='emom-countdown '+(emomIsWork?'work':'rest');
@@ -3675,7 +3676,12 @@ function updateEmomDisplay(){
   //   sans jamais masquer le comptage (en phase work emomIsWork=true donc exclu).
   var isResting = !done && (_tourValide || (!emomIsWork && rest>0));
   if(restScreen){
-    restScreen.classList.toggle('show', isResting);
+    // ★ FIX ÉCRAN NOIR ENTRE TOURS (bug chef) : des transitions d'écran posent
+    //   style.display='none' EN INLINE sur #j-rest-screen, ce qui écrase la classe
+    //   .show. Au repos, on force donc display:flex EN INLINE → l'écran repos (fond
+    //   sombre + message) s'affiche vraiment, plus de noir entre deux tours.
+    if(isResting){ restScreen.style.display='flex'; restScreen.classList.add('show'); }
+    else { restScreen.classList.remove('show'); restScreen.style.display='none'; }
     var _ecActive=(typeof _curMoveIsEcFree==='function' && _curMoveIsEcFree());
     if(counter) counter.style.display = (isResting||_ecActive)?'none':'flex';
     if(btns)    btns.style.display    = (isResting||_ecActive)?'none':'flex';
@@ -3718,17 +3724,20 @@ function updateEmomDisplay(){
   }
   if(fl==='emom') updateDisplay();
 }
-function resetRound(){
-  emomRoundReps=0;moveReps=0;moveIdx=0;
-  updateDisplay();updateEmomDisplay();
-  toast('↺ Round '+emomRound+' remis à 0');
-}
-function resetAllRounds(){
-  emomRoundReps=0;emomRoundHistory=[];emomTotalReps=0;
-  totalReps=0;moveReps=0;moveIdx=0;noReps=0;
-  $('j-nr-count').textContent='0';
-  updateDisplay();updateEmomDisplay();
-  toast('✕ Tout remis à 0');
+// ★ CHEF : « Rep invalide (−1) » — retire la DERNIÈRE rep (appui par erreur ou no-rep).
+//   Décrémente le total ET le tour courant (avant : « reset round » ne touchait pas au
+//   cumul → les reps s'accumulaient quand même). Un appui = une rep en moins.
+function repMinusOne(){
+  if(!guardScoreEdit('Saisie bloquée')) return;
+  if(totalReps<=0){ toast('Aucune rep à retirer'); vib(30); return; }
+  totalReps--;
+  if(moveReps>0) moveReps--;
+  var _f=(SC.fmt||'').toLowerCase();
+  if((_f==='emom'||_f==='interval'||(SC&&SC.deathBy)) && typeof emomRoundReps!=='undefined' && emomRoundReps>0) emomRoundReps--;
+  var nel=$('j-num'); if(nel){ nel.classList.remove('pop'); void nel.offsetWidth; nel.classList.add('pop'); }
+  updateDisplay(); if(typeof updateEmomDisplay==='function') updateEmomDisplay();
+  if(db) pushScoreLive();
+  vib(40); toast('➖ Rep retirée');
 }
 
 /* ── Tiebreak AUTOMATIQUE (capture instantanée du chrono) ── */

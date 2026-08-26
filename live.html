@@ -1842,6 +1842,14 @@ function attemptsRowHtml(sc, wodInfo){
   return '<div class="attempts"><span class="att-lbl">Essais</span>'+pills+'</div>';
 }
 function compareScores(a,b,w){
+  // ★ DEATH BY (classement dynamique) : équipes encore EN COURSE en haut, HORS COURSE
+  //   en BAS — PRIORITAIRE sur TOUT, y compris le statut « validé ». (Bug chef : une
+  //   équipe hors course est marquée validée/ok, et le tri « validé en haut » ci-dessous
+  //   la faisait remonter tout en haut. On tranche donc AVANT.)
+  if(String((w&&w.wodFormat)||'').toLowerCase()==='deathby'){
+    var _aOut=!!(a.sc&&a.sc.dbOut), _bOut=!!(b.sc&&b.sc.dbOut);
+    if(_aOut!==_bOut) return _aOut?1:-1;
+  }
   if(a.ok&&!b.ok)return -1;
   if(!a.ok&&b.ok)return 1;
   var av=scoreVal(a.sc,w),bv=scoreVal(b.sc,w);
