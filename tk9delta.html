@@ -3631,7 +3631,10 @@ function renderLanes(zone,hid,h){
       scoreSuffix='kg';
     } else if(isErgo){
       scoreRaw=parseFloat(sc.ergoVal||sc.dist||0)||0;
-      scoreLabel=scoreRaw?scoreRaw+(wod.scoreFinaleUnit||'m'):'—';
+      // ★ CHEF : afficher l'unité RÉELLE du score. Un WOD scoré en calories affichait « 100m »
+      //   (défaut mètres) → on met « cal » quand scoreFinale/scoreType = cal.
+      var _sfCal=String(wod.scoreFinale||wod.scoreType||'').toLowerCase()==='cal';
+      scoreLabel=scoreRaw?(scoreRaw+(_sfCal?' cal':(wod.scoreFinaleUnit||sc.ergoUnit||'m'))):'—';
     } else if(isFortime&&judgeOk&&finalTimeSec>0){
       scoreRaw=-finalTimeSec; // négatif pour tri (plus petit = mieux)
       scoreLabel=fmtS(finalTimeSec);
@@ -3714,14 +3717,16 @@ function renderLanes(zone,hid,h){
         var ergoDist=parseFloat(sc.ergoVal||sc.dist||0)||0;
         var ergoRate=ergoDist>0?ergoDist/elapsed:0;
         var ergoTarget=totalRepsWod||parseFloat(wod.scoreFinaleTarget||0)||0;
+        var _sfCalP=String(wod.scoreFinale||wod.scoreType||'').toLowerCase()==='cal';
+        var _euP=_sfCalP?' cal':(wod.scoreFinaleUnit||sc.ergoUnit||'m');
         if(ergoTarget>0 && ergoRate>0){
           var remErgo=Math.max(0,ergoTarget-ergoDist);
           var etaSecErgo=elapsed+Math.round(remErgo/ergoRate);
           etaCls=cap>0?(cap-etaSecErgo>30?'ok':cap-etaSecErgo>0?'warn':'err'):'blue';
           eta='ETA '+fmtS(etaSecErgo);
-          proj='PROJ '+Math.round(ergoRate*(cap>0?cap:elapsed))+(wod.scoreFinaleUnit||'m');
+          proj='PROJ '+Math.round(ergoRate*(cap>0?cap:elapsed))+_euP;
         } else if(ergoDist>0){
-          proj=ergoDist+(wod.scoreFinaleUnit||'m');etaCls='blue';
+          proj=ergoDist+_euP;etaCls='blue';
         }
         pace=ergoRate>0?(ergoRate*60).toFixed(1)+(wod.scoreFinaleUnit||'m')+'/min':'';
       } else if(isEmomType){
