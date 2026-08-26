@@ -7319,6 +7319,12 @@ function syncBenevolesToFirebase(){
   _syncBenTimer = setTimeout(function(){
     var db=getDb(); if(!db || typeof db.ref !== 'function') return;
     BENEVOLES = sanitizeLoadedBenevoles(BENEVOLES).list;
+    // SÉCURITÉ : ne pas pousser une liste vide tant que le 1er chargement Firebase
+    // n'a pas eu lieu (évite d'écraser les juges/bénévoles du chef au démarrage).
+    if((!BENEVOLES || !BENEVOLES.length) && !window._deltaBackupLoadedOnce){
+      console.warn('syncBenevolesToFirebase: liste vide avant 1er chargement Firebase — envoi ignoré');
+      return;
+    }
     var benMap = {};
     (BENEVOLES||[]).forEach(function(b){
       if(!b || !b.id) return;
@@ -7391,6 +7397,13 @@ function syncWodsToFirebase(){
   var db = getDb(); if(!db || typeof db.ref !== 'function') return;
   // ATTENTION : si WODS est vide, on EFFACE le noeud (sinon les anciens WODs persistent sur TK/live)
   if(!WODS || !WODS.length){
+    // SÉCURITÉ : ne jamais effacer la base tant que le premier chargement Firebase
+    // n'a pas eu lieu. Sinon un autoSave au démarrage écraserait les WODs existants
+    // avec du vide (perte du travail du chef).
+    if(!window._deltaBackupLoadedOnce){
+      console.warn('syncWodsToFirebase: WODS vide avant 1er chargement Firebase — effacement ignoré');
+      return;
+    }
     try { db.ref('wods').set(null); } catch(e){}
     return;
   }
@@ -7442,6 +7455,12 @@ function syncCategoriesToFirebase(){
   var db = getDb(); if(!db || typeof db.ref !== 'function') return;
   // Si vide, on efface (pour que TK/live ne gardent pas d'anciennes catégories fantômes)
   if(!CATEGORIES || !CATEGORIES.length){
+    // SÉCURITÉ : ne jamais effacer la base tant que le premier chargement Firebase
+    // n'a pas eu lieu (évite d'écraser les catégories du chef avec du vide au démarrage).
+    if(!window._deltaBackupLoadedOnce){
+      console.warn('syncCategoriesToFirebase: CATEGORIES vide avant 1er chargement Firebase — effacement ignoré');
+      return;
+    }
     try { db.ref('categories').set(null); } catch(e){}
     return;
   }
@@ -11687,6 +11706,53 @@ function init(){
     }
     if(_db && typeof _db.ref === 'function'){
       db = _db; // s'assurer que db est bien assigné
+      // ── SYNCHRONISATION COMPLÈTE DEPUIS FIREBASE (source de vérité) ──
+      // Corrige le bug où index.html affichait des données locales/codées en dur
+      // (WODs, catégories, équipes, juges) au lieu de l'état réel de la base commune.
+      // On écoute admin_backup en direct : tout ce que le chef enregistre arrive ici.
+      if(!window._deltaFullSyncOn){
+        window._deltaFullSyncOn = true;
+        try {
+          _db.ref('admin_backup').on('value', function(snap){
+            var backup = snap.val();
+            window._deltaBackupLoadedOnce = true; // le 1er retour Firebase a eu lieu
+            if(!backup || typeof backup !== 'object') return;
+
+            // Normaliser benevoles (peut être objet {k:v} ou tableau)
+            if(backup.benevoles && !Array.isArray(backup.benevoles) && typeof backup.benevoles === 'object'){
+              backup.benevoles = Object.keys(backup.benevoles).map(function(k){ return backup.benevoles[k]; }).filter(Boolean);
+            }
+            // Normaliser categories (idem)
+            if(backup.categories && !Array.isArray(backup.categories) && typeof backup.categories === 'object'){
+              backup.categories = Object.keys(backup.categories).map(function(k){ return backup.categories[k]; }).filter(Boolean);
+            }
+            // Normaliser wods (idem)
+            if(backup.wods && !Array.isArray(backup.wods) && typeof backup.wods === 'object'){
+              backup.wods = Object.keys(backup.wods).map(function(k){ return backup.wods[k]; }).filter(Boolean);
+            }
+
+            try { applyState(backup); } catch(e){ console.warn('applyState (backup) échoué', e); }
+            try { if(typeof normalizeWodOrdreZone==='function') normalizeWodOrdreZone(); } catch(e){}
+
+            // Rafraîchir TOUS les affichages qui dépendent de ces données
+            try { if(typeof renderWodsList==='function') renderWodsList(); } catch(e){}
+            try { if(typeof renderProgWodsList==='function') renderProgWodsList(); } catch(e){}
+            try { if(typeof renderCategories==='function') renderCategories(); } catch(e){}
+            try { if(typeof renderBenView==='function') renderBenView(); } catch(e){}
+            try { if(typeof renderJourView==='function') renderJourView(); } catch(e){}
+            try { if(typeof renderAccueilView==='function') renderAccueilView(); } catch(e){}
+            try { if(typeof renderZonesList==='function') renderZonesList(); } catch(e){}
+            try { if(typeof renderZonesSynoptic==='function') renderZonesSynoptic(); } catch(e){}
+            try { if(typeof renderPlanningCF==='function') renderPlanningCF(); } catch(e){}
+            try { if(typeof renderProg==='function') renderProg(); } catch(e){}
+            try { if(typeof computeProgramme==='function') computeProgramme(); } catch(e){}
+            try { if(typeof updateHeader==='function') updateHeader(); } catch(e){}
+
+            var nbC = (CATEGORIES||[]).length, nbB = (BENEVOLES||[]).length, nbW = (WODS||[]).length;
+            console.log('✅ Sync Firebase — '+nbW+' WOD, '+nbC+' catégories, '+nbB+' juges/bénévoles chargés');
+          });
+        } catch(eSync){ console.warn('Sync admin_backup Firebase échouée', eSync); }
+      }
       var finalizeWithCurrentState = function(source){
         var rosterSeeded = false;
         if((!BENEVOLES || !BENEVOLES.length) && ensureInitialRealJudgeRoster(false)){
