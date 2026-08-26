@@ -222,7 +222,7 @@ body{
 .j-hdr{background:linear-gradient(160deg,var(--s1),var(--s2));border-bottom:1px solid var(--brd);padding:10px 13px;flex-shrink:0;padding-top:calc(var(--sat) + 10px)}
 .j-hdr-r1{display:flex;align-items:center;gap:8px;margin-bottom:5px}
 .j-heat-lbl{font-family:var(--fc);font-size:10px;font-weight:800;letter-spacing:2px;color:var(--ember);text-transform:uppercase;flex-shrink:0}
-.j-team{font-family:var(--fc);font-size:clamp(16px,4.6vw,23px);font-weight:900;color:var(--ink);flex:1;line-height:1.12;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:break-word}
+.j-team{font-family:var(--fc);font-size:clamp(17px,5.2vw,26px);font-weight:900;color:var(--ink);flex:1;min-width:0;line-height:1.15;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;word-break:break-word;hyphens:auto}
 .j-lane{font-family:var(--fc);font-size:9px;font-weight:800;padding:3px 8px;border-radius:5px;background:rgba(255,255,255,.07);color:var(--ink2);border:1px solid var(--brd);flex-shrink:0}
 .j-hdr-r2{display:flex;align-items:center;gap:8px}
 .j-wod-lbl{font-family:var(--fc);font-size:11px;font-weight:600;color:var(--ink2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -525,7 +525,7 @@ body.brief-mode #s-judge{display:none!important}
     <div class="w-row"><span class="w-lbl">WOD</span><span class="w-val" id="w-wod">—</span></div>
     <div class="w-row"><span class="w-lbl">Heat</span><span class="w-val" id="w-heat">—</span></div>
     <div class="w-row"><span class="w-lbl">Ligne</span><span class="w-val" id="w-ligne">—</span></div>
-    <div class="w-row"><span class="w-lbl">Équipe</span><span class="w-val" id="w-team">—</span></div>
+    <div class="w-row" style="flex-wrap:wrap"><span class="w-lbl">Équipe</span><span class="w-val" id="w-team" style="text-align:right;flex:1;min-width:0;word-break:break-word;line-height:1.25;font-size:14px">—</span></div>
     <div class="w-row"><span class="w-lbl">Format</span><span class="w-val" id="w-fmt">—</span></div>
   </div>
   <!-- Planning : affiche le prochain heat APRÈS que le juge ait fini au moins 1 heat -->
@@ -4393,6 +4393,15 @@ function _judgeRestoreFromScore(sc, runTs){
   moveIdx=Math.max(0,Math.min(parseInt(sc.curMoveIdx||0,10)||0,maxIdx));
   moveReps=Math.max(0,parseInt(sc.moveReps||0,10)||0);
   currentRound=Math.max(1,parseInt(sc.currentRound||1,10)||1);
+  // ★ REPRISE BÉTON EMOM / DEATH BY / CLEAN LADDER : restaurer le compteur du tour et
+  //   les statuts, sinon un juge qui rouvre en plein tour perd les reps du tour en cours
+  //   et le statut hors-course/éliminé (le total, lui, était déjà restauré).
+  if(typeof emomRoundReps!=='undefined') emomRoundReps=Math.max(0,parseInt(sc.roundReps||0,10)||0);
+  if(typeof emomTotalReps!=='undefined' && sc.emomTotalReps!=null) emomTotalReps=Math.max(0,parseInt(sc.emomTotalReps||0,10)||0);
+  if(typeof emomRound!=='undefined') emomRound=Math.max(1,parseInt(sc.currentRound||1,10)||1);
+  if(typeof _dbOut!=='undefined') _dbOut=(sc.dbOut===true);
+  if(typeof _clOut!=='undefined') _clOut=(sc.clOut===true);
+  if(typeof _clLoad!=='undefined' && sc.clLoad!=null) _clLoad=parseFloat(sc.clLoad)||0;
   tbTs=parseInt(sc.tiebreak||0,10)||0;
   _tbCaptured=[];
   var tbs=Array.isArray(sc.tiebreaks)?sc.tiebreaks:[];
@@ -4904,7 +4913,62 @@ function saveSession(){
       prenom:FB_JUGE_PRENOM, nom:FB_JUGE_NOM, ts:Date.now()
     }));
   }catch(e){}
+  // ★ REPRISE BÉTON : sauvegarder aussi le COMPTAGE en cours, lié au heat courant.
+  //   Ainsi, si l'appli est fermée (appel, notif, écran verrouillé, appli tuée), le juge
+  //   rouvre et retombe non seulement sur son heat mais AU BON CHIFFRE.
+  saveCount();
 }
+function _countKey(){ return 'foc-judge-count-'+(FB_HEAT_ID||'?')+'-'+(FB_LANE||'?'); }
+function saveCount(){
+  if(!REAL_MODE || !SC || done) return;
+  try{
+    localStorage.setItem(_countKey(), JSON.stringify({
+      moveIdx:moveIdx, moveReps:moveReps, totalReps:totalReps, noReps:noReps, currentRound:currentRound,
+      emomRound:(typeof emomRound!=='undefined'?emomRound:1),
+      emomRoundReps:(typeof emomRoundReps!=='undefined'?emomRoundReps:0),
+      emomTotalReps:(typeof emomTotalReps!=='undefined'?emomTotalReps:0),
+      emomRoundHistory:(typeof emomRoundHistory!=='undefined'?emomRoundHistory:[]),
+      dbOut:(typeof _dbOut!=='undefined'?_dbOut:false),
+      clOut:(typeof _clOut!=='undefined'?_clOut:false),
+      clLoad:(typeof _clLoad!=='undefined'?_clLoad:null),
+      ecValues:(typeof _ecValues!=='undefined'?_ecValues:[]),
+      pendingDist:(typeof _pendingDist!=='undefined'?_pendingDist:null),
+      ts:Date.now()
+    }));
+  }catch(e){}
+}
+function restoreCountIfNeeded(){
+  // À rappeler une fois le heat chargé. Restaure le comptage si on retrouve un état récent
+  //   pour CE heat + CETTE lane (même clé), datant de moins de 6h.
+  if(!SC) return;
+  try{
+    var c=JSON.parse(localStorage.getItem(_countKey())||'null');
+    if(!c) return;
+    if(Date.now()-(c.ts||0) > 21600000){ localStorage.removeItem(_countKey()); return; }
+    moveIdx=c.moveIdx||0; moveReps=c.moveReps||0; totalReps=c.totalReps||0; noReps=c.noReps||0;
+    currentRound=c.currentRound||1;
+    if(typeof emomRound!=='undefined') emomRound=c.emomRound||1;
+    if(typeof emomRoundReps!=='undefined') emomRoundReps=c.emomRoundReps||0;
+    if(typeof emomTotalReps!=='undefined') emomTotalReps=c.emomTotalReps||0;
+    if(typeof emomRoundHistory!=='undefined' && Array.isArray(c.emomRoundHistory)) emomRoundHistory=c.emomRoundHistory;
+    if(typeof _dbOut!=='undefined') _dbOut=!!c.dbOut;
+    if(typeof _clOut!=='undefined') _clOut=!!c.clOut;
+    if(typeof _clLoad!=='undefined') _clLoad=(c.clLoad!=null?c.clLoad:null);
+    if(typeof _ecValues!=='undefined' && Array.isArray(c.ecValues)) _ecValues=c.ecValues;
+    if(typeof _pendingDist!=='undefined') _pendingDist=(c.pendingDist!=null?c.pendingDist:null);
+    try{ if(typeof updateDisplay==='function') updateDisplay(); }catch(e){}
+    try{ if(typeof updateEmomDisplay==='function') updateEmomDisplay(); }catch(e){}
+    try{ if(typeof ecRefresh==='function') ecRefresh(); }catch(e){}
+    if((totalReps||0)>0 || (noReps||0)>0){ toast('🔄 Comptage restauré — '+(totalReps||0)+' reps','#4DA6FF',3500); }
+  }catch(e){}
+}
+// ★ Sauvegarde INSTANTANÉE quand l'appli passe en arrière-plan (appel entrant, notif,
+//   verrouillage, bascule d'appli) — c'est le moment critique où l'appli peut être tuée.
+document.addEventListener('visibilitychange',function(){
+  if(document.visibilityState==='hidden'){ try{ saveSession(); }catch(e){} }
+});
+window.addEventListener('pagehide',function(){ try{ saveSession(); }catch(e){} });
+window.addEventListener('beforeunload',function(){ try{ saveSession(); }catch(e){} });
 function restoreSessionIfNeeded(){
   try{
     var s=JSON.parse(localStorage.getItem('foc-judge-session')||'null');
@@ -4988,6 +5052,10 @@ function pushScoreLive(){
     //   du tour, pas le cumul. curMoveIdx sert à savoir si on est sur le mouvement compté.
     roundReps:(typeof emomRoundReps!=='undefined'?emomRoundReps:0),
     dbOut:_dbOut,
+    // ★ CLEAN LADDER : pousser statut éliminé/fini + charge finale, pour reprise + live.
+    clOut:(typeof _clOut!=='undefined'?_clOut:false),
+    clLoad:(typeof _clLoad!=='undefined'&&_clLoad!=null?_clLoad:null),
+    emomTotalReps:(typeof emomTotalReps!=='undefined'?emomTotalReps:0),
     // ★ SYNCHRO TK/LIVE ergo cumulé : pousser aussi dist/ergoVal en direct pour que
     //   le TK affiche les cals/mètres comme le live (avant : seul reps était poussé,
     //   le TK cherchait dist/ergoVal → 0 → désync).
