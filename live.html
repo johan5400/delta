@@ -917,7 +917,7 @@ function getLiveChronoFrame(zone,hid,h,w){
   // ★ FIX EMOM DÉCOUPAGE LIVE : un EMOM se découpe TOUJOURS par tour (avec le travail
   //   et le repos de chaque tour), même sans pause entre tours. Sans ça, le live
   //   affichait un décompte global (ex 6:45) au lieu de "R2/7 · minute qui tourne".
-  var _isEmomLive=(type==='emom'||type==='interval'||type==='tabata');
+  var _isEmomLive=(type==='emom'||type==='interval'||type==='tabata'||type==='cleanladder');
   var _emWork=parseInt(w.workMin||w.emomWork||60,10)||60;
   var _emRest=parseInt(w.restMin||w.emomRest||0,10)||0;
   // ★ FIX CHRONO FOR TIME (même fix que le TK) : ne découper le chrono en
@@ -1850,6 +1850,17 @@ function compareScores(a,b,w){
     var _aOut=!!(a.sc&&a.sc.dbOut), _bOut=!!(b.sc&&b.sc.dbOut);
     if(_aOut!==_bOut) return _aOut?1:-1;
   }
+  // ★ CLEAN LADDER (classement) : total reps cumulées d'abord (géré par scoreVal ci-dessous),
+  //   puis la charge finale (kg) pour départager les égalités. Les éliminés ne sont PAS
+  //   relégués en bas ici : en Clean Ladder, un athlète éliminé garde son total de reps
+  //   qui le classe normalement (contrairement au Death By). On départage juste par charge.
+  if(String((w&&w.wodFormat)||'').toLowerCase()==='cleanladder'){
+    var _avc=scoreVal(a.sc,w), _bvc=scoreVal(b.sc,w);
+    if(_bvc!==_avc) return _bvc-_avc; // total reps décroissant
+    var _akg=parseFloat((a.sc&&(a.sc.clLoad!=null?a.sc.clLoad:a.sc.load))||0)||0;
+    var _bkg=parseFloat((b.sc&&(b.sc.clLoad!=null?b.sc.clLoad:b.sc.load))||0)||0;
+    if(_bkg!==_akg) return _bkg-_akg; // à reps égales, charge la plus lourde devant
+  }
   if(a.ok&&!b.ok)return -1;
   if(!a.ok&&b.ok)return 1;
   var av=scoreVal(a.sc,w),bv=scoreVal(b.sc,w);
@@ -2075,11 +2086,23 @@ function renderRankCards(rows,w,st,showLiveChips,h,catId,catLeader){
       //   courant SANS /total, calculé depuis le temps écoulé (même logique que la carte
       //   score plus bas), et il tique bien tour après tour.
       var _isDeathByLive = _fmt==='deathby';
+      var _isCleanLadderLive = _fmt==='cleanladder';
       if(_isDeathByLive){
         var _dbIntB=parseInt(w.dbRoundSec||60,10)||60; if(_dbIntB<1)_dbIntB=1;
         var _dbElB=(h&&h.startTimestamp)?Math.floor((now()-h.startTimestamp)/1000):0; if(_dbElB<0)_dbElB=0;
         var _dbCurB=Math.floor(_dbElB/_dbIntB)+1;
         _roundHtml='<div style="font-size:.6em;color:#4ADE80;font-family:var(--fm);font-weight:900;letter-spacing:.5px;margin-top:3px;line-height:1;text-shadow:0 0 10px rgba(74,222,128,.4)">Tour '+_dbCurB+'</div>';
+      } else if(_isCleanLadderLive){
+        // ★ CLEAN LADDER : tours définis (échelle libre) → afficher « Tour X/N », X calculé
+        //   depuis le temps écoulé (cycle = travail + repos), pour qu'il tique tour par tour.
+        var _clIntB=parseInt(w.workMin||w.emomWork||60,10)||60; if(_clIntB<1)_clIntB=1;
+        var _clRestB=parseInt(w.restMin||w.emomRest||0,10)||0;
+        var _clCycB=_clIntB+_clRestB; if(_clCycB<1)_clCycB=1;
+        var _clElB=(h&&h.startTimestamp)?Math.floor((now()-h.startTimestamp)/1000):0; if(_clElB<0)_clElB=0;
+        var _clCurB=Math.floor(_clElB/_clCycB)+1;
+        var _clTotB=_totalRounds>0?_totalRounds:_clCurB;
+        if(_clCurB>_clTotB)_clCurB=_clTotB;
+        _roundHtml='<div style="font-size:.6em;color:#4ADE80;font-family:var(--fm);font-weight:900;letter-spacing:.5px;margin-top:3px;line-height:1;text-shadow:0 0 10px rgba(74,222,128,.4)">Tour '+_clCurB+'/'+_clTotB+'</div>';
       } else {
       var _showRound = !_isEmomTeam && ((_totalRounds>1) || _isRounds || (_isAmrap && _cRound>=1));
       if(_showRound){
@@ -2116,6 +2139,24 @@ function renderRankCards(rows,w,st,showLiveChips,h,catId,catLeader){
       var _dbSL=parseInt(w.dbStartReps||1,10)||1, _dbIL=parseInt(w.dbIncPerRound||0,10)||0;
       var _dbObjL=_dbSL+_dbIL*(_dbCurL-1);
       s='☠️ TOUR '+_dbCurL+' · obj '+_dbObjL+' · '+(_tot||0)+' reps';
+    }
+    // ★ CLEAN LADDER : afficher la charge finale (kg) si terminé, sinon la progression.
+    if(w && String(w.wodFormat||'').toLowerCase()==='cleanladder'){
+      var _clKg=(sc&&(sc.clLoad!=null?sc.clLoad:(sc.load||0)))||0;
+      if(sc&&sc.clOut){
+        // éliminé OU fini : total reps + charge si saisie
+        s='💪 '+((parseInt(sc.reps)||0)||_tot||0)+' reps'+(_clKg>0?' · '+_clKg+' kg':'');
+      } else if(!val){
+        // en cours : tour + reps cumulées
+        var _clIntL=parseInt(w.workMin||w.emomWork||60,10)||60; if(_clIntL<1)_clIntL=1;
+        var _clElL=(h&&h.startTimestamp)?Math.floor((now()-h.startTimestamp)/1000):0; if(_clElL<0)_clElL=0;
+        var _clRestL=parseInt(w.restMin||w.emomRest||0,10)||0;
+        var _clCycL=_clIntL+_clRestL; if(_clCycL<1)_clCycL=1;
+        var _clCurL=Math.floor(_clElL/_clCycL)+1;
+        s='💪 TOUR '+_clCurL+' · '+(_tot||0)+' reps';
+      } else if(_clKg>0){
+        s='💪 '+((parseInt(sc.reps)||0)||_tot||0)+' reps · '+_clKg+' kg';
+      }
     }
     var repLead=liveReps(lead.sc),repMe=liveReps(sc);
     // Badge gap : LEADER pour le 1er, écart pour les autres

@@ -4355,7 +4355,7 @@ function renderMatZone(z, mat){
 }
 
 function formatType(w){
-  var m={amrap:'AMRAP',fortime:'FOR TIME',emom:'EMOM',rounds:'ROUNDS',open:'OPEN'}[w.wodFormat||w.type||'']||'WOD';
+  var m={amrap:'AMRAP',fortime:'FOR TIME',emom:'EMOM',rounds:'ROUNDS',open:'OPEN',deathby:'DEATH BY',cleanladder:'CLEAN LADDER'}[w.wodFormat||w.type||'']||'WOD';
   var _ds=(w.duree>0?w.duree:((w.capMinutes||0)*60)); var _dm=(_ds>0?(Math.floor(_ds/60)+'min'+(_ds%60?(_ds%60)+'s':'')):''); return m+(_dm?' · '+_dm:'');
 }
 
@@ -6817,7 +6817,7 @@ if(typeof fbBuildWodInfo !== 'function'){
     //   découpe pas. On les dérive ici automatiquement :
     //   - durée d'un tour = champ Travail (workMin) ou 60s par défaut
     //   - nombre de tours = nombre de tours perso (ou durée totale / durée d'un tour)
-    var _isEmom = String(wod.wodFormat||'').toLowerCase()==='emom' || String(wod.wodFormat||'').toLowerCase()==='interval';
+    var _isEmom = String(wod.wodFormat||'').toLowerCase()==='emom' || String(wod.wodFormat||'').toLowerCase()==='interval' || String(wod.wodFormat||'').toLowerCase()==='cleanladder';
     var _emomWorkSec = parseInt(wod.workMin,10)||0;
     var _emomRestSec = parseInt(wod.restMin,10)||0;
     var _nbToursPerso = (_tcustom && Array.isArray(wod.toursPerso)) ? wod.toursPerso.length : 0;
@@ -12054,7 +12054,7 @@ function updateWodProg(id, field, val) {
     //   Évite l'incohérence (7 tours d'1min affichés 7min mais durant plus avec pauses).
     if(['rounds','workMin','restMin','wodFormat','duree','pauseEntreToursSec','pauseEntreToursActive'].indexOf(field)>=0){
       var _fmt=String(w.wodFormat||'').toLowerCase();
-      if(_fmt==='emom'||_fmt==='interval'||_fmt==='tabata'||_fmt==='deathby'){
+      if(_fmt==='emom'||_fmt==='interval'||_fmt==='tabata'||_fmt==='deathby'||_fmt==='cleanladder'){
         var _work=parseInt(w.workMin,10)||60;
         var _rest=parseInt(w.restMin,10)||0;        // repos DANS le tour (compte dans le WOD)
         var _tours=parseInt(w.rounds,10)||1;
@@ -12527,7 +12527,7 @@ function renderProgWodsList() {
     var _cust = (w.toursMode==='custom') && Array.isArray(w.toursPerso) && w.toursPerso.length>0;
     var nT = _cust ? w.toursPerso.length : (parseInt(w.rounds||1,10)||1);
     var nM = _cust ? w.toursPerso.reduce(function(a,tp){return a+((tp&&tp.mouvements)?tp.mouvements.length:0);},0) : (w.mouvements||[]).length;
-    var FMTL = {amrap:'AMRAP',fortime:'FOR TIME',open:'OPEN',rounds:'ROUNDS',emom:'EMOM',tabata:'TABATA'};
+    var FMTL = {amrap:'AMRAP',fortime:'FOR TIME',open:'OPEN',rounds:'ROUNDS',emom:'EMOM',tabata:'TABATA',deathby:'DEATH BY',cleanladder:'CLEAN LADDER'};
     var SCL  = {reps:'reps',load:'kg',dist:'m',time:'temps',cal:'cal'};
     var nTb  = tbCountTotal(w);
     var chips = ''
@@ -12596,7 +12596,7 @@ function renderProgWodsList() {
         +     '</select></div>'
         +   '<div><label style="'+LABEL+'">Format</label>'
         +     '<select onchange="updateWodFmt('+w.id+',this.value)" style="'+IS+';border:1.5px solid #BFDBFE;background:#fff;padding:7px 8px;font-size:11px" onclick="event.stopPropagation()">'
-        +     [{v:'amrap',l:'⏱ AMRAP'},{v:'fortime',l:'🏁 For Time'},{v:'open',l:'🏅 Open'},{v:'rounds',l:'🔄 Rounds'},{v:'emom',l:'📡 EMOM'},{v:'tabata',l:'💥 Tabata'},{v:'deathby',l:'💀 Death By'}]
+        +     [{v:'amrap',l:'⏱ AMRAP'},{v:'fortime',l:'🏁 For Time'},{v:'open',l:'🏅 Open'},{v:'rounds',l:'🔄 Rounds'},{v:'emom',l:'📡 EMOM'},{v:'tabata',l:'💥 Tabata'},{v:'deathby',l:'💀 Death By'},{v:'cleanladder',l:'💪 Clean Ladder'}]
             .map(function(o){return '<option value="'+o.v+'"'+((w.wodFormat||'amrap')===o.v?' selected':'')+'>'+o.l+'</option>';}).join('')
         +     '</select></div>'
         +   '<div><label style="'+LABEL+'">Score</label>'
@@ -12629,7 +12629,7 @@ function renderProgWodsList() {
               // ★ EMOM : cacher la 'Pause entre tours' (doublon avec le champ REPOS).
               //   Pour un EMOM, le repos entre tours se règle dans TIMING > Repos.
               //   Entre deux passages d'athlètes = c'est l'INTER-HEAT, pas cette pause.
-              var _isEmomFmt=['emom','interval','tabata'].indexOf(w.wodFormat||'amrap')>=0;
+              var _isEmomFmt=['emom','interval','tabata','cleanladder'].indexOf(w.wodFormat||'amrap')>=0;
               var pauseBlock = _isEmomFmt
                 ? '<div style="background:#F8FAFC;border:1px dashed #CBD5E1;border-radius:8px;padding:8px 10px;margin-top:8px;font-size:10px;color:#64748B;line-height:1.5">'
                   + '☕ <b>Pause entre tours</b> : pas nécessaire pour un EMOM. Utilise le champ '
@@ -12690,13 +12690,13 @@ function renderProgWodsList() {
               +   ' style="'+IS+';background:rgba(245,166,35,.08);border-color:rgba(245,166,35,.25);color:var(--amber)" onclick="event.stopPropagation()"></div>'
               : '')
             + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
-            +   '<div style="'+(['emom','tabata'].indexOf(w.wodFormat||'amrap')>=0?'':'opacity:.35;pointer-events:none')+'"><label style="'+LABEL+'">Travail (mm:ss)</label>'
+            +   '<div style="'+(['emom','tabata','cleanladder'].indexOf(w.wodFormat||'amrap')>=0?'':'opacity:.35;pointer-events:none')+'"><label style="'+LABEL+'">Travail (mm:ss)</label>'
             +   '<input type="text" inputmode="numeric" pattern="[0-9:]*" placeholder="mm:ss" value="'+secToMmss(w.workMin||w.duree||600)+'"'
             +   ' onchange="event.stopPropagation();updateWodProg('+w.id+',\'workMin\',mmssToSec(this.value))"'
             +   ' onblur="event.stopPropagation();this.value=secToMmss(mmssToSec(this.value));updateWodProg('+w.id+',\'workMin\',mmssToSec(this.value))"'
             +   ' onclick="event.stopPropagation()" onfocus="event.stopPropagation()"'
             +   ' style="'+IS+';color:var(--blue);font-size:16px;text-align:center;letter-spacing:1px"></div>'
-            +   '<div style="'+(['emom','tabata'].indexOf(w.wodFormat||'amrap')>=0?'':'opacity:.35;pointer-events:none')+'">'
+            +   '<div style="'+(['emom','tabata','cleanladder'].indexOf(w.wodFormat||'amrap')>=0?'':'opacity:.35;pointer-events:none')+'">'
             +   '<label style="'+LABEL+'">Repos (mm:ss)</label>'
             +   '<input type="text" inputmode="numeric" pattern="[0-9:]*" placeholder="mm:ss" value="'+secToMmss(w.restMin||0)+'"'
             +   ' onchange="event.stopPropagation();updateWodProg('+w.id+',\'restMin\',mmssToSec(this.value))"'
@@ -12706,7 +12706,7 @@ function renderProgWodsList() {
             + '</div>'
             // ★ DURÉE AUTO EMOM : bandeau qui affiche le calcul (travail+repos)×tours
             //   Aide le chef à voir la durée totale sans se tromper.
-            + (['emom','interval','tabata'].indexOf(w.wodFormat||'amrap')>=0
+            + (['emom','interval','tabata','cleanladder'].indexOf(w.wodFormat||'amrap')>=0
                ? (function(){
                    var _wk=parseInt(w.workMin,10)||60, _rs=parseInt(w.restMin,10)||0, _tr=parseInt(w.rounds,10)||1;
                    var _tot=(_wk+_rs)*_tr;
@@ -21643,10 +21643,10 @@ function lsBuildScorecardHTML(heat, slot, wod, sc, nomEv, timeStr) {
   var rows = blocks.reduce(function(a,b){return a.concat(b.rows);},[]);
 
   var wodFmt   = String(wod.wodFormat||wod.type||'amrap').toLowerCase();
-  var fmtLabels= {amrap:'AMRAP',fortime:'FOR TIME',emom:'EMOM',rounds:'ROUNDS',maxload:'MAX LOAD',tabata:'TABATA'};
+  var fmtLabels= {amrap:'AMRAP',fortime:'FOR TIME',emom:'EMOM',rounds:'ROUNDS',maxload:'MAX LOAD',tabata:'TABATA',deathby:'DEATH BY',cleanladder:'CLEAN LADDER'};
   var fmtLabel = fmtLabels[wodFmt] || 'AMRAP';
   var capLabel = fmtLabel + ' \u00b7 ' + secToMmss(wod.duree||0);
-  var fmtBgMap = {amrap:'#1E40AF',fortime:'#B91C1C',emom:'#065F46',rounds:'#6B21A8',maxload:'#92400E',tabata:'#0E7490'};
+  var fmtBgMap = {amrap:'#1E40AF',fortime:'#B91C1C',emom:'#065F46',rounds:'#6B21A8',maxload:'#92400E',tabata:'#0E7490',deathby:'#B91C1C',cleanladder:'#047857'};
   var fmtBg    = fmtBgMap[wodFmt] || '#1E3A5F';
 
   // \u2500\u2500 Tableau mouvements \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
@@ -21799,7 +21799,7 @@ function printScorecardWod(wodId) {
     var rows = (wod.scorecardRows||'').trim().split('\n').filter(function(r){return r.trim();});
 
     var wodType  = wod.wodFormat || 'amrap';
-    var wodLabel = {amrap:'AMRAP',fortime:'FOR TIME',rounds:'ROUNDS',emom:'EMOM',tabata:'TABATA',maxload:'MAX LOAD'}[wodType] || 'AMRAP';
+    var wodLabel = {amrap:'AMRAP',fortime:'FOR TIME',rounds:'ROUNDS',emom:'EMOM',tabata:'TABATA',maxload:'MAX LOAD',deathby:'DEATH BY',cleanladder:'CLEAN LADDER'}[wodType] || 'AMRAP';
     var capLabel = wodLabel + ' · ' + secToMmss(wod.duree||0);
     var fields   = wod.scoreFields || ['reps'];
     var scoreType = wod.scoreType || (fields.indexOf('time')>=0?'time': fields.indexOf('load')>=0?'load':'reps');
@@ -22008,7 +22008,7 @@ function printScorecardWod(wodId) {
       var adaptLabel = capLabel;
 
       // \u2500\u2500 Format badge WOD \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
-      var wodFmtColors = {amrap:{bg:'#1E40AF',label:'AMRAP'},fortime:{bg:'#B91C1C',label:'FOR TIME'},emom:{bg:'#065F46',label:'EMOM'},rounds:{bg:'#6B21A8',label:'ROUNDS'},maxload:{bg:'#92400E',label:'MAX LOAD'},tabata:{bg:'#0E7490',label:'TABATA'}};
+      var wodFmtColors = {amrap:{bg:'#1E40AF',label:'AMRAP'},fortime:{bg:'#B91C1C',label:'FOR TIME'},emom:{bg:'#065F46',label:'EMOM'},rounds:{bg:'#6B21A8',label:'ROUNDS'},maxload:{bg:'#92400E',label:'MAX LOAD'},tabata:{bg:'#0E7490',label:'TABATA'},deathby:{bg:'#B91C1C',label:'DEATH BY'},cleanladder:{bg:'#047857',label:'CLEAN LADDER'}};
       var fmtKey = String(wod.wodFormat||wod.type||'amrap').toLowerCase();
       var fmtInfo = wodFmtColors[fmtKey] || {bg:'#1E3A5F',label:(fmtKey||'WOD').toUpperCase()};
 

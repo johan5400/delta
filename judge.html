@@ -669,6 +669,7 @@ body.brief-mode #s-judge{display:none!important}
       <button class="btn-rep" id="btn-rep" onclick="addRep()">+ REP</button>
       <button class="btn-tb" id="btn-tb" onclick="manualTB()" style="display:none">🎯<br>TB</button>
       <button class="btn-tb" id="btn-drop" onclick="deathByDrop()" style="display:none;background:rgba(255,59,92,.15);border-color:rgba(255,59,92,.5);color:#FF6B85">🏳️<br>LÂCHE</button>
+      <button class="btn-tb" id="btn-clfini" onclick="cleanLadderFini()" style="display:none;background:rgba(4,120,87,.18);border-color:rgba(4,120,87,.55);color:#34D399">🏁<br>FINI</button>
     </div>
   </div>
 
@@ -835,6 +836,8 @@ function _tbPushArr(){
 }
 var startTs=null, elapsed=0, timerIv=null, done=false, endWarned=false;
 var _dbOut=false; // ★ Death By : athlète hors course (a lâché)
+var _clOut=false; // ★ Clean Ladder : athlète éliminé (tour raté) ou a appuyé sur FINI
+var _clLoad=null; // ★ Clean Ladder : charge finale (kg) saisie si tous les tours bouclés
 // ★ Death By — l'athlète abandonne : on fige son score (nb de reps) et on finalise.
 function deathByDrop(){
   if(done){ toast('Déjà terminé','#888'); return; }
@@ -845,6 +848,22 @@ function deathByDrop(){
   toast('🏳️ Hors course — '+_n+' reps','#FF3B5C',2600);
   done=true;
   try{ validate(); }catch(e){ console.warn('deathByDrop validate:',e); }
+}
+// ★ CLEAN LADDER : bouton FINI. L'athlète a bouclé tous ses tours → on ouvre la saisie
+//   de la charge finale (kg) qui sert à départager, puis on fige le score.
+function cleanLadderFini(){
+  if(done){ toast('Déjà terminé','#888'); return; }
+  var _n=(typeof totalReps!=='undefined'?totalReps:0)||0;
+  var _raw=prompt('🏁 L\'athlète a terminé tous ses tours !\n\nSaisis la charge finale (kg) pour le départage :', '');
+  if(_raw===null){ return; } // annulé → on ne fige pas
+  var _kg=parseFloat(String(_raw).replace(',','.'));
+  if(!isFinite(_kg)||_kg<0){ toast('Charge invalide — réessaie','#FF3B5C',2200); return; }
+  _clLoad=_kg;
+  _clOut=true;
+  try{ vib([60,30,60,30,120]); }catch(e){}
+  toast('🏁 Terminé — '+_n+' reps · '+_kg+' kg','#00E5A0',2800);
+  done=true;
+  try{ validate(); }catch(e){ console.warn('cleanLadderFini validate:',e); }
 }
 var mlAttempts=[];
 var emomRound=1, emomIsWork=true;
@@ -1170,6 +1189,7 @@ function wodToScenario(wod){
   wod = wod || {};
   var fmt = String(wod.wodFormat || wod.type || 'amrap').toLowerCase();
   var _isDeathBy = (fmt==='deathby'); // ★ Death By : garder l'identité (comptage = amrap, mais bouton LÂCHE + hors course)
+  var _isCleanLadder = (fmt==='cleanladder'); // ★ Clean Ladder : EMOM + tours perso (échelle libre), bornage + élimination auto + bouton FINI + charge finale kg
   // Normaliser le format
   if(fmt==='fortime') fmt='fortime';
   else if(fmt==='maxload') fmt='maxload';
@@ -1178,6 +1198,7 @@ function wodToScenario(wod){
   else if(fmt==='rounds') fmt='rounds';
   else if(fmt==='ergo') fmt='ergo';
   else if(fmt==='deathby') fmt='emom'; // ★ Death By : routé par la machinerie EMOM (cycle = dbIntervalSec). SC.deathBy garde l'identité (bouton LÂCHE, tours illimités).
+  else if(fmt==='cleanladder') fmt='emom'; // ★ Clean Ladder : routé par la machinerie EMOM (tours à la minute). SC.cleanLadder garde l'identité.
   else fmt='amrap';
   // ★ FIX SAISIE CHARGE/ERGO : 'maxload' et 'ergo' ne sont PAS des wodFormat
   //   (absents de la liste des 6 formats). Ils sont définis par le sélecteur
@@ -1201,7 +1222,7 @@ function wodToScenario(wod){
 
   var fmtLabels={amrap:'AMRAP',fortime:'FOR TIME',maxload:'MAX LOAD',emom:'EMOM',interval:'INTERVAL',rounds:'ROUNDS',ergo:'ERGO'};
   var _fmtCap=String(wod.wodFormat||wod.format||'').toLowerCase();
-  var _isEmomCap=(_fmtCap==='emom'||_fmtCap==='interval'||_fmtCap==='tabata');
+  var _isEmomCap=(_fmtCap==='emom'||_fmtCap==='interval'||_fmtCap==='tabata'||_fmtCap==='cleanladder');
   var cap = parseInt(wod.capSec||wod.capSeconds||wod.durationSec||wod.duree||0,10)||0;
 
   // ★ FIX EMOM 1 TOUR : pour un EMOM, le cap = durée d'un tour × nombre de tours.
@@ -1326,6 +1347,9 @@ function wodToScenario(wod){
     tiebreakDesc: wod.tiebreakDesc||'',
     emomWork: _isDeathBy ? (parseInt(wod.dbRoundSec||60,10)||60) : (parseInt(wod.workMin||60)||60),
     emomRest: _isDeathBy ? 0 : (parseInt(wod.restMin||0)||0),
+    // ★ Clean Ladder : identité conservée (bornage cible tour, élimination auto, bouton FINI, charge finale kg).
+    //   Utilise le timing EMOM normal (travail/repos configurés dans l'index).
+    cleanLadder: _isCleanLadder,
     dbIntervalSec: parseInt(wod.dbIntervalSec||3,10)||3, // (ancien modèle, gardé inerte pour compat)
     dbMode: (wod.dbMode||'free'),
     // ★ DEATH BY échelle ascendante : cible du tour N = départ + inc×(N-1), à boucler
@@ -2300,6 +2324,8 @@ function canEditScoreNow(){
   //   les deux chemins (drop manuel + tour raté auto), mais on double la garde ici
   //   au cas où un chemin poserait _dbOut sans done.
   if(_dbOut) return false;
+  // ★ CLEAN LADDER : éliminé (tour raté) ou FINI → score figé, plus de saisie.
+  if(_clOut) return false;
   // Bloquer pendant le prestart (10s avant le GO)
   if(_prestartLockUntilTs>0 && serverNow()<_prestartLockUntilTs) return false;
   // ★ FIX : maxload/ergo = saisie manuelle obligatoire → toujours éditable en timecap
@@ -2927,6 +2953,26 @@ function _isEcCondWod(){
   var hasRepMove=ms.some(function(m){return m&&!m.ergoFree&&(parseInt(m.q||0,10)||0)>0;});
   return hasEcFree && hasRepMove;
 }
+// ★ CLEAN LADDER : helpers dédiés.
+function _isCleanLadderWod(){ return !!(SC && SC.cleanLadder); }
+function _clTargetThisRound(){
+  // Cible de reps du tour courant. En tours perso, chaque tour a ses mouvements avec leur q.
+  //   La machinerie EMOM expose currentRound (1-based). On somme les reps des mouvements
+  //   du tour courant (échelle libre gérée par la structure toursPerso aplatie dans SC.moves,
+  //   chaque move portant son numéro de tour dans m.tour).
+  var ms=(SC&&SC.moves)||[];
+  var r=(parseInt(currentRound||1,10)||1);
+  // Si les mouvements portent un numéro de tour (tours perso), ne garder que ceux du tour courant.
+  var hasTourTag=ms.some(function(m){return m&&m.tour;});
+  var t=0;
+  if(hasTourTag){
+    ms.forEach(function(m){ if(m && (parseInt(m.tour||0,10)||0)===r && !m.ergoFree){ t+=(parseInt(m.q||0,10)||0); } });
+  } else {
+    ms.forEach(function(m){ if(m && !m.ergoFree){ t+=(parseInt(m.q||0,10)||0); } });
+  }
+  return t;
+}
+function _clDoneThisRound(){ return (parseInt(emomRoundReps||0,10)||0); }
 function _snatchTargetThisRound(){
   // Cible de reps du/des mouvement(s) NON ergo du tour (ex : 7 snatch). Somme des quotas
   //   des mouvements à reps du tour courant (gère l'échelle : q peut varier par catégorie/tour).
@@ -3123,6 +3169,9 @@ function updateDisplay(){
   // ★ Death By : bouton LÂCHE visible dès qu'on est en Death By et pas encore fini
   var _dbB=$('btn-drop');
   if(_dbB){ _dbB.style.display=(SC&&SC.deathBy && !done)?'flex':'none'; }
+  // ★ Clean Ladder : bouton FINI visible dès qu'on est en Clean Ladder et pas encore fini
+  var _clB=$('btn-clfini');
+  if(_clB){ _clB.style.display=(SC&&SC.cleanLadder && !done)?'flex':'none'; }
   var m=SC.moves[moveIdx], isAmrap=(SC.fmt==='amrap');
   // ★ ergo cumulé (valeur libre) : si le WOD a un mouvement ergo-libre, on affiche
   //   la zone de saisie cumulée À LA PLACE du compteur +REP, MAIS sans couper le WOD :
@@ -3280,6 +3329,16 @@ function addRep(){
   var isLastMove=(moveIdx>=SC.moves.length-1);
   var isLastRep=(m.q>0 && moveReps>=m.q-1); // va atteindre le quota sur cette rep
   var fmt=SC.fmt||'';
+
+  // ★ CLEAN LADDER : bornage à la cible du tour. Une fois les reps du tour atteintes,
+  //   on bloque la saisie (l'athlète attend le tour suivant / le passage de minute).
+  if(_isCleanLadderWod()){
+    var _clTgt=_clTargetThisRound();
+    if(_clTgt>0 && (parseInt(emomRoundReps||0,10)||0) >= _clTgt){
+      vib([40,20,40]); toast('✅ Tour '+currentRound+' complet ('+_clTgt+' reps) — attends le tour suivant','#00E5A0',1800);
+      return;
+    }
+  }
 
   // Bloquer si ForTime terminé (dernier mouvement, quota déjà atteint)
   if(fmt==='fortime' && m.q>0 && isLastMove && moveReps>=m.q){
@@ -3541,6 +3600,10 @@ function validate(ergoVal){
     clearInterval(_scoreIv);
     var payload={reps:0,finalTime:0,load:0,dist:0,noReps:noReps};
     payload.dbOut=_dbOut; // ★ Death By : statut hors course dans le score final
+    // ★ CLEAN LADDER : statut éliminé/fini + charge finale (kg) pour le départage.
+    //   Le score principal reste reps (total cumulé) ; clLoad départage les égalités.
+    payload.clOut=_clOut;
+    if(_clLoad!=null){ payload.clLoad=_clLoad; payload.load=_clLoad; }
   payload.attempts=mlAttempts.map(function(a){return {kg:a.kg,ok:!!a.ok};});
     var fmt2=(SC.fmt||'').toLowerCase();
     // ★ ERGO CUMULÉ : si le WOD a un mouvement ergo-libre, le score = total cumulé
@@ -3683,6 +3746,28 @@ function updateEmomPhase(e){
         // archiver les reps du tour puis repartir à 0 (snatch remis à 0)
         emomRoundHistory[wasRound-1]=emomRoundReps; emomTotalReps+=emomRoundReps; emomRoundReps=0;
         moveIdx=0; moveReps=0;
+      } else if(_isCleanLadderWod()){
+        // ★ CLEAN LADDER : au passage de tour, si le tour qui vient de se terminer n'a PAS
+        //   atteint sa cible de reps (échelle libre configurée), l'athlète est ÉLIMINÉ (auto),
+        //   score figé, plus de saisie. Sinon on archive et on repart à 0 pour le tour suivant.
+        if(!_clOut && !done){
+          var _clTgtPrev=0;
+          // cible du tour qui se termine (wasRound), pas du nouveau
+          var _msCL=(SC&&SC.moves)||[];
+          var _hasTagCL=_msCL.some(function(m){return m&&m.tour;});
+          if(_hasTagCL){ _msCL.forEach(function(m){ if(m && (parseInt(m.tour||0,10)||0)===wasRound && !m.ergoFree){ _clTgtPrev+=(parseInt(m.q||0,10)||0); } }); }
+          else { _msCL.forEach(function(m){ if(m && !m.ergoFree){ _clTgtPrev+=(parseInt(m.q||0,10)||0); } }); }
+          if(_clTgtPrev>0 && emomRoundReps < _clTgtPrev){
+            emomRoundHistory[wasRound-1]=emomRoundReps; emomTotalReps+=emomRoundReps; emomRoundReps=0;
+            _clOut=true;
+            try{ var _bf=$('btn-clfini'); if(_bf) _bf.style.display='none'; }catch(_e){}
+            if(!done){ done=true; try{ validate(); }catch(_e){} }
+            try{ updateEmomDisplay(); }catch(_e){}
+            return;
+          }
+        }
+        emomRoundHistory[wasRound-1]=emomRoundReps; emomTotalReps+=emomRoundReps; emomRoundReps=0;
+        moveIdx=0; moveReps=0;
       } else {
       // ★ DEATH BY échelle : au passage de tour, si le tour qui vient de se terminer n'a
       //   PAS atteint sa cible (départ + inc×(tour-1)), l'athlète est HORS COURSE (auto).
@@ -3785,6 +3870,9 @@ function updateEmomDisplay(){
     // ★ Death By : bouton LÂCHE visible pendant le comptage (pas en repos/saisie ec)
     var _dbBtn=$('btn-drop');
     if(_dbBtn){ _dbBtn.style.display=(SC&&SC.deathBy && !done && !isResting && !_ecActive)?'flex':'none'; }
+    // ★ Clean Ladder : bouton FINI visible pendant le comptage (pas en repos)
+    var _clBtn=$('btn-clfini');
+    if(_clBtn){ _clBtn.style.display=(SC&&SC.cleanLadder && !done && !isResting && !_ecActive)?'flex':'none'; }
     if(isResting){
       var _rl=document.querySelector('.rest-label'); if(_rl) _rl.textContent=_tourValide?'✅ TOUR VALIDÉ':'REPOS';
       // ★ Message rigolo aléatoire — choisi UNE fois à l'entrée en repos (pas à chaque tick)
@@ -4439,7 +4527,8 @@ function applyRealData(data){
   //   emomRound était décalé → « ça part en couille » dès le 2e heat. On force donc
   //   un reset complet ici, sur TOUS les chemins de chargement de heat.
   emomRound=1; emomIsWork=true; emomRoundReps=0; emomRoundHistory=[]; emomTotalReps=0;
-  _dbOut=false; _tourValide=false; _wasResting=false; _capFinalizeScheduled=false; endWarned=false;
+  _dbOut=false; _clOut=false; _clLoad=null; _pendingDist=null;
+  _tourValide=false; _wasResting=false; _capFinalizeScheduled=false; endWarned=false;
   mlAttempts=[];
   clearJudgePostHeatWindow();
   clearJudgeDoneGuidanceLock();
