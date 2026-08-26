@@ -5833,9 +5833,21 @@ function printHeadJudgePlanning(){
     var modeLbl=manual?('✋ Manuel · '+heats.length+' heat'+(heats.length>1?'s':'')):('🌍 Auto · toute la zone '+zone);
     body+='<h2>'+(hj.prenom||'')+' '+(hj.nom||'')+' · Zone '+zone+' · '+modeLbl+'</h2>';
     if(!heats.length){ body+='<div class="sub">Aucun heat supervisé.</div>'; return; }
-    body+='<table><thead><tr><th>Heat</th><th class="nm">WOD</th><th class="nm">Catégorie</th><th>Jour</th></tr></thead><tbody>';
+    // ★ arborescence : WOD en tête, ses heats en dessous (numéro + catégorie + jour)
+    var _wodGroups={}, _wodOrder=[];
     heats.forEach(function(h){
-      body+='<tr><td class="cell-assign">H'+h.num+'</td><td class="nm">'+(h.wod||'—')+'</td><td class="nm">'+(h.cat||'—')+'</td><td>J'+h.jour+'</td></tr>';
+      var _k=(h.wod&&String(h.wod).trim())?String(h.wod).trim():'—';
+      if(!_wodGroups[_k]){ _wodGroups[_k]=[]; _wodOrder.push(_k); }
+      _wodGroups[_k].push(h);
+    });
+    _wodOrder.sort(function(a,b){ var fa=_wodGroups[a][0], fb=_wodGroups[b][0]; return (fa.jour-fb.jour)||(parseInt(fa.num,10)-parseInt(fb.num,10)); });
+    body+='<table><thead><tr><th>Heat</th><th class="nm">Catégorie</th><th>Jour</th></tr></thead><tbody>';
+    _wodOrder.forEach(function(_wn){
+      var _list=_wodGroups[_wn].slice().sort(function(a,b){ return (a.jour-b.jour)||(parseInt(a.num,10)-parseInt(b.num,10)); });
+      body+='<tr class="wodrow"><td colspan="3">'+(_wn==='—'?'Sans WOD':escHtml(_wn))+' <span class="wc">· '+_list.length+' heat'+(_list.length>1?'s':'')+'</span></td></tr>';
+      _list.forEach(function(h){
+        body+='<tr><td class="cell-assign">H'+h.num+'</td><td class="nm">'+escHtml(h.cat||'—')+'</td><td>J'+h.jour+'</td></tr>';
+      });
     });
     body+='</tbody></table>';
   });
@@ -5851,6 +5863,8 @@ function printHeadJudgePlanning(){
     +'tr:nth-child(even) td{background:#F8FAFF}'
     +'td.nm{text-align:left;font-weight:700}th.nm{text-align:left}'
     +'.cell-assign{background:#DBEAFE;color:#1D4ED8;font-weight:800;border-radius:3px;padding:2px 4px}'
+    +'tr.wodrow td{background:#0F172A;color:#fff;font-weight:900;text-align:left;padding:6px 8px;font-size:10px;letter-spacing:.3px}'
+    +'tr.wodrow .wc{font-weight:700;color:#94A3B8;font-size:9px}'
     +'.no-print{margin-bottom:12px}@media print{body{padding:8px}.no-print{display:none}@page{size:A4 landscape;margin:8mm}}'
     +'</style></head><body>'
     +'<div class="no-print"><button onclick="window.print()" style="padding:7px 16px;background:#0F172A;color:#fff;border:none;border-radius:6px;font-weight:700;cursor:pointer;margin-right:8px">🖨️ Imprimer</button><button onclick="window.close()" style="padding:7px 16px;background:#e2e8f0;border:none;border-radius:6px;cursor:pointer">✕ Fermer</button></div>'
