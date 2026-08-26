@@ -2068,12 +2068,26 @@ function renderRankCards(rows,w,st,showLiveChips,h,catId,catLeader){
       var _isAmrap = _fmt==='amrap' || _fmt==='' || !_fmt;
       // ★ EMOM : le tour est affiché à côté du chrono (par zone), PAS par équipe.
       var _isEmomTeam = _fmt==='emom' || _fmt==='interval' || _fmt==='tabata';
+      // ★ FIX DEATH BY (« 1/10 » bloqué) : le Death By est routé par la machinerie EMOM
+      //   mais garde son wodFormat 'deathby'. Il tombait dans _totalRounds>1 (cap 10min /
+      //   cycle 60s = 10) et affichait « Tour 1/10 » FIGÉ, car _cRound n'est pas recalculé
+      //   pour ce format. Les tours sont ILLIMITÉS jusqu'au time cap → on affiche le tour
+      //   courant SANS /total, calculé depuis le temps écoulé (même logique que la carte
+      //   score plus bas), et il tique bien tour après tour.
+      var _isDeathByLive = _fmt==='deathby';
+      if(_isDeathByLive){
+        var _dbIntB=parseInt(w.dbRoundSec||60,10)||60; if(_dbIntB<1)_dbIntB=1;
+        var _dbElB=(h&&h.startTimestamp)?Math.floor((now()-h.startTimestamp)/1000):0; if(_dbElB<0)_dbElB=0;
+        var _dbCurB=Math.floor(_dbElB/_dbIntB)+1;
+        _roundHtml='<div style="font-size:.6em;color:#4ADE80;font-family:var(--fm);font-weight:900;letter-spacing:.5px;margin-top:3px;line-height:1;text-shadow:0 0 10px rgba(74,222,128,.4)">Tour '+_dbCurB+'</div>';
+      } else {
       var _showRound = !_isEmomTeam && ((_totalRounds>1) || _isRounds || (_isAmrap && _cRound>=1));
       if(_showRound){
         var _label = (_totalRounds>1)
           ? ('Tour '+_cRound+'/'+_totalRounds)
           : ('Tour '+_cRound);
         _roundHtml='<div style="font-size:.6em;color:#4ADE80;font-family:var(--fm);font-weight:900;letter-spacing:.5px;margin-top:3px;line-height:1;text-shadow:0 0 10px rgba(74,222,128,.4)">'+_label+'</div>';
+      }
       }
     }
     var _movHtml='';

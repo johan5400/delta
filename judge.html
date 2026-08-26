@@ -2295,6 +2295,11 @@ function canFinalizeNow(){
 }
 function canEditScoreNow(){
   if(done) return false;
+  // ★ FIX DEATH BY (saisie hors course) : un athlète hors course a FINI son WOD.
+  //   Son score est figé — plus aucune saisie possible. done passe déjà à true sur
+  //   les deux chemins (drop manuel + tour raté auto), mais on double la garde ici
+  //   au cas où un chemin poserait _dbOut sans done.
+  if(_dbOut) return false;
   // Bloquer pendant le prestart (10s avant le GO)
   if(_prestartLockUntilTs>0 && serverNow()<_prestartLockUntilTs) return false;
   // ★ FIX : maxload/ergo = saisie manuelle obligatoire → toujours éditable en timecap
@@ -4335,6 +4340,15 @@ function applyRealData(data){
   moveIdx=0; moveReps=0; totalReps=0; noReps=0;
   currentRound=1; // ★ FIX : repartir à 1 pour chaque nouveau heat
   tbTs=0; tbPhase=0; tbCapTs=null; elapsed=0; _tbCaptured=[]; done=false;
+  // ★ FIX HEAT 2+ (Death By / EMOM) : ces variables n'étaient remises à zéro
+  //   que dans le bloc if(isEmom) de startJudge — pas sur le chemin d'enchaînement
+  //   automatique. Résultat : au heat 2, _dbOut restait hérité (athlète du heat 1
+  //   qui avait lâché), emomRoundHistory gardait les chips du heat précédent et
+  //   emomRound était décalé → « ça part en couille » dès le 2e heat. On force donc
+  //   un reset complet ici, sur TOUS les chemins de chargement de heat.
+  emomRound=1; emomIsWork=true; emomRoundReps=0; emomRoundHistory=[]; emomTotalReps=0;
+  _dbOut=false; _tourValide=false; _wasResting=false; _capFinalizeScheduled=false; endWarned=false;
+  mlAttempts=[];
   clearJudgePostHeatWindow();
   clearJudgeDoneGuidanceLock();
   _preShown=false; // reset guard pour le nouvel heat
