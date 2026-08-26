@@ -5714,7 +5714,8 @@ function _hjHeatsOfZone(zone, jours){
       num: getHeatDisplayNum(h),
       cat: h.catNom||h.catName||'—',
       jour: parseInt(h.catJour||h.jour||1,10)||1,
-      wod: _wn||''
+      wod: _wn||'',
+      wodNum: parseInt(h.wodOrdreZone||h.wodOrdre||0,10)||0
     };
   }).sort(function(a,b){ return (a.jour-b.jour)||(parseInt(a.num,10)-parseInt(b.num,10)); });
 }
@@ -5752,7 +5753,7 @@ function renderHjHeatPicker(ben){
   _ord.forEach(function(_wn){
     var _items=_grp[_wn].slice().sort(function(a,b){ return (a.jour-b.jour)||(parseInt(a.num,10)-parseInt(b.num,10)); });
     html+='<div style="display:flex;align-items:center;gap:8px;margin:11px 0 6px">'
-      +'<span style="font-size:12px;font-weight:900;color:var(--ink);letter-spacing:.3px">'+(_wn==='—'?'Sans WOD':escHtml(_wn))+'</span>'
+      +'<span style="font-size:12px;font-weight:900;color:var(--ink);letter-spacing:.3px">'+(_wn==='—'?'Sans WOD':((_items[0].wodNum?'WOD '+_items[0].wodNum+' · ':'')+escHtml(_wn)))+'</span>'
       +'<span style="font-size:9px;font-weight:800;color:#C2410C;background:#FFF7ED;border:1px solid #FDBA74;border-radius:999px;padding:2px 7px">'+_items.length+' heat'+(_items.length>1?'s':'')+'</span>'
       +'</div>';
     _items.forEach(function(h){
@@ -5862,7 +5863,7 @@ function printHeadJudgePlanning(){
     body+='<table><thead><tr><th>Heat</th><th class="nm">Catégorie</th><th>Jour</th></tr></thead><tbody>';
     _wodOrder.forEach(function(_wn){
       var _list=_wodGroups[_wn].slice().sort(function(a,b){ return (a.jour-b.jour)||(parseInt(a.num,10)-parseInt(b.num,10)); });
-      body+='<tr class="wodrow"><td colspan="3">'+(_wn==='—'?'Sans WOD':escHtml(_wn))+' <span class="wc">· '+_list.length+' heat'+(_list.length>1?'s':'')+'</span></td></tr>';
+      body+='<tr class="wodrow"><td colspan="3">'+(_wn==='—'?'Sans WOD':((_list[0].wodNum?'WOD '+_list[0].wodNum+' · ':'')+escHtml(_wn)))+' <span class="wc">· '+_list.length+' heat'+(_list.length>1?'s':'')+'</span></td></tr>';
       _list.forEach(function(h){
         body+='<tr><td class="cell-assign">H'+h.num+'</td><td class="nm">'+escHtml(h.cat||'—')+'</td><td>J'+h.jour+'</td></tr>';
       });

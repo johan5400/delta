@@ -2487,6 +2487,14 @@ function startTeamBandIH(zone,ihTarget,doneHid,doneH,doneW,catId,catLeader){
     // La preview ne doit jamais démarrer avant la fin du résultat/classement.
     if(wodEnd){ if(previewStart<wodEnd) previewStart=wodEnd; }
     else { if(previewStart<heatEnd) previewStart=heatEnd; }
+    // ★ CHEF : COUPURE → ne PAS annoncer le prochain heat avant la coupure, uniquement
+    //   avant la REPRISE. On garde les résultats (couverts par la page sponsors) pendant
+    //   toute la coupure ; « PROCHAIN HEAT » n'apparaît que dans les derniers 15%
+    //   (aligné sur la fenêtre sponsors → handoff propre vers le prochain heat).
+    if((ih.ihType||'')==='coupure'){
+      previewStart=ihTarget-Math.max(8000,Math.round(totalSec*1000*0.15));
+      heatEnd=previewStart; wodEnd=null;
+    }
     startTeamBandIH._sched[zone]={hid:doneHid,heatEnd:heatEnd,wodEnd:wodEnd,previewStart:previewStart};
   }
   // Phase initiale déduite du planning (jamais rejouée en arrière car le temps avance).
