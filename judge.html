@@ -2823,7 +2823,11 @@ function startJudge(){
   $('j-fmt').textContent=SC.fmtLabel;
 
   var fmt=SC.fmt;
-  var isReps=(fmt==='fortime'||fmt==='amrap');
+  // ★ FIX BBJ (bug chef) : le format 'rounds' était absent de isReps → la zone de saisie
+  //   des reps, la liste des mouvements et l'enchaînement des tours ne s'affichaient pas.
+  //   Le juge restait bloqué sur le 1er mouvement. 'rounds' se compte comme 'fortime' côté
+  //   juge (reps + tours), la logique d'avance de tour existe déjà plus bas (currentRound).
+  var isReps=(fmt==='fortime'||fmt==='amrap'||fmt==='rounds');
   var isEmom=(fmt==='emom'||fmt==='interval');
   var isML=(fmt==='maxload'), isErgo=(fmt==='ergo');
 
