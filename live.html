@@ -1850,6 +1850,13 @@ function compareScores(a,b,w){
     var _aOut=!!(a.sc&&a.sc.dbOut), _bOut=!!(b.sc&&b.sc.dbOut);
     if(_aOut!==_bOut) return _aOut?1:-1;
   }
+  // ★ SKI+SNATCH (classement dynamique) : équipes HORS COURSE (snatch non bouclés) en BAS,
+  //   prioritaire sur le statut « validé » (comme le Death By). Gate sur le flag ssOut lui-même
+  //   (le format reste 'emom', pas de wodFormat dédié).
+  {
+    var _aSS=!!(a.sc&&a.sc.ssOut), _bSS=!!(b.sc&&b.sc.ssOut);
+    if(_aSS!==_bSS) return _aSS?1:-1;
+  }
   // ★ CLEAN LADDER (classement) : total reps cumulées d'abord (géré par scoreVal ci-dessous),
   //   puis la charge finale (kg) pour départager les égalités. Les éliminés ne sont PAS
   //   relégués en bas ici : en Clean Ladder, un athlète éliminé garde son total de reps
@@ -2130,6 +2137,9 @@ function renderRankCards(rows,w,st,showLiveChips,h,catId,catLeader){
     var s=val?scoreStr(sc,w):(_isErgoLive?_ergoLiveStr:(_tot>0?String(_tot)+' reps':'—'));
     // ★ Death By : marquer l'athlète hors course
     if(sc&&sc.dbOut){ s='🏳️ '+((parseInt(sc.reps)||0)||_tot||0)+' reps · HORS COURSE'; }
+    // ★ SKI+SNATCH : marquer l'équipe hors course (snatch du tour non bouclés). On garde
+    //   la distance ski déjà validée comme score, suivie du statut.
+    else if(sc&&sc.ssOut){ s=(val?scoreStr(sc,w):(_isErgoLive?_ergoLiveStr:(_tot>0?String(_tot)+' reps':'—')))+' · 🚫 HORS COURSE'; }
     // ★ Death By (en cours) : total + reps de l'intervalle courant (roundReps se remet à 0
     //   à chaque intervalle côté juge et est poussé en direct → le live reflète le reset).
     else if(!val && w && String(w.wodFormat||'').toLowerCase()==='deathby'){
