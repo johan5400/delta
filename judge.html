@@ -838,6 +838,7 @@ var startTs=null, elapsed=0, timerIv=null, done=false, endWarned=false;
 var _dbOut=false; // ★ Death By : athlète hors course (a lâché)
 var _clOut=false; // ★ Clean Ladder : athlète éliminé (tour raté) ou a appuyé sur FINI
 var _ssOut=false; // ★ Ski+Snatch : équipe hors course (snatch du tour non bouclés) — score figé, relégué en bas
+var _ssRoundDone=0; // ★ Ski+Snatch : n° du tour déjà finalisé par l'auto-validation (évite double-traitement au passage de tour)
 var _clLoad=null; // ★ Clean Ladder : charge finale (kg) saisie si tous les tours bouclés
 // ★ Death By — l'athlète abandonne : on fige son score (nb de reps) et on finalise.
 function deathByDrop(){
@@ -2806,6 +2807,7 @@ function startJudge(){
 
   if(isEmom){
     emomRound=1; emomIsWork=true; emomRoundReps=0; emomRoundHistory=[]; emomTotalReps=0;
+    _ssOut=false; _ssRoundDone=0;
     _tourValide=false; _wasResting=false; _capFinalizeScheduled=false; // ★ FIX : repartir propre à chaque heat
     $('j-emom-history').style.display='flex'; $('j-emom-history').innerHTML='';
     $('j-emom-reset').style.display='flex'; updateEmomDisplay();
@@ -3385,6 +3387,7 @@ function addRep(){
       _pendingDist=null;
       // archiver les reps du tour, repartir à 0 pour le tour suivant
       emomRoundHistory[emomRound-1]=emomRoundReps; emomTotalReps+=emomRoundReps; emomRoundReps=0;
+      _ssRoundDone=emomRound; // ★ ce tour est finalisé ici → le passage de tour ne doit PAS le re-traiter
       moveIdx=0; moveReps=0;
       _tourValide=true;
       vib([40,30,40]);
@@ -3769,6 +3772,14 @@ function updateEmomPhase(e){
       //   Si les snatch requis pour CE tour sont bouclés → la distance est VALIDÉE (cumul).
       //   Sinon → distance JETÉE (0). Dans les deux cas on repart à 0 pour le tour suivant.
       if(_isEcCondWod()){
+        // ★ SKI+SNATCH — si le tour qui se termine a DÉJÀ été finalisé par l'auto-validation
+        //   (cible de snatch atteinte en cours de minute), NE PAS le re-traiter : sinon on
+        //   verrait 0 snatch « restant » et on déclencherait un hors course à tort (bug écran
+        //   noir tour 2). On repart juste proprement pour le nouveau tour.
+        if(_ssRoundDone===wasRound){
+          _pendingDist=null;
+          moveIdx=0; moveReps=0;
+        } else {
         var _tgtR=_snatchTargetThisRound();
         var _doneR=(parseInt(emomRoundReps||0,10)||0);
         // ★ SKI+SNATCH — HORS COURSE (Option A, demande chef) : si les snatch requis du tour
@@ -3801,6 +3812,7 @@ function updateEmomPhase(e){
         // archiver les reps du tour puis repartir à 0 (snatch remis à 0)
         emomRoundHistory[wasRound-1]=emomRoundReps; emomTotalReps+=emomRoundReps; emomRoundReps=0;
         moveIdx=0; moveReps=0;
+        }
       } else if(_isCleanLadderWod()){
         // ★ CLEAN LADDER : au passage de tour, si le tour qui vient de se terminer n'a PAS
         //   atteint sa cible de reps (échelle libre configurée), l'athlète est ÉLIMINÉ (auto),
@@ -4592,7 +4604,7 @@ function applyRealData(data){
   //   emomRound était décalé → « ça part en couille » dès le 2e heat. On force donc
   //   un reset complet ici, sur TOUS les chemins de chargement de heat.
   emomRound=1; emomIsWork=true; emomRoundReps=0; emomRoundHistory=[]; emomTotalReps=0;
-  _dbOut=false; _clOut=false; _ssOut=false; _clLoad=null; _pendingDist=null;
+  _dbOut=false; _clOut=false; _ssOut=false; _ssRoundDone=0; _clLoad=null; _pendingDist=null;
   _tourValide=false; _wasResting=false; _capFinalizeScheduled=false; endWarned=false;
   mlAttempts=[];
   clearJudgePostHeatWindow();
