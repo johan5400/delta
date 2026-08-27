@@ -837,8 +837,6 @@ function _tbPushArr(){
 var startTs=null, elapsed=0, timerIv=null, done=false, endWarned=false;
 var _dbOut=false; // ★ Death By : athlète hors course (a lâché)
 var _clOut=false; // ★ Clean Ladder : athlète éliminé (tour raté) ou a appuyé sur FINI
-var _ssOut=false; // ★ Ski+Snatch : équipe hors course (snatch du tour non bouclés) — score figé, relégué en bas
-var _ssRoundDone=0; // ★ Ski+Snatch : n° du tour déjà finalisé par l'auto-validation (évite double-traitement au passage de tour)
 var _clLoad=null; // ★ Clean Ladder : charge finale (kg) saisie si tous les tours bouclés
 // ★ Death By — l'athlète abandonne : on fige son score (nb de reps) et on finalise.
 function deathByDrop(){
@@ -1189,6 +1187,25 @@ function show(id){
 /* ── Convertir wodInfo Firebase → scénario SC ── */
 function wodToScenario(wod){
   wod = wod || {};
+  // ★ FIX INCOHÉRENCE DE DONNÉES (bug chef BBJ / Clean Ladder) : certains WOD ont un
+  //   scoreType correct ("reps") mais un scoreFinale resté sur "dist" d'un ancien réglage.
+  //   Le juge lisait scoreFinale → croyait à de la distance → "20m à valider" + fin au tour 1.
+  //   On aligne scoreFinale sur scoreType quand ce dernier est explicite, AVANT toute lecture.
+  try{
+    var _st=String(wod.scoreType||'').toLowerCase();
+    if(_st==='reps'){ wod.scoreFinale='reps'; if(wod.judgeMode==='ergo'||wod.judgeMode==='maxload') wod.judgeMode='reps'; }
+    else if(_st==='load'){ wod.scoreFinale='load'; }
+    else if(_st==='time'){ wod.scoreFinale='time'; }
+    else if(_st==='dist'){ wod.scoreFinale='dist'; }
+    else if(_st==='cal'){ wod.scoreFinale='cal'; }
+    // ★ Clean Ladder : le score de départage est la CHARGE (kg). Si le WOD est un cleanladder
+    //   mais réglé en "reps", on force le score final sur charge pour que le kg saisi remonte
+    //   au live/TK (sinon la valeur saisie n'était jamais classée). Un mouvement en ergoFree
+    //   sur un cleanladder est une incohérence (le juge compte des reps) → on le désactive.
+    if(String(wod.wodFormat||'').toLowerCase()==='cleanladder'){
+      if(Array.isArray(wod.mouvements)) wod.mouvements.forEach(function(mm){ if(mm) mm.ergoFree=false; });
+    }
+  }catch(_eNorm){}
   var fmt = String(wod.wodFormat || wod.type || 'amrap').toLowerCase();
   var _isDeathBy = (fmt==='deathby'); // ★ Death By : garder l'identité (comptage = amrap, mais bouton LÂCHE + hors course)
   var _isCleanLadder = (fmt==='cleanladder'); // ★ Clean Ladder : EMOM + tours perso (échelle libre), bornage + élimination auto + bouton FINI + charge finale kg
@@ -1217,7 +1234,24 @@ function wodToScenario(wod){
   //   du format (payload.dist = somme des tours). On ne bascule donc en maxload/ergo QUE
   //   pour les WOD sans structure de temps.
   var _isTimedFmt=(fmt==='emom'||fmt==='interval');
-  if(!_isTimedFmt){
+  // ★ FIX BBJ (bug chef) : un WOD À TOURS (rounds/fortime/amrap) qui contient des mouvements
+  //   à reps ne doit JAMAIS devenir un "ergo one-shot", même si le type de score est dist/cal.
+  //   Sinon le juge validait une seule distance et le WOD se terminait au tour 1 (ex : Burpees
+  //   Box Jump affiché "20m à valider" au lieu de compter les reps sur 5 tours). On ne bascule
+  //   en ergo/maxload QUE pour un vrai WOD ergo pur : pas de structure de tours ET aucun
+  //   mouvement à reps.
+  var _hasRoundStruct=(fmt==='rounds'||fmt==='fortime'||fmt==='amrap');
+  var _hasRepMove=!!(SC && SC.moves && SC.moves.some(function(mm){return mm && (mm.type||'reps')==='reps' && !mm.ergoFree;}));
+  // NB : SC n'est pas encore construit ici ; on relit les mouvements bruts du wod.
+  var _rawMoves=(function(){
+    try{
+      if(wod.toursPerso && wod.toursPerso.length && wod.toursPerso[0] && wod.toursPerso[0].mouvements) return wod.toursPerso[0].mouvements;
+      return wod.mouvements||wod.moves||[];
+    }catch(e){ return []; }
+  })();
+  var _rawHasRepMove=_rawMoves.some(function(mm){return mm && (mm.type||'reps')==='reps' && !mm.ergoFree;});
+  var _blockOneShot=(_isTimedFmt || _hasRoundStruct || _rawHasRepMove);
+  if(!_blockOneShot){
     if(wod.judgeMode==='maxload' || wod.scoreFinale==='load') fmt='maxload';
     else if(wod.judgeMode==='ergo' || wod.scoreFinale==='dist' || wod.scoreFinale==='cal') fmt='ergo';
   }
@@ -2328,8 +2362,6 @@ function canEditScoreNow(){
   if(_dbOut) return false;
   // ★ CLEAN LADDER : éliminé (tour raté) ou FINI → score figé, plus de saisie.
   if(_clOut) return false;
-  // ★ SKI+SNATCH : hors course (snatch du tour non bouclés) → score figé, plus de saisie.
-  if(_ssOut) return false;
   // Bloquer pendant le prestart (10s avant le GO)
   if(_prestartLockUntilTs>0 && serverNow()<_prestartLockUntilTs) return false;
   // ★ FIX : maxload/ergo = saisie manuelle obligatoire → toujours éditable en timecap
@@ -2807,7 +2839,6 @@ function startJudge(){
 
   if(isEmom){
     emomRound=1; emomIsWork=true; emomRoundReps=0; emomRoundHistory=[]; emomTotalReps=0;
-    _ssOut=false; _ssRoundDone=0;
     _tourValide=false; _wasResting=false; _capFinalizeScheduled=false; // ★ FIX : repartir propre à chaque heat
     $('j-emom-history').style.display='flex'; $('j-emom-history').innerHTML='';
     $('j-emom-reset').style.display='flex'; updateEmomDisplay();
@@ -3366,42 +3397,6 @@ function addRep(){
     if(moveReps>=_dbTgtNow){ toast('✅ Cible '+_dbTgtNow+' atteinte — attends le prochain tour'); vib([60,40,120]); return; }
   }
 
-  // ★ SKI+SNATCH : bornage des snatch à la cible du tour (lue dans la config = échelle par
-  //   catégorie respectée, PAS de 7 en dur). Une fois la cible atteinte, on bloque la saisie
-  //   ET on valide le tour tout seul : la distance ski « en attente » est ajoutée au cumul,
-  //   le juge n'a plus qu'à attendre la minute suivante. Sans ça, le juge pouvait taper
-  //   50 snatch et le tour ne se validait jamais de lui-même.
-  if(_isEcCondWod()){
-    var _ssTgt=_snatchTargetThisRound();
-    if(_ssTgt>0 && (parseInt(emomRoundReps||0,10)||0) >= _ssTgt){
-      vib([40,20,40]);
-      toast('✅ Tour '+emomRound+' complet ('+_ssTgt+' snatch) — attends le tour suivant','#00E5A0',1800);
-      return;
-    }
-    // Cette rep VA atteindre la cible → on la compte puis on valide le tour immédiatement.
-    if(_ssTgt>0 && (parseInt(emomRoundReps||0,10)||0)+1 >= _ssTgt){
-      totalReps++; moveReps++; emomRoundReps++;
-      // distance « en attente » de ce tour → validée (snatch bouclés)
-      if(_pendingDist!=null){ _ecValues.push(_pendingDist); }
-      var _ssDistMsg=(_pendingDist!=null)?(' — '+_pendingDist+' '+(_ecUnit||'')+' ajoutés'):'';
-      _pendingDist=null;
-      // archiver les reps du tour, repartir à 0 pour le tour suivant
-      emomRoundHistory[emomRound-1]=emomRoundReps; emomTotalReps+=emomRoundReps; emomRoundReps=0;
-      _ssRoundDone=emomRound; // ★ ce tour est finalisé ici → le passage de tour ne doit PAS le re-traiter
-      moveIdx=0; moveReps=0;
-      _tourValide=true;
-      vib([40,30,40]);
-      toast('✅ Tour '+emomRound+' validé'+_ssDistMsg+' — repos jusqu\'au prochain round','#00E5A0',2200);
-      try{ ecRefresh(); }catch(e){}
-      try{ _persistEc(); }catch(e){}
-      var _nel0=$('j-num'); if(_nel0){ _nel0.classList.remove('pop'); void _nel0.offsetWidth; _nel0.classList.add('pop'); }
-      updateDisplay();
-      if(typeof updateEmomDisplay==='function') updateEmomDisplay();
-      if(db) pushScoreLive();
-      return;
-    }
-  }
-
   totalReps++; moveReps++;
   // ★ FIX TIEBREAK AUTO — DOIT être testé AVANT nextMove() / amrapLoop() /
   //   roundsLoop() car ces fonctions remettent moveReps=0 (et nextMove
@@ -3644,7 +3639,6 @@ function validate(ergoVal){
     // ★ CLEAN LADDER : statut éliminé/fini + charge finale (kg) pour le départage.
     //   Le score principal reste reps (total cumulé) ; clLoad départage les égalités.
     payload.clOut=_clOut;
-    payload.ssOut=_ssOut; // ★ Ski+Snatch : statut hors course dans le score final
     if(_clLoad!=null){ payload.clLoad=_clLoad; payload.load=_clLoad; }
   payload.attempts=mlAttempts.map(function(a){return {kg:a.kg,ok:!!a.ok};});
     var fmt2=(SC.fmt||'').toLowerCase();
@@ -3772,32 +3766,8 @@ function updateEmomPhase(e){
       //   Si les snatch requis pour CE tour sont bouclés → la distance est VALIDÉE (cumul).
       //   Sinon → distance JETÉE (0). Dans les deux cas on repart à 0 pour le tour suivant.
       if(_isEcCondWod()){
-        // ★ SKI+SNATCH — si le tour qui se termine a DÉJÀ été finalisé par l'auto-validation
-        //   (cible de snatch atteinte en cours de minute), NE PAS le re-traiter : sinon on
-        //   verrait 0 snatch « restant » et on déclencherait un hors course à tort (bug écran
-        //   noir tour 2). On repart juste proprement pour le nouveau tour.
-        if(_ssRoundDone===wasRound){
-          _pendingDist=null;
-          moveIdx=0; moveReps=0;
-        } else {
         var _tgtR=_snatchTargetThisRound();
         var _doneR=(parseInt(emomRoundReps||0,10)||0);
-        // ★ SKI+SNATCH — HORS COURSE (Option A, demande chef) : si les snatch requis du tour
-        //   qui vient de se terminer ne sont PAS bouclés → distance annulée, équipe HORS COURSE
-        //   (définitif). Score figé, plus de saisie, reléguée en bas du classement (comme Death By).
-        if(!_ssOut && !done && _tgtR>0 && _doneR < _tgtR){
-          _pendingDist=null; // distance du tour raté : annulée
-          emomRoundHistory[wasRound-1]=emomRoundReps; emomTotalReps+=emomRoundReps; emomRoundReps=0;
-          _ssOut=true;
-          try{ toast('🚫 Tour '+wasRound+' : '+_doneR+'/'+_tgtR+' snatch — HORS COURSE','#FF3B5C',3000); }catch(_e){}
-          vib([120,60,120]);
-          try{ ecRefresh(); }catch(_e){}
-          try{ _persistEc(); }catch(_e){}
-          if(!done){ done=true; try{ validate(); }catch(_e){} }
-          try{ updateEmomDisplay(); }catch(_e){}
-          return;
-        }
-        // Tour réussi (ou pas de cible de snatch définie) : valider la distance en attente.
         if(_pendingDist!=null){
           if(_tgtR>0 && _doneR>=_tgtR){
             _ecValues.push(_pendingDist);
@@ -3812,7 +3782,6 @@ function updateEmomPhase(e){
         // archiver les reps du tour puis repartir à 0 (snatch remis à 0)
         emomRoundHistory[wasRound-1]=emomRoundReps; emomTotalReps+=emomRoundReps; emomRoundReps=0;
         moveIdx=0; moveReps=0;
-        }
       } else if(_isCleanLadderWod()){
         // ★ CLEAN LADDER : au passage de tour, si le tour qui vient de se terminer n'a PAS
         //   atteint sa cible de reps (échelle libre configurée), l'athlète est ÉLIMINÉ (auto),
@@ -4468,7 +4437,6 @@ function _judgeRestoreFromScore(sc, runTs){
   if(typeof emomRound!=='undefined') emomRound=Math.max(1,parseInt(sc.currentRound||1,10)||1);
   if(typeof _dbOut!=='undefined') _dbOut=(sc.dbOut===true);
   if(typeof _clOut!=='undefined') _clOut=(sc.clOut===true);
-  if(typeof _ssOut!=='undefined') _ssOut=(sc.ssOut===true);
   if(typeof _clLoad!=='undefined' && sc.clLoad!=null) _clLoad=parseFloat(sc.clLoad)||0;
   tbTs=parseInt(sc.tiebreak||0,10)||0;
   _tbCaptured=[];
@@ -4604,7 +4572,7 @@ function applyRealData(data){
   //   emomRound était décalé → « ça part en couille » dès le 2e heat. On force donc
   //   un reset complet ici, sur TOUS les chemins de chargement de heat.
   emomRound=1; emomIsWork=true; emomRoundReps=0; emomRoundHistory=[]; emomTotalReps=0;
-  _dbOut=false; _clOut=false; _ssOut=false; _ssRoundDone=0; _clLoad=null; _pendingDist=null;
+  _dbOut=false; _clOut=false; _clLoad=null; _pendingDist=null;
   _tourValide=false; _wasResting=false; _capFinalizeScheduled=false; endWarned=false;
   mlAttempts=[];
   clearJudgePostHeatWindow();
@@ -4998,8 +4966,6 @@ function saveCount(){
       emomRoundHistory:(typeof emomRoundHistory!=='undefined'?emomRoundHistory:[]),
       dbOut:(typeof _dbOut!=='undefined'?_dbOut:false),
       clOut:(typeof _clOut!=='undefined'?_clOut:false),
-    ssOut:(typeof _ssOut!=='undefined'?_ssOut:false),
-      ssOut:(typeof _ssOut!=='undefined'?_ssOut:false),
       clLoad:(typeof _clLoad!=='undefined'?_clLoad:null),
       ecValues:(typeof _ecValues!=='undefined'?_ecValues:[]),
       pendingDist:(typeof _pendingDist!=='undefined'?_pendingDist:null),
@@ -5023,7 +4989,6 @@ function restoreCountIfNeeded(){
     if(typeof emomRoundHistory!=='undefined' && Array.isArray(c.emomRoundHistory)) emomRoundHistory=c.emomRoundHistory;
     if(typeof _dbOut!=='undefined') _dbOut=!!c.dbOut;
     if(typeof _clOut!=='undefined') _clOut=!!c.clOut;
-    if(typeof _ssOut!=='undefined') _ssOut=!!c.ssOut;
     if(typeof _clLoad!=='undefined') _clLoad=(c.clLoad!=null?c.clLoad:null);
     if(typeof _ecValues!=='undefined' && Array.isArray(c.ecValues)) _ecValues=c.ecValues;
     if(typeof _pendingDist!=='undefined') _pendingDist=(c.pendingDist!=null?c.pendingDist:null);
