@@ -7524,10 +7524,16 @@ function autoSave(){
       var _db2=(typeof LS_FB_DB!=='undefined'&&LS_FB_DB)||window.db||null;
       if(_db2&&typeof _db2.ref==='function'){
         try{
-          _db2.ref('admin_backup').set({
-            wods:WODS||[], categories:CATEGORIES||[], benevoles:BENEVOLES||[],
-            savedAt:now, version:'delta'
-          });
+          // ★ GARDE-FOU ANTI-EFFACEMENT : ne JAMAIS écraser le backup Firebase avec une
+          //   liste de bénévoles vide. Sans ça, une ouverture avec état local vide (avant
+          //   que Firebase ait répondu) pouvait écraser admin_backup par du vide et faire
+          //   disparaître tous les bénévoles. Si BENEVOLES est vide, on ne touche pas au backup.
+          if(BENEVOLES && BENEVOLES.length){
+            _db2.ref('admin_backup').set({
+              wods:WODS||[], categories:CATEGORIES||[], benevoles:BENEVOLES||[],
+              savedAt:now, version:'delta'
+            });
+          }
         }catch(e2){}
       }
     }
@@ -7572,7 +7578,14 @@ function sanitizeBundledTestState(){
 function applyState(state){
   if(state.ev){var ev=state.ev;if(ev.nom)document.getElementById("ev-nom").value=ev.nom;if(ev.date1)document.getElementById("ev-date1").value=ev.date1;if(ev.date2)document.getElementById("ev-date2").value=ev.date2;if(ev.lieu)document.getElementById("ev-lieu").value=ev.lieu;if(ev.resp)document.getElementById("ev-resp").value=ev.resp;if(ev.email)document.getElementById("ev-email").value=ev.email;if(ev.compStart)document.getElementById("comp-start").value=ev.compStart;if(ev.compEnd)document.getElementById("comp-end").value=ev.compEnd;var cs2el=document.getElementById("comp-start2");var ce2el=document.getElementById("comp-end2");var rd2el=(document.getElementById("rotation-dur2")||{});if(ev.compStart2&&cs2el)cs2el.value=ev.compStart2;if(ev.compEnd2&&ce2el)ce2el.value=ev.compEnd2;if(ev.rotDur2&&rd2el)rd2el.value=ev.rotDur2;var nj1el=document.getElementById("notes-j1");var nj2el=document.getElementById("notes-j2");if(ev.notesJ1&&nj1el)nj1el.value=ev.notesJ1;if(ev.notesJ2&&nj2el)nj2el.value=ev.notesJ2;}
   if(state.stations&&state.stations.length)STATIONS=state.stations;
-  if(state.benevoles)BENEVOLES=sanitizeLoadedBenevoles(state.benevoles).list;
+  // ★ FIX CRITIQUE (perte bénévoles) : ne JAMAIS écraser la liste par du vide.
+  //   Le code d'origine faisait `if(state.benevoles)` sans tester la longueur — or un
+  //   tableau vide [] est "truthy", donc un backup vide effaçait tous les bénévoles.
+  //   Les catégories et WOD, eux, testaient déjà `.length` (lignes suivantes). On aligne
+  //   les bénévoles sur la même protection : on n'applique que si la liste n'est pas vide.
+  if(state.benevoles && sanitizeLoadedBenevoles(state.benevoles).list.length){
+    BENEVOLES=sanitizeLoadedBenevoles(state.benevoles).list;
+  }
   if(state.categories&&state.categories.length){
     CATEGORIES=state.categories;
     // Migration : forcer zone sur les catégories qui n'en ont pas
@@ -11721,6 +11734,13 @@ function init(){
             // Normaliser benevoles (peut être objet {k:v} ou tableau)
             if(backup.benevoles && !Array.isArray(backup.benevoles) && typeof backup.benevoles === 'object'){
               backup.benevoles = Object.keys(backup.benevoles).map(function(k){ return backup.benevoles[k]; }).filter(Boolean);
+            }
+            // ★ FIX CRITIQUE (perte bénévoles) : si le backup Firebase ne contient PAS de
+            //   bénévoles (vide/absent) mais qu'on en a déjà en mémoire, on retire la clé du
+            //   backup avant applyState pour ne pas écraser la liste courante par du vide.
+            //   (applyState est déjà protégé, ceci est une sécurité supplémentaire.)
+            if((!backup.benevoles || !backup.benevoles.length) && (BENEVOLES||[]).length){
+              delete backup.benevoles;
             }
             // Normaliser categories (idem)
             if(backup.categories && !Array.isArray(backup.categories) && typeof backup.categories === 'object'){
