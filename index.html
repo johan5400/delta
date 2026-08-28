@@ -7395,15 +7395,21 @@ function saveJudgePin(){
 
 function syncWodsToFirebase(){
   var db = getDb(); if(!db || typeof db.ref !== 'function') return;
+  if(!window._deltaBackupLoadedOnce){
+    console.warn('syncWodsToFirebase: publication ignorée — Firebase pas encore chargé (protection anti-écrasement)');
+    return;
+  }
+  // ★ FIX CRITIQUE « anciens WODs qui reviennent » : tant que le premier retour
+  //   Firebase (admin_backup) n'a pas eu lieu, on NE PUBLIE RIEN. Sinon un autoSave
+  //   déclenché au démarrage pousse la version locale (souvent périmée) par-dessus
+  //   la bonne version Firebase → tout le monde récupère d'anciens WODs.
+  //   Le localStorage garde quand même l'état local ; seule la publication est différée.
+  if(!window._deltaBackupLoadedOnce){
+    console.warn('syncWodsToFirebase: publication différée (Firebase pas encore chargé)');
+    return;
+  }
   // ATTENTION : si WODS est vide, on EFFACE le noeud (sinon les anciens WODs persistent sur TK/live)
   if(!WODS || !WODS.length){
-    // SÉCURITÉ : ne jamais effacer la base tant que le premier chargement Firebase
-    // n'a pas eu lieu. Sinon un autoSave au démarrage écraserait les WODs existants
-    // avec du vide (perte du travail du chef).
-    if(!window._deltaBackupLoadedOnce){
-      console.warn('syncWodsToFirebase: WODS vide avant 1er chargement Firebase — effacement ignoré');
-      return;
-    }
     try { db.ref('wods').set(null); } catch(e){}
     return;
   }
@@ -7433,6 +7439,26 @@ function syncWodsToFirebase(){
       pauseEntreToursSec: parseInt(w.pauseEntreToursSec||0,10)||0,
       scorecardRows: w.scorecardRows||'',
       scParCat: w.scParCat||{},
+      // ★ FIX PUBLICATION : ces champs manquaient → le chef publiait, rouvrait,
+      //   et perdait ses tours perso / barres / timing (Firebase renvoyait une
+      //   version amputée qui écrasait le localStorage). On les publie désormais.
+      workMin: parseInt(w.workMin||0,10)||0,
+      restMin: parseInt(w.restMin||0,10)||0,
+      toursMode: w.toursMode||'identical',
+      toursCount: (w.toursMode==='custom' && Array.isArray(w.toursPerso)) ? w.toursPerso.length : (parseInt(w.toursCount||w.rounds||0,10)||0),
+      clBarres: parseInt(w.clBarres!=null?w.clBarres:2,10)||2,
+      toursPerso: (Array.isArray(w.toursPerso)?w.toursPerso:[]).map(function(t){
+        return { mouvements: ((t&&t.mouvements)||[]).map(function(m){
+          return {
+            nom: m.nom||'', qty: parseInt(m.qty||0,10)||0,
+            type: m.type||'reps', ergoTarget: m.ergoTarget||0, ergoUnit: m.ergoUnit||'m',
+            ergoFree:!!m.ergoFree, teamSum:!!m.teamSum, teamCount:parseInt(m.teamCount||2)||2,
+            poids: m.poids||{}, qtyParCat: m.qtyParCat||{},
+            timeParCat: m.timeParCat||{}, distParCat: m.distParCat||{}, nomParCat: m.nomParCat||{},
+            qui: m.qui||'', comment: m.comment||'', note: m.note||''
+          };
+        }) };
+      }),
       mouvements: (_wodEffMovs(w)).map(function(m){
         return {
           nom: m.nom||'', qty: parseInt(m.qty||0,10)||0,
@@ -17890,6 +17916,20 @@ async function generateAndPublishAll(){
       scoreFinaleUnit:w.scoreFinaleUnit||'',
       rounds:parseInt(w.rounds||1,10)||1,
       toursMode:w.toursMode||'identical',
+      toursCount:(w.toursMode==='custom' && Array.isArray(w.toursPerso)) ? w.toursPerso.length : (parseInt(w.toursCount||w.rounds||0,10)||0),
+      clBarres:parseInt(w.clBarres!=null?w.clBarres:2,10)||2,
+      toursPerso:(Array.isArray(w.toursPerso)?w.toursPerso:[]).map(function(t){
+        return { mouvements: ((t&&t.mouvements)||[]).map(function(m){
+          return {
+            nom:m.nom||'', qty:parseInt(m.qty||0,10)||0,
+            type:m.type||'reps', ergoTarget:m.ergoTarget||0, ergoUnit:m.ergoUnit||'m',
+            ergoFree:!!m.ergoFree, teamSum:!!m.teamSum, teamCount:parseInt(m.teamCount||2)||2,
+            poids:m.poids||{}, qtyParCat:m.qtyParCat||{},
+            timeParCat:m.timeParCat||{}, distParCat:m.distParCat||{}, nomParCat:m.nomParCat||{},
+            qui:m.qui||'', comment:m.comment||'', note:m.note||''
+          };
+        }) };
+      }),
       pauseEntreToursActive:!!w.pauseEntreToursActive,
       pauseEntreToursSec:parseInt(w.pauseEntreToursSec||0,10)||0,
       hasTiebreak:!!w.hasTiebreak,
