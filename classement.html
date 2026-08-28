@@ -388,6 +388,8 @@ function inferFortimeSeconds(sc,wod,h,hid){
 function scoreVal(sc,wod,h,hid){
   if(!sc||!sc.judgeOk)return null;
   var type=wod.wodFormat||wod.type||'amrap';
+  // ★ CLEAN LADDER v2 : score = cumul kg (barre bonus incluse). Éliminé = cumul partiel.
+  if(type==='cleanladder') return parseFloat((sc.clLoad!=null?sc.clLoad:sc.load))||0;
   if(wod.judgeMode==='maxload'||wod.scoreFinale==='load')return parseFloat(sc.load)||0;
   if(wod.judgeMode==='ergo')return parseFloat(sc.ergoVal||sc.dist||sc.distance)||0;
   if(wod.scoreFinale==='dist')return parseFloat(sc.dist||sc.distance)||0;
@@ -403,6 +405,27 @@ function scoreVal(sc,wod,h,hid){
   return parseInt(sc.reps)||0;
 }
 
+/* ★ CLEAN LADDER v2 — départage partagé (classement/heat/final) :
+   à cumul kg égal, en course avant éliminé, puis le plus avancé (station/barres vertes).
+   Retourne un nombre de comparaison (négatif = a devant), ou 0 si non applicable/égal. */
+function clTieBreak(a,b){
+  var wf=String((a&&a.wod&&a.wod.wodFormat)||'').toLowerCase();
+  if(wf!=='cleanladder') return 0;
+  var aElim=!!(a.sc&&a.sc.clOut), bElim=!!(b.sc&&b.sc.clOut);
+  if(aElim!==bElim) return aElim?1:-1;
+  if(!aElim && !bElim){
+    var prog=function(sc){
+      var bc=sc&&sc.barresCL; if(!bc) return 0;
+      var st=parseInt(bc.station||1,10)||1;
+      var arr=(bc[st]&&bc[st].barres)||(bc[String(st)]&&bc[String(st)].barres)||[];
+      var g=0; for(var i=0;i<arr.length;i++) if(arr[i]===1) g++;
+      return st*100+g;
+    };
+    var d=prog(b.sc)-prog(a.sc);
+    if(d!==0) return d;
+  }
+  return 0;
+}
 function tbArrCl(sc){
   if(sc&&sc.tiebreaks&&Array.isArray(sc.tiebreaks)&&sc.tiebreaks.length>0){
     return sc.tiebreaks.map(function(t){return (t&&(parseInt(t.ts||t.val||0,10)||0))||0;}).filter(function(t){return t>0;});
@@ -424,6 +447,12 @@ function scoreDisplay(sc,wod,h,hid){
   if(!sc||!sc.judgeOk)return '—';
   var type=wod.wodFormat||wod.type||'amrap';
   var out='—';
+  // ★ CLEAN LADDER v2 : cumul kg (barre bonus incluse) ; éliminé = cumul partiel marqué.
+  if(type==='cleanladder'){
+    var _clc=(sc.clLoad!=null?sc.clLoad:(sc.load||0))||0;
+    out=_clc+' kg'+(sc.clOut?' · 🛑 él.':'');
+    return out;
+  }
   if(wod.judgeMode==='maxload'||wod.scoreFinale==='load')out=(sc.load||0)+' kg';
   else if(wod.judgeMode==='ergo')out=(sc.ergoVal||sc.dist||sc.distance||0)+(wod.scoreFinaleUnit||'m');
   else if(wod.scoreFinale==='dist')out=(sc.dist||sc.distance||0)+' '+(wod.scoreFinaleUnit||'m');
@@ -515,7 +544,8 @@ function rankWod(catName,wodName,zone){
     if(!aOk&&bOk)return 1;
     if(!aOk&&!bOk)return String(a.teamName||"").localeCompare(String(b.teamName||""));
     if(a.val!==b.val)return b.val-a.val;
-    // ★ Multi-TB en cascade
+    // ★ CLEAN LADDER v2 : départage (en course > éliminé, puis avancement). Éliminés gardent leur cumul.
+    var _clt=clTieBreak(a,b); if(_clt!==0) return _clt;
     var aTbs=tbArrCl(a.sc),bTbs=tbArrCl(b.sc);
     for(var ti=0;ti<Math.max(aTbs.length,bTbs.length);ti++){
       var at=aTbs[ti]||0,bt=bTbs[ti]||0;
@@ -1006,7 +1036,9 @@ function renderHeatBreakdown(catName,wodNames){
         if(av===null&&bv!==null) return 1;
         if(av!==null&&bv===null) return -1;
         if(av===null&&bv===null) return 0;
-        return bv-av;
+        if(bv!==av) return bv-av;
+        var _clt2=clTieBreak(a,b); if(_clt2!==0) return _clt2;
+        return 0;
       });
 
       var stLabel={live:'LIVE',pre:'PRÉ',done:'TERMINÉ',timecap:'TIMECAP',pending:'ATTENTE'}[st]||st.toUpperCase();
@@ -1162,6 +1194,7 @@ function renderFinalRanking(finalHeats){
       if(aOk&&!bOk)return -1;if(!aOk&&bOk)return 1;
       if(!aOk&&!bOk)return String(a.teamName||"").localeCompare(String(b.teamName||""));
       if(a.val!==b.val)return b.val-a.val;
+      var _cltF=clTieBreak(a,b); if(_cltF!==0) return _cltF;
       return String(a.teamName||"").localeCompare(String(b.teamName||""));
     });
     html+='<div style="margin-bottom:20px">'

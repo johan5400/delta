@@ -12776,6 +12776,19 @@ function renderProgWodsList() {
                  + '<div style="font-size:10px;color:#64748B;margin-top:6px">Tour N = départ + (N−1)×incrément reps, à boucler dans la durée/tour. Le juge a « 🏳️ Lâche » ; pas bouclé dans le temps → hors course. Time cap ci-dessus = durée max.</div>'
                  + '</div>'
                : '')
+            + (String(w.wodFormat||'').toLowerCase()==='cleanladder'
+               ? '<div style="margin-top:12px;padding:11px 13px;background:rgba(4,120,87,.06);border:1px solid rgba(4,120,87,.28);border-radius:9px">'
+                 + '<div style="font-size:10px;color:#047857;font-weight:800;letter-spacing:.5px;margin-bottom:8px">💪 CLEAN LADDER — stations × barres, cumul kg</div>'
+                 + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:end">'
+                 +   '<div><label style="'+LABEL+'">Barres par station</label>'
+                 +   '<select onchange="event.stopPropagation();updateWodProg('+w.id+',\'clBarres\',parseInt(this.value)||2)" onclick="event.stopPropagation()" style="'+IS+';color:#047857;font-weight:800;text-align:center">'
+                 +     [1,2,3,4,5,6].map(function(n){return '<option value="'+n+'"'+((parseInt(w.clBarres!=null?w.clBarres:2,10))===n?' selected':'')+'>'+n+' barre'+(n>1?'s':'')+'</option>';}).join('')
+                 +   '</select></div>'
+                 +   '<div style="font-size:10px;color:#64748B;line-height:1.5">Stations = <b>'+((w.toursMode==='custom'&&Array.isArray(w.toursPerso))?w.toursPerso.length:(parseInt(w.rounds||0,10)||0))+' tour(s) perso</b>. Le <b>poids</b> se règle par station et par catégorie dans chaque tour perso (champ Poids du mouvement).</div>'
+                 + '</div>'
+                 + '<div style="font-size:10px;color:#64748B;margin-top:8px">Timing travail/off ci-dessus = durée par station. Le juge valide chaque barre ✅/❌ ; station complète (toutes vertes) = +poids×barres au cumul. Une barre ratée → éliminé (cumul des stations validées gardé). Toutes stations bouclées → barre bonus (poids libre).</div>'
+                 + '</div>'
+               : '')
             + '')
 
         // ═ ACCORDÉON 3 : TEXTES & OPTIONS ═

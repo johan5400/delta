@@ -1100,8 +1100,19 @@ function normalizeFortimeScore(hid,ln,sc,h,lane,fallbackTs){
   return {sc:next,changed:changed};
 }
 function scoreObj(hid,ln){var h=HD[hid]||{}, n=(h.scores||{})[ln]||null, f=SC[hid+'_'+ln]||null; return mergeScoreRecord(n,f);}
-function scoreVal(sc,wod,hid){if(!sc)return null; var type=String(wod.wodFormat||wod.type||'amrap').toLowerCase(); var sf=String(wod.scoreFinale||wod.scoreType||'').toLowerCase(), jm=String(wod.judgeMode||'').toLowerCase(); if(jm==='maxload'||sf==='load') return parseFloat(sc.load)||0; if(jm==='ergo'||sf==='dist'||sf==='cal') return parseFloat(sc.dist||sc.ergoVal||sc.distance)||0; if(type==='fortime'){var h=hid?(HD[hid]||{}):{}; var ft=inferFortimeFinalSeconds(h,sc,wod,serverNow()); if(ft>0&&sc.judgeOk)return -ft; return -(999999-(parseInt(sc.reps)||0));} return parseInt(sc.reps)||0;}
-function scoreLabel(sc,wod,hid){var type=String(wod.wodFormat||wod.type||'amrap').toLowerCase(); var sf=String(wod.scoreFinale||wod.scoreType||'').toLowerCase(), jm=String(wod.judgeMode||'').toLowerCase(); if(jm==='maxload'||sf==='load') return (parseFloat(sc.load)||0)+' kg'; if(jm==='ergo'||sf==='dist'||sf==='cal') return (parseFloat(sc.dist||sc.ergoVal||sc.distance)||0)+(sf==='cal'?' cal':(' '+(sc.ergoUnit||'m'))); if(type==='fortime'){var h=hid?(HD[hid]||{}):{}; var ft=inferFortimeFinalSeconds(h,sc,wod,serverNow()); if(ft>0&&sc.judgeOk)return fmtS(ft);} return (parseInt(sc.reps)||0)+' reps';}
+/* ★ CLEAN LADDER v2 — départage TK : en course avant éliminé, puis plus avancé. a/b = {sc}. */
+function clTieBreakTK(aSc,bSc,wod){
+  if(String((wod&&(wod.wodFormat||wod.type))||'').toLowerCase()!=='cleanladder') return 0;
+  var aElim=!!(aSc&&aSc.clOut), bElim=!!(bSc&&bSc.clOut);
+  if(aElim!==bElim) return aElim?1:-1;
+  if(!aElim && !bElim){
+    var prog=function(sc){ var bc=sc&&sc.barresCL; if(!bc) return 0; var st=parseInt(bc.station||1,10)||1; var arr=(bc[st]&&bc[st].barres)||(bc[String(st)]&&bc[String(st)].barres)||[]; var g=0; for(var i=0;i<arr.length;i++) if(arr[i]===1) g++; return st*100+g; };
+    var d=prog(bSc)-prog(aSc); if(d!==0) return d;
+  }
+  return 0;
+}
+function scoreVal(sc,wod,hid){if(!sc)return null; var type=String(wod.wodFormat||wod.type||'amrap').toLowerCase(); var sf=String(wod.scoreFinale||wod.scoreType||'').toLowerCase(), jm=String(wod.judgeMode||'').toLowerCase(); if(type==='cleanladder') return parseFloat((sc.clLoad!=null?sc.clLoad:sc.load))||0; if(jm==='maxload'||sf==='load') return parseFloat(sc.load)||0; if(jm==='ergo'||sf==='dist'||sf==='cal') return parseFloat(sc.dist||sc.ergoVal||sc.distance)||0; if(type==='fortime'){var h=hid?(HD[hid]||{}):{}; var ft=inferFortimeFinalSeconds(h,sc,wod,serverNow()); if(ft>0&&sc.judgeOk)return -ft; return -(999999-(parseInt(sc.reps)||0));} return parseInt(sc.reps)||0;}
+function scoreLabel(sc,wod,hid){var type=String(wod.wodFormat||wod.type||'amrap').toLowerCase(); var sf=String(wod.scoreFinale||wod.scoreType||'').toLowerCase(), jm=String(wod.judgeMode||'').toLowerCase(); if(type==='cleanladder'){var _c=(sc.clLoad!=null?sc.clLoad:(sc.load||0))||0; return _c+' kg'+(sc.clOut?' · él.':'');} if(jm==='maxload'||sf==='load') return (parseFloat(sc.load)||0)+' kg'; if(jm==='ergo'||sf==='dist'||sf==='cal') return (parseFloat(sc.dist||sc.ergoVal||sc.distance)||0)+(sf==='cal'?' cal':(' '+(sc.ergoUnit||'m'))); if(type==='fortime'){var h=hid?(HD[hid]||{}):{}; var ft=inferFortimeFinalSeconds(h,sc,wod,serverNow()); if(ft>0&&sc.judgeOk)return fmtS(ft);} return (parseInt(sc.reps)||0)+' reps';}
 
 
 /* ── Alerte Tiebreak TK ── */
@@ -3446,6 +3457,7 @@ function renderHeatRank(zone,hid,h){
     if(a.val!==null&&b.val===null)return -1;
     if(a.val===null&&b.val===null)return String(a.team||"").localeCompare(String(b.team||""));
     if(a.val!==b.val)return b.val-a.val;
+    var _clt=clTieBreakTK(a.sc,b.sc,wod); if(_clt!==0) return _clt;
     return String(a.team||"").localeCompare(String(b.team||""));
   });
   if(!rows.length){root.innerHTML='<div class="empty">AUCUN HEAT</div>'; return;}
@@ -3492,7 +3504,9 @@ function renderCatRank(zone,catName){
     sc=sc||{}; wInfo=wInfo||{};
     var sf=String(wInfo.scoreFinale||wInfo.scoreType||'').toLowerCase();
     var jm=String(wInfo.judgeMode||'').toLowerCase();
-    var isTime=String(wInfo.wodFormat||wInfo.type||'').toLowerCase()==='fortime'||sf==='time';
+    var _type=String(wInfo.wodFormat||wInfo.type||'').toLowerCase();
+    var isTime=_type==='fortime'||sf==='time';
+    if(_type==='cleanladder') return parseFloat((sc.clLoad!=null?sc.clLoad:sc.load))||0;
     if(jm==='maxload'||sf==='load') return parseFloat(sc.load)||0;
     if(jm==='ergo'||sf==='dist'||sf==='cal') return parseFloat(sc.dist||sc.ergoVal||sc.distance)||0;
     if(isTime) return parseInt(sc.finalTime||0,10)>0 ? -parseInt(sc.finalTime,10) : (parseInt(sc.reps||0,10)>0 ? -1000000+parseInt(sc.reps,10) : -2000000);
@@ -3554,12 +3568,14 @@ function renderCatRank(zone,catName){
           team:tname,
           val:rankScoreVal(e.sc,e.wodInfo),
           tb:parseInt(e.sc.tiebreak||0,10)||0,
+          sc:e.sc,            // ★ CL v2 : nécessaire au départage éliminé/avancement
           wodInfo:e.wodInfo   // ★ nécessaire au multiplicateur du WOD final
         });
       });
     });
     grp.sort(function(a,b){
       if(b.val!==a.val) return b.val-a.val;
+      var _clt=clTieBreakTK(a.sc,b.sc,a.wodInfo); if(_clt!==0) return _clt;
       return (a.tb>0?a.tb:999999)-(b.tb>0?b.tb:999999);
     });
     // ★ Barème CrossFit Team (cohérent admin/public/podium) : 1er=100, 2e=95…
@@ -3567,7 +3583,7 @@ function renderCatRank(zone,catName){
     var rankPos=1;
     grp.forEach(function(e,i){
       var prev=grp[i-1]||null;
-      var isTie=!!(prev&&e.val===prev.val&&e.tb===prev.tb);
+      var isTie=!!(prev&&e.val===prev.val&&e.tb===prev.tb&&clTieBreakTK(e.sc,prev.sc,e.wodInfo)===0);
       if(!isTie) rankPos=i+1;
       var pts=_cfPts(rankPos); // ★ points CrossFit réels
       // ★ MULTIPLICATEUR WOD FINAL : honoré par classement.html et l'admin ;
