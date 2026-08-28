@@ -726,6 +726,8 @@ body.brief-mode #s-judge{display:none!important}
       <div id="tm-fields" style="display:flex;flex-direction:column;gap:8px;width:100%;max-width:300px;margin-top:6px"></div>
     </div>
   </div>
+<!-- Zone CLEAN LADDER v2 (stations × barres, cumul kg) -->
+  <div id="j-cl2-zone" style="display:none;flex-direction:column;flex:1;overflow-y:auto"></div>
 <!-- Zone ERGO CUMULÉ (valeur libre par tour, additionnée) -->
   <div id="j-ergocum-zone" style="display:none;flex-direction:column;flex:1">
     <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:14px;gap:10px;overflow-y:auto">
@@ -1386,6 +1388,7 @@ function wodToScenario(wod){
     // ★ Clean Ladder : identité conservée (bornage cible tour, élimination auto, bouton FINI, charge finale kg).
     //   Utilise le timing EMOM normal (travail/repos configurés dans l'index).
     cleanLadder: _isCleanLadder,
+    clBarres: parseInt(wod.clBarres!=null?wod.clBarres:2,10)||2, // ★ CL v2 : nb de barres par station
     dbIntervalSec: parseInt(wod.dbIntervalSec||3,10)||3, // (ancien modèle, gardé inerte pour compat)
     dbMode: (wod.dbMode||'free'),
     // ★ DEATH BY échelle ascendante : cible du tour N = départ + inc×(N-1), à boucler
@@ -2834,12 +2837,17 @@ function startJudge(){
   // ★ ergo cumulé : si un mouvement du WOD est ergo-libre, on prépare la zone dédiée
   // ★ FIX DEATH BY : en Death By, ergoFree n'active PAS la zone ergocum (le juge compte des reps)
   var _hasEcFree=!!(SC.moves&&SC.moves.some(function(mm){return mm&&mm.ergoFree;})) && !(SC.deathBy);
-  $('j-reps-zone').style.display=(isReps||isEmom)?'flex':'none';
+  // ★ CLEAN LADDER v2 : zone dédiée stations × barres. Le WOD est routé en 'emom'
+  //   (timing travail/off), mais la SAISIE passe par j-cl2-zone (pas de compteur reps).
+  var _isCL2v = _isCL2();
+  $('j-reps-zone').style.display=((isReps||isEmom)&&!_isCL2v)?'flex':'none';
   $('j-maxload-zone').style.display=isML?'flex':'none';
   $('j-ergo-zone').style.display=(isErgo&&!_hasEcFree)?'flex':'none';
   var _ecz=$('j-ergocum-zone'); if(_ecz) _ecz.style.display='none';  // masqué par défaut, activé par tour dans updateDisplay
-  $('j-moves').style.display=(isReps||isEmom)?'flex':'none';
-  $('j-emom-bar').style.display=isEmom?'flex':'none';
+  var _cl2z=$('j-cl2-zone'); if(_cl2z) _cl2z.style.display=_isCL2v?'flex':'none';
+  $('j-moves').style.display=((isReps||isEmom)&&!_isCL2v)?'flex':'none';
+  $('j-emom-bar').style.display=(isEmom&&!_isCL2v)?'flex':'none';
+  if(_isCL2v){ try{ cl2Init(); cl2Render(); }catch(_e){ console.warn('cl2Init:',_e); } }
 
   if(isEmom){
     emomRound=1; emomIsWork=true; emomRoundReps=0; emomRoundHistory=[]; emomTotalReps=0;
@@ -2995,6 +3003,370 @@ function _isEcCondWod(){
 }
 // ★ CLEAN LADDER : helpers dédiés.
 function _isCleanLadderWod(){ return !!(SC && SC.cleanLadder); }
+
+/* ===== INJECTION CLEAN LADDER v2 ===== */
+/* ══════════════════════════════════════════════════════════════════════
+   CLEAN LADDER v2 — MODULE JUGE
+   ──────────────────────────────────────────────────────────────────────
+   Modèle « stations × barres » :
+   - N stations (= nb de tours perso), timing travail/off par le bloc EMOM.
+   - K barres par station (SC.clBarres, défaut 2), même poids sur toutes les
+     barres d'une station. Poids = SC.moves[tour==station].poids résolu par cat.
+   - Chaque barre : état 0=attente, 'try'=tentée (visible live), 1=validée ✅,
+     -1=ratée ❌. État DÉFINITIF une fois validé/raté (pas de re-tentative).
+   - Cumul = somme des poids des barres validées (vertes) uniquement.
+   - Fin de temps de station : si < K barres vertes → ÉLIMINÉ (clOut), cumul
+     partiel conservé. Avance station = automatique (bascule 'off' du timing).
+   - Toutes stations bouclées → barre BONUS : poids libre, validé ✅ (+cumul) ou ❌.
+   - Score = cumul kg. Classement au plus lourd ; éliminés sur cumul partiel.
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* ── État CL v2 ── */
+var _cl2 = {
+  station: 1,          // station courante (1-based)
+  nbStations: 1,       // total stations
+  nbBarres: 2,         // barres par station
+  poidsStation: {},    // { stationNum : poids kg }
+  barres: {},          // { stationNum : [etat, etat, ...] }  etat ∈ {0,'try',1,-1}
+  bonus: null,         // { poids:kg, etat:'try'|1|-1 } ou null
+  bonusOpen: false,    // barre bonus ouverte (toutes stations bouclées)
+  cumul: 0,            // cumul kg des barres validées
+  pendingBarre: null,  // index de la barre en attente de validation ✅/❌
+  eliminated: false    // athlète éliminé (miroir de _clOut)
+};
+
+/* ── Détection : ce WOD est-il un CLEAN LADDER v2 ? ── */
+function _isCL2(){ return !!(SC && SC.cleanLadder); }
+
+/* ── Poids d'une station pour la catégorie courante ──
+   Les moves sont aplatis avec un tag .tour (= n° station). On lit le 1er move
+   de la station qui porte un poids (déjà résolu par catId dans wodToScenario). */
+function _cl2PoidsStation(st){
+  var ms = (SC && SC.moves) || [];
+  var p = 0;
+  for(var i=0;i<ms.length;i++){
+    var m = ms[i];
+    if(!m) continue;
+    var t = parseInt(m.tour||0,10)||0;
+    // si les moves sont taggés par tour, on filtre ; sinon on prend le 1er poids trouvé
+    if(t>0 && t!==st) continue;
+    var pv = parseFloat(String(m.poids!=null?m.poids:(m.load!=null?m.load:'')).replace(',','.'));
+    if(isFinite(pv) && pv>0){ p = pv; if(t===st) break; }
+  }
+  return p||0;
+}
+
+/* ── Init CL v2 au démarrage du heat ── */
+function cl2Init(){
+  if(!_isCL2()) return;
+  _cl2.nbStations = Math.max(1, parseInt(SC.rounds||SC.toursCount||1,10)||1);
+  _cl2.nbBarres   = Math.max(1, parseInt(SC.clBarres||2,10)||2);
+  _cl2.station    = 1;
+  _cl2.poidsStation = {};
+  _cl2.barres = {};
+  for(var s=1;s<=_cl2.nbStations;s++){
+    _cl2.poidsStation[s] = _cl2PoidsStation(s);
+    _cl2.barres[s] = [];
+    for(var b=0;b<_cl2.nbBarres;b++) _cl2.barres[s].push(0);
+  }
+  _cl2.bonus = null; _cl2.bonusOpen = false;
+  _cl2.cumul = 0; _cl2.pendingBarre = null; _cl2.eliminated = false;
+  _clOut = false; _clLoad = null;
+}
+
+/* ── Recalcul du cumul ──
+   Règle : seules les stations ENTIÈREMENT validées (toutes les barres vertes)
+   comptent. Une barre verte sur une station où au moins une barre est ratée
+   ne compte PAS. + barre bonus verte. */
+function cl2Recompute(){
+  var tot = 0;
+  for(var s=1;s<=_cl2.nbStations;s++){
+    var arr = _cl2.barres[s]||[];
+    var p = _cl2.poidsStation[s]||0;
+    if(arr.length===0) continue;
+    var greens=0, hasMiss=false;
+    for(var b=0;b<arr.length;b++){
+      if(arr[b]===1) greens++;
+      else if(arr[b]===-1) hasMiss=true;
+    }
+    // station créditée seulement si TOUTES les barres sont vertes (aucune ratée, aucune en attente)
+    if(!hasMiss && greens===_cl2.nbBarres){ tot += p * _cl2.nbBarres; }
+  }
+  if(_cl2.bonus && _cl2.bonus.etat===1) tot += (parseFloat(_cl2.bonus.poids)||0);
+  _cl2.cumul = tot;
+  _clLoad = tot; // départage/score = cumul
+  return tot;
+}
+
+/* ── Le juge touche une barre (1er appui) → passe en 'try' (visible live) ── */
+function cl2TapBarre(idx){
+  if(done || _cl2.eliminated) return;
+  if(!_isCL2()) return;
+  var st = _cl2.station;
+  var arr = _cl2.barres[st]||[];
+  // état définitif : on n'ouvre que les barres en attente (0)
+  if(arr[idx]!==0){ toast('Barre déjà jugée','#888',1400); return; }
+  // une seule barre en attente de validation à la fois
+  if(_cl2.pendingBarre!=null && _cl2.pendingBarre!==idx){
+    toast('Valide d\'abord la barre en cours','#FFB020',1800); return;
+  }
+  arr[idx] = 'try';
+  _cl2.pendingBarre = idx;
+  try{ vib([40]); }catch(e){}
+  cl2Render(); cl2Push();
+}
+
+/* ── Validation de la barre tentée : ok=true ✅ / false ❌ (définitif) ── */
+function cl2JudgeBarre(ok){
+  if(done || _cl2.eliminated) return;
+  if(_cl2.pendingBarre==null){ toast('Sélectionne une barre d\'abord','#FFB020',1600); return; }
+  var st = _cl2.station;
+  var arr = _cl2.barres[st]||[];
+  var idx = _cl2.pendingBarre;
+  arr[idx] = ok ? 1 : -1;
+  _cl2.pendingBarre = null;
+  try{ vib(ok?[60,30,60]:[120]); }catch(e){}
+  cl2Recompute(); cl2Render(); cl2Push();
+  // si une barre est ratée, la station ne pourra pas être complète → l'élimination
+  // sera prononcée à la bascule 'off' (fin du temps de station).
+}
+
+/* ── Nb de barres vertes sur la station courante ── */
+function cl2Greens(st){
+  var arr = _cl2.barres[st]||[]; var n=0;
+  for(var i=0;i<arr.length;i++) if(arr[i]===1) n++;
+  return n;
+}
+
+/* ── Clôture de la station courante (appelée à la bascule travail→off) ──
+   Si < nbBarres vertes → ÉLIMINÉ (cumul partiel gardé). Sinon on avance. */
+function cl2CloseStation(){
+  if(done || _cl2.eliminated) return;
+  var st = _cl2.station;
+  // toute barre restée 'try' non validée à la fin du temps → comptée ratée
+  var arr = _cl2.barres[st]||[];
+  for(var i=0;i<arr.length;i++){ if(arr[i]==='try') arr[i]=-1; }
+  _cl2.pendingBarre = null;
+  cl2Recompute();
+  var greens = cl2Greens(st);
+  if(greens < _cl2.nbBarres){
+    // station ratée / hors temps → éliminé, cumul partiel conservé
+    cl2Eliminate();
+    return;
+  }
+  // station complète → avancer
+  if(st >= _cl2.nbStations){
+    // toutes les stations bouclées → ouvrir la barre bonus
+    cl2OpenBonus();
+  } else {
+    _cl2.station = st + 1;
+    cl2Render(); cl2Push();
+  }
+}
+
+/* ── Élimination : fige le score sur le cumul partiel ── */
+function cl2Eliminate(){
+  if(done) return;
+  _cl2.eliminated = true;
+  _clOut = true;
+  cl2Recompute();
+  try{ vib([120,60,120]); }catch(e){}
+  toast('❌ Station ratée — éliminé · '+_cl2.cumul+' kg conservés','#FF3B5C',3000);
+  cl2Render(); cl2Push();
+  done = true;
+  try{ validate(); }catch(e){ console.warn('cl2Eliminate validate:',e); }
+}
+
+/* ── Barre BONUS : ouverte quand toutes les stations sont validées ── */
+function cl2OpenBonus(){
+  _cl2.bonusOpen = true;
+  _cl2.bonus = { poids: null, etat: 0 };
+  cl2Render(); cl2Push();
+  toast('🏆 Toutes les stations validées — barre bonus !','#00E5A0',2600);
+}
+
+/* ── Le juge saisit le poids libre de la barre bonus → 'try' (visible live) ── */
+function cl2BonusSet(){
+  if(!_cl2.bonusOpen || done) return;
+  var inp = document.getElementById('cl2-bonus-inp');
+  var kg = parseFloat(String(inp&&inp.value||'').replace(',','.'));
+  if(!isFinite(kg) || kg<=0){ toast('Saisis un poids valide','#FFB020',1600); if(inp) inp.focus(); return; }
+  _cl2.bonus = { poids: kg, etat: 'try' };
+  try{ vib([40]); }catch(e){}
+  cl2Render(); cl2Push();
+}
+
+/* ── Validation de la barre bonus : ok ✅ (+cumul) / ❌ ── */
+function cl2BonusJudge(ok){
+  if(!_cl2.bonusOpen || done) return;
+  if(!_cl2.bonus || _cl2.bonus.etat!=='try'){ toast('Saisis puis affiche le poids d\'abord','#FFB020',1800); return; }
+  _cl2.bonus.etat = ok ? 1 : -1;
+  try{ vib(ok?[60,30,60]:[120]); }catch(e){}
+  cl2Recompute();
+  toast(ok?('🏆 Bonus validé — +'+_cl2.bonus.poids+' kg'):'Bonus refusé','#'+(ok?'00E5A0':'FF3B5C'),2400);
+  cl2Render(); cl2Push();
+  // fin du WOD : score final = cumul
+  done = true;
+  try{ validate(); }catch(e){ console.warn('cl2BonusJudge validate:',e); }
+}
+
+/* ── Rendu de la zone CL v2 ── */
+function cl2Render(){
+  var zone = document.getElementById('j-cl2-zone');
+  if(!zone) return;
+  if(!_isCL2()){ zone.style.display='none'; return; }
+
+  var st = _cl2.station;
+  var poids = _cl2.poidsStation[st]||0;
+  var html = '';
+
+  // Bandeau cumul
+  html += '<div style="text-align:center;padding:10px 0 4px">'
+        + '<div style="font-family:var(--fc);font-size:11px;font-weight:800;letter-spacing:2px;color:var(--mid);text-transform:uppercase">Cumul validé</div>'
+        + '<div style="font-family:var(--fm);font-size:52px;font-weight:900;color:var(--gold,#FFB020);line-height:1">'+_cl2.cumul+'<span style="font-size:22px"> kg</span></div>'
+        + '</div>';
+
+  if(_cl2.bonusOpen){
+    // ── Écran barre bonus ──
+    var bEtat = _cl2.bonus ? _cl2.bonus.etat : 0;
+    html += '<div style="text-align:center;padding:6px 14px 2px">'
+          + '<div style="font-family:var(--ff);font-size:24px;letter-spacing:2px;color:#00E5A0">🏆 BARRE BONUS</div>'
+          + '<div style="font-family:var(--fc);font-size:11px;color:var(--ink2);margin-top:4px">Saisis le poids annoncé, affiche-le, puis valide ✅ ou refuse ❌</div>'
+          + '</div>';
+    if(bEtat==='try' || bEtat===1 || bEtat===-1){
+      var col = bEtat===1?'#00E5A0':(bEtat===-1?'#FF3B5C':'#FFB020');
+      var ico = bEtat===1?'✅':(bEtat===-1?'❌':'⏳');
+      html += '<div style="margin:12px auto;max-width:280px;padding:16px;border-radius:14px;border:2px solid '+col+';background:'+col+'22;text-align:center">'
+            + '<div style="font-family:var(--fm);font-size:40px;font-weight:900;color:'+col+'">'+ico+' '+(_cl2.bonus.poids||0)+' kg</div>'
+            + '</div>';
+    }
+    if(bEtat===0){
+      html += '<div style="display:flex;gap:8px;align-items:center;max-width:300px;margin:10px auto">'
+            + '<input id="cl2-bonus-inp" type="number" min="1" inputmode="numeric" placeholder="poids kg" onkeydown="if(event.key===\'Enter\')cl2BonusSet()" style="flex:1;padding:14px;border-radius:10px;border:1px solid rgba(0,229,160,.4);background:rgba(0,229,160,.06);color:var(--ink);font-family:var(--fm);font-size:24px;font-weight:700;text-align:center;outline:none">'
+            + '<button onclick="cl2BonusSet()" style="padding:14px 18px;border:none;border-radius:10px;background:linear-gradient(135deg,#00A876,#00E5A0);color:#04231a;font-family:var(--fc);font-size:15px;font-weight:900;cursor:pointer">AFFICHER</button>'
+            + '</div>';
+    } else if(bEtat==='try'){
+      html += '<div style="display:flex;gap:10px;max-width:320px;margin:12px auto">'
+            + '<button onclick="cl2BonusJudge(true)" style="flex:1;padding:18px;border:none;border-radius:14px;background:linear-gradient(135deg,#00A876,#00E5A0);color:#04231a;font-family:var(--ff);font-size:20px;letter-spacing:1px;font-weight:900;cursor:pointer">✅ VALIDÉ</button>'
+            + '<button onclick="cl2BonusJudge(false)" style="flex:1;padding:18px;border:1px solid rgba(255,59,92,.5);border-radius:14px;background:rgba(255,59,92,.12);color:#FF6B85;font-family:var(--ff);font-size:20px;letter-spacing:1px;font-weight:900;cursor:pointer">❌ REFUSÉ</button>'
+            + '</div>';
+    }
+    zone.innerHTML = html;
+    zone.style.display='flex';
+    return;
+  }
+
+  // ── Écran station courante ──
+  var arr = _cl2.barres[st]||[];
+  // ★ Toutes les barres de la station sont-elles jugées (✅ ou ❌, plus aucune en attente/0) ?
+  var allJudged = arr.length>0 && arr.every(function(e){ return e===1 || e===-1; });
+  var greensNow = cl2Greens(st);
+  if(allJudged){
+    // Station entièrement jouée → on BLOQUE et on attend la station suivante (pilotée par le timing).
+    var stationOk = (greensNow >= _cl2.nbBarres);
+    var nextPoids = (st < _cl2.nbStations) ? (_cl2.poidsStation[st+1]||0) : 0;
+    html += '<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;text-align:center">';
+    // récap des barres de la station
+    var recap='';
+    for(var r=0;r<arr.length;r++){ recap += (arr[r]===1?'✅':'❌')+' '; }
+    if(stationOk){
+      html += '<div style="font-size:54px;line-height:1">🏁</div>'
+            + '<div style="font-family:var(--ff);font-size:26px;letter-spacing:2px;color:var(--ok);margin-top:8px">STATION '+st+' VALIDÉE</div>'
+            + '<div style="font-family:var(--fm);font-size:20px;color:#fff;margin-top:6px">'+recap+'</div>';
+      if(st < _cl2.nbStations){
+        html += '<div style="margin-top:22px;padding:14px 22px;border-radius:14px;border:1px solid rgba(77,166,255,.35);background:rgba(77,166,255,.08)">'
+              + '<div style="font-family:var(--fc);font-size:11px;font-weight:800;letter-spacing:1px;color:var(--mid);text-transform:uppercase">Prochaine station</div>'
+              + '<div style="font-family:var(--ff);font-size:22px;color:#fff;margin-top:3px">STATION '+(st+1)+' · <span style="color:var(--blue)">'+(nextPoids>0?nextPoids+' kg':'—')+'</span></div>'
+              + '</div>'
+              + '<div style="font-family:var(--fc);font-size:12px;color:var(--ink2);margin-top:16px">⏱ En attente du départ de la station suivante…</div>';
+      } else {
+        html += '<div style="margin-top:22px;font-family:var(--fc);font-size:13px;color:#00E5A0;font-weight:700">🏆 Dernière station bouclée — la barre bonus va s\'ouvrir</div>';
+      }
+    } else {
+      html += '<div style="font-size:54px;line-height:1">❌</div>'
+            + '<div style="font-family:var(--ff);font-size:26px;letter-spacing:2px;color:var(--err);margin-top:8px">STATION '+st+' RATÉE</div>'
+            + '<div style="font-family:var(--fm);font-size:20px;color:#fff;margin-top:6px">'+recap+'</div>'
+            + '<div style="font-family:var(--fc);font-size:13px;color:var(--err);margin-top:14px;font-weight:700">Athlète éliminé — cumul conservé : '+_cl2.cumul+' kg</div>';
+    }
+    html += '</div>';
+    zone.innerHTML = html;
+    zone.style.display='flex';
+    // ★ Si une barre est ratée, la station ne peut plus être complète → élimination immédiate
+    //   (pas d'attente de la bascule du timing). Fait après le rendu pour que l'écran ❌ soit vu.
+    if(!stationOk && !done && !_cl2.eliminated){
+      setTimeout(function(){ try{ cl2Eliminate(); }catch(e){} }, 900);
+    }
+    return;
+  }
+  html += '<div style="text-align:center;padding:2px 14px 8px">'
+        + '<div style="font-family:var(--ff);font-size:26px;letter-spacing:2px;color:#fff;line-height:1">STATION '+st+' <span style="font-size:16px;color:var(--mid)">/ '+_cl2.nbStations+'</span></div>'
+        + '<div style="font-family:var(--fm);font-size:30px;font-weight:900;color:#4DA6FF;margin-top:4px">'+(poids>0?poids+' kg':'—')+'</div>'
+        + '<div style="font-family:var(--fc);font-size:10px;color:var(--ink2);margin-top:2px">'+_cl2.nbBarres+' barre'+(_cl2.nbBarres>1?'s':'')+' · même poids · touche une barre puis valide</div>'
+        + '</div>';
+
+  // Grille des barres
+  html += '<div style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center;padding:6px 14px">';
+  for(var i=0;i<arr.length;i++){
+    var e = arr[i];
+    var col, bg, ico, lbl;
+    if(e===1){ col='#00E5A0'; bg='rgba(0,229,160,.15)'; ico='✅'; lbl='VALIDÉE'; }
+    else if(e===-1){ col='#FF3B5C'; bg='rgba(255,59,92,.12)'; ico='❌'; lbl='RATÉE'; }
+    else if(e==='try'){ col='#FFB020'; bg='rgba(255,176,32,.15)'; ico='⏳'; lbl='À JUGER'; }
+    else { col='rgba(255,255,255,.35)'; bg='rgba(255,255,255,.04)'; ico='🏋️'; lbl='BARRE '+(i+1); }
+    var clickable = (e===0);
+    html += '<div onclick="'+(clickable?'cl2TapBarre('+i+')':'')+'" style="width:120px;padding:16px 10px;border-radius:14px;border:2px solid '+col+';background:'+bg+';text-align:center;'+(clickable?'cursor:pointer':'opacity:.95')+'">'
+          + '<div style="font-size:30px;line-height:1">'+ico+'</div>'
+          + '<div style="font-family:var(--fc);font-size:11px;font-weight:900;letter-spacing:1px;color:'+col+';margin-top:6px">'+lbl+'</div>'
+          + '<div style="font-family:var(--fm);font-size:14px;font-weight:700;color:'+col+';margin-top:2px">'+(poids>0?poids+' kg':'')+'</div>'
+          + '</div>';
+  }
+  html += '</div>';
+
+  // Boutons ✅/❌ pour la barre tentée
+  if(_cl2.pendingBarre!=null){
+    html += '<div style="display:flex;gap:10px;max-width:320px;margin:12px auto 6px;padding:0 14px">'
+          + '<button onclick="cl2JudgeBarre(true)" style="flex:1;padding:18px;border:none;border-radius:14px;background:linear-gradient(135deg,#00A876,#00E5A0);color:#04231a;font-family:var(--ff);font-size:20px;letter-spacing:1px;font-weight:900;cursor:pointer">✅ VALIDÉE</button>'
+          + '<button onclick="cl2JudgeBarre(false)" style="flex:1;padding:18px;border:1px solid rgba(255,59,92,.5);border-radius:14px;background:rgba(255,59,92,.12);color:#FF6B85;font-family:var(--ff);font-size:20px;letter-spacing:1px;font-weight:900;cursor:pointer">❌ RATÉE</button>'
+          + '</div>';
+  }
+
+  // Progression stations (pastilles)
+  html += '<div style="display:flex;flex-wrap:wrap;gap:5px;justify-content:center;padding:10px 14px 4px">';
+  for(var s2=1;s2<=_cl2.nbStations;s2++){
+    var full = cl2Greens(s2)>=_cl2.nbBarres && s2<st;
+    var cur = (s2===st);
+    var c2 = full?'#00E5A0':(cur?'#4DA6FF':'rgba(255,255,255,.25)');
+    html += '<div style="width:22px;height:22px;border-radius:50%;border:2px solid '+c2+';color:'+c2+';font-family:var(--fc);font-size:10px;font-weight:900;display:flex;align-items:center;justify-content:center">'+s2+'</div>';
+  }
+  html += '</div>';
+
+  zone.innerHTML = html;
+  zone.style.display='flex';
+}
+
+/* ── Push de l'état CL v2 vers Firebase (via pushScoreLive, embarqué) ──
+   On construit l'objet barresCL consommé par le live. */
+function cl2BuildBarresCL(){
+  if(!_isCL2()) return null;
+  var out = {};
+  for(var s=1;s<=_cl2.nbStations;s++){
+    out[s] = { poids:_cl2.poidsStation[s]||0, barres:(_cl2.barres[s]||[]).slice() };
+  }
+  if(_cl2.bonus) out.bonus = { poids:_cl2.bonus.poids||0, etat:_cl2.bonus.etat };
+  out.station = _cl2.station;
+  out.nbStations = _cl2.nbStations;
+  out.nbBarres = _cl2.nbBarres;
+  out.cumul = _cl2.cumul;
+  out.eliminated = !!_cl2.eliminated;
+  out.bonusOpen = !!_cl2.bonusOpen;
+  return out;
+}
+function cl2Push(){
+  try{ if(typeof pushScoreLive==='function') pushScoreLive(); }catch(e){}
+}
+
+/* ===== FIN INJECTION CLEAN LADDER v2 ===== */
+
 function _clTargetThisRound(){
   // Cible de reps du tour courant. En tours perso, chaque tour a ses mouvements avec leur q.
   //   La machinerie EMOM expose currentRound (1-based). On somme les reps des mouvements
@@ -3211,7 +3583,7 @@ function updateDisplay(){
   if(_dbB){ _dbB.style.display=(SC&&SC.deathBy && !done)?'flex':'none'; }
   // ★ Clean Ladder : bouton FINI visible dès qu'on est en Clean Ladder et pas encore fini
   var _clB=$('btn-clfini');
-  if(_clB){ _clB.style.display=(SC&&SC.cleanLadder && !done)?'flex':'none'; }
+  if(_clB){ _clB.style.display='none'; } // ★ CL v2 : plus de bouton FINI (avance auto par timing)
   var m=SC.moves[moveIdx], isAmrap=(SC.fmt==='amrap');
   // ★ ergo cumulé (valeur libre) : si le WOD a un mouvement ergo-libre, on affiche
   //   la zone de saisie cumulée À LA PLACE du compteur +REP, MAIS sans couper le WOD :
@@ -3607,8 +3979,13 @@ function validate(ergoVal){
     try{ ecRefresh(); }catch(_e){}
   }
   var score,meta,fmt=(SC.fmt||'').toLowerCase();
-  // ★ FIX DEATH BY : en Death By, ergoFree est cosmétique (label "MAX" dans le brief).
-  //   Le score = totalReps (reps de thruster), pas une valeur libre ergocum.
+  // ★ CLEAN LADDER v2 : score affiché = cumul kg (stations validées). Statut éliminé/complet.
+  if(typeof _isCL2==='function' && _isCL2()){
+    var _cl2c=(typeof cl2Recompute==='function'?cl2Recompute():((_cl2&&_cl2.cumul)||0));
+    score=_cl2c+' kg';
+    meta=SC.heat+' · Lane '+SC.lane+' · '+SC.wod+' · '+(_cl2&&_cl2.eliminated?'éliminé (cumul partiel)':'parcours complet');
+    try{ var _z=$('j-cl2-zone'); if(_z) _z.style.display='none'; }catch(e){}
+  } else {
   var _ecFreeDisp=!!(SC.moves&&SC.moves.some(function(mm){return mm&&mm.ergoFree;})) && !(SC&&SC.deathBy);
   if(_ecFreeDisp){
     // ★ EMOM/ergo cumulé : le score affiché = total des distances/cals des tours + unité.
@@ -3632,6 +4009,7 @@ function validate(ergoVal){
     score=finalFt>0?fmtT(finalFt):totalReps+' reps (TC)';
     meta=SC.heat+' · Lane '+SC.lane+' · '+SC.wod+(noReps?' · '+noReps+' NR':'');
   }
+  } // ★ fin wrapper CLEAN LADDER v2
   $('done-score').textContent=score; $('done-meta').textContent=meta;
   var tEl=$('done-tb');
   if(tbTs){tEl.textContent='🎯 Tiebreak : '+fmtT(tbTs);tEl.style.display='block';}else tEl.style.display='none';
@@ -3644,6 +4022,12 @@ function validate(ergoVal){
     //   Le score principal reste reps (total cumulé) ; clLoad départage les égalités.
     payload.clOut=_clOut;
     if(_clLoad!=null){ payload.clLoad=_clLoad; payload.load=_clLoad; }
+    // ★ CLEAN LADDER v2 : score final = cumul kg + état détaillé des barres.
+    if(typeof _isCL2==='function' && _isCL2()){
+      var _cl2cum=(typeof cl2Recompute==='function'?cl2Recompute():((_cl2&&_cl2.cumul)||0));
+      payload.load=_cl2cum; payload.clLoad=_cl2cum;
+      try{ payload.barresCL=(typeof cl2BuildBarresCL==='function')?cl2BuildBarresCL():null; }catch(e){}
+    }
   payload.attempts=mlAttempts.map(function(a){return {kg:a.kg,ok:!!a.ok};});
     var fmt2=(SC.fmt||'').toLowerCase();
     // ★ ERGO CUMULÉ : si le WOD a un mouvement ergo-libre, le score = total cumulé
@@ -3787,27 +4171,12 @@ function updateEmomPhase(e){
         emomRoundHistory[wasRound-1]=emomRoundReps; emomTotalReps+=emomRoundReps; emomRoundReps=0;
         moveIdx=0; moveReps=0;
       } else if(_isCleanLadderWod()){
-        // ★ CLEAN LADDER : au passage de tour, si le tour qui vient de se terminer n'a PAS
-        //   atteint sa cible de reps (échelle libre configurée), l'athlète est ÉLIMINÉ (auto),
-        //   score figé, plus de saisie. Sinon on archive et on repart à 0 pour le tour suivant.
-        if(!_clOut && !done){
-          var _clTgtPrev=0;
-          // cible du tour qui se termine (wasRound), pas du nouveau
-          var _msCL=(SC&&SC.moves)||[];
-          var _hasTagCL=_msCL.some(function(m){return m&&m.tour;});
-          if(_hasTagCL){ _msCL.forEach(function(m){ if(m && (parseInt(m.tour||0,10)||0)===wasRound && !m.ergoFree){ _clTgtPrev+=(parseInt(m.q||0,10)||0); } }); }
-          else { _msCL.forEach(function(m){ if(m && !m.ergoFree){ _clTgtPrev+=(parseInt(m.q||0,10)||0); } }); }
-          if(_clTgtPrev>0 && emomRoundReps < _clTgtPrev){
-            emomRoundHistory[wasRound-1]=emomRoundReps; emomTotalReps+=emomRoundReps; emomRoundReps=0;
-            _clOut=true;
-            try{ var _bf=$('btn-clfini'); if(_bf) _bf.style.display='none'; }catch(_e){}
-            if(!done){ done=true; try{ validate(); }catch(_e){} }
-            try{ updateEmomDisplay(); }catch(_e){}
-            return;
-          }
-        }
-        emomRoundHistory[wasRound-1]=emomRoundReps; emomTotalReps+=emomRoundReps; emomRoundReps=0;
-        moveIdx=0; moveReps=0;
+        // ★ CLEAN LADDER v2 : la fin du temps de travail d'une station (bascule work→off)
+        //   clôture la station : si < nbBarres validées → ÉLIMINÉ (cumul partiel gardé),
+        //   sinon on avance à la station suivante (ou barre bonus si dernière station).
+        //   cl2CloseStation gère l'élimination + validate() éventuel.
+        try{ cl2CloseStation(); }catch(_e){ console.warn('cl2CloseStation:',_e); }
+        if(_cl2 && _cl2.eliminated){ return; }
       } else {
       // ★ DEATH BY échelle : au passage de tour, si le tour qui vient de se terminer n'a
       //   PAS atteint sa cible (départ + inc×(tour-1)), l'athlète est HORS COURSE (auto).
@@ -3844,6 +4213,24 @@ function updateEmomPhase(e){
   var restCd=$('rest-cd-val'); if(restCd&&(!emomIsWork||_tourValide)) restCd.textContent=fmtT(phaseRem);
 }
 function updateEmomDisplay(){
+  // ★ CLEAN LADDER v2 : la saisie vit dans j-cl2-zone (stations × barres), pilotée
+  //   par le timing EMOM mais SANS compteur reps ni écran repos. On garde donc la
+  //   zone stations visible et on met simplement à jour le chrono/round, sans toucher
+  //   aux zones reps/repos. Le rendu détaillé est fait par cl2Render().
+  if(typeof _isCL2==='function' && _isCL2()){
+    var _cl2z=$('j-cl2-zone'); if(_cl2z) _cl2z.style.display='flex';
+    var _rz=$('j-reps-zone'); if(_rz) _rz.style.display='none';
+    var _rs=$('j-rest-screen'); if(_rs){ _rs.classList.remove('show'); _rs.style.display='none'; }
+    var _cnt=$('j-counter'); if(_cnt) _cnt.style.display='none';
+    var _bt=$('j-btns')||document.querySelector('.j-btns'); if(_bt) _bt.style.display='none';
+    // maj chrono/round de la barre EMOM (utile si affichée)
+    var _fl=(SC.fmt||'').toLowerCase(), _work=SC.emomWork||60, _rest=SC.emomRest||0;
+    var _cycle=_work+_rest, _tr=Math.round(SC.cap/_cycle);
+    var _re=$('emom-round'); if(_re) _re.textContent='STATION '+(_cl2&&_cl2.station||1)+' / '+(_cl2&&_cl2.nbStations||_tr);
+    var _pe=$('emom-phase'); if(_pe){ _pe.textContent=emomIsWork?'EN COURS':'TRANSITION'; _pe.className='emom-phase '+(emomIsWork?'work':'rest'); }
+    try{ cl2Render(); }catch(e){}
+    return;
+  }
   // ★ ERGO CUMULÉ EN EMOM : si le mouvement courant est ergo-libre (max cal skierg /
   //   max mètres), afficher la zone de saisie cumulée À LA PLACE du compteur +REP.
   //   Sans ça, le juge voyait le compteur normal et sa saisie terminait le WOD.
@@ -3912,7 +4299,7 @@ function updateEmomDisplay(){
     if(_dbBtn){ _dbBtn.style.display=(SC&&SC.deathBy && !done && !isResting && !_ecActive)?'flex':'none'; }
     // ★ Clean Ladder : bouton FINI visible pendant le comptage (pas en repos)
     var _clBtn=$('btn-clfini');
-    if(_clBtn){ _clBtn.style.display=(SC&&SC.cleanLadder && !done && !isResting && !_ecActive)?'flex':'none'; }
+    if(_clBtn){ _clBtn.style.display='none'; } // ★ CL v2 : plus de bouton FINI
     if(isResting){
       var _rl=document.querySelector('.rest-label'); if(_rl) _rl.textContent=_tourValide?'✅ TOUR VALIDÉ':'REPOS';
       // ★ Message rigolo aléatoire — choisi UNE fois à l'entrée en repos (pas à chaque tick)
@@ -5103,7 +5490,13 @@ function pushScoreLive(){
     dist:(function(){ if(!SC||SC.deathBy) return 0; if(SC.moves&&SC.moves.some(function(mm){return mm&&mm.ergoFree;})){ return (_ecValues||[]).reduce(function(a,b){return a+(parseFloat(b)||0);},0); } return 0; })(),
     ergoVal:(function(){ if(!SC||SC.deathBy) return 0; if(SC.moves&&SC.moves.some(function(mm){return mm&&mm.ergoFree;})){ return (_ecValues||[]).reduce(function(a,b){return a+(parseFloat(b)||0);},0); } return 0; })(),
     ecValues:(function(){ if(!SC||SC.deathBy) return null; if(SC.moves&&SC.moves.some(function(mm){return mm&&mm.ergoFree;})){ return (_ecValues||[]).slice(); } return null; })(),
-    load:(function(){var b=0;mlAttempts.forEach(function(a){if(a.ok&&a.kg>b)b=a.kg;});return b;})(),
+    load:(function(){
+      // ★ CLEAN LADDER v2 : le score = cumul kg des barres validées.
+      if(typeof _isCL2==='function' && _isCL2()){ return (typeof cl2Recompute==='function'?cl2Recompute():(_cl2&&_cl2.cumul)||0); }
+      var b=0;mlAttempts.forEach(function(a){if(a.ok&&a.kg>b)b=a.kg;});return b;
+    })(),
+    // ★ CLEAN LADDER v2 : état détaillé des stations/barres pour le live.
+    barresCL:(function(){ try{ return (typeof cl2BuildBarresCL==='function')?cl2BuildBarresCL():null; }catch(e){ return null; } })(),
     attempts:mlAttempts.map(function(a){return {kg:a.kg,ok:!!a.ok};}),
     curMoveIdx:moveIdx, moveReps:moveReps, currentRound:currentRound,
     judgePrenom:FB_JUGE_PRENOM, judgeName:FB_JUGE_PRENOM+' '+FB_JUGE_NOM,

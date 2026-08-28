@@ -724,6 +724,8 @@ function scoreVal(sc,w){
   if(!sc)return 0;
   var sf=(w.scoreFinale||w.scoreType||'').toLowerCase(),jm=(w.judgeMode||'').toLowerCase();
   var isT=(w.wodFormat||'').toLowerCase()==='fortime'||sf==='time';
+  // ★ CLEAN LADDER v2 : le score EST le cumul kg (barresCL/load), pas des reps.
+  if((w.wodFormat||'').toLowerCase()==='cleanladder') return parseFloat((sc.clLoad!=null?sc.clLoad:sc.load))||0;
   if(jm==='maxload'||sf==='load') return parseFloat(sc.load)||0;
   if(jm==='ergo'||sf==='dist'||sf==='cal') return parseFloat(sc.dist||sc.ergoVal||sc.distance)||0;
   if(isT) return sc.finalTime>0?(1000000-sc.finalTime):(parseInt(sc.reps)||0);
@@ -1857,16 +1859,30 @@ function compareScores(a,b,w){
     var _aSS=!!(a.sc&&a.sc.ssOut), _bSS=!!(b.sc&&b.sc.ssOut);
     if(_aSS!==_bSS) return _aSS?1:-1;
   }
-  // ★ CLEAN LADDER (classement) : total reps cumulées d'abord (géré par scoreVal ci-dessous),
-  //   puis la charge finale (kg) pour départager les égalités. Les éliminés ne sont PAS
-  //   relégués en bas ici : en Clean Ladder, un athlète éliminé garde son total de reps
-  //   qui le classe normalement (contrairement au Death By). On départage juste par charge.
+  // ★ CLEAN LADDER v2 (classement) : LE PLUS LOURD EN HAUT (cumul kg = load).
+  //   Départage stable pour éviter que les ex æquo « sautent » pendant que ça avance :
+  //   1) cumul kg décroissant · 2) à cumul égal, EN COURSE avant ÉLIMINÉ ·
+  //   3) entre deux en course, le PLUS AVANCÉ (station courante puis barres vertes en cours) ·
+  //   4) entre deux éliminés à cumul égal : égalité stricte.
   if(String((w&&w.wodFormat)||'').toLowerCase()==='cleanladder'){
-    var _avc=scoreVal(a.sc,w), _bvc=scoreVal(b.sc,w);
-    if(_bvc!==_avc) return _bvc-_avc; // total reps décroissant
-    var _akg=parseFloat((a.sc&&(a.sc.clLoad!=null?a.sc.clLoad:a.sc.load))||0)||0;
-    var _bkg=parseFloat((b.sc&&(b.sc.clLoad!=null?b.sc.clLoad:b.sc.load))||0)||0;
-    if(_bkg!==_akg) return _bkg-_akg; // à reps égales, charge la plus lourde devant
+    var _akg2=parseFloat((a.sc&&(a.sc.clLoad!=null?a.sc.clLoad:a.sc.load))||0)||0;
+    var _bkg2=parseFloat((b.sc&&(b.sc.clLoad!=null?b.sc.clLoad:b.sc.load))||0)||0;
+    if(_bkg2!==_akg2) return _bkg2-_akg2; // 1) plus lourd devant
+    var _aElim=!!(a.sc&&a.sc.clOut), _bElim=!!(b.sc&&b.sc.clOut);
+    if(_aElim!==_bElim) return _aElim?1:-1; // 2) en course avant éliminé
+    if(!_aElim && !_bElim){
+      // 3) avancement : station courante, puis barres vertes sur la station en cours
+      function _clProg(sc){
+        var bc=sc&&sc.barresCL; if(!bc) return 0;
+        var st=parseInt(bc.station||1,10)||1;
+        var arr=(bc[st]&&bc[st].barres)||[]; var g=0;
+        for(var i=0;i<arr.length;i++) if(arr[i]===1) g++;
+        return st*100+g; // station prime, barres en cours départagent
+      }
+      var _ap=_clProg(a.sc), _bp=_clProg(b.sc);
+      if(_bp!==_ap) return _bp-_ap;
+    }
+    // 4) deux éliminés à cumul égal (ou tout égal) → égalité, on laisse passer au tri suivant
   }
   if(a.ok&&!b.ok)return -1;
   if(!a.ok&&b.ok)return 1;
@@ -1963,6 +1979,68 @@ function rankWodEntries(zone,h,w){
   return rows;
 }
 function liveReps(sc){return parseInt((sc&&sc.reps)||0,10)||0;}
+/* ★ CLEAN LADDER v2 — rendu public des barres.
+   Affiche la station EN COURS en grand (barres ⏳/✅/❌) + une rangée de pastilles
+   de progression (station validée = verte, ratée = rouge, à venir = grise).
+   Lisible à distance : on suit l'athlète station par station, pas d'empilement. */
+function cl2LiveBars(bc, elim, val){
+  if(!bc) return '';
+  var nbS=parseInt(bc.nbStations||1,10)||1;
+  var nbB=parseInt(bc.nbBarres||2,10)||2;
+  var curSt=parseInt(bc.station||1,10)||1;
+  function stationState(s){
+    // retourne 'ok' (toutes vertes), 'ko' (au moins une rouge), 'todo' (incomplète/à venir)
+    var o=bc[s]||bc[String(s)]; if(!o||!o.barres) return 'todo';
+    var g=0,miss=false;
+    for(var i=0;i<o.barres.length;i++){ if(o.barres[i]===1)g++; else if(o.barres[i]===-1)miss=true; }
+    if(!miss && g>=nbB) return 'ok';
+    if(miss) return 'ko';
+    return 'todo';
+  }
+  var html='<div class="cl2wrap" style="display:flex;flex-direction:column;gap:6px;margin-top:6px">';
+
+  // ── Barre bonus ouverte : on met la bonus en avant ──
+  if(bc.bonusOpen && bc.bonus){
+    var be=bc.bonus.etat, bp=bc.bonus.poids||0;
+    var bcol=be===1?'#00E5A0':(be===-1?'#FF3B5C':'#FFB020');
+    var bico=be===1?'✅':(be===-1?'❌':'⏳');
+    html+='<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
+        + '<span style="font-family:var(--fm);font-weight:900;font-size:clamp(11px,1.5vw,20px);color:#00E5A0;letter-spacing:.5px">🏆 BONUS</span>'
+        + '<span style="display:inline-flex;align-items:center;gap:5px;padding:4px 12px;border-radius:20px;border:2px solid '+bcol+';background:'+bcol+'22;color:'+bcol+';font-family:var(--fm);font-weight:900;font-size:clamp(12px,1.7vw,22px)">'+bico+' '+bp+' kg</span>'
+        + '</div>';
+  } else if(!elim && !val) {
+    // ── Station EN COURS : ses barres en grand ──
+    var o=bc[curSt]||bc[String(curSt)]||{barres:[],poids:0};
+    var poids=o.poids||0; var arr=o.barres||[];
+    html+='<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
+        + '<span style="font-family:var(--fm);font-weight:900;font-size:clamp(11px,1.5vw,20px);color:#4DA6FF;letter-spacing:.5px">St.'+curSt+' · '+(poids>0?poids+'kg':'')+'</span>';
+    for(var i=0;i<nbB;i++){
+      var e2=arr[i]; var col,ico;
+      if(e2===1){col='#00E5A0';ico='✅';}
+      else if(e2===-1){col='#FF3B5C';ico='❌';}
+      else if(e2==='try'){col='#FFB020';ico='⏳';}
+      else {col='rgba(255,255,255,.4)';ico='⬜';}
+      html+='<span style="display:inline-flex;align-items:center;justify-content:center;width:clamp(26px,3vw,40px);height:clamp(26px,3vw,40px);border-radius:8px;border:2px solid '+col+';background:'+col+'1a;font-size:clamp(13px,1.8vw,22px)">'+ico+'</span>';
+    }
+    html+='</div>';
+  }
+
+  // ── Rangée de pastilles : progression des stations ──
+  html+='<div style="display:flex;flex-wrap:wrap;gap:4px">';
+  for(var s=1;s<=nbS;s++){
+    var stt=stationState(s);
+    var c=(stt==='ok')?'#00E5A0':(stt==='ko')?'#FF3B5C':(s===curSt&&!elim&&!val)?'#4DA6FF':'rgba(255,255,255,.22)';
+    var glow=(s===curSt&&!elim&&!val)?';box-shadow:0 0 6px rgba(77,166,255,.6)':'';
+    html+='<span style="width:clamp(14px,1.7vw,22px);height:clamp(14px,1.7vw,22px);border-radius:50%;border:2px solid '+c+';color:'+c+';font-family:var(--fm);font-size:clamp(8px,1vw,12px);font-weight:900;display:inline-flex;align-items:center;justify-content:center'+glow+'">'+s+'</span>';
+  }
+  html+='</div>';
+
+  if(elim){
+    html+='<div style="font-family:var(--fm);font-weight:900;font-size:clamp(10px,1.3vw,16px);color:#FF3B5C;letter-spacing:1px">🛑 ÉLIMINÉ · cumul conservé</div>';
+  }
+  html+='</div>';
+  return html;
+}
 function gapText(row,lead,w,st){
   if(!lead||!row)return '';
   if(row===lead)return 'LEADER';
@@ -2150,22 +2228,20 @@ function renderRankCards(rows,w,st,showLiveChips,h,catId,catLeader){
       var _dbObjL=_dbSL+_dbIL*(_dbCurL-1);
       s='☠️ TOUR '+_dbCurL+' · obj '+_dbObjL+' · '+(_tot||0)+' reps';
     }
-    // ★ CLEAN LADDER : afficher la charge finale (kg) si terminé, sinon la progression.
+    // ★ CLEAN LADDER v2 : le score = cumul kg. Statut = station en cours / éliminé / bonus.
     if(w && String(w.wodFormat||'').toLowerCase()==='cleanladder'){
-      var _clKg=(sc&&(sc.clLoad!=null?sc.clLoad:(sc.load||0)))||0;
+      var _bc=(sc&&sc.barresCL)||null;
+      var _cumul=(sc&&(sc.clLoad!=null?sc.clLoad:(sc.load||0)))||0;
       if(sc&&sc.clOut){
-        // éliminé OU fini : total reps + charge si saisie
-        s='💪 '+((parseInt(sc.reps)||0)||_tot||0)+' reps'+(_clKg>0?' · '+_clKg+' kg':'');
+        s='🛑 '+_cumul+' kg · éliminé';
+      } else if(_bc && _bc.bonusOpen){
+        s='🏆 '+_cumul+' kg · bonus';
+      } else if(!val && _bc){
+        s='💪 '+_cumul+' kg · St. '+(_bc.station||1)+'/'+(_bc.nbStations||'?');
       } else if(!val){
-        // en cours : tour + reps cumulées
-        var _clIntL=parseInt(w.workMin||w.emomWork||60,10)||60; if(_clIntL<1)_clIntL=1;
-        var _clElL=(h&&h.startTimestamp)?Math.floor((now()-h.startTimestamp)/1000):0; if(_clElL<0)_clElL=0;
-        var _clRestL=parseInt(w.restMin||w.emomRest||0,10)||0;
-        var _clCycL=_clIntL+_clRestL; if(_clCycL<1)_clCycL=1;
-        var _clCurL=Math.floor(_clElL/_clCycL)+1;
-        s='💪 TOUR '+_clCurL+' · '+(_tot||0)+' reps';
-      } else if(_clKg>0){
-        s='💪 '+((parseInt(sc.reps)||0)||_tot||0)+' reps · '+_clKg+' kg';
+        s='💪 '+_cumul+' kg';
+      } else {
+        s='🏆 '+_cumul+' kg';
       }
     }
     var repLead=liveReps(lead.sc),repMe=liveReps(sc);
@@ -2222,6 +2298,10 @@ function renderRankCards(rows,w,st,showLiveChips,h,catId,catLeader){
     var eta=etaInfoForRow(e,w,h,catId);
     var ci=parseInt(sc.curMoveIdx)||0,cr=parseInt(sc.moveReps)||0;
     var chipsHtml='';
+    // ★ CLEAN LADDER v2 : barres visuelles (station en cours ⏳/✅/❌) + pastilles de progression.
+    if(String(w.wodFormat||'').toLowerCase()==='cleanladder' && sc && sc.barresCL){
+      chipsHtml=cl2LiveBars(sc.barresCL, sc.clOut, val);
+    } else
     if(showLiveChips&&st==='live'&&!val&&(w.mouvements||[]).length){
       chipsHtml='<div class="chips">'+(w.mouvements||[]).map(function(m,mi){
         var q=adaptedQtyForMove(m,catId);
