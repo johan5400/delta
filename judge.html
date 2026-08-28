@@ -3032,6 +3032,7 @@ var _cl2 = {
   bonusOpen: false,    // barre bonus ouverte (toutes stations bouclées)
   cumul: 0,            // cumul kg des barres validées
   pendingBarre: null,  // index de la barre en attente de validation ✅/❌
+  lastJudged: null,    // ★ {st, idx} de la dernière barre jugée (pour Annuler)
   eliminated: false    // athlète éliminé (miroir de _clOut)
 };
 
@@ -3070,7 +3071,7 @@ function cl2Init(){
     for(var b=0;b<_cl2.nbBarres;b++) _cl2.barres[s].push(0);
   }
   _cl2.bonus = null; _cl2.bonusOpen = false;
-  _cl2.cumul = 0; _cl2.pendingBarre = null; _cl2.eliminated = false;
+  _cl2.cumul = 0; _cl2.pendingBarre = null; _cl2.eliminated = false; _cl2.lastJudged = null;
   _clOut = false; _clLoad = null;
 }
 
@@ -3127,10 +3128,63 @@ function cl2JudgeBarre(ok){
   var idx = _cl2.pendingBarre;
   arr[idx] = ok ? 1 : -1;
   _cl2.pendingBarre = null;
+  _cl2.lastJudged = { st: st, idx: idx }; // ★ mémorise pour Annuler
   try{ vib(ok?[60,30,60]:[120]); }catch(e){}
   cl2Recompute(); cl2Render(); cl2Push();
   // si une barre est ratée, la station ne pourra pas être complète → l'élimination
   // sera prononcée à la bascule 'off' (fin du temps de station).
+}
+
+/* ── ANNULER la dernière barre jugée (station en cours uniquement) ──
+   Cas d'usage : le juge tape No rep, l'athlète reprend sa barre → on annule.
+   Remet la barre en attente, recalcule le cumul, et RÉINTÈGRE l'équipe si ce
+   No rep l'avait éliminée (progression reprend). Ne remonte pas aux stations
+   précédentes : uniquement les barres de la station courante. */
+function cl2Undo(){
+  if(!_isCL2()) return;
+  // Si le WOD a été clôturé par une élimination, on rouvre pour pouvoir annuler.
+  var wasEliminated = _cl2.eliminated;
+  var st = _cl2.station;
+  var arr = _cl2.barres[st]||[];
+
+  // 1) Priorité : s'il y a une barre "en attente de validation" (try), on la ré-ouvre (annule le tap).
+  if(_cl2.pendingBarre!=null){
+    arr[_cl2.pendingBarre] = 0;
+    _cl2.pendingBarre = null;
+    cl2Recompute(); cl2Render(); cl2Push();
+    toast('↩ Barre remise en attente','#4E9FFF',1600);
+    return;
+  }
+
+  // 2) Sinon, annuler la dernière barre JUGÉE — seulement si elle est sur la station courante.
+  var lj = _cl2.lastJudged;
+  var target = -1;
+  if(lj && lj.st===st && (arr[lj.idx]===1 || arr[lj.idx]===-1)){
+    target = lj.idx;
+  } else {
+    // repli : chercher la dernière barre jugée (1 ou -1) de la station courante
+    for(var i=arr.length-1;i>=0;i--){ if(arr[i]===1||arr[i]===-1){ target=i; break; } }
+  }
+  if(target<0){
+    toast('Rien à annuler sur cette station','#888',1600);
+    return;
+  }
+
+  // Défaire l'élimination éventuelle (le No rep qu'on annule l'avait peut-être déclenchée)
+  if(wasEliminated){
+    _cl2.eliminated = false;
+    _clOut = false;
+    done = false;
+    endWarned = false;
+  }
+
+  arr[target] = 0;            // barre remise en attente
+  _cl2.pendingBarre = null;
+  _cl2.lastJudged = null;
+  cl2Recompute();
+  cl2Render(); cl2Push();
+  try{ vib([40]); }catch(e){}
+  toast(wasEliminated ? '↩ Annulé — équipe réintégrée' : '↩ Dernière barre annulée','#00E5A0',2000);
 }
 
 /* ── Nb de barres vertes sur la station courante ── */
@@ -3331,6 +3385,17 @@ function cl2Render(){
           + '<button onclick="cl2JudgeBarre(false)" style="flex:1;padding:18px;border:1px solid rgba(255,59,92,.5);border-radius:14px;background:rgba(255,59,92,.12);color:#FF6B85;font-family:var(--ff);font-size:20px;letter-spacing:1px;font-weight:900;cursor:pointer">❌ NO REP</button>'
           + '</div>';
   }
+
+  // ★ Bouton ANNULER (visible dès qu'il y a une barre en attente ou déjà jugée sur la station courante)
+  (function(){
+    var arrU = _cl2.barres[st]||[];
+    var canUndo = (_cl2.pendingBarre!=null) || arrU.some(function(e){return e===1||e===-1;}) || _cl2.eliminated;
+    if(canUndo){
+      html += '<div style="display:flex;justify-content:center;margin:2px auto 8px;padding:0 14px">'
+            + '<button onclick="cl2Undo()" style="padding:11px 22px;border:1.5px solid rgba(255,255,255,.35);border-radius:12px;background:rgba(255,255,255,.06);color:#CFE0F5;font-family:var(--ff);font-size:15px;letter-spacing:1px;font-weight:800;cursor:pointer">↩ ANNULER LA DERNIÈRE BARRE</button>'
+            + '</div>';
+    }
+  })();
 
   // Progression stations (pastilles)
   html += '<div style="display:flex;flex-wrap:wrap;gap:5px;justify-content:center;padding:10px 14px 4px">';
