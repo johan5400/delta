@@ -3059,7 +3059,7 @@ function _cl2PoidsStation(st){
 /* ── Init CL v2 au démarrage du heat ── */
 function cl2Init(){
   if(!_isCL2()) return;
-  _cl2.nbStations = Math.max(1, parseInt(SC.rounds||SC.toursCount||1,10)||1);
+  _cl2.nbStations = Math.max(1, parseInt(SC.toursCount||SC.rounds||1,10)||1);
   _cl2.nbBarres   = Math.max(1, parseInt(SC.clBarres||2,10)||2);
   _cl2.station    = 1;
   _cl2.poidsStation = {};
@@ -3084,13 +3084,15 @@ function cl2Recompute(){
     var arr = _cl2.barres[s]||[];
     var p = _cl2.poidsStation[s]||0;
     if(arr.length===0) continue;
-    var greens=0, hasMiss=false;
+    var greens=0;
     for(var b=0;b<arr.length;b++){
       if(arr[b]===1) greens++;
-      else if(arr[b]===-1) hasMiss=true;
     }
-    // station créditée seulement si TOUTES les barres sont vertes (aucune ratée, aucune en attente)
-    if(!hasMiss && greens===_cl2.nbBarres){ tot += p * _cl2.nbBarres; }
+    // ★ RÈGLE CHEF : chaque barre validée compte au cumul, individuellement.
+    //   1 barre verte = +charge×1, 2 vertes = +charge×2. Une barre ratée
+    //   n'annule PAS la barre validée de la même station (mais stoppe la
+    //   progression, géré dans cl2CloseStation).
+    tot += p * greens;
   }
   if(_cl2.bonus && _cl2.bonus.etat===1) tot += (parseFloat(_cl2.bonus.poids)||0);
   _cl2.cumul = tot;
@@ -3171,7 +3173,7 @@ function cl2Eliminate(){
   _clOut = true;
   cl2Recompute();
   try{ vib([120,60,120]); }catch(e){}
-  toast('❌ Station ratée — éliminé · '+_cl2.cumul+' kg conservés','#FF3B5C',3000);
+  toast('❌ No rep — terminé · '+_cl2.cumul+' kg conservés','#FF3B5C',3000);
   cl2Render(); cl2Push();
   done = true;
   try{ validate(); }catch(e){ console.warn('cl2Eliminate validate:',e); }
@@ -3284,9 +3286,9 @@ function cl2Render(){
       }
     } else {
       html += '<div style="font-size:54px;line-height:1">❌</div>'
-            + '<div style="font-family:var(--ff);font-size:26px;letter-spacing:2px;color:var(--err);margin-top:8px">STATION '+st+' RATÉE</div>'
+            + '<div style="font-family:var(--ff);font-size:26px;letter-spacing:2px;color:var(--err);margin-top:8px">STATION '+st+' — NO REP</div>'
             + '<div style="font-family:var(--fm);font-size:20px;color:#fff;margin-top:6px">'+recap+'</div>'
-            + '<div style="font-family:var(--fc);font-size:13px;color:var(--err);margin-top:14px;font-weight:700">Athlète éliminé — cumul conservé : '+_cl2.cumul+' kg</div>';
+            + '<div style="font-family:var(--fc);font-size:13px;color:var(--err);margin-top:14px;font-weight:700">Athlète terminé — cumul conservé : '+_cl2.cumul+' kg</div>';
     }
     html += '</div>';
     zone.innerHTML = html;
@@ -3310,7 +3312,7 @@ function cl2Render(){
     var e = arr[i];
     var col, bg, ico, lbl;
     if(e===1){ col='#00E5A0'; bg='rgba(0,229,160,.15)'; ico='✅'; lbl='VALIDÉE'; }
-    else if(e===-1){ col='#FF3B5C'; bg='rgba(255,59,92,.12)'; ico='❌'; lbl='RATÉE'; }
+    else if(e===-1){ col='#FF3B5C'; bg='rgba(255,59,92,.12)'; ico='❌'; lbl='NO REP'; }
     else if(e==='try'){ col='#FFB020'; bg='rgba(255,176,32,.15)'; ico='⏳'; lbl='À JUGER'; }
     else { col='rgba(255,255,255,.35)'; bg='rgba(255,255,255,.04)'; ico='🏋️'; lbl='BARRE '+(i+1); }
     var clickable = (e===0);
@@ -3326,7 +3328,7 @@ function cl2Render(){
   if(_cl2.pendingBarre!=null){
     html += '<div style="display:flex;gap:10px;max-width:320px;margin:12px auto 6px;padding:0 14px">'
           + '<button onclick="cl2JudgeBarre(true)" style="flex:1;padding:18px;border:none;border-radius:14px;background:linear-gradient(135deg,#00A876,#00E5A0);color:#04231a;font-family:var(--ff);font-size:20px;letter-spacing:1px;font-weight:900;cursor:pointer">✅ VALIDÉE</button>'
-          + '<button onclick="cl2JudgeBarre(false)" style="flex:1;padding:18px;border:1px solid rgba(255,59,92,.5);border-radius:14px;background:rgba(255,59,92,.12);color:#FF6B85;font-family:var(--ff);font-size:20px;letter-spacing:1px;font-weight:900;cursor:pointer">❌ RATÉE</button>'
+          + '<button onclick="cl2JudgeBarre(false)" style="flex:1;padding:18px;border:1px solid rgba(255,59,92,.5);border-radius:14px;background:rgba(255,59,92,.12);color:#FF6B85;font-family:var(--ff);font-size:20px;letter-spacing:1px;font-weight:900;cursor:pointer">❌ NO REP</button>'
           + '</div>';
   }
 
@@ -4138,9 +4140,11 @@ function updateEmomPhase(e){
   //   l'EMOM détectait un mauvais nombre de rounds (voire 1) et « le judging s'arrêtait
   //   au premier round ». On force aussi un cap cohérent pour ne pas couper avant la fin.
   if(_isCleanLadderWod && _isCleanLadderWod()){
-    var _clStations=Math.max(1, parseInt(SC.rounds||SC.toursCount||_totRounds,10)||_totRounds);
+    // toursCount est calculé au démarrage depuis toursPerso.length (fiable) ;
+    // SC.rounds peut être parasité (champ EMOM déduit de la durée) → on le met en dernier.
+    var _clStations=Math.max(1, parseInt(SC.toursCount||SC.rounds||_totRounds,10)||_totRounds);
     _totRounds=_clStations;
-    SC.cap=Math.max(SC.cap||0, _clStations*cycle); // garantir que le cap couvre toutes les stations
+    SC.cap=_clStations*cycle; // cap = exactement stations × (travail+repos), ni plus ni moins
   }
   var _isDeathBy=!!(SC&&SC.deathBy); // ★ Death By : tours ILLIMITÉS jusqu'au TC (SC.fmt='emom' après normalisation, donc on lit le flag)
   var _capReached=((SC.cap||0)>0 && e>=(SC.cap||0));

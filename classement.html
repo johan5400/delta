@@ -450,7 +450,7 @@ function scoreDisplay(sc,wod,h,hid){
   // ★ CLEAN LADDER v2 : cumul kg (barre bonus incluse) ; éliminé = cumul partiel marqué.
   if(type==='cleanladder'){
     var _clc=(sc.clLoad!=null?sc.clLoad:(sc.load||0))||0;
-    out=_clc+' kg'+(sc.clOut?' · 🛑 él.':'');
+    out=_clc+' kg'+(sc.clOut?' · 🛑 terminé':'');
     return out;
   }
   if(wod.judgeMode==='maxload'||wod.scoreFinale==='load')out=(sc.load||0)+' kg';

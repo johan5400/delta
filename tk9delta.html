@@ -780,11 +780,18 @@ function wodCapSec(wod){
   //   nombre de tours (+ repos). On NE fait PAS confiance à duree qui peut être faux
   //   (1 tour au lieu de 7) → sinon le chrono TK/live s'arrête après le 1er tour.
   var _fmtC=String(wod.wodFormat||wod.format||'').toLowerCase();
-  if(_fmtC==='emom'||_fmtC==='interval'||_fmtC==='tabata'){
+  if(_fmtC==='emom'||_fmtC==='interval'||_fmtC==='tabata'||_fmtC==='cleanladder'){
     var _wk=parseInt(wod.workMin||wod.emomWork||60,10)||60;
     var _rst=parseInt(wod.restMin||wod.emomRest||0,10)||0;
-    var _nbT=parseInt(wod.rounds||wod.toursCount||wod.emomRounds||0,10)||0;
-    if(_nbT<=0 && Array.isArray(wod.toursPerso)) _nbT=wod.toursPerso.length;
+    var _nbT;
+    if(_fmtC==='cleanladder'){
+      _nbT=(Array.isArray(wod.toursPerso)&&wod.toursPerso.length)
+        ? wod.toursPerso.length
+        : (parseInt(wod.toursCount||wod.rounds||0,10)||0);
+    } else {
+      _nbT=parseInt(wod.rounds||wod.toursCount||wod.emomRounds||0,10)||0;
+      if(_nbT<=0 && Array.isArray(wod.toursPerso)) _nbT=wod.toursPerso.length;
+    }
     if(_nbT<=0) _nbT=1;
     return (_wk+_rst)*_nbT;
   }
@@ -1112,7 +1119,7 @@ function clTieBreakTK(aSc,bSc,wod){
   return 0;
 }
 function scoreVal(sc,wod,hid){if(!sc)return null; var type=String(wod.wodFormat||wod.type||'amrap').toLowerCase(); var sf=String(wod.scoreFinale||wod.scoreType||'').toLowerCase(), jm=String(wod.judgeMode||'').toLowerCase(); if(type==='cleanladder') return parseFloat((sc.clLoad!=null?sc.clLoad:sc.load))||0; if(jm==='maxload'||sf==='load') return parseFloat(sc.load)||0; if(jm==='ergo'||sf==='dist'||sf==='cal') return parseFloat(sc.dist||sc.ergoVal||sc.distance)||0; if(type==='fortime'){var h=hid?(HD[hid]||{}):{}; var ft=inferFortimeFinalSeconds(h,sc,wod,serverNow()); if(ft>0&&sc.judgeOk)return -ft; return -(999999-(parseInt(sc.reps)||0));} return parseInt(sc.reps)||0;}
-function scoreLabel(sc,wod,hid){var type=String(wod.wodFormat||wod.type||'amrap').toLowerCase(); var sf=String(wod.scoreFinale||wod.scoreType||'').toLowerCase(), jm=String(wod.judgeMode||'').toLowerCase(); if(type==='cleanladder'){var _c=(sc.clLoad!=null?sc.clLoad:(sc.load||0))||0; return _c+' kg'+(sc.clOut?' · él.':'');} if(jm==='maxload'||sf==='load') return (parseFloat(sc.load)||0)+' kg'; if(jm==='ergo'||sf==='dist'||sf==='cal') return (parseFloat(sc.dist||sc.ergoVal||sc.distance)||0)+(sf==='cal'?' cal':(' '+(sc.ergoUnit||'m'))); if(type==='fortime'){var h=hid?(HD[hid]||{}):{}; var ft=inferFortimeFinalSeconds(h,sc,wod,serverNow()); if(ft>0&&sc.judgeOk)return fmtS(ft);} return (parseInt(sc.reps)||0)+' reps';}
+function scoreLabel(sc,wod,hid){var type=String(wod.wodFormat||wod.type||'amrap').toLowerCase(); var sf=String(wod.scoreFinale||wod.scoreType||'').toLowerCase(), jm=String(wod.judgeMode||'').toLowerCase(); if(type==='cleanladder'){var _c=(sc.clLoad!=null?sc.clLoad:(sc.load||0))||0; return _c+' kg'+(sc.clOut?' · terminé':'');} if(jm==='maxload'||sf==='load') return (parseFloat(sc.load)||0)+' kg'; if(jm==='ergo'||sf==='dist'||sf==='cal') return (parseFloat(sc.dist||sc.ergoVal||sc.distance)||0)+(sf==='cal'?' cal':(' '+(sc.ergoUnit||'m'))); if(type==='fortime'){var h=hid?(HD[hid]||{}):{}; var ft=inferFortimeFinalSeconds(h,sc,wod,serverNow()); if(ft>0&&sc.judgeOk)return fmtS(ft);} return (parseInt(sc.reps)||0)+' reps';}
 
 
 /* ── Alerte Tiebreak TK ── */
@@ -3168,11 +3175,18 @@ function updateZoneTimer(zone,hid,h){
   var type=String(wod.wodFormat||wod.type||'amrap').toLowerCase();
   var isFortime=type==='fortime';
   var totalRounds=parseInt(wod.rounds||1)||1;
+  // ★ CLEAN LADDER : nb de stations = tours perso (fiable), pas wod.rounds.
+  if(type==='cleanladder'){
+    var _clStTk=(Array.isArray(wod.toursPerso)&&wod.toursPerso.length)
+      ? wod.toursPerso.length
+      : (parseInt(wod.toursCount||wod.rounds||0,10)||0);
+    if(_clStTk>0) totalRounds=_clStTk;
+  }
   var hasPause=!!wod.pauseEntreToursActive && totalRounds>1;
   var pauseSec=parseInt(wod.pauseEntreToursSec||0)||0;
   // ★ FIX EMOM DÉCOUPAGE TK : un EMOM se découpe TOUJOURS par tour (travail+repos),
   //   même sans pause. Sinon le TK affichait un décompte global au lieu des tours.
-  var _isEmomTk=(type==='emom'||type==='interval'||type==='tabata');
+  var _isEmomTk=(type==='emom'||type==='interval'||type==='tabata'||type==='cleanladder');
   var _emWorkTk=parseInt(wod.workMin||wod.emomWork||60)||60;
   var _emRestTk=parseInt(wod.restMin||wod.emomRest||0)||0;
   var roundBox=g('z'+zone+'RoundBox');
