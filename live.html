@@ -914,6 +914,13 @@ function getLiveChronoFrame(zone,hid,h,w){
   // Sinon Math.floor(cap - elapsedF) = cap - ceil(elapsedF) → 1s d'avance permanente.
   // Le TK fait `cap - floor(elapsedF)` ; on s'aligne sur cette convention.
   var totalRounds=parseInt(w.rounds||1,10)||1;
+  // ★ CLEAN LADDER : nb de stations = nb de tours perso (pas w.rounds).
+  if(type==='cleanladder'){
+    var _clStN=(Array.isArray(w.toursPerso)&&w.toursPerso.length)
+      ? w.toursPerso.length
+      : (parseInt(w.toursCount||w.rounds||0,10)||0);
+    if(_clStN>0) totalRounds=_clStN;
+  }
   var hasPause=!!w.pauseEntreToursActive&&totalRounds>1;
   var pauseSec=parseInt(w.pauseEntreToursSec||0,10)||0;
   // ★ FIX EMOM DÉCOUPAGE LIVE : un EMOM se découpe TOUJOURS par tour (avec le travail
@@ -2119,6 +2126,15 @@ function renderRankCards(rows,w,st,showLiveChips,h,catId,catLeader){
     var _tot=liveReps(sc);
     var _fmt=(w.wodFormat||'').toLowerCase();
     var _totalRounds=parseInt(w.rounds)||1;
+    // ★ CLEAN LADDER : le nombre de stations = nombre de tours perso configurés,
+    //   PAS w.rounds (champ EMOM, souvent déduit de la durée → affichait « /10 »
+    //   au lieu de « /6 »). On prend toursPerso.length en priorité.
+    if(_fmt==='cleanladder'){
+      var _clStations=(Array.isArray(w.toursPerso)&&w.toursPerso.length)
+        ? w.toursPerso.length
+        : (parseInt(w.toursCount||w.rounds||0,10)||0);
+      if(_clStations>0) _totalRounds=_clStations;
+    }
     // ★ FIX EMOM : le tour est dicté par l'HORLOGE (tout le monde sur la même
     //   minute), pas par la progression jugée. On le calcule depuis le
     //   startTimestamp du heat, comme le chrono et le TK.
