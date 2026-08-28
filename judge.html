@@ -4133,6 +4133,15 @@ function updateEmomPhase(e){
   // ★ FIX (demande chef) : l'EMOM s'ARRÊTE au nombre de tours défini. Le tour ne dépasse
   //   jamais le total, et passé le cap la saisie est bloquée (plus de tour 11/10).
   var _totRounds=Math.max(1,Math.round((SC.cap||0)/cycle));
+  // ★ CLEAN LADDER : le nombre de stations = nombre de tours perso configurés (SC.rounds),
+  //   PAS cap/cycle. Sans ça, si la durée totale n'est pas exactement tours×(work+rest),
+  //   l'EMOM détectait un mauvais nombre de rounds (voire 1) et « le judging s'arrêtait
+  //   au premier round ». On force aussi un cap cohérent pour ne pas couper avant la fin.
+  if(_isCleanLadderWod && _isCleanLadderWod()){
+    var _clStations=Math.max(1, parseInt(SC.rounds||SC.toursCount||_totRounds,10)||_totRounds);
+    _totRounds=_clStations;
+    SC.cap=Math.max(SC.cap||0, _clStations*cycle); // garantir que le cap couvre toutes les stations
+  }
   var _isDeathBy=!!(SC&&SC.deathBy); // ★ Death By : tours ILLIMITÉS jusqu'au TC (SC.fmt='emom' après normalisation, donc on lit le flag)
   var _capReached=((SC.cap||0)>0 && e>=(SC.cap||0));
   var newIsWork=rest===0?true:pos<work, newRound=Math.floor(e/cycle)+1;
