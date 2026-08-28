@@ -12244,10 +12244,17 @@ function renderToursPerso(w) {
     html += '<button onclick="event.stopPropagation();deleteTour('+w.id+','+ti+')" style="background:rgba(255,59,92,.08);color:#DC2626;border:none;border-radius:5px;padding:3px 7px;font-size:11px;font-weight:900;cursor:pointer">×</button>';
     html += '</div></div>';
     (tour.mouvements||[]).forEach(function(m, mi) {
+      // ★ CLEAN LADDER : le nombre de reps ne sert pas (c'est « Barres par station » qui compte).
+      //   On remplace le champ par un tiret grisé pour éviter la confusion.
+      var _isCL = String(w.wodFormat||'').toLowerCase()==='cleanladder';
       html += '<div style="display:grid;grid-template-columns:80px 1fr 60px 24px;gap:4px;align-items:center;margin-bottom:3px">';
       html += '<select onchange="updateMouvTour('+w.id+','+ti+','+mi+',\'type\',this.value)" onclick="event.stopPropagation()" style="'+IS+'">'+['reps','ergo'].map(function(v){var l={reps:'🔢 Reps',ergo:'🚣 Ergo'}[v];return'<option value="'+v+'"'+(m.type===v?' selected':'')+'>'+l+'</option>';}).join('')+'</select>';
       html += '<input value="'+escHtml(m.nom||'')+'" placeholder="Mouvement" onchange="updateMouvTour('+w.id+','+ti+','+mi+',\'nom\',this.value)" onclick="event.stopPropagation()" style="'+IS+'">';
-      html += '<input type="number" min="1" value="'+(m.qty||10)+'" onchange="updateMouvTour('+w.id+','+ti+','+mi+',\'qty\',parseInt(this.value)||1)" onclick="event.stopPropagation()" style="'+IS+';color:var(--blue);text-align:center">';
+      if(_isCL){
+        html += '<div title="En Clean Ladder, le nombre de barres se règle dans « Barres par station » (bloc Timing)" style="'+IS+';color:#94A3B8;text-align:center;background:#EEF2F6;cursor:not-allowed;display:flex;align-items:center;justify-content:center">—</div>';
+      } else {
+        html += '<input type="number" min="1" value="'+(m.qty||10)+'" onchange="updateMouvTour('+w.id+','+ti+','+mi+',\'qty\',parseInt(this.value)||1)" onclick="event.stopPropagation()" style="'+IS+';color:var(--blue);text-align:center">';
+      }
       html += '<button onclick="event.stopPropagation();deleteMouvTour('+w.id+','+ti+','+mi+')" style="background:rgba(255,59,92,.08);border:none;border-radius:5px;color:#DC2626;font-size:12px;font-weight:900;cursor:pointer;padding:3px 5px">×</button>';
       html += '</div>';
     });
