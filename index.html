@@ -7022,6 +7022,12 @@ if(typeof fbBuildLanes !== 'function'){
 function syncHeatsToFirebase(){
   var db=getDb(); if(!db || typeof db.ref !== 'function') return;
   if(_genAndPublishDone) return; // genAndPublish a déjà tout publié — ne pas écraser
+  // ★ FIX CRITIQUE : tant que le 1er chargement Firebase n'a pas eu lieu, les heats
+  //   seraient calculés sur une base (WODS/catégories) potentiellement périmée. On attend.
+  if(!window._deltaBackupLoadedOnce){
+    console.warn('syncHeatsToFirebase: publication ignorée — Firebase pas encore chargé (protection anti-écrasement)');
+    return;
+  }
   if(_syncHeatsTimer) clearTimeout(_syncHeatsTimer);
   // ★ Toujours calculer les horaires avant de publier
   if(typeof computeHorairesOnly==='function') computeHorairesOnly();
@@ -7202,6 +7208,12 @@ function fbBuildLanesFromSlots(slots, nbLignes){
 
 /* ── Sync immédiat des assignations juges → Firebase ── */
 async function syncJudgeAssignmentsNow(){
+  // ★ FIX CRITIQUE : ne pas publier d'assignations tant que Firebase n'a pas chargé
+  //   (elles seraient calculées sur un roster/heats périmés).
+  if(!window._deltaBackupLoadedOnce){
+    console.warn('syncJudgeAssignmentsNow: publication ignorée — Firebase pas encore chargé (protection anti-écrasement)');
+    return;
+  }
   // Debug : afficher l'état actuel
   var poolSize = getJudgingBenevoles().length;
   var heatsSize = (HEATS_RESULT||[]).length;
@@ -7319,10 +7331,12 @@ function syncBenevolesToFirebase(){
   _syncBenTimer = setTimeout(function(){
     var db=getDb(); if(!db || typeof db.ref !== 'function') return;
     BENEVOLES = sanitizeLoadedBenevoles(BENEVOLES).list;
-    // SÉCURITÉ : ne pas pousser une liste vide tant que le 1er chargement Firebase
-    // n'a pas eu lieu (évite d'écraser les juges/bénévoles du chef au démarrage).
-    if((!BENEVOLES || !BENEVOLES.length) && !window._deltaBackupLoadedOnce){
-      console.warn('syncBenevolesToFirebase: liste vide avant 1er chargement Firebase — envoi ignoré');
+    // ★ FIX CRITIQUE (vrais bénévoles écrasés) : tant que le 1er chargement Firebase
+    //   n'a pas eu lieu, la liste en mémoire peut être une version périmée ou le roster
+    //   par défaut. Publier maintenant écraserait les vrais noms du chef. On attend donc
+    //   le 1er retour Firebase avant TOUTE publication (vide ou non).
+    if(!window._deltaBackupLoadedOnce){
+      console.warn('syncBenevolesToFirebase: publication ignorée — Firebase pas encore chargé (protection anti-écrasement)');
       return;
     }
     var benMap = {};
@@ -7479,6 +7493,12 @@ function syncWodsToFirebase(){
 
 function syncCategoriesToFirebase(){
   var db = getDb(); if(!db || typeof db.ref !== 'function') return;
+  // ★ FIX CRITIQUE : tant que le 1er chargement Firebase n'a pas eu lieu, CATEGORIES
+  //   peut être une version périmée. Publier maintenant écraserait la bonne version.
+  if(!window._deltaBackupLoadedOnce){
+    console.warn('syncCategoriesToFirebase: publication ignorée — Firebase pas encore chargé (protection anti-écrasement)');
+    return;
+  }
   // Si vide, on efface (pour que TK/live ne gardent pas d'anciennes catégories fantômes)
   if(!CATEGORIES || !CATEGORIES.length){
     // SÉCURITÉ : ne jamais effacer la base tant que le premier chargement Firebase
@@ -7504,7 +7524,11 @@ function syncCategoriesToFirebase(){
       jour: parseInt(c.jour||1,10)||1,
       sexe: c.sexe||'',
       formatEquipe: c.formatEquipe||'',
-      equipes: Array.isArray(c.equipes) ? c.equipes : [],
+      // ★ FIX : l'admin stocke les équipes dans c.teams (c.equipes est souvent vide,
+      //   il ne sert que pour le WOD final). On publie donc teams en priorité, sinon
+      //   les vraies équipes du chef ne partaient pas sur Firebase.
+      teams: Array.isArray(c.teams) ? c.teams : [],
+      equipes: Array.isArray(c.equipes) && c.equipes.length ? c.equipes : (Array.isArray(c.teams) ? c.teams : []),
       heats: Array.isArray(c.heats) ? c.heats : [],
       wodZoneOverride: c.wodZoneOverride||{},
       wodOrder: c.wodOrder||{},
@@ -7614,6 +7638,14 @@ function applyState(state){
   }
   if(state.categories&&state.categories.length){
     CATEGORIES=state.categories;
+    // ★ COMPAT équipes : les catégories publiées avant le fix n'ont que `equipes`.
+    //   Si `teams` est vide mais `equipes` existe, on recopie pour ne pas perdre
+    //   les équipes à l'affichage (l'admin lit cat.teams).
+    CATEGORIES.forEach(function(cat){
+      if((!cat.teams || !cat.teams.length) && Array.isArray(cat.equipes) && cat.equipes.length){
+        cat.teams = cat.equipes.slice();
+      }
+    });
     // Migration : forcer zone sur les catégories qui n'en ont pas
     CATEGORIES.forEach(function(cat){
       if(!cat.zone||cat.zone==='0'||cat.zone===0){
@@ -11751,6 +11783,16 @@ function init(){
       // On écoute admin_backup en direct : tout ce que le chef enregistre arrive ici.
       if(!window._deltaFullSyncOn){
         window._deltaFullSyncOn = true;
+        // ★ FILET DE SÉCURITÉ : si Firebase ne répond jamais (hors-ligne, pas de config),
+        //   le listener ci-dessous ne se déclenche pas et _deltaBackupLoadedOnce resterait
+        //   false → les gardes anti-écrasement bloqueraient TOUTES les sauvegardes pour
+        //   toujours. On débloque donc au bout de 8s si aucun retour Firebase n'a eu lieu.
+        setTimeout(function(){
+          if(!window._deltaBackupLoadedOnce){
+            window._deltaBackupLoadedOnce = true;
+            console.warn('Firebase muet après 8s → déblocage des sauvegardes (mode local/hors-ligne)');
+          }
+        }, 8000);
         try {
           _db.ref('admin_backup').on('value', function(snap){
             var backup = snap.val();
