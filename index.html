@@ -12312,10 +12312,17 @@ function renderToursPerso(w) {
   var IS = 'background:#EBF0FA;border:1px solid var(--brd2);border-radius:6px;padding:5px 8px;font-size:11px;font-weight:700;outline:none;font-family:inherit;color:var(--ink);width:100%;box-sizing:border-box';
   var html = '<div>';
   w.toursPerso.forEach(function(tour, ti) {
+    // ★ YOU GO I GO : « Qui » au niveau du TOUR entier (Tour 1 = A, Tour 2 = B…).
+    //   On lit le qui commun des mouvements du tour ; le changer l'applique à TOUS
+    //   les mouvements du tour (m.qui), donc juge/live/TK l'affichent sans autre modif.
+    var _movs = tour.mouvements||[];
+    var _tourQui = (_movs.length && _movs.every(function(mm){return (mm.qui||'')===(_movs[0].qui||'');})) ? (_movs[0].qui||'') : '';
+    var QUIT = [{v:'',l:'👥 A+B (défaut)'},{v:'A',l:'🅰️ Athlète A'},{v:'B',l:'🅱️ Athlète B'},{v:'relay',l:'🔄 Relais A/B'}];
     html += '<div style="background:#F5F8FF;border:1px solid rgba(124,58,237,.3);border-radius:8px;padding:8px;margin-bottom:6px">';
-    html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">';
-    html += '<span style="font-size:10px;font-weight:900;color:#7C3AED">TOUR '+(ti+1)+'</span>';
-    html += '<div style="display:flex;gap:4px">';
+    html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;gap:6px">';
+    html += '<span style="font-size:10px;font-weight:900;color:#7C3AED;flex-shrink:0">TOUR '+(ti+1)+'</span>';
+    html += '<select onchange="event.stopPropagation();setTourQui('+w.id+','+ti+',this.value)" onclick="event.stopPropagation()" title="Qui réalise ce tour (You Go I Go)" style="'+IS+';width:auto;flex:1;max-width:150px;font-size:10px;font-weight:800;color:#1565C0;background:rgba(30,136,229,.08);border-color:rgba(30,136,229,.35)">'+QUIT.map(function(o){return'<option value="'+o.v+'"'+(_tourQui===o.v?' selected':'')+'>'+o.l+'</option>';}).join('')+'</select>';
+    html += '<div style="display:flex;gap:4px;flex-shrink:0">';
     html += '<button onclick="event.stopPropagation();addMouvTour('+w.id+','+ti+')" style="background:#7C3AED;color:#fff;border:none;border-radius:5px;padding:3px 9px;font-size:9px;font-weight:800;cursor:pointer">+ Mouv</button>';
     html += '<button onclick="event.stopPropagation();deleteTour('+w.id+','+ti+')" style="background:rgba(255,59,92,.08);color:#DC2626;border:none;border-radius:5px;padding:3px 7px;font-size:11px;font-weight:900;cursor:pointer">×</button>';
     html += '</div></div>';
@@ -12368,6 +12375,15 @@ function deleteMouvTour(wid,ti,mi){
 function updateMouvTour(wid,ti,mi,field,val){
   var w=WODS.find(function(x){return x.id===wid;});if(!w||!w.toursPerso||!w.toursPerso[ti]||!w.toursPerso[ti].mouvements[mi])return;
   w.toursPerso[ti].mouvements[mi][field]=val;
+  autoSave();
+}
+// ★ YOU GO I GO : applique « qui » à TOUS les mouvements du tour (alternance par tour).
+function setTourQui(wid,ti,val){
+  var w=WODS.find(function(x){return x.id===wid;});if(!w||!w.toursPerso||!w.toursPerso[ti])return;
+  (w.toursPerso[ti].mouvements||[]).forEach(function(m){ m.qui=val; });
+  w.validated=false;
+  renderProgWodsList();
+  refreshCompetitionAuto();
   autoSave();
 }
 

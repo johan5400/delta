@@ -1315,7 +1315,12 @@ function wodToScenario(wod){
 
     return {
       n: baseName,
-      q: baseQty,
+      // ★ FIX BIKE ERG (bug chef) : un mouvement ERGO À QUOTA FIXE (bike/rameur en
+      //   cal ou mètres, NON « valeur libre ») a sa cible dans ergoTarget, pas dans
+      //   qty. Sans ça, le juge visait qty (défaut 10) au lieu des 15 cal saisis.
+      //   On n'applique ça QU'aux ergos non-free avec un ergoTarget>0 : les ergoFree
+      //   (skierg max/tour, ergoTarget=0) et les mouvements reps sont intacts.
+      q: (((m.type||'reps')==='ergo') && !m.ergoFree && baseDist>0) ? baseDist : baseQty,
       // ★ FIX POIDS FANTÔME (bug chef) : un mouvement ergo (bike/rameur/skierg =
       //   distance ou cals) ne porte JAMAIS de poids de barre. Même si la donnée en
       //   contient un (incohérence poidsGlobal/poids[cat] ou fuite), on ne le propage
@@ -3704,7 +3709,9 @@ function updateDisplay(){
 
   /* target : X / quota + numéro de tour pour Rounds */
   if(m&&m.q>0){
-    var tgt=moveReps+' / '+m.q;
+    // ★ Ergo à quota fixe (bike/rameur 15 cal) : afficher l'unité pour lever l'ambiguïté.
+    var _tgtUnit=((m.type||'reps')==='ergo' && !m.ergoFree) ? (' '+(m.ergoUnit||'m')) : '';
+    var tgt=moveReps+' / '+m.q+_tgtUnit;
     if(SC.fmt==='rounds'&&(SC.rounds||1)>1) tgt+=' · Tour '+currentRound+' / '+(SC.rounds||1);
     $('j-target').textContent=tgt;
   } else{$('j-target').textContent='';}
