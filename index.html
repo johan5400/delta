@@ -6859,6 +6859,10 @@ if(typeof fbBuildWodInfo !== 'function'){
           tour:parseInt(m.tour||0,10)||0,
           ergoTarget:m.ergoTarget||0,
           ergoUnit:m.ergoUnit||m.unit||'m',
+          // ★ RAMEUR SBC : pas (mètres/clic) + adaptation par catégorie.
+          //   Le juge tape des clics ; le public voit clics×pas en mètres.
+          //   0 / absent → mouvement normal (n'affecte aucun autre ergo).
+          pas:parseFloat(m.pas)||0, pasParCat:m.pasParCat||{}, pasUnit:m.pasUnit||m.ergoUnit||'m',
           // ★ FIX RACINE (bug chef « valider rep par rep ») : ce mapping construit le
           //   wodInfo du heat (lu par le juge/live) et JETAIT ergoFree/teamSum/teamCount.
           //   Sans ergoFree, le juge ne reconnaît plus la « valeur libre cumulée » (max
@@ -7466,6 +7470,7 @@ function syncWodsToFirebase(){
           return {
             nom: m.nom||'', qty: parseInt(m.qty||0,10)||0,
             type: m.type||'reps', ergoTarget: m.ergoTarget||0, ergoUnit: m.ergoUnit||'m',
+            pas:parseFloat(m.pas)||0, pasParCat:m.pasParCat||{}, pasUnit:m.pasUnit||m.ergoUnit||'m',
             ergoFree:!!m.ergoFree, teamSum:!!m.teamSum, teamCount:parseInt(m.teamCount||2)||2,
             poids: m.poids||{}, qtyParCat: m.qtyParCat||{},
             timeParCat: m.timeParCat||{}, distParCat: m.distParCat||{}, nomParCat: m.nomParCat||{},
@@ -7478,7 +7483,7 @@ function syncWodsToFirebase(){
           nom: m.nom||'', qty: parseInt(m.qty||0,10)||0,
           type: m.type||'reps', ergoTarget: m.ergoTarget||0, ergoFree:!!m.ergoFree, teamSum:!!m.teamSum, teamCount:parseInt(m.teamCount||2)||2,
           ergoUnit: m.ergoUnit||'m',
-          poids: m.poids||{},
+          pas:parseFloat(m.pas)||0, pasParCat:m.pasParCat||{}, pasUnit:m.pasUnit||m.ergoUnit||'m',
           qtyParCat: m.qtyParCat||{},
           timeParCat: m.timeParCat||{},
           distParCat: m.distParCat||{},
@@ -12216,7 +12221,10 @@ function updateWodFmt(id, fmt) {
   w.wodFormat = fmt;
   w.validated = false;
   // ★ Score auto : For Time → temps ; sinon corrige un score 'temps' devenu invalide
-  if(fmt==='fortime') w.scoreType='time';
+  //   ★ Rameur SBC = un For Time (score au temps, mouvements enchaînés au quota).
+  //     Seule différence : l'admin peut saisir un « pas » (mètres/clic) sur l'ergo,
+  //     pour que le public voie les mètres. La logique juge/chrono reste celle du For Time.
+  if(fmt==='fortime'||fmt==='rameursbc') w.scoreType='time';
   else if(w.scoreType==='time') w.scoreType='reps';
   // Sync judgeMode legacy
   if(fmt==='maxload') w.judgeMode='maxload';
@@ -12271,7 +12279,7 @@ function updateMouvement(wid, idx, field, val) {
   // Les personnalisations explicites (différentes de l'ancien global) sont conservées.
   // Sans ça, la scorecard lit qtyParCat/distParCat/nomParCat en priorité
   // et reste figée sur les anciennes valeurs.
-  var parCatMap = { qty:'qtyParCat', ergoTarget:'distParCat', nom:'nomParCat' };
+  var parCatMap = { qty:'qtyParCat', ergoTarget:'distParCat', nom:'nomParCat', pas:'pasParCat' };
   var pcKey = parCatMap[field];
   if (pcKey && m[pcKey] && typeof m[pcKey] === 'object') {
     Object.keys(m[pcKey]).forEach(function(k){
@@ -12289,7 +12297,7 @@ function updateMouvement(wid, idx, field, val) {
     if(el) el.innerHTML = renderMouvements(w);
   }
   // Champs cosmétiques : pas de re-render global (évite le flash/grisage)
-  var noRerenderFields = ['nom','note','poidsGlobal','qui','comment','ergoUnit'];
+  var noRerenderFields = ['nom','note','poidsGlobal','qui','comment','ergoUnit','pas','pasUnit'];
   if(noRerenderFields.indexOf(field) === -1) {
     refreshCompetitionAuto();
   }
@@ -12379,6 +12387,9 @@ function renderMouvements(w) {
 
   return w.mouvements.map(function(m, i) {
     var isErgo = m.type === 'ergo';
+    // ★ RAMEUR SBC : le champ « pas » (mètres/clic) n'apparaît QUE dans ce format,
+    //   et seulement sur un mouvement ergo. Les autres formats/ergos sont intacts.
+    var isRameurSBC = String(w.wodFormat||'').toLowerCase()==='rameursbc';
     var q = m.qui || 'A+B';
     var qcol = QCOL[q]||'#444';
     var qbkg = QBKG[q]||'rgba(0,0,0,.06)';
@@ -12418,7 +12429,31 @@ function renderMouvements(w) {
       )
     + '</div>'
 
-    // ★ VALEUR LIBRE CUMULÉE — dispo sur ergo ET reps (demande chef) : le juge saisit une
+    // ★ RAMEUR SBC — champ « pas » (mètres par clic) : visible seulement dans ce
+    //   format et sur un mouvement ergo. Le juge tape des clics ; le public voit
+    //   clics×pas en mètres. Vide/0 = mouvement normal. Adaptable par catégorie
+    //   via le popup « Adapter par catégorie » (ligne « pas »).
+    + ((isRameurSBC && isErgo)
+        ? '<div style="margin-bottom:8px;padding:8px 10px;background:rgba(2,132,199,.06);border:1px solid rgba(2,132,199,.28);border-radius:8px">'
+          + '<div style="display:grid;grid-template-columns:1fr 90px;gap:8px;align-items:end">'
+          + '<div><label style="'+LBL+'">🚣 Pas — mètres par clic <span style="font-weight:400;color:#64748B;text-transform:none;letter-spacing:0">(juge = clics, public = mètres)</span></label>'
+          + '<input type="number" min="0" step="1" value="'+(m.pas||'')+'" placeholder="ex : 250" '
+          + 'onchange="updateMouvement('+w.id+','+i+',\'pas\',parseFloat(this.value)||0)" onclick="event.stopPropagation()" '
+          + 'style="'+INP+';color:#0284C7;font-size:15px;font-weight:900;text-align:center'+((m.pas>0)?';border-color:#7DD3FC;background:#F0F9FF':'')+'"></div>'
+          + '<div><label style="'+LBL+'">Unité</label>'
+          + '<select onchange="updateMouvement('+w.id+','+i+',\'pasUnit\',this.value)" onclick="event.stopPropagation()" style="'+INP+'">'
+          + '<option value="m"'+(((m.pasUnit||m.ergoUnit||'m'))==='m'?' selected':'')+'>m</option>'
+          + '<option value="cal"'+(((m.pasUnit||m.ergoUnit))==='cal'?' selected':'')+'>cal</option>'
+          + '</select></div>'
+          + '</div>'
+          + (m.pas>0
+              ? '<div style="font-size:9px;color:#0369A1;margin-top:5px;font-weight:700">'
+                + 'Quota de clics × '+(m.pas)+' '+(m.pasUnit||m.ergoUnit||'m')+' = total affiché au public. '
+                + 'Ex : 10 clics = '+(10*(parseFloat(m.pas)||0))+' '+(m.pasUnit||m.ergoUnit||'m')+'. '
+                + '<span style="color:#64748B;font-weight:400">Le nombre de clics reste la valeur « Reps/Distance » ci-dessus, adaptable par catégorie.</span></div>'
+              : '<div style="font-size:9px;color:#64748B;margin-top:5px">Laisse vide pour un ergo normal (pas de conversion en mètres).</div>')
+          + '</div>'
+        : '')
     //   valeur ouverte à chaque tour, additionnée sur tous les tours (ex : max mètres/cals,
     //   ou max reps d'un mouvement). Score = total cumulé.
     + (true
@@ -12710,7 +12745,7 @@ function renderProgWodsList() {
         +     '</select></div>'
         +   '<div><label style="'+LABEL+'">Format</label>'
         +     '<select onchange="updateWodFmt('+w.id+',this.value)" style="'+IS+';border:1.5px solid #BFDBFE;background:#fff;padding:7px 8px;font-size:11px" onclick="event.stopPropagation()">'
-        +     [{v:'amrap',l:'⏱ AMRAP'},{v:'fortime',l:'🏁 For Time'},{v:'open',l:'🏅 Open'},{v:'rounds',l:'🔄 Rounds'},{v:'emom',l:'📡 EMOM'},{v:'tabata',l:'💥 Tabata'},{v:'deathby',l:'💀 Death By'},{v:'cleanladder',l:'💪 Clean Ladder'}]
+        +     [{v:'amrap',l:'⏱ AMRAP'},{v:'fortime',l:'🏁 For Time'},{v:'rameursbc',l:'🚣 Rameur SBC'},{v:'open',l:'🏅 Open'},{v:'rounds',l:'🔄 Rounds'},{v:'emom',l:'📡 EMOM'},{v:'tabata',l:'💥 Tabata'},{v:'deathby',l:'💀 Death By'},{v:'cleanladder',l:'💪 Clean Ladder'}]
             .map(function(o){return '<option value="'+o.v+'"'+((w.wodFormat||'amrap')===o.v?' selected':'')+'>'+o.l+'</option>';}).join('')
         +     '</select></div>'
         +   '<div><label style="'+LABEL+'">Score</label>'
@@ -12929,6 +12964,7 @@ function _catHasAdapt(w, catKey){
     var m = movs[i];
     if(m.qtyParCat  && m.qtyParCat[catKey]  != null && m.qtyParCat[catKey]  !== '') return true;
     if(m.distParCat && m.distParCat[catKey] != null && m.distParCat[catKey] !== '') return true;
+    if(m.pasParCat  && m.pasParCat[catKey]  != null && m.pasParCat[catKey]  !== '') return true;
     if(m.nomParCat  && m.nomParCat[catKey]) return true;
     if(m.timeParCat && m.timeParCat[catKey]) return true;
     if(m.poids && typeof m.poids==='object' && m.poids[catKey]) return true;
@@ -12969,6 +13005,8 @@ function renderAdaptPopup(){
     body = '<div style="font-size:11px;color:var(--mid);text-align:center;padding:14px">Aucun mouvement dans la liste \u2014 ajoute des mouvements (ou des tours) d\u2019abord.</div>';
   } else {
     var k = _adaptCatKey;
+    // ★ RAMEUR SBC : proposer aussi le « pas » (mètres/clic) par catégorie.
+    var isRameurSBC = String(w.wodFormat||'').toLowerCase()==='rameursbc';
     body = '<div style="display:grid;grid-template-columns:1fr 64px 72px 64px;gap:6px;font-size:8px;font-weight:900;color:var(--ink2);text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px"><span>Mouvement</span><span style="text-align:center">Reps/Dist</span><span style="text-align:center">Poids</span><span style="text-align:center">Temps</span></div>'
     + movs.map(function(m, mi){
       var isErgo = m.type==='ergo';
@@ -12986,7 +13024,22 @@ function renderAdaptPopup(){
         + q1
         + '<input type="text" placeholder="\u2014" value="'+escHtml(catPoids)+'" onchange="updateMouvementCatField('+w.id+','+mi+',\''+k.replace(/'/g,"\\'")+'\',\'poids\',this.value);renderAdaptPopup()" style="'+INP+'color:var(--purple)'+(catPoids?';border-color:#86EFAC;background:#F0FDF4':'')+'">'
         + '<input type="text" placeholder="\u2014" value="'+escHtml(catTime)+'" onchange="updateMouvementCatField('+w.id+','+mi+',\''+k.replace(/'/g,"\\'")+'\',\'timeParCat\',this.value);renderAdaptPopup()" style="'+INP+'color:#059669'+(catTime?';border-color:#86EFAC;background:#F0FDF4':'')+'">'
-        + '</div>';
+        + '</div>'
+        // ★ RAMEUR SBC : ligne « pas » (mètres/clic) pour cette catégorie, sous l'ergo.
+        + ((isRameurSBC && isErgo)
+            ? (function(){
+                var catPas = (m.pasParCat && m.pasParCat[k] != null && m.pasParCat[k] !== '') ? m.pasParCat[k] : '';
+                var gPas = (m.pas||0);
+                var _clics = (m.qtyParCat && m.qtyParCat[k]!=null && m.qtyParCat[k]!=='') ? m.qtyParCat[k] : (m.qty||0);
+                var _pasEff = (catPas!==''?catPas:gPas);
+                var _tot = (parseFloat(_pasEff)||0) * (parseInt(_clics)||0);
+                return '<div style="display:grid;grid-template-columns:1fr 90px 120px;gap:6px;align-items:center;margin:-2px 0 8px 0;padding:5px 8px;background:rgba(2,132,199,.05);border:1px solid rgba(2,132,199,.2);border-radius:6px">'
+                  + '<span style="font-size:9px;font-weight:800;color:#0369A1">🚣 Pas (m/clic) — '+escHtml(m.nom||'rameur')+'</span>'
+                  + '<input type="number" min="0" step="1" placeholder="'+escHtml(String(gPas||'250'))+'" value="'+escHtml(String(catPas))+'" onchange="updateMouvementCatField('+w.id+','+mi+',\''+k.replace(/'/g,"\\'")+'\',\'pasParCat\',parseFloat(this.value)||0);renderAdaptPopup()" style="'+INP+'color:#0284C7'+(catPas!==''?';border-color:#7DD3FC;background:#F0F9FF':'')+'">'
+                  + '<span style="font-size:9px;color:'+(_tot>0?'#0369A1':'#94A3B8')+';font-weight:700;text-align:center">'+(_tot>0?('= '+_tot+' '+(m.pasUnit||m.ergoUnit||'m')+' ('+(parseInt(_clics)||0)+' clics)'):'clics × pas')+'</span>'
+                  + '</div>';
+              })()
+            : '');
     }).join('')
     + '<div style="font-size:9px;color:var(--mid);margin-top:4px">Vide = valeur globale du mouvement. Champs verts = surcharg\u00e9s pour cette cat\u00e9gorie.</div>';
   }

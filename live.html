@@ -1494,6 +1494,24 @@ function movementDifficulty(m,catId){
   if(qty>=50)diff+=0.12; else if(qty>=35)diff+=0.08; else if(qty>=20)diff+=0.05; else if(qty>=10)diff+=0.02;
   return Math.min(2.2,Math.max(1,diff));
 }
+// ★ MOUVEMENT À PALIERS (rameur / ergo compté au clic).
+//   Le juge tape N clics (facile), mais le PUBLIC doit lire les vrais MÈTRES.
+//   Config chef : quota de clics = adaptedQtyForMove (adaptable par catégorie, déjà géré),
+//   `pas` = mètres/clic — adaptable par catégorie via `pasParCat[catId]` (repli sur `pas`).
+//   Un mouvement est "à paliers" dès que son pas (cat ou global) est >0.
+//   Ex RX : 10 clics × 250 = 2500 m · Femmes : 10 clics × 225 = 2250 m (ou 9 clics).
+function movePas(m,catId){
+  if(!m) return 0;
+  var pc=m.pasParCat&&catId!=null?m.pasParCat[catId]:null;
+  var p=parseFloat(pc);
+  if(!(p>0)) p=parseFloat(m.pas||m.step||m.metresParClic)||0; // repli global
+  return p>0?p:0;
+}
+function movePasUnit(m){ return (m&&(m.pasUnit||m.ergoUnit))||'m'; }
+// Total en mètres (quota de clics × pas). ex 10 clics × 250 = 2500m
+function movePasTotal(m,q,catId){ var p=movePas(m,catId); return p>0?(q*p)+' '+movePasUnit(m):null; }
+// Progression « fait/total » en mètres. ex 3 clics → « 750/2500 m »
+function movePasProg(m,cr,q,catId){ var p=movePas(m,catId); if(p<=0)return null; return (cr*p)+'/'+(q*p)+' '+movePasUnit(m); }
 function progressInfoForWod(w,sc,catId){
   var moves=(w&&w.mouvements)||[];
   var idx=parseInt((sc&&sc.curMoveIdx)||0,10)||0;
@@ -2171,8 +2189,10 @@ function renderRankCards(rows,w,st,showLiveChips,h,catId,catLeader){
     var _ergoLiveVal=parseFloat(sc.dist||sc.ergoVal||sc.distance)||0;
     var _ergoLiveUnit=(_freeMov&&_freeMov.ergoUnit)?_freeMov.ergoUnit:(_sfLive==='cal'?'cal':(sc.ergoUnit||'m'));
     var _ergoLiveStr=(_ergoLiveVal>0?String(_ergoLiveVal)+' '+_ergoLiveUnit:'—');
+    // ★ Mouvement à paliers (rameur) : le gros compteur affiche les MÈTRES (clics×pas).
+    var _pasScore=movePasProg(_curMov,_cr,_q,catId);
     var _liveScore=!val&&st==='live'
-      ?(_isErgoLive?_ergoLiveStr:(_cr>0?String(_cr)+(_q>0?' / '+_q:''):(_tot>0?String(_tot):'—')))
+      ?(_pasScore?_pasScore:(_isErgoLive?_ergoLiveStr:(_cr>0?String(_cr)+(_q>0?' / '+_q:''):(_tot>0?String(_tot):'—'))))
       :'';
     var _subLine='';
     var _roundHtml='';
@@ -2182,7 +2202,11 @@ function renderRankCards(rows,w,st,showLiveChips,h,catId,catLeader){
         // ★ Progression du mouvement en cours (ex : « Snatch 4/7 ») qui tique en direct.
         //   Même sur un WOD scoré en distance, le public doit voir le mouvement compté
         //   avancer, comme sur un WOD à mouvements classique.
-        if(_q>0) _subLine+=' '+_cr+'/'+_q;
+        //   ★ Mouvement à paliers (rameur) : afficher les MÈTRES réels (clics×pas),
+        //     pas le nombre de clics (« 750/2500 m » et non « 3/10 »).
+        var _pasProg=movePasProg(_curMov,_cr,_q,catId);
+        if(_pasProg) _subLine+=' '+_pasProg;
+        else if(_q>0) _subLine+=' '+_cr+'/'+_q;
       }
       // ★ Afficher le tour pour TOUS les formats (AMRAP inclus) dès qu'au moins 1 tour complet
       var _isAmrap = _fmt==='amrap' || _fmt==='' || !_fmt;
@@ -2329,9 +2353,13 @@ function renderRankCards(rows,w,st,showLiveChips,h,catId,catLeader){
     if(showLiveChips&&st==='live'&&!val&&(w.mouvements||[]).length){
       chipsHtml='<div class="chips">'+(w.mouvements||[]).map(function(m,mi){
         var q=adaptedQtyForMove(m,catId);
-        var cl='chip',lb=esc(m.nom||'')+(m.ergoFree?' MAX':(q?' ×'+q:''));
+        // ★ Mouvement à paliers (rameur) : le chip montre les MÈTRES réels, pas les clics.
+        var _pasTot=movePasTotal(m,q,catId);
+        var _qLabel=_pasTot?(' '+_pasTot):(m.ergoFree?' MAX':(q?' ×'+q:''));
+        var cl='chip',lb=esc(m.nom||'')+_qLabel;
       if(m.tour>0&&(mi===0||((w.mouvements||[])[mi-1]||{}).tour!==m.tour)) lb='T'+m.tour+'· '+lb;
-        if(mi<ci){cl+=' d';lb='✓ '+lb;}else if(mi===ci){cl+=' a';lb='▶ '+lb+(q>0?' ('+(cr||0)+'/'+q+')':'');}
+        var _pasP=movePasProg(m,cr||0,q,catId);
+        if(mi<ci){cl+=' d';lb='✓ '+lb;}else if(mi===ci){cl+=' a';lb='▶ '+lb+(_pasP?' ('+_pasP+')':(q>0?' ('+(cr||0)+'/'+q+')':''));}
         return '<span class="'+cl+'">'+lb+'</span>';
       }).join('')+'</div>';
     }
