@@ -1469,7 +1469,7 @@ function getLeaders(){
 function adaptedQtyForMove(m,catId){
   if(!m)return 0;
   if(catId&&m.qtyParCat&&m.qtyParCat[catId]!=null&&m.qtyParCat[catId]!=='') return parseInt(m.qtyParCat[catId],10)||0;
-  return parseInt(m.qty||m.ergoTarget||0,10)||0;
+  return parseInt((m.type==='ergo'?(m.ergoTarget||m.qty):(m.qty||m.ergoTarget))||0,10)||0;
 }
 function getMoveLoad(m,catId){
   if(!m)return 0;
@@ -2517,7 +2517,7 @@ function renderZone(zone){
 
   var moves=w.mouvements||[];
   var movDefs=moves.map(function(m){
-    var q=(catId&&m.qtyParCat&&m.qtyParCat[catId]!=null&&m.qtyParCat[catId]!=='')?parseInt(m.qtyParCat[catId])||0:parseInt(m.qty||m.ergoTarget||0)||0;
+    var q=(catId&&m.qtyParCat&&m.qtyParCat[catId]!=null&&m.qtyParCat[catId]!=='')?parseInt(m.qtyParCat[catId])||0:parseInt((m.type==='ergo'?(m.ergoTarget||m.qty):(m.qty||m.ergoTarget))||0)||0;
     var pw=(catId&&m.poids&&typeof m.poids==='object'&&m.poids[catId])?m.poids[catId]:(typeof m.poids==='string'?m.poids:'');
     return{nom:m.nom||'',q:q,poids:pw,qui:m.qui||'',comment:m.comment||'',note:m.note||'',tour:parseInt(m.tour||0,10)||0,ergoFree:!!m.ergoFree,ergoUnit:m.ergoUnit||''};
   });
@@ -2562,7 +2562,7 @@ function renderZone(zone){
   if(ihOn){
     // Reconstruire movsHtml pour le heat affiché (heat fini)
     var _hdrMoves=(_hdrW.mouvements||[]).map(function(m){
-      var q=(displayCatId&&m.qtyParCat&&m.qtyParCat[displayCatId]!=null&&m.qtyParCat[displayCatId]!=='')?parseInt(m.qtyParCat[displayCatId])||0:parseInt(m.qty||m.ergoTarget||0)||0;
+      var q=(displayCatId&&m.qtyParCat&&m.qtyParCat[displayCatId]!=null&&m.qtyParCat[displayCatId]!=='')?parseInt(m.qtyParCat[displayCatId])||0:parseInt((m.type==='ergo'?(m.ergoTarget||m.qty):(m.qty||m.ergoTarget))||0)||0;
       var pw=(displayCatId&&m.poids&&typeof m.poids==='object'&&m.poids[displayCatId])?m.poids[displayCatId]:(typeof m.poids==='string'?m.poids:'');
       return{nom:m.nom||'',q:q,poids:pw,qui:m.qui||'',comment:m.comment||'',tour:parseInt(m.tour||0,10)||0,ergoFree:!!m.ergoFree,ergoUnit:m.ergoUnit||''};
     });
@@ -2714,7 +2714,7 @@ function startTeamBandIH(zone,ihTarget,doneHid,doneH,doneW,catId,catLeader){
     var moves=(w&&w.mouvements)||[];
     return moves.map(function(m,_i){
       var _tb=(m.tour>0&&(_i===0||(moves[_i-1]||{}).tour!==m.tour))?'<span style="background:rgba(255,209,102,.16);color:#FFD166;border:1px solid rgba(255,209,102,.4);border-radius:4px;padding:0 5px;font-size:10px;font-weight:900;letter-spacing:.5px;display:inline-flex;align-items:center;flex-shrink:0;margin-right:4px">T'+m.tour+'</span>':'';
-      var q=(_catId&&m.qtyParCat&&m.qtyParCat[_catId]!=null&&m.qtyParCat[_catId]!=='')?parseInt(m.qtyParCat[_catId])||0:parseInt(m.qty||m.ergoTarget||0)||0;
+      var q=(_catId&&m.qtyParCat&&m.qtyParCat[_catId]!=null&&m.qtyParCat[_catId]!=='')?parseInt(m.qtyParCat[_catId])||0:parseInt((m.type==='ergo'?(m.ergoTarget||m.qty):(m.qty||m.ergoTarget))||0)||0;
       var pw=(_catId&&m.poids&&typeof m.poids==='object'&&m.poids[_catId])?m.poids[_catId]:(typeof m.poids==='string'?m.poids:'');
       var qLbl=m.qui||'', cLbl=m.comment||'';
       var tags='';
