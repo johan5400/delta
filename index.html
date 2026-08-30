@@ -6890,7 +6890,7 @@ if(typeof fbBuildWodInfo !== 'function'){
       toursMode: wod.toursMode||'identical',
       pauseEntreToursActive: !!wod.pauseEntreToursActive,
       pauseEntreToursSec: parseInt(wod.pauseEntreToursSec||0)||0,
-      scoreFinale: (wod.scoreType==='load'?'load':wod.scoreType==='dist'?'dist':wod.scoreType==='cal'?'cal':wod.scoreType==='time'?'time':(wod.scoreFinale||'reps')),  // ★ FIX CHARGE/LIVE : scoreType prioritaire
+      scoreFinale: (wod.scoreType==='load'?'load':wod.scoreType==='dist'?'dist':wod.scoreType==='cal'?'cal':wod.scoreType==='time'?'time':''),  // ★ FIX CHARGE/LIVE : scoreType prioritaire
       scoreFinaleUnit: wod.scoreFinaleUnit||'',
       ergoTarget: wod.ergoTarget||0,
       ergoType: wod.ergoType||'dist',

@@ -709,7 +709,7 @@ function fmtPrecise(secFloat, showCenti){
 function esc(s){return s?String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'):''}
 function scoreStr(sc,w){
   if(!sc)return '0';
-  var sf=(w.scoreFinale||w.scoreType||'').toLowerCase(),jm=(w.judgeMode||'').toLowerCase();
+  var sf=(w.scoreType||w.scoreFinale||'').toLowerCase(),jm=(w.judgeMode||'').toLowerCase();
   var isT=(w.wodFormat||'').toLowerCase()==='fortime'||sf==='time';
   if(jm==='maxload'||sf==='load') return (sc.load||0)+' kg';
   if(jm==='ergo'||sf==='dist'||sf==='cal') return (parseFloat(sc.dist||sc.ergoVal||sc.distance)||0)+(sf==='cal'?' cal':(' '+(sc.ergoUnit||'m')));
@@ -722,7 +722,7 @@ function scoreStr(sc,w){
 }
 function scoreVal(sc,w){
   if(!sc)return 0;
-  var sf=(w.scoreFinale||w.scoreType||'').toLowerCase(),jm=(w.judgeMode||'').toLowerCase();
+  var sf=(w.scoreType||w.scoreFinale||'').toLowerCase(),jm=(w.judgeMode||'').toLowerCase();
   var isT=(w.wodFormat||'').toLowerCase()==='fortime'||sf==='time';
   // ★ CLEAN LADDER v2 : le score EST le cumul kg (barresCL/load), pas des reps.
   if((w.wodFormat||'').toLowerCase()==='cleanladder') return parseFloat((sc.clLoad!=null?sc.clLoad:sc.load))||0;
@@ -878,7 +878,7 @@ function getZoneSyncStartTs(zone,hid){
 }
 function getLiveChronoFrame(zone,hid,h,w){
   w=mergeLiveWodConfig(h,w);
-  var sf=(w.scoreFinale||w.scoreType||'').toLowerCase();
+  var sf=(w.scoreType||w.scoreFinale||'').toLowerCase();
   var type=String(w.wodFormat||w.type||'amrap').toLowerCase();
   var isFortime=type==='fortime'||sf==='time';
   var cap=wodCapSec(w);
@@ -1049,7 +1049,7 @@ function getZoneClockState(zone){
     var _wPre=h.wodInfo||{};
     var _capPre=wodCapSec(_wPre);
     var _fmtPre=String(_wPre.wodFormat||_wPre.type||'').toLowerCase();
-    var _sfPre=String(_wPre.scoreFinale||_wPre.scoreType||'').toLowerCase();
+    var _sfPre=String(_wPre.scoreType||_wPre.scoreFinale||'').toLowerCase();
     var _valPre;
     if(_fmtPre==='emom'||_fmtPre==='interval'||_fmtPre==='tabata'){
       var _wkPre=parseInt(_wPre.workMin||_wPre.emomWork||60,10)||60;
@@ -1337,7 +1337,7 @@ function startClock(z,hid,h,w){
     var elapsed=ts>0?Math.max(0,Math.round((now()-ts)/1000)):cap||0;
     // Sur AMRAP (descendant), heat fini = temps écoulé → afficher 0:00 (cohérent avec la fin du chrono)
     // Sur fortime, afficher le temps écoulé jusqu'à la fin (= cap si timecap, ou temps réel sinon)
-    var sf=(w.scoreFinale||w.scoreType||'').toLowerCase();
+    var sf=(w.scoreType||w.scoreFinale||'').toLowerCase();
     var typ=String(w.wodFormat||w.type||'amrap').toLowerCase();
     var isFortime=typ==='fortime'||sf==='time';
     var displayVal;
@@ -1440,7 +1440,7 @@ function getLeaders(){
   Object.keys(HEATS).forEach(function(hid){
     var h=HEATS[hid];if(!h||!h.catId||!(h.status==='done'||h.status==='timecap'))return;
     var cid=String(h.catId),w=h.wodInfo||{};
-    var sf=(w.scoreFinale||w.scoreType||'').toLowerCase();
+    var sf=(w.scoreType||w.scoreFinale||'').toLowerCase();
     var isT=(w.wodFormat||'').toLowerCase()==='fortime'||sf==='time';
     var grp=[];
     Object.keys(h.slots||h.lanes||{}).forEach(function(ln){
@@ -1756,7 +1756,7 @@ function etaInfoForRow(row,w,h,catId){
   var sc=row&&row.sc||{};
   if(!h||h.status!=='live'||!h.startTimestamp||sc.judgeOk) return null;
   var fmtName=String((w.wodFormat||w.type||'').toLowerCase());
-  var sf=String((w.scoreFinale||w.scoreType||'').toLowerCase());
+  var sf=String((w.scoreType||w.scoreFinale||'').toLowerCase());
   var jm=String((w.judgeMode||'').toLowerCase());
   var isFortime=fmtName==='fortime'||sf==='time'||(w.scoreFields&&w.scoreFields.indexOf&&w.scoreFields.indexOf('time')>=0)||(w.type&&w.type.toLowerCase()==='fortime');
   var isMaxload=fmtName==='maxload'||jm==='maxload'||sf==='load';
@@ -1927,7 +1927,7 @@ function compareScores(a,b,w){
   //   tour soit saisie — c'est le nombre de snatch qui départage, et le classement
   //   bouge à chaque rep. 1 snatch d'avance = devant.
   var _cjm=((w&&w.judgeMode)||'').toLowerCase();
-  var _csf=((w&&(w.scoreFinale||w.scoreType))||'').toLowerCase();
+  var _csf=((w&&(w.scoreType||w.scoreFinale))||'').toLowerCase();
   if(_cjm==='ergo'||_csf==='dist'||_csf==='cal'){
     // ★ RÈGLE CHEF : bike (distance) d'abord, PUIS le nombre de snatch (départage) —
     //   en DIRECT ET au FINAL. Une équipe à 0 bike reste classée par ses snatch.
@@ -2077,7 +2077,7 @@ function cl2LiveBars(bc, elim, val){
 function gapText(row,lead,w,st){
   if(!lead||!row)return '';
   if(row===lead)return 'LEADER';
-  var sf=(w.scoreFinale||w.scoreType||'').toLowerCase();
+  var sf=(w.scoreType||w.scoreFinale||'').toLowerCase();
   var jm=(w.judgeMode||'').toLowerCase();
   var isT=(w.wodFormat||'').toLowerCase()==='fortime'||sf==='time';
   // ★ FOR TIME : si le LEADER a fini mais pas cette équipe → afficher les REPS RESTANTES
@@ -2179,7 +2179,7 @@ function renderRankCards(rows,w,st,showLiveChips,h,catId,catLeader){
     //   scoré en distance/cals (bike max mètres, ergo), la carte EN DIRECT doit montrer
     //   la DISTANCE qui monte, pas un compteur de reps. Avant, la distance n'apparaissait
     //   qu'une fois le score VALIDÉ (scoreStr) → rien ne remontait pendant la course.
-    var _sfLive=(w.scoreFinale||w.scoreType||'').toLowerCase();
+    var _sfLive=(w.scoreType||w.scoreFinale||'').toLowerCase();
     var _jmLive=(w.judgeMode||'').toLowerCase();
     // ★ FIX LIVE (bug chef) : détecter un mouvement en VALEUR LIBRE (ergoFree) — même si le
     //   WOD n'est pas typé 'ergo' (ex : Max Bike en type reps + valeur libre). Sinon la
@@ -2302,9 +2302,9 @@ function renderRankCards(rows,w,st,showLiveChips,h,catId,catLeader){
       // Calculer le delta avec scoreVal (scores validés ou live)
       var leadVal = lead.ok ? scoreVal(lead.sc,w) : repLead;
       var meVal   = e.ok   ? scoreVal(e.sc,w)    : repMe;
-      var isFortime=(w.wodFormat||'').toLowerCase()==='fortime'||(w.scoreFinale||w.scoreType||'').toLowerCase()==='time';
-      var isLoad  =(w.judgeMode||'').toLowerCase()==='maxload'||(w.scoreFinale||w.scoreType||'').toLowerCase()==='load';
-      var isErgo  =(w.judgeMode||'').toLowerCase()==='ergo'||(w.scoreFinale||w.scoreType||'').toLowerCase()==='dist'||(w.scoreFinale||w.scoreType||'').toLowerCase()==='cal';
+      var isFortime=(w.wodFormat||'').toLowerCase()==='fortime'||(w.scoreType||w.scoreFinale||'').toLowerCase()==='time';
+      var isLoad  =(w.judgeMode||'').toLowerCase()==='maxload'||(w.scoreType||w.scoreFinale||'').toLowerCase()==='load';
+      var isErgo  =(w.judgeMode||'').toLowerCase()==='ergo'||(w.scoreType||w.scoreFinale||'').toLowerCase()==='dist'||(w.scoreType||w.scoreFinale||'').toLowerCase()==='cal';
       if(isFortime){
         // ForTime : valeur négative (plus petit = plus rapide) — delta = moi - leader (positif = plus lent)
         var tDiff = meVal - leadVal; // si meVal plus négatif = plus rapide = devant
@@ -2322,7 +2322,7 @@ function renderRankCards(rows,w,st,showLiveChips,h,catId,catLeader){
         var _lgv=parseFloat((lead.sc&&(lead.sc.dist||lead.sc.ergoVal||lead.sc.distance))||0)||0;
         var _mgv=parseFloat((sc.dist||sc.ergoVal||sc.distance))||0;
         var eDiff=_lgv-_mgv;
-        var _egu=((w.scoreFinale||w.scoreType||'').toLowerCase()==='cal')?'cal':'m';
+        var _egu=((w.scoreType||w.scoreFinale||'').toLowerCase()==='cal')?'cal':'m';
         // ★ REPS DE RETARD AU SNATCH (demande chef) : départage après la distance. En
         //   direct on compare le snatch du tour (roundReps), validé le total (reps).
         //   La ligne bouge à chaque snatch dès le début du tour, avant la saisie bike.
@@ -2955,7 +2955,7 @@ function buildWodClassement(h){
     Object.keys(hh.slots||hh.lanes||{}).forEach(function(ln){
       var l=(hh.slots||hh.lanes)[ln]; if(!l||!l.teamName)return;
       var sc=getSc(k,hh,ln); if(!(sc.judgeOk===true||sc.judgeOk===1))return;
-      var sf2=(ww.scoreFinale||ww.scoreType||'').toLowerCase();
+      var sf2=(ww.scoreType||ww.scoreFinale||'').toLowerCase();
       var v;
       if(ww.judgeMode==='maxload'||sf2==='load') v=parseFloat(sc.load)||0;
       else if(ww.judgeMode==='ergo'||sf2==='dist'||sf2==='cal') v=parseFloat(sc.ergoVal||sc.dist||sc.distance)||0;
@@ -3009,7 +3009,7 @@ function isLastCategoryHeat(h){
   return !!(h.catHeatNum && h.nbHeatsTotal && parseInt(h.catHeatNum,10)>=parseInt(h.nbHeatsTotal,10));
 }
 function renderHeatHtml(hid,h){
-  var w=h.wodInfo||{},sf=(w.scoreFinale||w.scoreType||'').toLowerCase();
+  var w=h.wodInfo||{},sf=(w.scoreType||w.scoreFinale||'').toLowerCase();
   var isT=(w.wodFormat||'').toLowerCase()==='fortime'||sf==='time';
   var lanes=h.slots||h.lanes||{},entries=[];
   Object.keys(lanes).forEach(function(ln){var l=lanes[ln];if(!l||!l.teamName)return;var sc=getSc(hid,h,ln);entries.push({t:l.teamName,sc:sc,v:scoreVal(sc,w),isGuest:!!l.isGuest,guestCatName:l.teamCatName||'',guestCatColor:l.teamCatColor||'#888'});});
@@ -3049,7 +3049,7 @@ function _genCumulativeRanks(heatKeys){
     Object.keys(hh.slots||hh.lanes||{}).forEach(function(ln){
       var l=(hh.slots||hh.lanes)[ln]; if(!l||!l.teamName)return;
       var sc=getSc(k,hh,ln); if(!(sc.judgeOk===true||sc.judgeOk===1))return;
-      var sf2=(ww.scoreFinale||ww.scoreType||'').toLowerCase();
+      var sf2=(ww.scoreType||ww.scoreFinale||'').toLowerCase();
       var v;
       if(ww.judgeMode==='maxload'||sf2==='load') v=parseFloat(sc.load)||0;
       else if(ww.judgeMode==='ergo'||sf2==='dist'||sf2==='cal') v=parseFloat(sc.ergoVal||sc.dist||sc.distance)||0;
