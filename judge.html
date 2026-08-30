@@ -3699,40 +3699,7 @@ function updateDisplay(){
   /* ★ nom mouvement animé */
   var mn=m?m.n:'—', mel=$('j-move');
   if(mel.textContent!==mn){mel.style.animation='none';void mel.offsetWidth;mel.style.animation='move-flash .22s ease';mel.textContent=mn;}
-  var lbl=$('j-lbl');
-  if(lbl){
-    // ★ EMOM plus clair : consigne d'action au lieu de dupliquer le nom du mouvement
-    var _fmtLbl=String((SC&&SC.fmt)||'').toLowerCase();
-    if((_fmtLbl==='emom'||_fmtLbl==='interval') && m){ lbl.textContent='👆 Compte — appuie à chaque rep'; }
-    else lbl.textContent=m?m.n:'Mouvement en cours';
-  }
 
-  /* target : X / quota + numéro de tour pour Rounds */
-  if(m&&m.q>0){
-    // ★ Ergo à quota fixe (bike/rameur 15 cal) : afficher l'unité pour lever l'ambiguïté.
-    var _tgtUnit=((m.type||'reps')==='ergo' && !m.ergoFree) ? (' '+(m.ergoUnit||'m')) : '';
-    var tgt=moveReps+' / '+m.q+_tgtUnit;
-    if(SC.fmt==='rounds'&&(SC.rounds||1)>1) tgt+=' · Tour '+currentRound+' / '+(SC.rounds||1);
-    $('j-target').textContent=tgt;
-  } else{$('j-target').textContent='';}
-
-  /* ★ mouvement suivant, discret (→ nom ×qty) ; au dernier mouvement :
-     → Tour N+1 si tours restants, sinon rien */
-  (function(){
-    var nEl=$('j-next-move'); if(!nEl) return;
-    var txt='';
-    var nx=SC.moves[moveIdx+1];
-    if(nx && nx.n){ txt='→ '+nx.n+(nx.ergoFree?' MAX':(nx.q>0?' ×'+nx.q:'')); }
-    else if(SC.fmt==='rounds' && (SC.rounds||1)>1 && currentRound<(SC.rounds||1)){
-      var first=SC.moves[0]; txt='→ Tour '+(currentRound+1)+(first&&first.n?' · '+first.n:'');
-    }
-    else if(SC.fmt==='amrap' && SC.moves.length>1){
-      var f2=SC.moves[0]; txt='→ '+ (f2&&f2.n?f2.n:'')+(f2&&f2.q>0?' ×'+f2.q:'');
-    }
-    nEl.textContent=txt;
-  })();
-
-  /* poids / temps adapté catégorie */
   var infoEl=$('j-move-info');
   if(infoEl){
     var chips=[];
@@ -4057,7 +4024,7 @@ function validate(ergoVal){
   if(typeof _isCL2==='function' && _isCL2()){
     var _cl2c=(typeof cl2Recompute==='function'?cl2Recompute():((_cl2&&_cl2.cumul)||0));
     score=_cl2c+' kg';
-    meta=SC.heat+' · Lane '+SC.lane+' · '+SC.wod+' · '+(_cl2&&_cl2.eliminated?'éliminé (cumul partiel)':'parcours complet');
+    meta=SC.heat+' · Lane '+SC.lane+' · '+SC.wod+' · '+(_cl2&&_cl2.eliminated?'terminé (cumul partiel)':'parcours complet');
     try{ var _z=$('j-cl2-zone'); if(_z) _z.style.display='none'; }catch(e){}
   } else {
   var _ecFreeDisp=!!(SC.moves&&SC.moves.some(function(mm){return mm&&mm.ergoFree;})) && !(SC&&SC.deathBy);
