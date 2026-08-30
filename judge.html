@@ -4232,17 +4232,7 @@ function updateEmomPhase(e){
       } else {
       // ★ DEATH BY échelle : au passage de tour, si le tour qui vient de se terminer n'a
       //   PAS atteint sa cible (départ + inc×(tour-1)), l'athlète est HORS COURSE (auto).
-      if(SC && SC.deathBy && !_dbOut && !done){
-        var _tgtPrev=_dbTargetForRound(wasRound);
-        if(emomRoundReps < _tgtPrev){
-          emomRoundHistory[wasRound-1]=emomRoundReps; emomTotalReps+=emomRoundReps; emomRoundReps=0;
-          _dbOut=true;
-          try{ var _bd=$('btn-drop'); if(_bd) _bd.style.display='none'; }catch(_e){}
-          if(!done){ done=true; try{ validate(); }catch(_e){} }
-          try{ updateEmomDisplay(); }catch(_e){}
-          return;
-        }
-      }
+
       emomRoundHistory[wasRound-1]=emomRoundReps; emomTotalReps+=emomRoundReps; emomRoundReps=0;
       }
     }
