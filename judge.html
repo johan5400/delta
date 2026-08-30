@@ -3456,7 +3456,7 @@ function _clTargetThisRound(){
   }
   return t;
 }
-function _clDoneThisRound(){ return (parseInt(emomRoundReps||0,10)||0); }
+
 function _snatchTargetThisRound(){
   // Cible de reps du/des mouvement(s) NON ergo du tour (ex : 7 snatch). Somme des quotas
   //   des mouvements à reps du tour courant (gère l'échelle : q peut varier par catégorie/tour).
@@ -3810,7 +3810,7 @@ function addRep(){
   //   Le juge tape jusqu'à la cible (1, puis 2…) ; au-delà c'est bloqué. Le tour repart à 0
   //   tout seul à la fin de la minute (auto-validation).
   if(SC && SC.deathBy){
-    var _dbTgtNow=(parseInt(SC.dbStartReps||1,10)||1)+(parseInt(SC.dbIncPerRound||0,10)||0)*(emomRound-1);
+    var _dbTgtNow=_dbTargetForRound(emomRound);
     if(moveReps>=_dbTgtNow){ toast('✅ Cible '+_dbTgtNow+' atteinte — attends le prochain tour'); vib([60,40,120]); return; }
   }
 
@@ -4233,9 +4233,7 @@ function updateEmomPhase(e){
       // ★ DEATH BY échelle : au passage de tour, si le tour qui vient de se terminer n'a
       //   PAS atteint sa cible (départ + inc×(tour-1)), l'athlète est HORS COURSE (auto).
       if(SC && SC.deathBy && !_dbOut && !done){
-        var _dbStart=parseInt(SC.dbStartReps||1,10)||1;
-        var _dbInc=parseInt(SC.dbIncPerRound||0,10)||0;
-        var _tgtPrev=_dbStart+_dbInc*(wasRound-1);
+        var _tgtPrev=_dbTargetForRound(wasRound);
         if(emomRoundReps < _tgtPrev){
           emomRoundHistory[wasRound-1]=emomRoundReps; emomTotalReps+=emomRoundReps; emomRoundReps=0;
           _dbOut=true;
@@ -4310,8 +4308,7 @@ function updateEmomDisplay(){
   if(SC && SC.deathBy){
     // ★ DEATH BY échelle : TOUR courant + reps faites / CIBLE (départ + inc×(tour-1)),
     //   à boucler dans la durée du tour. Tours illimités jusqu'au time cap.
-    var _dbS=parseInt(SC.dbStartReps||1,10)||1, _dbI=parseInt(SC.dbIncPerRound||0,10)||0;
-    var _tgt=_dbS+_dbI*(emomRound-1);
+    var _tgt=_dbTargetForRound(emomRound);
     var _dbMov=(SC.moves&&SC.moves.length)?SC.moves.map(function(m){return (m&&m.n)||'';}).filter(Boolean).join(' + '):'';
     if(re) re.textContent='TOUR '+emomRound+' · '+moveReps+' / '+_tgt+(_dbMov?' · '+_dbMov:'');
     if(ce) ce.className='emom-countdown work';
