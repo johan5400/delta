@@ -2517,7 +2517,7 @@ function renderZone(zone){
     var tags='';
     if(m.qui) tags+='<span style="background:rgba(45,156,255,.2);color:#93C5FD;border-radius:3px;padding:0 5px;font-size:10px;font-weight:700;margin-left:3px">'+(QLBLS[m.qui]||esc(m.qui))+'</span>';
     if(m.comment) tags+='<span style="background:rgba(5,150,105,.18);color:#6EE7B7;border-radius:3px;padding:0 5px;font-size:10px;margin-left:2px">'+(CLBLS[m.comment]||esc(m.comment))+'</span>';
-    return '<div class="mov">'+_tb+'<span class="mov-q">'+(m.ergoFree?'MAX':'×'+m.q)+'</span><span class="mov-n">'+esc(m.nom)+'</span>'+(m.poids?'<span class="mov-p">'+esc(m.poids)+'</span>':'')+tags+'</div>';
+    return '<div class="mov">'+_tb+'<span class="mov-q">'+(m.ergoFree?'MAX':'×'+m.q)+(m.ergoUnit?' '+esc(m.ergoUnit):'')+'</span><span class="mov-n">'+esc(m.nom)+'</span>'+(m.poids?'<span class="mov-p">'+esc(m.poids)+'</span>':'')+tags+'</div>';
   }).join('');
   var ST={'live':'LIVE','timecap':'TIMECAP','pre':'PRÊT','done':'TERMINÉ','pending':'ATTENTE'};
   var catLeaders=getLeaders();
@@ -2560,7 +2560,7 @@ function renderZone(zone){
       var tags='';
       if(m.qui) tags+='<span style="background:rgba(45,156,255,.2);color:#93C5FD;border-radius:3px;padding:0 5px;font-size:10px;font-weight:700;margin-left:3px">'+(QLBLS[m.qui]||esc(m.qui))+'</span>';
       if(m.comment) tags+='<span style="background:rgba(5,150,105,.18);color:#6EE7B7;border-radius:3px;padding:0 5px;font-size:10px;margin-left:2px">'+(CLBLS[m.comment]||esc(m.comment))+'</span>';
-      return '<div class="mov">'+_tb+'<span class="mov-q">'+(m.ergoFree?'MAX':'×'+m.q)+'</span><span class="mov-n">'+esc(m.nom)+'</span>'+(m.poids?'<span class="mov-p">'+esc(m.poids)+'</span>':'')+tags+'</div>';
+      return '<div class="mov">'+_tb+'<span class="mov-q">'+(m.ergoFree?'MAX':'×'+m.q)+(m.ergoUnit?' '+esc(m.ergoUnit):'')+'</span><span class="mov-n">'+esc(m.nom)+'</span>'+(m.poids?'<span class="mov-p">'+esc(m.poids)+'</span>':'')+tags+'</div>';
     }).join('');
   }
 
@@ -2709,7 +2709,7 @@ function startTeamBandIH(zone,ihTarget,doneHid,doneH,doneW,catId,catLeader){
       var tags='';
       if(qLbl) tags+='<span style="background:rgba(45,156,255,.2);color:#93C5FD;border-radius:3px;padding:0 5px;font-size:10px;font-weight:700;margin-left:3px">'+esc(qLbl)+'</span>';
       if(cLbl) tags+='<span style="background:rgba(5,150,105,.18);color:#6EE7B7;border-radius:3px;padding:0 5px;font-size:10px;margin-left:2px">'+esc(cLbl)+'</span>';
-      return '<div class="mov">'+_tb+'<span class="mov-q">'+(m.ergoFree?'MAX':'×'+q)+'</span><span class="mov-n">'+esc(m.nom||'')+'</span>'+(pw?'<span class="mov-p">'+esc(pw)+'</span>':'')+tags+'</div>';
+      return '<div class="mov">'+_tb+'<span class="mov-q">'+(m.ergoFree?'MAX':'×'+q)+(m.ergoUnit?' '+esc(m.ergoUnit):'')+'</span><span class="mov-n">'+esc(m.nom||'')+'</span>'+(pw?'<span class="mov-p">'+esc(pw)+'</span>':'')+tags+'</div>';
     }).join('');
   }
   function syncHeader(mode){
