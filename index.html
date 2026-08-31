@@ -8672,14 +8672,17 @@ function renderCatDetailInline(container){
       if(team2){
         var isGuest=team2.isGuest;
         var gColor=isGuest?(team2.guestCatCouleur||'#888'):cat.couleur;
-        html+='<div style="display:flex;align-items:center;gap:5px;padding:5px 8px;border-radius:6px;background:'+gColor+(isGuest?'33':'18')+';border:1px '+(isGuest?'dashed':'solid')+' '+gColor+(isGuest?'88':'44')+';">'
+        html+='<div draggable="true" ondragstart="catDragStart(event,'+(isGuest?(team2.guestCatId||cat.id):cat.id)+','+(team2.id||0)+')" '
+          +'ondragover="event.preventDefault()" ondrop="catDrop(event,'+cat.id+','+(hi+1)+','+(li+1)+')" '
+          +'style="display:flex;align-items:center;gap:5px;padding:5px 8px;border-radius:6px;cursor:grab;background:'+gColor+(isGuest?'33':'18')+';border:1px '+(isGuest?'dashed':'solid')+' '+gColor+(isGuest?'88':'44')+';">'
           +'<span style="font-size:8px;color:#3A5270;flex-shrink:0;font-weight:700;">L'+(li+1)+'</span>'
           +'<span style="font-size:11px;font-weight:700;color:#0F1C2E;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+escHtml(team2.nom)+'</span>'
           +(isGuest?'<span title="Équipe invitée de '+escHtml(team2.guestCatNom||'')+'" style="font-size:7px;font-weight:900;background:'+gColor+';color:#fff;border-radius:3px;padding:1px 4px;flex-shrink:0;white-space:nowrap;">👥 '+escHtml((team2.guestCatNom||'INVITÉ').toString().slice(0,10))+'</span>':'')
           +'<button onclick="catUnplaceByPos('+cat.id+','+hi+','+(li+1)+')" title="Retirer du heat" style="background:none;border:none;color:#3A5270;cursor:pointer;font-size:12px;padding:0;flex-shrink:0;line-height:1;">×</button>'
         +'</div>';
       } else {
-        html+='<div style="display:flex;align-items:center;gap:5px;padding:5px 8px;border-radius:6px;border:1px dashed #EBF0FA;min-height:30px;">'
+        html+='<div ondragover="event.preventDefault()" ondrop="catDrop(event,'+cat.id+','+(hi+1)+','+(li+1)+')" '
+          +'style="display:flex;align-items:center;gap:5px;padding:5px 8px;border-radius:6px;border:1px dashed #EBF0FA;min-height:30px;">'
           +'<span style="font-size:8px;color:#3A5270;font-weight:700;">L'+(li+1)+'</span>'
           +'<span style="font-size:9px;color:#3A5270;">libre</span>'
         +'</div>';
@@ -8697,7 +8700,7 @@ function renderCatDetailInline(container){
       +'<div style="font-size:9px;font-weight:800;color:#FF9F0A;letter-spacing:1px;text-transform:uppercase;margin-bottom:7px;">⚠ Non placées ('+unplaced.length+')</div>'
       +'<div style="display:flex;flex-wrap:wrap;gap:5px;">'
       +unplaced.map(function(t){
-        return '<div style="display:flex;align-items:center;gap:5px;padding:4px 9px;border-radius:6px;background:'+cat.couleur+'18;border:1px solid '+cat.couleur+'44;cursor:grab;">'
+        return '<div draggable="true" ondragstart="catDragStartUnplaced(event,'+cat.id+','+(t.id||0)+')" style="display:flex;align-items:center;gap:5px;padding:4px 9px;border-radius:6px;background:'+cat.couleur+'18;border:1px solid '+cat.couleur+'44;cursor:grab;">'
           +'<div style="width:5px;height:5px;border-radius:50%;background:'+cat.couleur+'"></div>'
           +'<span style="font-size:10px;font-weight:700;color:#0F1C2E;">'+escHtml(t.nom)+'</span>'
           +'<button onclick="deleteTeamByIdx('+cat.id+','+(cat.teams.indexOf(t))+')" style="background:none;border:none;color:var(--ink2);cursor:pointer;font-size:11px;padding:0;margin-left:2px;">×</button>'
