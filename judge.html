@@ -3810,7 +3810,10 @@ function addRep(){
   //   Le juge tape jusqu'à la cible (1, puis 2…) ; au-delà c'est bloqué. Le tour repart à 0
   //   tout seul à la fin de la minute (auto-validation).
   if(SC && SC.deathBy){
-
+    var _dbSb=parseInt(SC.dbStartReps||0,10)||0;
+    if(_dbSb<=0){var _dmb=(SC&&SC.moves)||[];for(var _j=0;_j<_dmb.length;_j++){var _dqb=parseInt((_dmb[_j]&&(_dmb[_j].q!=null?_dmb[_j].q:_dmb[_j].qty))||0,10)||0;if(_dqb>0){_dbSb=_dqb;break;}}if(_dbSb<=0)_dbSb=1;}
+    var _dbTgtNow=_dbSb+(parseInt(SC.dbIncPerRound||0,10)||0)*(emomRound-1);
+    if(moveReps>=_dbTgtNow){ toast('✅ Cible '+_dbTgtNow+' atteinte — attends le prochain tour'); vib([60,40,120]); return; }
   }
 
   totalReps++; moveReps++;
@@ -4231,7 +4234,21 @@ function updateEmomPhase(e){
       } else {
       // ★ DEATH BY échelle : au passage de tour, si le tour qui vient de se terminer n'a
       //   PAS atteint sa cible (départ + inc×(tour-1)), l'athlète est HORS COURSE (auto).
-
+      if(SC && SC.deathBy && !_dbOut && !done){
+        var _dbStart=parseInt(SC.dbStartReps||0,10)||0;
+        if(_dbStart<=0){var _dms=(SC&&SC.moves)||[];for(var _i=0;_i<_dms.length;_i++){var _dq=parseInt((_dms[_i]&&(_dms[_i].q!=null?_dms[_i].q:_dms[_i].qty))||0,10)||0;if(_dq>0){_dbStart=_dq;break;}}if(_dbStart<=0)_dbStart=1;}
+        var _dbInc=parseInt(SC.dbIncPerRound||0,10)||0;
+        var _tgtPrev=_dbStart+_dbInc*(wasRound-1);
+        if(emomRoundReps < _tgtPrev){
+          try{ totalReps=Math.max(0,(parseInt(totalReps||0,10)||0)-(parseInt(emomRoundReps||0,10)||0)); }catch(_e){}
+          emomRoundHistory[wasRound-1]=0; emomRoundReps=0;
+          _dbOut=true;
+          try{ var _bd=$('btn-drop'); if(_bd) _bd.style.display='none'; }catch(_e){}
+          if(!done){ done=true; try{ validate(); }catch(_e){} }
+          try{ updateEmomDisplay(); }catch(_e){}
+          return;
+        }
+      }
       emomRoundHistory[wasRound-1]=emomRoundReps; emomTotalReps+=emomRoundReps; emomRoundReps=0;
       }
     }
@@ -4297,7 +4314,10 @@ function updateEmomDisplay(){
   if(SC && SC.deathBy){
     // ★ DEATH BY échelle : TOUR courant + reps faites / CIBLE (départ + inc×(tour-1)),
     //   à boucler dans la durée du tour. Tours illimités jusqu'au time cap.
-
+    var _dbS=parseInt(SC.dbStartReps||0,10)||0;
+    if(_dbS<=0){var _dma=(SC&&SC.moves)||[];for(var _k=0;_k<_dma.length;_k++){var _dqa=parseInt((_dma[_k]&&(_dma[_k].q!=null?_dma[_k].q:_dma[_k].qty))||0,10)||0;if(_dqa>0){_dbS=_dqa;break;}}if(_dbS<=0)_dbS=1;}
+    var _dbI=parseInt(SC.dbIncPerRound||0,10)||0;
+    var _tgt=_dbS+_dbI*(emomRound-1);
     var _dbMov=(SC.moves&&SC.moves.length)?SC.moves.map(function(m){return (m&&m.n)||'';}).filter(Boolean).join(' + '):'';
     if(re) re.textContent='TOUR '+emomRound+' · '+moveReps+' / '+_tgt+(_dbMov?' · '+_dbMov:'');
     if(ce) ce.className='emom-countdown work';
