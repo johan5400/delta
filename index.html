@@ -8552,8 +8552,25 @@ function catDrop(ev, destCatId, heatIdx, ligne){
   }
 
   _catDragTeamId=null; _catDragSrcCatId=null;
+  // ★ FIX GLISSER ÉQUIPE : on vient de modifier les positions localement.
+  //   1) Verrou 8s : le listener admin_backup.on('value') ne réécrit pas les
+  //      catégories depuis le cloud pendant ce laps (voir garde dans le listener).
+  //   2) On force la republication IMMÉDIATE de admin_backup (normalement throttlé
+  //      à 5 min) pour que le cloud ait tout de suite la nouvelle position — sinon
+  //      un retour Firebase ultérieur rappliquerait l'ancienne.
+  window._catLocalEditTs = Date.now();
   renderCategories(); if(typeof autoSave==='function')autoSave();
   if(typeof generateHeats==='function')generateHeats();
+  try{
+    var _dbMove=(typeof LS_FB_DB!=='undefined'&&LS_FB_DB)||window.db||null;
+    if(_dbMove&&typeof _dbMove.ref==='function' && BENEVOLES && BENEVOLES.length){
+      window._lastFbBackup = Date.now();
+      _dbMove.ref('admin_backup').update({
+        categories: CATEGORIES||[],
+        savedAt: Date.now()
+      });
+    }
+  }catch(e){ console.warn('push admin_backup après déplacement échoué', e); }
 }
 
 function catUnplaceByPos(catId, heatIdx, lane){
@@ -11828,6 +11845,14 @@ function init(){
             // Normaliser categories (idem)
             if(backup.categories && !Array.isArray(backup.categories) && typeof backup.categories === 'object'){
               backup.categories = Object.keys(backup.categories).map(function(k){ return backup.categories[k]; }).filter(Boolean);
+            }
+            // ★ FIX GLISSER ÉQUIPE : si l'admin vient de déplacer une équipe (verrou
+            //   posé dans catDrop il y a moins de 8s), NE PAS réécrire les catégories
+            //   depuis le cloud — sinon le retour Firebase annule le déplacement en
+            //   remettant l'ancienne position. On retire la clé avant applyState ;
+            //   la version locale (à jour) est conservée et sera republiée par autoSave.
+            if(window._catLocalEditTs && (Date.now() - window._catLocalEditTs) < 8000){
+              delete backup.categories;
             }
             // Normaliser wods (idem)
             if(backup.wods && !Array.isArray(backup.wods) && typeof backup.wods === 'object'){
