@@ -8818,7 +8818,9 @@ function renderCatDetail(){
       var isGuest=team2&&team2.isGuest;
       var gColor=isGuest?(team2.guestCatCouleur||'#888'):cat.couleur;
       if(team2){
-        html+='<div style="display:flex;align-items:center;gap:5px;padding:5px 8px;border-radius:6px;'
+        html+='<div draggable="true" ondragstart="catDragStart(event,'+(isGuest?(team2.guestCatId||cat.id):cat.id)+','+(team2.id||0)+')" '
+          +'ondragover="event.preventDefault()" ondrop="catDrop(event,'+cat.id+','+(hi+1)+','+(li+1)+')" '
+          +'style="display:flex;align-items:center;gap:5px;padding:5px 8px;border-radius:6px;cursor:grab;'
           +'background:'+gColor+'18;border:1px solid '+gColor+'44'+(isGuest?';border-style:dashed':'')+';">'
           +'<span style="font-size:8px;color:var(--ink2);flex-shrink:0;font-weight:700;">L'+(li+1)+'</span>'
           +'<div style="width:5px;height:5px;border-radius:50%;background:'+gColor+';flex-shrink:0;"></div>'
