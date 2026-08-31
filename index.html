@@ -8678,7 +8678,7 @@ function renderCatDetailInline(container){
         var isGuest=team2.isGuest;
         var gColor=isGuest?(team2.guestCatCouleur||'#888'):cat.couleur;
         html+='<div draggable="true" ondragstart="catDragStart(event,\''+String(isGuest?(team2.guestCatId||cat.id):cat.id)+'\',\''+String(team2.id||0)+'\')" '
-          +'ondragover="event.preventDefault()" ondrop="catDrop(event,'+cat.id+','+(hi+1)+','+(li+1)+')" '
+          +'ondragover="event.preventDefault()" ondrop="catDrop(event,'+cat.id+','+hi+','+(li+1)+')" '
           +'style="display:flex;align-items:center;gap:5px;padding:5px 8px;border-radius:6px;cursor:grab;background:'+gColor+(isGuest?'33':'18')+';border:1px '+(isGuest?'dashed':'solid')+' '+gColor+(isGuest?'88':'44')+';">'
           +'<span style="font-size:8px;color:#3A5270;flex-shrink:0;font-weight:700;">L'+(li+1)+'</span>'
           +'<span style="font-size:11px;font-weight:700;color:#0F1C2E;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+escHtml(team2.nom)+'</span>'
@@ -8686,7 +8686,7 @@ function renderCatDetailInline(container){
           +'<button onclick="catUnplaceByPos('+cat.id+','+hi+','+(li+1)+')" title="Retirer du heat" style="background:none;border:none;color:#3A5270;cursor:pointer;font-size:12px;padding:0;flex-shrink:0;line-height:1;">×</button>'
         +'</div>';
       } else {
-        html+='<div ondragover="event.preventDefault()" ondrop="catDrop(event,'+cat.id+','+(hi+1)+','+(li+1)+')" '
+        html+='<div ondragover="event.preventDefault()" ondrop="catDrop(event,'+cat.id+','+hi+','+(li+1)+')" '
           +'style="display:flex;align-items:center;gap:5px;padding:5px 8px;border-radius:6px;border:1px dashed #EBF0FA;min-height:30px;">'
           +'<span style="font-size:8px;color:#3A5270;font-weight:700;">L'+(li+1)+'</span>'
           +'<span style="font-size:9px;color:#3A5270;">libre</span>'
@@ -8827,7 +8827,7 @@ function renderCatDetail(){
       var gColor=isGuest?(team2.guestCatCouleur||'#888'):cat.couleur;
       if(team2){
         html+='<div draggable="true" ondragstart="catDragStart(event,\''+String(isGuest?(team2.guestCatId||cat.id):cat.id)+'\',\''+String(team2.id||0)+'\')" '
-          +'ondragover="event.preventDefault()" ondrop="catDrop(event,'+cat.id+','+(hi+1)+','+(li+1)+')" '
+          +'ondragover="event.preventDefault()" ondrop="catDrop(event,'+cat.id+','+hi+','+(li+1)+')" '
           +'style="display:flex;align-items:center;gap:5px;padding:5px 8px;border-radius:6px;cursor:grab;'
           +'background:'+gColor+'18;border:1px solid '+gColor+'44'+(isGuest?';border-style:dashed':'')+';">'
           +'<span style="font-size:8px;color:var(--ink2);flex-shrink:0;font-weight:700;">L'+(li+1)+'</span>'
@@ -8837,7 +8837,7 @@ function renderCatDetail(){
           +'<button onclick="catUnplaceByPos('+cat.id+','+hi+','+(li+1)+')" style="background:none;border:none;color:var(--ink2);cursor:pointer;font-size:12px;padding:0;flex-shrink:0;">×</button>'
           +'</div>';
       } else {
-        html+='<div ondragover="event.preventDefault()" ondrop="catDrop(event,'+cat.id+','+(hi+1)+','+(li+1)+')" '
+        html+='<div ondragover="event.preventDefault()" ondrop="catDrop(event,'+cat.id+','+hi+','+(li+1)+')" '
           +'style="display:flex;align-items:center;gap:5px;padding:5px 8px;border-radius:6px;border:1px dashed #EBF0FA;min-height:32px;">'
           +'<span style="font-size:8px;color:#3A5270;font-weight:700;">L'+(li+1)+'</span>'
           +'<span style="font-size:9px;color:#3A5270;">libre</span>'
