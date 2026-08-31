@@ -1512,6 +1512,18 @@ function checkPassword(){
         <button class="btn btn-orange" onclick="printScorecardFromCenter()" style="font-size:12px">🖨️ Imprimer les scorecards</button>
       </div>
     </div>
+
+    <div class="card" style="grid-column:1/-1">
+      <div class="sh-card-title">📄 Scorecards VIERGES par catégorie</div>
+      <div style="font-size:11px;color:var(--ink2);margin-bottom:12px">Une feuille par catégorie pour le WOD choisi, avec mouvements et reps, mais sans équipe ni score (à remplir à la main). Feuilles de secours.</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:end">
+        <div style="flex:1;min-width:200px">
+          <div style="font-size:10px;font-weight:800;color:var(--ink2);margin-bottom:6px">WOD</div>
+          <select id="blank-sc-wod-select" onfocus="fillBlankScWodSelect()" style="width:100%;background:#FFF7ED;border:1px solid var(--brd2);border-radius:8px;color:var(--ink);padding:9px 10px;font-size:12px;outline:none;font-family:inherit"></select>
+        </div>
+        <button class="btn btn-orange" onclick="printBlankScFromCenter()" style="font-size:12px">🖨️ Imprimer les scorecards vierges</button>
+      </div>
+    </div>
     <div class="card">
       <div class="sh-card-title">🚨 Fiche réflexe</div>
       <div style="font-size:11px;color:var(--ink2);margin-bottom:12px">Procédures et contacts d'urgence à afficher au PC course.</div>
@@ -6936,6 +6948,8 @@ function renderPrintCenter(){
     });
     if(!(WODS||[]).length) wsel.innerHTML = '<option value="">Aucun WOD créé</option>';
   }
+  // ★ Remplir aussi le menu des scorecards VIERGES
+  if(typeof fillBlankScWodSelect==='function') fillBlankScWodSelect();
 }
 
 // ★ Imprimer les scorecards du WOD choisi dans le centre d'impression
@@ -21994,6 +22008,144 @@ function lsSyncScorecards() {
     lsRenderScorecards();
     toast('✅ Scores synchronisés depuis Firebase');
   });
+}
+
+// ★ SCORECARDS VIERGES : une feuille PAR CATÉGORIE pour un WOD donné, avec les
+//   mouvements et reps adaptés à chaque catégorie, mais SANS équipe ni score
+//   pré-remplis (cases à remplir à la main). N'ouvre qu'une fenêtre d'impression :
+//   ne touche ni à Firebase, ni aux heats, ni aux scores.
+function printBlankScorecards(wodId){
+  var wod = (WODS||[]).find(function(w){ return String(w.id)===String(wodId); });
+  if(!wod){ toast('Choisis un WOD','#E65100'); return; }
+  var cats = (CATEGORIES||[]).filter(function(c){ return c && c.nom; });
+  if(!cats.length){ toast('Aucune catégorie','#E65100'); return; }
+
+  var nomEv = (document.getElementById('ev-nom')||{}).value || 'FOC 2026';
+  var fmtMap = {amrap:{bg:'#1E40AF',label:'AMRAP'},fortime:{bg:'#B91C1C',label:'FOR TIME'},emom:{bg:'#065F46',label:'EMOM'},rounds:{bg:'#6B21A8',label:'ROUNDS'},maxload:{bg:'#92400E',label:'MAX LOAD'},tabata:{bg:'#0E7490',label:'TABATA'},deathby:{bg:'#B91C1C',label:'DEATH BY'},cleanladder:{bg:'#047857',label:'CLEAN LADDER'}};
+  var fmtKey = String(wod.wodFormat||wod.type||'amrap').toLowerCase();
+  var fmtInfo = fmtMap[fmtKey] || {bg:'#1E3A5F', label:(fmtKey||'WOD').toUpperCase()};
+  var capLabel = fmtInfo.label + ' · ' + (typeof secToMmss==='function'?secToMmss(wod.duree||0):((wod.duree||0)+'s'));
+  var scoreType = wod.scoreType || 'reps';
+  var mainLabel = scoreType==='time' ? 'TEMPS FINAL' : scoreType==='load' ? 'CHARGE MAX (kg)' : scoreType==='dist' ? 'DISTANCE (m)' : 'REPS / SCORE';
+
+  // Mouvements adaptés à UNE catégorie (mêmes règles que la scorecard normale)
+  function movRowsForCat(cat){
+    var keys = [String(cat.id||''), cat.nom||''].filter(function(k,i,a){return k && a.indexOf(k)===i;});
+    function cv(obj){ if(!obj) return null; for(var i=0;i<keys.length;i++){ var v=obj[keys[i]]; if(v!=null&&v!=='') return v; } return null; }
+    function mapMov(m){
+      var nom = cv(m.nomParCat) || m.nom || '?';
+      if(m.type==='load') return 'Max Load - '+nom;
+      if(m.type==='ergo'){
+        var dist = cv(m.distParCat)!=null ? cv(m.distParCat) : (m.ergoTarget||'');
+        var lbl = dist+' '+(m.ergoUnit||'m')+' - '+nom;
+        var p = cv(m.poids)||(typeof m.poids==='string'?m.poids:''); var t = cv(m.timeParCat)||'';
+        if(p)lbl+=' · '+p; if(t)lbl+=' · '+t; return lbl;
+      }
+      var qty = cv(m.qtyParCat)!=null ? cv(m.qtyParCat) : (m.qty||0);
+      var lbl = qty+' - '+nom;
+      var p = cv(m.poids)||(typeof m.poids==='string'?m.poids:''); var t = cv(m.timeParCat)||'';
+      if(p)lbl+=' · '+p; if(t)lbl+=' · '+t; return lbl;
+    }
+    var rows=[];
+    var custom = (wod.toursMode==='custom') && Array.isArray(wod.toursPerso) && wod.toursPerso.length>0;
+    var rounds = parseInt(wod.rounds||1,10)||1;
+    if(custom){
+      wod.toursPerso.forEach(function(tp,ti){ rows.push('§TOUR§'+(ti+1)); (tp&&Array.isArray(tp.mouvements)?tp.mouvements:[]).forEach(function(m){ rows.push(mapMov(m)); }); });
+    } else if(wod.mouvements && wod.mouvements.length){
+      var base = wod.mouvements.map(mapMov);
+      if(rounds>1){ for(var r=1;r<=rounds;r++){ rows.push('§TOUR§'+r); rows=rows.concat(base); } }
+      else rows=base;
+    }
+    return rows;
+  }
+
+  function movTable(rows, color){
+    if(!rows.length) return '<div style="padding:12px;text-align:center;font-size:11px;color:#94A3B8">Aucun mouvement configuré</div>';
+    var body = rows.map(function(row){
+      if(String(row).indexOf('§TOUR§')===0){
+        return '<tr><td colspan="2" style="padding:5px 10px;font-size:9px;font-weight:900;background:'+color+';color:#fff;text-transform:uppercase;letter-spacing:1.5px">🔄 TOUR '+String(row).slice(6)+'</td></tr>';
+      }
+      return '<tr>'
+        + '<td style="padding:7px 10px;font-size:12px;font-weight:600;border-bottom:1px solid #E2E8F0">'+escHtml(row)+'</td>'
+        + '<td style="width:70px;border-bottom:1px solid #E2E8F0;border-left:1px solid #E2E8F0;background:#F8FAFC"></td>'
+        + '</tr>';
+    }).join('');
+    return '<table style="width:100%;border-collapse:collapse">'
+      + '<thead><tr>'
+      + '<th style="padding:5px 10px;font-size:8px;font-weight:900;text-align:left;background:'+color+';color:#fff;text-transform:uppercase;letter-spacing:1px">Mouvement</th>'
+      + '<th style="padding:5px 6px;font-size:8px;font-weight:900;background:'+color+';color:#fff;text-transform:uppercase;width:70px">Reps OK</th>'
+      + '</tr></thead><tbody>'+body+'</tbody></table>';
+  }
+
+  function catColor(cat){
+    if(cat.couleur && cat.couleur!=='#1E88E5') return cat.couleur;
+    var n=(cat.nom||'').toLowerCase();
+    if(n.indexOf('team')>=0||n.indexOf('équipe')>=0||n.indexOf('equipe')>=0) return '#5B21B6';
+    if(n.indexOf('master')>=0) return '#B45309';
+    if(n.indexOf('scal')>=0) return '#0369A1';
+    if(n.indexOf('rx')>=0) return '#DC2626';
+    return '#1565C0';
+  }
+
+  var cards = cats.map(function(cat){
+    var col = catColor(cat);
+    var rows = movRowsForCat(cat);
+    return '<div class="bsc">'
+      + '<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:3px solid '+col+'">'
+      +   '<div style="flex:1">'
+      +     '<div style="font-size:8px;color:#64748B">'+escHtml(nomEv)+' · Scorecard vierge</div>'
+      +     '<div style="font-size:16px;font-weight:900;line-height:1.1;margin-top:2px">'+escHtml(wod.nom||'WOD')+'</div>'
+      +     '<div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:4px">'
+      +       '<span style="background:'+col+';color:#fff;border-radius:5px;padding:2px 10px;font-size:11px;font-weight:900">'+escHtml(cat.nom)+'</span>'
+      +       '<span style="background:'+fmtInfo.bg+';color:#fff;border-radius:5px;padding:2px 9px;font-size:10px;font-weight:900">'+fmtInfo.label+'</span>'
+      +     '</div>'
+      +   '</div>'
+      + '</div>'
+      + movTable(rows, col)
+      + '<div style="display:grid;grid-template-columns:1fr 1fr;border-top:2px solid '+col+'">'
+      +   '<div style="padding:9px 12px;border-right:1px solid #E2E8F0"><div style="font-size:8px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px">Équipe / Athlète</div><div style="height:22px;border-bottom:1px solid #CBD5E1"></div></div>'
+      +   '<div style="padding:9px 12px"><div style="font-size:8px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px">Heat / Lane</div><div style="height:22px;border-bottom:1px solid #CBD5E1"></div></div>'
+      + '</div>'
+      + '<div style="padding:10px 14px;border-top:1px solid #E2E8F0;background:#F8FAFC">'
+      +   '<div style="font-size:9px;font-weight:900;color:#0F172A;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">'+mainLabel+'</div>'
+      +   '<div style="height:34px;border-bottom:2px solid '+col+'"></div>'
+      +   (wod.hasTiebreak ? '<div style="font-size:9px;font-weight:900;color:#92400E;text-transform:uppercase;letter-spacing:1px;margin:8px 0 4px">⚖ Tiebreak</div><div style="height:22px;border-bottom:1.5px solid #CBD5E1"></div>' : '')
+      + '</div>'
+      + '<div style="display:grid;grid-template-columns:1fr 1fr;border-top:1px solid #E2E8F0">'
+      +   '<div style="padding:9px 12px;border-right:1px solid #E2E8F0"><div style="font-size:8px;font-weight:900;text-transform:uppercase;letter-spacing:1px;margin-bottom:7px">Signature athlète</div><div style="height:24px;border-bottom:1.5px solid '+col+'"></div></div>'
+      +   '<div style="padding:9px 12px"><div style="font-size:8px;font-weight:900;text-transform:uppercase;letter-spacing:1px;margin-bottom:7px">Signature juge</div><div style="height:24px;border-bottom:1.5px solid '+col+'"></div></div>'
+      + '</div>'
+      + '</div>';
+  }).join('');
+
+  var w = window.open('', '_blank', 'width=960,height=860');
+  if(!w){ toast('⚠️ Popup bloqué — autorise les popups','#E65100'); return; }
+  w.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Scorecards vierges · '+escHtml(wod.nom||'')+'</title>'
+    + '<style>'
+    + 'body{margin:0;font-family:Arial,sans-serif;background:#e8edf2;color:#0F1C2E}'
+    + '.topbar{background:#0F172A;color:#fff;padding:12px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10}'
+    + '.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:16px;padding:20px}'
+    + '.bsc{background:#fff;border:2px solid #0F172A;break-inside:avoid}'
+    + '@media print{body{background:#fff}.topbar{display:none}.grid{grid-template-columns:1fr 1fr;gap:12px;padding:8px}}'
+    + '</style></head><body>'
+    + '<div class="topbar"><div><b>Scorecards VIERGES · '+escHtml(wod.nom||'')+'</b> <span style="opacity:.7;font-size:11px">— '+cats.length+' catégorie(s) · '+capLabel+'</span></div>'
+    + '<button onclick="window.print()" style="background:#1E88E5;color:#fff;border:none;border-radius:6px;padding:8px 16px;font-weight:900;cursor:pointer;font-size:13px">🖨️ Imprimer</button></div>'
+    + '<div class="grid">'+cards+'</div>'
+    + '</body></html>');
+  w.document.close();
+  toast('📄 '+cats.length+' scorecard(s) vierge(s) générée(s)','#16A34A');
+}
+
+// Remplit le menu WOD du bloc "scorecards vierges" (onglet Impression)
+function fillBlankScWodSelect(){
+  var sel = document.getElementById('blank-sc-wod-select');
+  if(!sel) return;
+  sel.innerHTML = (WODS||[]).map(function(w){ return '<option value="'+escHtml(String(w.id))+'">'+escHtml(w.nom||'WOD')+'</option>'; }).join('');
+}
+function printBlankScFromCenter(){
+  var sel = document.getElementById('blank-sc-wod-select');
+  if(!sel || !sel.value){ toast('Choisis un WOD','#E65100'); return; }
+  printBlankScorecards(sel.value);
 }
 
 function printScorecardWod(wodId) {
