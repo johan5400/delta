@@ -8467,19 +8467,24 @@ function catDrop(ev, destCatId, heatIdx, ligne){
   ev.preventDefault();
   var raw     = ev.dataTransfer.getData('text/plain') || '';
   var parts   = raw.split('|');
-  var srcCatId = _catDragSrcCatId || (parts.length===2 ? parseInt(parts[0]) : destCatId);
-  var teamId   = _catDragTeamId   || parseInt(parts.length===2 ? parts[1] : parts[0]);
+  // ★ FIX PERTE ÉQUIPE : les id d'équipe sont des floats (ex 1788191913610.52)
+  //   et les id de catégorie des strings. On ne fait plus AUCUN parseInt (qui
+  //   tronquait le float et cassait la correspondance) : on garde les valeurs
+  //   brutes et on compare en STRING partout.
+  var srcCatId = _catDragSrcCatId!=null ? _catDragSrcCatId : (parts.length===2 ? parts[0] : destCatId);
+  var teamId   = _catDragTeamId!=null   ? _catDragTeamId   : (parts.length===2 ? parts[1] : parts[0]);
+  var _sameId = function(a,b){ return String(a)===String(b); };
 
-  var destCat = CATEGORIES.find(function(c){return c.id===destCatId;});
+  var destCat = CATEGORIES.find(function(c){return _sameId(c.id,destCatId);});
   if(!destCat) return;
 
   // ── CAS 1 : équipe native (même catégorie) ──────────────────────
-  if(srcCatId === destCatId){
-    var team = destCat.teams.find(function(t){return t.id===teamId;});
+  if(_sameId(srcCatId,destCatId)){
+    var team = destCat.teams.find(function(t){return _sameId(t.id,teamId);});
     if(!team) return;
     // Conflit → échange
     var conflict = destCat.teams.find(function(t){
-      return t.id!==teamId && t.ligne===ligne && (t.heatNum===undefined?0:t.heatNum)===heatIdx;
+      return !_sameId(t.id,teamId) && t.ligne===ligne && (t.heatNum===undefined?0:t.heatNum)===heatIdx;
     });
     if(conflict){
       var oldL = team.ligne, oldH = team.heatNum===undefined?0:team.heatNum;
@@ -8498,9 +8503,9 @@ function catDrop(ev, destCatId, heatIdx, ligne){
 
   // ── CAS 2 : équipe invitée (autre catégorie) ─────────────────────
   } else {
-    var srcCat = CATEGORIES.find(function(c){return c.id===srcCatId;});
+    var srcCat = CATEGORIES.find(function(c){return _sameId(c.id,srcCatId);});
     if(!srcCat) return;
-    var guestTeam = srcCat.teams.find(function(t){return t.id===teamId;});
+    var guestTeam = srcCat.teams.find(function(t){return _sameId(t.id,teamId);});
     if(!guestTeam) return;
 
     // Init tableau guests sur destCat
@@ -8672,7 +8677,7 @@ function renderCatDetailInline(container){
       if(team2){
         var isGuest=team2.isGuest;
         var gColor=isGuest?(team2.guestCatCouleur||'#888'):cat.couleur;
-        html+='<div draggable="true" ondragstart="catDragStart(event,'+(isGuest?(team2.guestCatId||cat.id):cat.id)+','+(team2.id||0)+')" '
+        html+='<div draggable="true" ondragstart="catDragStart(event,'+JSON.stringify(String(isGuest?(team2.guestCatId||cat.id):cat.id))+','+JSON.stringify(String(team2.id||0))+')" '
           +'ondragover="event.preventDefault()" ondrop="catDrop(event,'+cat.id+','+(hi+1)+','+(li+1)+')" '
           +'style="display:flex;align-items:center;gap:5px;padding:5px 8px;border-radius:6px;cursor:grab;background:'+gColor+(isGuest?'33':'18')+';border:1px '+(isGuest?'dashed':'solid')+' '+gColor+(isGuest?'88':'44')+';">'
           +'<span style="font-size:8px;color:#3A5270;flex-shrink:0;font-weight:700;">L'+(li+1)+'</span>'
@@ -8700,7 +8705,7 @@ function renderCatDetailInline(container){
       +'<div style="font-size:9px;font-weight:800;color:#FF9F0A;letter-spacing:1px;text-transform:uppercase;margin-bottom:7px;">⚠ Non placées ('+unplaced.length+')</div>'
       +'<div style="display:flex;flex-wrap:wrap;gap:5px;">'
       +unplaced.map(function(t){
-        return '<div draggable="true" ondragstart="catDragStartUnplaced(event,'+cat.id+','+(t.id||0)+')" style="display:flex;align-items:center;gap:5px;padding:4px 9px;border-radius:6px;background:'+cat.couleur+'18;border:1px solid '+cat.couleur+'44;cursor:grab;">'
+        return '<div draggable="true" ondragstart="catDragStartUnplaced(event,'+JSON.stringify(String(cat.id))+','+JSON.stringify(String(t.id||0))+')" style="display:flex;align-items:center;gap:5px;padding:4px 9px;border-radius:6px;background:'+cat.couleur+'18;border:1px solid '+cat.couleur+'44;cursor:grab;">'
           +'<div style="width:5px;height:5px;border-radius:50%;background:'+cat.couleur+'"></div>'
           +'<span style="font-size:10px;font-weight:700;color:#0F1C2E;">'+escHtml(t.nom)+'</span>'
           +'<button onclick="deleteTeamByIdx('+cat.id+','+(cat.teams.indexOf(t))+')" style="background:none;border:none;color:var(--ink2);cursor:pointer;font-size:11px;padding:0;margin-left:2px;">×</button>'
@@ -8821,7 +8826,7 @@ function renderCatDetail(){
       var isGuest=team2&&team2.isGuest;
       var gColor=isGuest?(team2.guestCatCouleur||'#888'):cat.couleur;
       if(team2){
-        html+='<div draggable="true" ondragstart="catDragStart(event,'+(isGuest?(team2.guestCatId||cat.id):cat.id)+','+(team2.id||0)+')" '
+        html+='<div draggable="true" ondragstart="catDragStart(event,'+JSON.stringify(String(isGuest?(team2.guestCatId||cat.id):cat.id))+','+JSON.stringify(String(team2.id||0))+')" '
           +'ondragover="event.preventDefault()" ondrop="catDrop(event,'+cat.id+','+(hi+1)+','+(li+1)+')" '
           +'style="display:flex;align-items:center;gap:5px;padding:5px 8px;border-radius:6px;cursor:grab;'
           +'background:'+gColor+'18;border:1px solid '+gColor+'44'+(isGuest?';border-style:dashed':'')+';">'
@@ -8855,7 +8860,7 @@ function renderCatDetail(){
       +'<div style="font-size:9px;font-weight:800;color:#FF9F0A;letter-spacing:1px;text-transform:uppercase;margin-bottom:7px;">⚠ Non placées ('+unplaced.length+')</div>'
       +'<div style="display:flex;flex-wrap:wrap;gap:5px;">'
       +unplaced.map(function(t){
-        return '<div draggable="true" ondragstart="catDragStartUnplaced(event,'+cat.id+','+(t.id||0)+')" '
+        return '<div draggable="true" ondragstart="catDragStartUnplaced(event,'+JSON.stringify(String(cat.id))+','+JSON.stringify(String(t.id||0))+')" '
           +'style="display:flex;align-items:center;gap:5px;padding:4px 9px;border-radius:6px;cursor:grab;background:'+cat.couleur+'18;border:1px solid '+cat.couleur+'44;">'
           +'<div style="width:5px;height:5px;border-radius:50%;background:'+cat.couleur+'"></div>'
           +'<span style="font-size:10px;font-weight:700;color:#0F1C2E;">'+escHtml(t.nom)+'</span>'
