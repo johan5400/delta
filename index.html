@@ -8552,25 +8552,8 @@ function catDrop(ev, destCatId, heatIdx, ligne){
   }
 
   _catDragTeamId=null; _catDragSrcCatId=null;
-  // ★ FIX GLISSER ÉQUIPE : on vient de modifier les positions localement.
-  //   1) Verrou 8s : le listener admin_backup.on('value') ne réécrit pas les
-  //      catégories depuis le cloud pendant ce laps (voir garde dans le listener).
-  //   2) On force la republication IMMÉDIATE de admin_backup (normalement throttlé
-  //      à 5 min) pour que le cloud ait tout de suite la nouvelle position — sinon
-  //      un retour Firebase ultérieur rappliquerait l'ancienne.
-  window._catLocalEditTs = Date.now();
   renderCategories(); if(typeof autoSave==='function')autoSave();
   if(typeof generateHeats==='function')generateHeats();
-  try{
-    var _dbMove=(typeof LS_FB_DB!=='undefined'&&LS_FB_DB)||window.db||null;
-    if(_dbMove&&typeof _dbMove.ref==='function' && BENEVOLES && BENEVOLES.length){
-      window._lastFbBackup = Date.now();
-      _dbMove.ref('admin_backup').update({
-        categories: CATEGORIES||[],
-        savedAt: Date.now()
-      });
-    }
-  }catch(e){ console.warn('push admin_backup après déplacement échoué', e); }
 }
 
 function catUnplaceByPos(catId, heatIdx, lane){
@@ -8694,7 +8677,7 @@ function renderCatDetailInline(container){
       if(team2){
         var isGuest=team2.isGuest;
         var gColor=isGuest?(team2.guestCatCouleur||'#888'):cat.couleur;
-        html+='<div draggable="true" ondragstart="catDragStart(event,'+JSON.stringify(String(isGuest?(team2.guestCatId||cat.id):cat.id))+','+JSON.stringify(String(team2.id||0))+')" '
+        html+='<div draggable="true" ondragstart="catDragStart(event,\''+String(isGuest?(team2.guestCatId||cat.id):cat.id)+'\',\''+String(team2.id||0)+'\')" '
           +'ondragover="event.preventDefault()" ondrop="catDrop(event,'+cat.id+','+(hi+1)+','+(li+1)+')" '
           +'style="display:flex;align-items:center;gap:5px;padding:5px 8px;border-radius:6px;cursor:grab;background:'+gColor+(isGuest?'33':'18')+';border:1px '+(isGuest?'dashed':'solid')+' '+gColor+(isGuest?'88':'44')+';">'
           +'<span style="font-size:8px;color:#3A5270;flex-shrink:0;font-weight:700;">L'+(li+1)+'</span>'
@@ -8722,7 +8705,7 @@ function renderCatDetailInline(container){
       +'<div style="font-size:9px;font-weight:800;color:#FF9F0A;letter-spacing:1px;text-transform:uppercase;margin-bottom:7px;">⚠ Non placées ('+unplaced.length+')</div>'
       +'<div style="display:flex;flex-wrap:wrap;gap:5px;">'
       +unplaced.map(function(t){
-        return '<div draggable="true" ondragstart="catDragStartUnplaced(event,'+JSON.stringify(String(cat.id))+','+JSON.stringify(String(t.id||0))+')" style="display:flex;align-items:center;gap:5px;padding:4px 9px;border-radius:6px;background:'+cat.couleur+'18;border:1px solid '+cat.couleur+'44;cursor:grab;">'
+        return '<div draggable="true" ondragstart="catDragStartUnplaced(event,\''+String(cat.id)+'\',\''+String(t.id||0)+'\')" style="display:flex;align-items:center;gap:5px;padding:4px 9px;border-radius:6px;background:'+cat.couleur+'18;border:1px solid '+cat.couleur+'44;cursor:grab;">'
           +'<div style="width:5px;height:5px;border-radius:50%;background:'+cat.couleur+'"></div>'
           +'<span style="font-size:10px;font-weight:700;color:#0F1C2E;">'+escHtml(t.nom)+'</span>'
           +'<button onclick="deleteTeamByIdx('+cat.id+','+(cat.teams.indexOf(t))+')" style="background:none;border:none;color:var(--ink2);cursor:pointer;font-size:11px;padding:0;margin-left:2px;">×</button>'
@@ -8843,7 +8826,7 @@ function renderCatDetail(){
       var isGuest=team2&&team2.isGuest;
       var gColor=isGuest?(team2.guestCatCouleur||'#888'):cat.couleur;
       if(team2){
-        html+='<div draggable="true" ondragstart="catDragStart(event,'+JSON.stringify(String(isGuest?(team2.guestCatId||cat.id):cat.id))+','+JSON.stringify(String(team2.id||0))+')" '
+        html+='<div draggable="true" ondragstart="catDragStart(event,\''+String(isGuest?(team2.guestCatId||cat.id):cat.id)+'\',\''+String(team2.id||0)+'\')" '
           +'ondragover="event.preventDefault()" ondrop="catDrop(event,'+cat.id+','+(hi+1)+','+(li+1)+')" '
           +'style="display:flex;align-items:center;gap:5px;padding:5px 8px;border-radius:6px;cursor:grab;'
           +'background:'+gColor+'18;border:1px solid '+gColor+'44'+(isGuest?';border-style:dashed':'')+';">'
@@ -8877,7 +8860,7 @@ function renderCatDetail(){
       +'<div style="font-size:9px;font-weight:800;color:#FF9F0A;letter-spacing:1px;text-transform:uppercase;margin-bottom:7px;">⚠ Non placées ('+unplaced.length+')</div>'
       +'<div style="display:flex;flex-wrap:wrap;gap:5px;">'
       +unplaced.map(function(t){
-        return '<div draggable="true" ondragstart="catDragStartUnplaced(event,'+JSON.stringify(String(cat.id))+','+JSON.stringify(String(t.id||0))+')" '
+        return '<div draggable="true" ondragstart="catDragStartUnplaced(event,\''+String(cat.id)+'\',\''+String(t.id||0)+'\')" '
           +'style="display:flex;align-items:center;gap:5px;padding:4px 9px;border-radius:6px;cursor:grab;background:'+cat.couleur+'18;border:1px solid '+cat.couleur+'44;">'
           +'<div style="width:5px;height:5px;border-radius:50%;background:'+cat.couleur+'"></div>'
           +'<span style="font-size:10px;font-weight:700;color:#0F1C2E;">'+escHtml(t.nom)+'</span>'
@@ -11845,14 +11828,6 @@ function init(){
             // Normaliser categories (idem)
             if(backup.categories && !Array.isArray(backup.categories) && typeof backup.categories === 'object'){
               backup.categories = Object.keys(backup.categories).map(function(k){ return backup.categories[k]; }).filter(Boolean);
-            }
-            // ★ FIX GLISSER ÉQUIPE : si l'admin vient de déplacer une équipe (verrou
-            //   posé dans catDrop il y a moins de 8s), NE PAS réécrire les catégories
-            //   depuis le cloud — sinon le retour Firebase annule le déplacement en
-            //   remettant l'ancienne position. On retire la clé avant applyState ;
-            //   la version locale (à jour) est conservée et sera republiée par autoSave.
-            if(window._catLocalEditTs && (Date.now() - window._catLocalEditTs) < 8000){
-              delete backup.categories;
             }
             // Normaliser wods (idem)
             if(backup.wods && !Array.isArray(backup.wods) && typeof backup.wods === 'object'){
