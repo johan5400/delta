@@ -2,7 +2,7 @@
 // ⚠ La constante BUILD est mise à jour automatiquement par deploy.sh
 //   (ou manuellement avec n'importe quelle valeur qui change à chaque déploiement).
 // Pour forcer une MAJ : modifier cette ligne et redéployer.
-const BUILD = '2026-09-01T11:01:36Z-bd9ff21';
+const BUILD = '2026-09-01T11:11:47Z-2d5ad18';
 const CACHE_NAME = 'foc2026-' + BUILD;
 
 const CORE_FILES_TO_CACHE = [
