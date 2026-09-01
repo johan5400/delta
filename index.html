@@ -4101,7 +4101,12 @@ function show(id,btn){
   if(id==="programme"){setTimeout(function(){renderProgWodsList();computeProgramme();},50);}
   if(id==="recap") setTimeout(function(){if(typeof renderRecapView==='function')renderRecapView();},50);
   if(id==="firebase") setTimeout(function(){if(typeof fbInitData==='function')fbInitData();},50);
-  if(id==="stats") setTimeout(function(){renderStatsView();},50);
+  if(id==="stats") setTimeout(function(){
+    // ★ Charger les vrais comptes juges (Firebase) PUIS rendre les stats.
+    if(typeof loadJudgeCountsFromFirebase==='function'){
+      loadJudgeCountsFromFirebase(function(){ renderStatsView(); });
+    } else { renderStatsView(); }
+  },50);
   if(id==="analyse") setTimeout(function(){if(typeof initAnalyse==='function')initAnalyse();},50);
   if(id==="synoptique") setTimeout(renderSynoptique,80);
   if(id==="jourj") setTimeout(function(){if(typeof renderJourView==="function")renderJourView();},80);
@@ -5263,19 +5268,41 @@ function renderJourView(){
   }
 }
 
-// ★ STATS JUSTES : compte les VRAIES affectations depuis les heats, pas le
-//   planning théorique. Retourne { judge:{benId:nb}, head:{benId:nb} } où
-//   judge = nombre de lignes de heat où la personne juge réellement,
-//   head  = nombre de heats supervisés en tant que head judge (compté À PART).
+// ★ STATS JUSTES : le comptage fiable vient de judgeAssignments (index Firebase
+//   par id de juge), pas de HEATS_RESULT (qui ne contient pas les assignedJuges).
+//   On garde un cache alimenté par loadJudgeCountsFromFirebase().
+window._judgeCountsCache = window._judgeCountsCache || { judge:{}, head:{}, loaded:false };
+
+function loadJudgeCountsFromFirebase(cb){
+  var _db = (typeof LS_FB_DB!=='undefined' && LS_FB_DB) || window.db || null;
+  if(!_db || typeof _db.ref!=='function'){ if(cb)cb(); return; }
+  _db.ref('judgeAssignments').once('value').then(function(snap){
+    var ja = snap.val() || {};
+    var res = { judge:{}, head:{}, loaded:true };
+    Object.keys(ja).forEach(function(jid){
+      var arr = ja[jid];
+      var n = Array.isArray(arr) ? arr.length : (arr && typeof arr==='object' ? Object.keys(arr).length : 0);
+      res.judge[String(jid)] = n;
+    });
+    // Head judges : heats supervisés (b.hjHeats), compté à part
+    (BENEVOLES||[]).forEach(function(b){
+      if(b && typeof isHeadJudge==='function' && isHeadJudge(b)){
+        res.head[String(b.id)] = Array.isArray(b.hjHeats) ? b.hjHeats.length : 0;
+      }
+    });
+    window._judgeCountsCache = res;
+    if(cb) cb();
+  }).catch(function(){ if(cb) cb(); });
+}
+
 function computeRealJudgeCounts(){
+  // Renvoie le cache (rempli par loadJudgeCountsFromFirebase). Si vide, tente un
+  // comptage de secours depuis les heats en mémoire (au cas où).
+  var c = window._judgeCountsCache;
+  if(c && c.loaded) return c;
+  // Fallback heats mémoire
   var res = { judge:{}, head:{} };
-  // ★ IMPORTANT : si les heats ne sont pas en mémoire, les générer d'abord, sinon
-  //   le comptage juge renverrait 0 et les stats n'afficheraient que les postes.
-  if(typeof generateHeatsSilent==='function' && (typeof HEATS_RESULT==='undefined' || !HEATS_RESULT || !HEATS_RESULT.length)){
-    try{ generateHeatsSilent(); }catch(e){}
-  }
   var heats = (typeof HEATS_RESULT!=='undefined' && HEATS_RESULT && HEATS_RESULT.length) ? HEATS_RESULT : [];
-  // 1) Juges de ligne : parcours des lanes/slots de chaque heat
   heats.forEach(function(h){
     if(!h) return;
     var lanes = h.lanes || h.slots || [];
@@ -5283,19 +5310,12 @@ function computeRealJudgeCounts(){
     lanes.forEach(function(l){
       if(!l) return;
       var js = l.assignedJuges || (l.jugeId ? [{id:l.jugeId}] : []);
-      (js||[]).forEach(function(j){
-        if(!j) return;
-        var id = String(j.id!=null?j.id:j);
-        if(!id) return;
-        res.judge[id] = (res.judge[id]||0) + 1;
-      });
+      (js||[]).forEach(function(j){ if(!j) return; var id=String(j.id!=null?j.id:j); if(id) res.judge[id]=(res.judge[id]||0)+1; });
     });
   });
-  // 2) Head judges : nombre de heats supervisés (b.hjHeats), compté à part
   (BENEVOLES||[]).forEach(function(b){
     if(b && typeof isHeadJudge==='function' && isHeadJudge(b)){
-      var n = Array.isArray(b.hjHeats) ? b.hjHeats.length : 0;
-      res.head[String(b.id)] = n;
+      res.head[String(b.id)] = Array.isArray(b.hjHeats) ? b.hjHeats.length : 0;
     }
   });
   return res;
