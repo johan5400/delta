@@ -11112,23 +11112,24 @@ function buildJugeAssignment(){
         var sa = zoneFairStats[zoneDayKey][aId] || {worked:0,paused:0,consecPause:0,lastWorkedSeq:-1};
         var sb = zoneFairStats[zoneDayKey][bId] || {worked:0,paused:0,consecPause:0,lastWorkedSeq:-1};
         // Priorité 1 : zone assignée — juge de la bonne zone toujours avant les autres
+        // (sur cette compétition il n'y a qu'une zone, donc ce critère est neutre).
         var za = judgeZonePriority(a, zone), zb = judgeZonePriority(b, zone);
         if(za!==zb) return za-zb;
-        // Priorité 2 : parmi les juges de la même zone, celui qui a le plus de pauses
-        // consécutives passe en premier (pause uniquement si lignes insuffisantes)
-        if(sa.consecPause!==sb.consecPause) return sb.consecPause-sa.consecPause;
-        // ★ ÉQUITÉ RENFORCÉE : celui qui a le moins jugé sur TOUTE la journée passe en
-        //   premier. Remonté ici (avant les critères de confort) pour réduire l'écart
-        //   global entre juges (ex : 33 vs 10) sans casser la continuité pendant un WOD.
+        // ★ ÉQUITÉ MAX : le juge le MOINS chargé sur toute la journée passe en premier,
+        //   AVANT tout critère de confort. C'est ce qui resserre les écarts entre juges
+        //   également disponibles (ex : 22 vs 33). N'affecte PAS la continuité pendant un
+        //   WOD (gérée séparément) ni l'anti-conflit horaire.
         var caG = chargeMap[aId]||0, cbG = chargeMap[bId]||0;
         if(caG!==cbG) return caG-cbG;
+        // Priorité 2 : celui qui a le plus de pauses consécutives passe ensuite
+        if(sa.consecPause!==sb.consecPause) return sb.consecPause-sa.consecPause;
         // Priorité 3 : équilibrage local zone (worked - paused)
         var diffA = sa.worked - sa.paused;
         var diffB = sb.worked - sb.paused;
         if(diffA!==diffB) return diffA-diffB;
         // Priorité 4 : celui qui a travaillé le plus récemment attend
         if(sa.lastWorkedSeq!==sb.lastWorkedSeq) return sb.lastWorkedSeq-sa.lastWorkedSeq;
-        // Priorité 6 : rotation circulaire pour départager à égalité parfaite
+        // Priorité 5 : rotation circulaire pour départager à égalité parfaite
         var ra = (((orderedIndexMap[aId]||0) - offset) % nbJuges + nbJuges) % nbJuges;
         var rb = (((orderedIndexMap[bId]||0) - offset) % nbJuges + nbJuges) % nbJuges;
         return ra-rb;
