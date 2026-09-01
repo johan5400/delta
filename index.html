@@ -21693,6 +21693,10 @@ function _buildTiebreakAdaptationsHTML(wod, opts) {
         + '</div>';
     }
     var trigMove = wod.mouvements[triggerIdx];
+    // ★ FIX CRASH SCORECARD : si le mouvement du tiebreak n'existe pas/plus à cet
+    //   index (WOD réorganisé, mouvement supprimé, mode custom…), ne PAS planter.
+    //   On retombe sur un libellé générique au lieu de lire .nom sur undefined.
+    if (!trigMove) { trigMove = {}; }
     var trigBaseName = trigMove.nom || ('Mouv '+(triggerIdx+1));
     var trigReps = wod.tiebreakReps ? wod.tiebreakReps : '?';
 
@@ -21711,6 +21715,7 @@ function _buildTiebreakAdaptationsHTML(wod, opts) {
     }
     // Fallback si pas trouvé : prendre la première catégorie pour ne pas planter
     if (!thisCat) thisCat = cats[0];
+    if (!thisCat) thisCat = {};  // ★ ultime garde-fou si aucune catégorie
 
     var catKeys = [String(thisCat.id||''), thisCat.nom||''].filter(function(k,i,a){return k && a.indexOf(k)===i;});
     function _v(obj){
