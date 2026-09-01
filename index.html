@@ -5279,11 +5279,14 @@ function loadJudgeCountsFromFirebase(cb){
   if(!_db || typeof _db.ref!=='function'){ if(cb)cb(); return; }
   _db.ref('judgeAssignments').once('value').then(function(snap){
     var ja = snap.val() || {};
-    var res = { judge:{}, head:{}, loaded:true };
+    var res = { judge:{}, head:{}, j1:{}, j2:{}, loaded:true };
     Object.keys(ja).forEach(function(jid){
       var arr = ja[jid];
-      var n = Array.isArray(arr) ? arr.length : (arr && typeof arr==='object' ? Object.keys(arr).length : 0);
-      res.judge[String(jid)] = n;
+      var list = Array.isArray(arr) ? arr : (arr && typeof arr==='object' ? Object.keys(arr).map(function(k){return arr[k];}) : []);
+      res.judge[String(jid)] = list.length;
+      var n1=0,n2=0;
+      list.forEach(function(a){ var j=a&&(a.jour||a.day); if(j==2||j=='2')n2++; else n1++; });
+      res.j1[String(jid)]=n1; res.j2[String(jid)]=n2;
     });
     // Head judges : heats supervisés (b.hjHeats), compté à part
     (BENEVOLES||[]).forEach(function(b){
@@ -5470,7 +5473,11 @@ function renderStatsView(){
       var tot, badge;
       if(nJuge>0){
         tot=nJuge;
-        badge='<span style="background:#1E88E5;color:#fff;border-radius:3px;padding:0 6px;font-size:9px;font-weight:700">⚖ '+nJuge+' juge</span>';
+        var _j1c=(_realCounts&&_realCounts.j1&&_realCounts.j1[String(b.id)])||0;
+        var _j2c=(_realCounts&&_realCounts.j2&&_realCounts.j2[String(b.id)])||0;
+        badge='<span style="background:#1E88E5;color:#fff;border-radius:3px;padding:0 6px;font-size:9px;font-weight:700">⚖ '+nJuge+' juge</span>'
+          +' <span style="background:#E3F2FD;color:#1565C0;border-radius:3px;padding:0 5px;font-size:8px;font-weight:700">J1:'+_j1c+'</span>'
+          +' <span style="background:#E8F5E9;color:#2E7D32;border-radius:3px;padding:0 5px;font-size:8px;font-weight:700">J2:'+_j2c+'</span>';
         if(nHead) badge+=' <span style="background:#6A1B9A;color:#fff;border-radius:3px;padding:0 5px;font-size:8px;font-weight:700">👑 HJ '+nHead+'</span>';
       } else if(nHead>0){
         tot=nHead;
@@ -5500,64 +5507,6 @@ function renderStatsView(){
       +'</div>';
   })();
 
-  // ── STATS REPAS ──
-  var repasMap={};
-  BENEVOLES.forEach(function(b){var r=b.repas||"Non renseigné";repasMap[r]=(repasMap[r]||0)+1;});
-  var repasColors={"Standard":"#4CAF50","Végétarien":"#8BC34A","Végétalien":"#CDDC39","Sans gluten":"#FF9800","Sans lactose":"#FFC107","Halal":"#009688","Casher":"#00BCD4","Allergie noix":"#F44336","Allergie fruits de mer":"#E91E63","Pas de repas":"#9E9E9E","Non renseigné":"#BDBDBD"};
-  var totalR=BENEVOLES.length||1;
-  var repasEl=document.getElementById("stat-repas-chart");
-  if(repasEl){
-    if(!Object.keys(repasMap).length||Object.keys(repasMap).every(function(k){return k==="Non renseigné";})){
-      repasEl.innerHTML='<div style="color:#888;font-size:11px;padding:8px">Aucun régime renseigné</div>';
-    } else {
-      repasEl.innerHTML=Object.keys(repasMap).sort().map(function(r){
-        var n=repasMap[r],col=repasColors[r]||"#888",pct=Math.round(n/totalR*100);
-        return'<div class="stat-bar-wrap"><span class="stat-label" style="font-size:10px">'+r+'</span>'
-          +'<div class="stat-bar-bg"><div class="stat-bar-fill" style="width:'+(n/(Math.max.apply(null,Object.values(repasMap))||1)*100)+'%;background:'+col+'">'+n+'</div></div>'
-          +'<span class="stat-val" style="color:'+col+'">'+pct+'%</span></div>';
-      }).join("");
-    }
-  }
-
-  // ── STATS TSHIRT ──
-  var tshirtMap={};
-  BENEVOLES.forEach(function(b){var t=b.tshirt||"Non renseigné";tshirtMap[t]=(tshirtMap[t]||0)+1;});
-  var tshirtOrder=["XS","S","M","L","XL","XXL","Non renseigné"];
-  var tshirtColors={"XS":"#E91E63","S":"#9C27B0","M":"#3F51B5","L":"#2196F3","XL":"#009688","XXL":"#FF5722","Non renseigné":"#BDBDBD"};
-  var tshirtEl=document.getElementById("stat-tshirt-chart");
-  if(tshirtEl){
-    var tshirtKeys=tshirtOrder.filter(function(k){return tshirtMap[k];}).concat(Object.keys(tshirtMap).filter(function(k){return tshirtOrder.indexOf(k)===-1&&tshirtMap[k];}));
-    if(!tshirtKeys.length){
-      tshirtEl.innerHTML='<div style="color:#888;font-size:11px;padding:8px">Aucune taille renseignée</div>';
-    } else {
-      var maxT=Math.max.apply(null,tshirtKeys.map(function(k){return tshirtMap[k];}));
-      tshirtEl.innerHTML=tshirtKeys.map(function(t){
-        var n=tshirtMap[t],col=tshirtColors[t]||"#607D8B";
-        return'<div class="stat-bar-wrap"><span class="stat-label" style="font-size:11px;font-weight:700">'+t+'</span>'
-          +'<div class="stat-bar-bg"><div class="stat-bar-fill" style="width:'+(n/maxT*100)+'%;background:'+col+'">'+n+'</div></div>'
-          +'<span class="stat-val" style="color:'+col+'">'+n+'</span></div>';
-      }).join("");
-    }
-  }
-
-  // ── LISTE NOMS ──
-  var listeEl=document.getElementById("stat-liste-chart");
-  if(listeEl){
-    var sorted2=BENEVOLES.slice().sort(function(a,b){return String(a.nom||"").localeCompare(String(b.nom||""));});
-    listeEl.innerHTML='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:6px">'
-      +sorted2.map(function(b){
-        var col=slotColor(b.slot)||"#888";
-        var jBadge='<span style="background:'+(b.jours==="12"?"#CE93D8":b.jours==="1"?"#64B5F6":"#81C784")+';color:#fff;border-radius:3px;padding:1px 5px;font-size:9px;font-weight:700">'+(b.jours==="12"?"J1+J2":b.jours==="1"?"J1":"J2")+'</span>';
-        var repBadge=b.repas?'<span style="background:#fff3e0;color:#E65100;border-radius:3px;padding:1px 5px;font-size:9px">'+b.repas+'</span>':'';
-        var tsBadge=b.tshirt?'<span style="background:#e3f2fd;color:var(--blue);border-radius:3px;padding:1px 5px;font-size:9px">'+b.tshirt+'</span>':'';
-        return'<div style="background:#EBF0FA;border-left:3px solid '+col+';border-radius:5px;padding:7px 10px">'
-          +'<div style="font-weight:700;font-size:12px">'+b.prenom+' '+b.nom+'</div>'
-          +'<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:3px">'+jBadge+repBadge+tsBadge+'</div>'
-          +(b.email?'<div style="font-size:10px;color:#888;margin-top:2px">'+b.email+'</div>':'')
-          +'</div>';
-      }).join("")
-      +'</div>';
-  }
 }
 
 // MODAL BEN
@@ -11044,8 +10993,10 @@ function buildJugeAssignment(){
   var zoneFairStats = {}; // { "jour|zone": { judgeId:{worked,paused,consecPause,lastWorkedSeq,lastPauseSeq} } }
   var zoneHeatSeq = {}; // { "jour|zone": heatSequence }
 
-  var chargeMap = {};
-  pool.forEach(function(b){ chargeMap[String(b.id)] = 0; });
+  // ★ ÉQUITÉ JOUR PAR JOUR : chargeMap indexé par jour (J1 et J2 équilibrés séparément).
+  var chargeMapDay = {1:{}, 2:{}};
+  pool.forEach(function(b){ chargeMapDay[1][String(b.id)] = 0; chargeMapDay[2][String(b.id)] = 0; });
+  function chargeOf(id, jour){ var dm=chargeMapDay[jour]||chargeMapDay[1]; return dm[String(id)]||0; }
   var judgeBusyMap = {};
   pool.forEach(function(b){ judgeBusyMap[String(b.id)] = []; });
   var judgeWodEntries = {};
@@ -11318,7 +11269,7 @@ function buildJugeAssignment(){
         //   AVANT tout critère de confort. C'est ce qui resserre les écarts entre juges
         //   également disponibles (ex : 22 vs 33). N'affecte PAS la continuité pendant un
         //   WOD (gérée séparément) ni l'anti-conflit horaire.
-        var caG = chargeMap[aId]||0, cbG = chargeMap[bId]||0;
+        var caG = chargeOf(aId, jour), cbG = chargeOf(bId, jour);
         if(caG!==cbG) return caG-cbG;
         // Priorité 2 : celui qui a le plus de pauses consécutives passe ensuite
         if(sa.consecPause!==sb.consecPause) return sb.consecPause-sa.consecPause;
@@ -11463,7 +11414,7 @@ function buildJugeAssignment(){
       // Priorité : celui qui a la charge la plus faible globalement
       if(remainingLanes.length){
         var rescue4 = orderedJuges.slice().sort(function(a,b){
-          return (chargeMap[String(a.id)]||0) - (chargeMap[String(b.id)]||0);
+          return chargeOf(a.id, jour) - chargeOf(b.id, jour);
         });
         rescue4.forEach(function(ben){
           if(!remainingLanes.length) return;
@@ -11509,7 +11460,7 @@ function buildJugeAssignment(){
           start: heatWin ? heatWin.start : group.firstStart,
           end: heatWin ? heatWin.end : group.firstStart
         };
-        chargeMap[benId] = (chargeMap[benId]||0) + 1;
+        chargeMapDay[jour][benId] = (chargeMapDay[jour][benId]||0) + 1;
       });
       Object.keys(activeLaneState).forEach(function(zoneKey){
         // zoneKey = "zone|lane" (ex: "1|2")
@@ -11672,19 +11623,19 @@ function buildJugeAssignment(){
         cands.sort(function(a,b2){
           var za=judgeZonePriority(a, heat.catZone||1), zb=judgeZonePriority(b2, heat.catZone||1);
           if(za!==zb) return za-zb;
-          return (chargeMap[String(a.id)]||0)-(chargeMap[String(b2.id)]||0);
+          return chargeOf(a.id, (parseInt(heat.catJour||heat.jour||1,10)||1)) - chargeOf(b2.id, (parseInt(heat.catJour||heat.jour||1,10)||1));
         });
         var pick=cands[0];
         assignment[gn][ln]={ id:String(pick.id), prenom:pick.prenom||'', nom:pick.nom||'' };
         (busy[String(pick.id)]=busy[String(pick.id)]||[]).push(w);
-        chargeMap[String(pick.id)]=(chargeMap[String(pick.id)]||0)+1;
+        (function(){var _dj=parseInt(heat.catJour||heat.jour||1,10)||1; chargeMapDay[_dj][String(pick.id)]=(chargeMapDay[_dj][String(pick.id)]||0)+1;})();
         filled++;
       });
     });
     if(filled>0){ try{ console.info('[filet juge] '+filled+' lane(s) vide(s) comblée(s) en dernier recours'); }catch(e){} }
   })();
 
-  window._jugeChargeMap = chargeMap;
+  window._jugeChargeMap = chargeMapDay;
   window._jugePauseInfo = buildJugePauseInfo(pool, judgeWodEntries);
   return assignment;
 }
