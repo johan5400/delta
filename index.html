@@ -5263,6 +5263,39 @@ function renderJourView(){
   }
 }
 
+// ★ STATS JUSTES : compte les VRAIES affectations depuis les heats, pas le
+//   planning théorique. Retourne { judge:{benId:nb}, head:{benId:nb} } où
+//   judge = nombre de lignes de heat où la personne juge réellement,
+//   head  = nombre de heats supervisés en tant que head judge (compté À PART).
+function computeRealJudgeCounts(){
+  var res = { judge:{}, head:{} };
+  var heats = (typeof HEATS_RESULT!=='undefined' && HEATS_RESULT && HEATS_RESULT.length) ? HEATS_RESULT : [];
+  // 1) Juges de ligne : parcours des lanes/slots de chaque heat
+  heats.forEach(function(h){
+    if(!h) return;
+    var lanes = h.lanes || h.slots || [];
+    if(!Array.isArray(lanes)){ lanes = Object.keys(lanes).map(function(k){return lanes[k];}); }
+    lanes.forEach(function(l){
+      if(!l) return;
+      var js = l.assignedJuges || (l.jugeId ? [{id:l.jugeId}] : []);
+      (js||[]).forEach(function(j){
+        if(!j) return;
+        var id = String(j.id!=null?j.id:j);
+        if(!id) return;
+        res.judge[id] = (res.judge[id]||0) + 1;
+      });
+    });
+  });
+  // 2) Head judges : nombre de heats supervisés (b.hjHeats), compté à part
+  (BENEVOLES||[]).forEach(function(b){
+    if(b && typeof isHeadJudge==='function' && isHeadJudge(b)){
+      var n = Array.isArray(b.hjHeats) ? b.hjHeats.length : 0;
+      res.head[String(b.id)] = n;
+    }
+  });
+  return res;
+}
+
 function renderStatsView(){
   var t1=RESULT?Object.values(RESULT.day1.assignCount).reduce(function(a,b){return a+b;},0):0;
   var t2=RESULT?Object.values(RESULT.day2.assignCount).reduce(function(a,b){return a+b;},0):0;
@@ -5385,10 +5418,29 @@ function renderStatsView(){
   }
 
   if(!RESULT){document.getElementById("stat-planning-chart").innerHTML='<div style="color:#888;font-size:11px;padding:12px">Générez d&rsquo;abord le planning ⚡</div>';return;}
-  var sorted=BENEVOLES.slice().sort(function(a,b){return((RESULT.day1.assignCount[b.id]||0)+(RESULT.day2.assignCount[b.id]||0))-((RESULT.day1.assignCount[a.id]||0)+(RESULT.day2.assignCount[a.id]||0));});
-  var maxA=Math.max.apply(null,sorted.map(function(b){return(RESULT.day1.assignCount[b.id]||0)+(RESULT.day2.assignCount[b.id]||0);}))||1;
+  // ★ STATS JUSTES : comptes réels depuis les heats (juge de ligne) + head judge à part.
+  var _realCounts = (typeof computeRealJudgeCounts==='function') ? computeRealJudgeCounts() : {judge:{},head:{}};
+  function _jCount(b){ return _realCounts.judge[String(b.id)]||0; }
+  function _hCount(b){ return _realCounts.head[String(b.id)]||0; }
+  // Tri : total réel (juge + planning postes) décroissant
+  var sorted=BENEVOLES.slice().sort(function(a,b){
+    var ta=_jCount(a)+((RESULT.day1.assignCount[a.id]||0)+(RESULT.day2.assignCount[a.id]||0));
+    var tb=_jCount(b)+((RESULT.day1.assignCount[b.id]||0)+(RESULT.day2.assignCount[b.id]||0));
+    return tb-ta;
+  });
+  var maxA=Math.max.apply(null,sorted.map(function(b){return _jCount(b)+((RESULT.day1.assignCount[b.id]||0)+(RESULT.day2.assignCount[b.id]||0));}))||1;
   document.getElementById("stat-planning-chart").innerHTML='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:4px">'
-    +sorted.map(function(b){var n1=RESULT.day1.assignCount[b.id]||0,n2=RESULT.day2.assignCount[b.id]||0,tot=n1+n2;return'<div class="stat-bar-wrap"><span class="stat-label" style="font-size:9px">'+b.prenom+' '+b.nom+'<br><span style="color:#888;font-size:8px">'+joursLabel(b.jours)+'</span></span><div class="stat-bar-bg"><div class="stat-bar-fill" style="width:'+(tot/maxA*100)+'%;background:'+slotColor(b.slot)+'">J1:'+n1+' J2:'+n2+'</div></div><span class="stat-val" style="color:#555">'+tot+'</span></div>';}).join("")
+    +sorted.map(function(b){
+      var nJuge=_jCount(b);                       // vraies affectations de juge (heats)
+      var nHead=_hCount(b);                        // heats supervisés (head judge, à part)
+      var nPoste=(RESULT.day1.assignCount[b.id]||0)+(RESULT.day2.assignCount[b.id]||0); // postes bénévoles
+      var tot=nJuge+nPoste;
+      var badges='';
+      if(nJuge)  badges+='<span style="background:#1E88E5;color:#fff;border-radius:3px;padding:0 5px;font-size:8px;font-weight:700;margin-right:3px">⚖ '+nJuge+' juge</span>';
+      if(nHead)  badges+='<span style="background:#6A1B9A;color:#fff;border-radius:3px;padding:0 5px;font-size:8px;font-weight:700;margin-right:3px">👑 HJ '+nHead+'</span>';
+      if(nPoste) badges+='<span style="background:#00796B;color:#fff;border-radius:3px;padding:0 5px;font-size:8px;font-weight:700">🧩 '+nPoste+' poste</span>';
+      return'<div class="stat-bar-wrap"><span class="stat-label" style="font-size:9px">'+b.prenom+' '+b.nom+'<br><span style="color:#888;font-size:8px">'+joursLabel(b.jours)+'</span></span><div class="stat-bar-bg"><div class="stat-bar-fill" style="width:'+(tot/maxA*100)+'%;background:'+slotColor(b.slot)+'">'+(badges||'0')+'</div></div><span class="stat-val" style="color:#555">'+tot+'</span></div>';
+    }).join("")
     +'</div>';
 
   // ── STATS REPAS ──
