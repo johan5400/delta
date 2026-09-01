@@ -6127,6 +6127,19 @@ function printHeadJudgePlanning(){
   var body='';
   [1,2].forEach(function(day){
     var cols=buildJudgePlanningColumnsForDay(day).filter(function(c){return c.type==='heat';});
+    // ★ FALLBACK : si les horaires ne sont pas calculés, buildJudgePlanningColumnsForDay
+    //   renvoie vide → on liste alors les heats directement depuis HEATS_RESULT pour ne
+    //   PAS sortir une page blanche.
+    if(!cols.length){
+      cols=(HEATS_RESULT||[]).filter(function(h){ return (parseInt(h.catJour||h.jour||1,10)||1)===day; })
+        .map(function(h){
+          return { type:'heat', globalNum:(h.globalNum||h.id||getHeatDisplayNum(h)),
+            horaire:(function(){ try{var ho=h.horaires&&(h.horaires[h.wodId]||h.horaires[Object.keys(h.horaires)[0]]); return (ho&&ho.start)?ho.start:'';}catch(e){return '';} })(),
+            wod:(h.wodNom||(h.wodInfo&&h.wodInfo.nom)||'WOD'),
+            heat:getHeatDisplayNum(h), zone:(parseInt(h.catZone||h.zone||1,10)||1), cat:(h.catNom||h.catName||'') };
+        })
+        .sort(function(a,b){ return (a.zone-b.zone)||(parseInt(a.heat,10)-parseInt(b.heat,10)); });
+    }
     if(!cols.length) return;
     // en-tête colonnes = head judges
     var header=records.map(function(rec){
@@ -6148,6 +6161,8 @@ function printHeadJudgePlanning(){
     body+='<h2>Jour '+day+'</h2>'
       +'<table><thead><tr><th class="hh">Heat</th>'+header+'</tr></thead><tbody>'+rows+'</tbody></table>';
   });
+
+  if(!body){ body='<div style="padding:20px;color:#B45309;font-size:12px;border:1px dashed #FDBA74;border-radius:10px;background:#FFFBEB">Aucun heat \u00e0 afficher. G\u00e9n\u00e8re le planning (\u26a1) puis r\u00e9essaie.</div>'; }
 
   var w=window.open('','_blank','width=1100,height=800');
   if(!w){ toast('Popup bloqu\u00e9e','#D32F2F'); return; }
