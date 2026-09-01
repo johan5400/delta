@@ -1449,100 +1449,104 @@ function checkPassword(){
   </div>
 
   <!-- ░░ PLANNING ░░ -->
-  <div style="font-size:12px;font-weight:900;color:#1E88E5;letter-spacing:1.5px;text-transform:uppercase;margin:4px 0 10px;display:flex;align-items:center;gap:8px"><span>📋</span> Planning</div>
-  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin-bottom:24px">
-    <div class="card">
+  <div style="font-size:12px;font-weight:900;color:#1E88E5;letter-spacing:1.5px;text-transform:uppercase;margin:8px 0 12px;display:flex;align-items:center;gap:8px"><span>📋</span> Planning</div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px;margin-bottom:28px;align-items:stretch">
+    <div class="card" style="display:flex;flex-direction:column">
       <div class="sh-card-title">📋 Planning par WOD</div>
-      <div style="font-size:11px;color:var(--ink2);margin-bottom:12px">Catégories, heats, horaires, équipes et juges, WOD par WOD.</div>
+      <div style="font-size:11px;color:var(--ink2);margin-bottom:12px;flex:1">Catégories, heats, horaires, équipes et juges, WOD par WOD.</div>
       <button class="btn btn-blue" onclick="printPlanningWodCat()" style="width:100%;justify-content:center;font-size:12px">🖨️ Imprimer</button>
     </div>
-    <div class="card">
+    <div class="card" style="display:flex;flex-direction:column">
       <div class="sh-card-title">🗓 Synoptique global</div>
-      <div style="font-size:11px;color:var(--ink2);margin-bottom:12px">Vue d'ensemble de la journée, toutes zones sur une page.</div>
+      <div style="font-size:11px;color:var(--ink2);margin-bottom:12px;flex:1">Vue d'ensemble de la journée, toutes zones sur une page.</div>
       <button class="btn" onclick="printSynoptique()" style="width:100%;justify-content:center;font-size:12px;background:linear-gradient(135deg,#0E7490,#0891B2);color:#fff">🖨️ Imprimer</button>
     </div>
-    <div class="card">
+    <div class="card" style="display:flex;flex-direction:column">
       <div class="sh-card-title">🧑‍⚖️ Planning des juges</div>
-      <div style="font-size:11px;color:var(--ink2);margin-bottom:12px">Tableau d'affectation des juges par zone et par heat.</div>
+      <div style="font-size:11px;color:var(--ink2);margin-bottom:12px;flex:1">Tableau d'affectation des juges par zone et par heat.</div>
       <button class="btn" onclick="printJudgePlanning()" style="width:100%;justify-content:center;font-size:12px;background:linear-gradient(135deg,#1E3A5F,#2563EB);color:#fff">🖨️ Imprimer</button>
     </div>
-    <div class="card">
+    <div class="card" style="display:flex;flex-direction:column">
       <div class="sh-card-title">🧑‍⚖️ Planning head judge</div>
-      <div style="font-size:11px;color:var(--ink2);margin-bottom:12px">Heats supervisés par chaque head judge (auto par zone ou sélection manuelle dans sa fiche).</div>
+      <div style="font-size:11px;color:var(--ink2);margin-bottom:12px;flex:1">Heats supervisés par chaque head judge (auto par zone ou sélection manuelle dans sa fiche).</div>
       <button class="btn" onclick="printHeadJudgePlanning()" style="width:100%;justify-content:center;font-size:12px;background:linear-gradient(135deg,#1E3A5F,#2563EB);color:#fff">🖨️ Imprimer</button>
     </div>
   </div>
 
   <!-- ░░ QR CODES ░░ -->
-  <div style="font-size:12px;font-weight:900;color:#059669;letter-spacing:1.5px;text-transform:uppercase;margin:4px 0 10px;display:flex;align-items:center;gap:8px"><span>📱</span> QR Codes</div>
-  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin-bottom:24px">
-    <div class="card">
+  <div style="font-size:12px;font-weight:900;color:#059669;letter-spacing:1.5px;text-transform:uppercase;margin:8px 0 12px;display:flex;align-items:center;gap:8px"><span>📱</span> QR Codes</div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px;margin-bottom:28px;align-items:stretch">
+    <div class="card" style="display:flex;flex-direction:column">
       <div class="sh-card-title">⚖️ QR Juges</div>
-      <div style="font-size:11px;color:var(--ink2);margin-bottom:12px">Une planche avec le QR d'accès de chaque juge à son interface.</div>
+      <div style="font-size:11px;color:var(--ink2);margin-bottom:12px;flex:1">Une planche avec le QR d'accès de chaque juge à son interface.</div>
       <button class="btn" onclick="printJugeQRSheet()" style="width:100%;justify-content:center;font-size:12px;background:linear-gradient(135deg,#1565C0,#1E88E5);color:#fff">🖨️ Imprimer</button>
     </div>
-    <div class="card">
-      <div class="sh-card-title">🏃 QR Équipes / Planning public</div>
-      <div style="font-size:11px;color:var(--ink2);margin-bottom:12px">QR vers le planning équipe à afficher ou distribuer.</div>
+    <div class="card" style="display:flex;flex-direction:column">
+      <div class="sh-card-title">🏃 QR Équipes / Public</div>
+      <div style="font-size:11px;color:var(--ink2);margin-bottom:12px;flex:1">QR vers le planning équipe à afficher ou distribuer.</div>
       <button class="btn" onclick="printPlanningQR()" style="width:100%;justify-content:center;font-size:12px;background:linear-gradient(135deg,#059669,#10B981);color:#fff">🖨️ Imprimer</button>
     </div>
-    <div class="card">
+    <div class="card" style="display:flex;flex-direction:column">
       <div class="sh-card-title">📺 QR Public (Live + Classement)</div>
-      <div style="font-size:11px;color:var(--ink2);margin-bottom:12px">QR vers le live et le classement, pour les spectateurs.</div>
+      <div style="font-size:11px;color:var(--ink2);margin-bottom:12px;flex:1">QR vers le live et le classement, pour les spectateurs.</div>
       <button class="btn" onclick="printPublicQR()" style="width:100%;justify-content:center;font-size:12px;background:linear-gradient(135deg,#1565C0,#1E88E5);color:#fff">🖨️ Imprimer</button>
     </div>
-    <div class="card">
+    <div class="card" style="display:flex;flex-direction:column">
       <div class="sh-card-title">🆘 QR Juge secours</div>
-      <div style="font-size:11px;color:var(--ink2);margin-bottom:12px">QR d'accès secours (entry) pour prendre une ligne sans juge.</div>
+      <div style="font-size:11px;color:var(--ink2);margin-bottom:12px;flex:1">QR d'accès secours (entry) pour prendre une ligne sans juge.</div>
       <button class="btn btn-orange" onclick="printEntryQR()" style="width:100%;justify-content:center;font-size:12px">🖨️ Imprimer</button>
     </div>
   </div>
 
-  <!-- ░░ SCORECARDS & FICHES ░░ -->
-  <div style="font-size:12px;font-weight:900;color:#EA580C;letter-spacing:1.5px;text-transform:uppercase;margin:4px 0 10px;display:flex;align-items:center;gap:8px"><span>📝</span> Scorecards & fiches</div>
-  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin-bottom:24px">
-    <div class="card" style="grid-column:1/-1">
+  <!-- ░░ SCORECARDS ░░ -->
+  <div style="font-size:12px;font-weight:900;color:#EA580C;letter-spacing:1.5px;text-transform:uppercase;margin:8px 0 12px;display:flex;align-items:center;gap:8px"><span>📝</span> Scorecards</div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px;margin-bottom:28px;align-items:stretch">
+    <div class="card" style="display:flex;flex-direction:column">
       <div class="sh-card-title">📝 Scorecards par WOD</div>
-      <div style="font-size:11px;color:var(--ink2);margin-bottom:12px">Feuilles de score à remplir par les juges. Choisis le WOD.</div>
-      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:end">
-        <div style="flex:1;min-width:200px">
-          <div style="font-size:10px;font-weight:800;color:var(--ink2);margin-bottom:6px">WOD</div>
-          <select id="print-center-wod-select" style="width:100%;background:#FFF7ED;border:1px solid var(--brd2);border-radius:8px;color:var(--ink);padding:9px 10px;font-size:12px;outline:none;font-family:inherit"></select>
-        </div>
-        <button class="btn btn-orange" onclick="printScorecardFromCenter()" style="font-size:12px">🖨️ Imprimer les scorecards</button>
+      <div style="font-size:11px;color:var(--ink2);margin-bottom:12px;flex:1">Feuilles de score à remplir par les juges, avec les équipes du WOD. Choisis le WOD.</div>
+      <div style="margin-bottom:10px">
+        <div style="font-size:10px;font-weight:800;color:var(--ink2);margin-bottom:6px">WOD</div>
+        <select id="print-center-wod-select" style="width:100%;background:#FFF7ED;border:1px solid var(--brd2);border-radius:8px;color:var(--ink);padding:9px 10px;font-size:12px;outline:none;font-family:inherit"></select>
       </div>
+      <button class="btn btn-orange" onclick="printScorecardFromCenter()" style="width:100%;justify-content:center;font-size:12px">🖨️ Imprimer les scorecards</button>
     </div>
-
-    <div class="card" style="grid-column:1/-1">
-      <div class="sh-card-title">📄 Scorecards VIERGES par catégorie</div>
-      <div style="font-size:11px;color:var(--ink2);margin-bottom:12px">Une feuille par catégorie pour le WOD choisi, avec mouvements et reps, mais sans équipe ni score (à remplir à la main). Feuilles de secours.</div>
-      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:end">
-        <div style="flex:1;min-width:200px">
-          <div style="font-size:10px;font-weight:800;color:var(--ink2);margin-bottom:6px">WOD</div>
-          <select id="blank-sc-wod-select" onfocus="fillBlankScWodSelect()" style="width:100%;background:#FFF7ED;border:1px solid var(--brd2);border-radius:8px;color:var(--ink);padding:9px 10px;font-size:12px;outline:none;font-family:inherit"></select>
-        </div>
-        <button class="btn btn-orange" onclick="printBlankScFromCenter()" style="font-size:12px">🖨️ Imprimer les scorecards vierges</button>
+    <div class="card" style="display:flex;flex-direction:column">
+      <div class="sh-card-title">📄 Scorecards vierges par catégorie</div>
+      <div style="font-size:11px;color:var(--ink2);margin-bottom:12px;flex:1">Une feuille par catégorie pour le WOD choisi (mouvements + reps, sans équipe ni score). Feuilles de secours à remplir à la main.</div>
+      <div style="margin-bottom:10px">
+        <div style="font-size:10px;font-weight:800;color:var(--ink2);margin-bottom:6px">WOD</div>
+        <select id="blank-sc-wod-select" onfocus="fillBlankScWodSelect()" style="width:100%;background:#FFF7ED;border:1px solid var(--brd2);border-radius:8px;color:var(--ink);padding:9px 10px;font-size:12px;outline:none;font-family:inherit"></select>
       </div>
-    </div>
-    <div class="card">
-      <div class="sh-card-title">🚨 Fiche réflexe</div>
-      <div style="font-size:11px;color:var(--ink2);margin-bottom:12px">Procédures et contacts d'urgence à afficher au PC course.</div>
-      <button class="btn btn-red" onclick="printFicheReflex()" style="width:100%;justify-content:center;font-size:12px">🖨️ Imprimer</button>
+      <button class="btn btn-orange" onclick="printBlankScFromCenter()" style="width:100%;justify-content:center;font-size:12px">🖨️ Imprimer les scorecards vierges</button>
     </div>
   </div>
 
   <!-- ░░ LISTES & STAFF ░░ -->
-  <div style="font-size:12px;font-weight:900;color:#7C3AED;letter-spacing:1.5px;text-transform:uppercase;margin:4px 0 10px;display:flex;align-items:center;gap:8px"><span>👥</span> Listes & staff</div>
-  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px">
-    <div class="card">
+  <div style="font-size:12px;font-weight:900;color:#7C3AED;letter-spacing:1.5px;text-transform:uppercase;margin:8px 0 12px;display:flex;align-items:center;gap:8px"><span>👥</span> Listes & staff</div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px;align-items:stretch">
+    <div class="card" style="display:flex;flex-direction:column">
+      <div class="sh-card-title">🚨 Fiche réflexe</div>
+      <div style="font-size:11px;color:var(--ink2);margin-bottom:12px;flex:1">Procédures et contacts d'urgence à afficher au PC course.</div>
+      <button class="btn btn-red" onclick="printFicheReflex()" style="width:100%;justify-content:center;font-size:12px">🖨️ Imprimer</button>
+    </div>
+    <div class="card" style="display:flex;flex-direction:column">
       <div class="sh-card-title">👥 Liste bénévoles</div>
-      <div style="font-size:11px;color:var(--ink2);margin-bottom:12px">Liste complète des bénévoles/juges, mode paysage.</div>
+      <div style="font-size:11px;color:var(--ink2);margin-bottom:12px;flex:1">Liste complète des bénévoles/juges, mode paysage.</div>
       <button class="btn btn-purple" onclick="printBenevolesList()" style="width:100%;justify-content:center;font-size:12px">🖨️ Imprimer</button>
     </div>
-    <div class="card">
+    <div class="card" style="display:flex;flex-direction:column">
+      <div class="sh-card-title">🧑‍⚖️ Planning individuel d'un juge</div>
+      <div style="font-size:11px;color:var(--ink2);margin-bottom:12px;flex:1">La fiche de passages d'un juge précis.</div>
+      <div style="margin-bottom:10px">
+        <div style="font-size:10px;font-weight:800;color:var(--ink2);margin-bottom:6px">Bénévole / juge</div>
+        <select id="print-center-ben-select" style="width:100%;background:#F0F9FF;border:1px solid var(--brd2);border-radius:8px;color:var(--ink);padding:9px 10px;font-size:12px;outline:none;font-family:inherit"></select>
+      </div>
+      <button class="btn btn-orange" onclick="printIndividualFromCenter()" style="width:100%;justify-content:center;font-size:12px">🖨️ Imprimer la fiche</button>
+    </div>
+    <div class="card" style="display:flex;flex-direction:column">
       <div class="sh-card-title">👥 Planning bénévoles (sans QR)</div>
-      <div style="font-size:11px;color:var(--ink2);margin-bottom:10px">Groupé par fonction, avec disponibilités J1/J2 et rotation. Choisis « Toutes » ou une fonction précise. Aucun QR.</div>
-      <select id="ben-plan-fn" style="width:100%;background:#fff;border:1px solid #ccc;border-radius:6px;color:var(--ink);padding:7px 8px;font-size:11px;outline:none;font-family:inherit;margin-bottom:8px">
+      <div style="font-size:11px;color:var(--ink2);margin-bottom:10px;flex:1">Groupé par fonction, avec disponibilités J1/J2 et rotation. Choisis « Toutes » ou une fonction précise.</div>
+      <select id="ben-plan-fn" style="width:100%;background:#fff;border:1px solid #ccc;border-radius:6px;color:var(--ink);padding:7px 8px;font-size:11px;outline:none;font-family:inherit;margin-bottom:10px">
         <option value="all">Toutes les fonctions</option>
         <option value="Juge">Juge</option>
         <option value="Juge principal">Juge principal / Head judge</option>
@@ -1586,17 +1590,6 @@ function checkPassword(){
         <option value="Polyvalent">Polyvalent</option>
       </select>
       <button class="btn btn-purple" onclick="printBenevolesPlanning()" style="width:100%;justify-content:center;font-size:12px">🖨️ Imprimer</button>
-    </div>
-    <div class="card" style="grid-column:1/-1">
-      <div class="sh-card-title">🧑‍⚖️ Planning individuel d'un juge</div>
-      <div style="font-size:11px;color:var(--ink2);margin-bottom:12px">La fiche de passages d'un juge précis.</div>
-      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:end">
-        <div style="flex:1;min-width:240px">
-          <div style="font-size:10px;font-weight:800;color:var(--ink2);margin-bottom:6px">Bénévole / juge</div>
-          <select id="print-center-ben-select" style="width:100%;background:#F0F9FF;border:1px solid var(--brd2);border-radius:8px;color:var(--ink);padding:9px 10px;font-size:12px;outline:none;font-family:inherit"></select>
-        </div>
-        <button class="btn btn-orange" onclick="printIndividualFromCenter()" style="font-size:12px">🖨️ Imprimer la fiche</button>
-      </div>
     </div>
   </div>
 </div>
@@ -22049,7 +22042,21 @@ function printBlankScorecards(wodId){
     var rows=[];
     var custom = (wod.toursMode==='custom') && Array.isArray(wod.toursPerso) && wod.toursPerso.length>0;
     var rounds = parseInt(wod.rounds||1,10)||1;
-    if(custom){
+    var _bfmt = String(wod.wodFormat||wod.type||'').toLowerCase();
+    if(_bfmt==='deathby'){
+      var _s=parseInt(wod.dbStartReps!=null?wod.dbStartReps:((wod.mouvements&&wod.mouvements[0]&&wod.mouvements[0].qty)||1),10)||1;
+      var _i=parseInt(wod.dbIncPerRound!=null?wod.dbIncPerRound:1,10); if(isNaN(_i))_i=1;
+      var _rs=parseInt(wod.dbRoundSec||60,10)||60;
+      var _cap=parseInt(wod.duree||(parseInt(wod.capMinutes||0,10)*60)||0,10)||0;
+      var _n=_cap>0?Math.max(1,Math.floor(_cap/_rs)):12; if(_n>40)_n=40;
+      var _mn=(wod.mouvements&&wod.mouvements[0])?(cv(wod.mouvements[0].nomParCat)||wod.mouvements[0].nom||'Mouvement'):'Mouvement';
+      for(var _k=1;_k<=_n;_k++){ rows.push('§HDR§MIN '+_k+'  ·  '+(_s+(_k-1)*_i)+' '+_mn); }
+    } else if(_bfmt==='emom'){
+      var _w=parseInt(wod.workMin||0,10)||0, _r=parseInt(wod.restMin||0,10)||0;
+      var _tim=_w>0?(' ('+secToMmss(_w)+(_r>0?' / '+secToMmss(_r)+' repos':'')+')'):'';
+      var _bs=(wod.mouvements||[]).map(mapMov);
+      for(var _e=1;_e<=(rounds>0?rounds:1);_e++){ rows.push('§HDR§INTERVALLE '+_e+_tim); _bs.forEach(function(x){rows.push(x);}); }
+    } else if(custom){
       wod.toursPerso.forEach(function(tp,ti){ rows.push('§TOUR§'+(ti+1)); (tp&&Array.isArray(tp.mouvements)?tp.mouvements:[]).forEach(function(m){ rows.push(mapMov(m)); }); });
     } else if(wod.mouvements && wod.mouvements.length){
       var base = wod.mouvements.map(mapMov);
@@ -22062,6 +22069,9 @@ function printBlankScorecards(wodId){
   function movTable(rows, color){
     if(!rows.length) return '<div style="padding:12px;text-align:center;font-size:11px;color:#94A3B8">Aucun mouvement configuré</div>';
     var body = rows.map(function(row){
+      if(String(row).indexOf('§HDR§')===0){
+        return '<tr><td colspan="2" style="padding:5px 10px;font-size:9px;font-weight:900;background:#B91C1C;color:#fff;text-transform:uppercase;letter-spacing:1px">'+escHtml(String(row).slice(5))+'</td></tr>';
+      }
       if(String(row).indexOf('§TOUR§')===0){
         return '<tr><td colspan="2" style="padding:5px 10px;font-size:9px;font-weight:900;background:'+color+';color:#fff;text-transform:uppercase;letter-spacing:1.5px">🔄 TOUR '+String(row).slice(6)+'</td></tr>';
       }
@@ -22163,7 +22173,29 @@ function printScorecardWod(wodId) {
   if (!_printWin) { toast('⚠️ Popup bloqué — autorise les popups pour ce site', '#E65100'); return; }
   _printWin.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Génération…</title></head><body style="font-family:Arial;padding:40px;text-align:center;color:#1E40AF"><h2>⏳ Génération des scorecards…</h2></body></html>');
 
+  // ★ SÉCURITÉ ANTI-BLOCAGE : si au bout de 12s rien ne s'est affiché (promesse
+  //   Firebase qui ne revient jamais, heats non rechargés…), on remplace le
+  //   message "Génération en cours" par une explication au lieu de mouliner sans fin.
+  var _scDone = false;
+  setTimeout(function(){
+    if(_scDone) return;
+    try {
+      _printWin.document.body.innerHTML =
+        '<div style="font-family:Arial;padding:30px;color:#B45309">'
+        + '<h2>⏱️ La génération n\'a pas abouti</h2>'
+        + '<p style="font-size:14px;color:#0F1C2E">La fenêtre est restée bloquée sur « génération en cours ». Causes les plus fréquentes :</p>'
+        + '<ul style="font-size:13px;color:#0F1C2E;line-height:1.7">'
+        + '<li>La connexion <b>Firebase</b> n\'a pas répondu (réseau lent ou coupé).</li>'
+        + '<li>Les <b>heats</b> de ce WOD ne sont pas chargés en mémoire après un rechargement de page.</li>'
+        + '</ul>'
+        + '<p style="font-size:13px;color:#0F1C2E"><b>Que faire :</b> retourne sur l\'onglet <b>Catégories</b>, laisse la page se charger complètement (les heats s\'affichent), puis relance l\'impression. Si ça persiste, vérifie la connexion internet.</p>'
+        + '</div>';
+    } catch(_e){}
+    if(typeof toast==='function') toast('⏱️ Génération scorecard : délai dépassé — voir la fenêtre', '#B45309');
+  }, 12000);
+
   function doRender() {
+   try {
     var nomEv = (document.getElementById('ev-nom')||{}).value || 'FOC 2026';
     // ★ FIX : ne pas pré-calculer rows générique ici — buildCard construit ses
     // propres adaptRows par catégorie depuis wod.mouvements + catIdKey.
@@ -22208,6 +22240,9 @@ function printScorecardWod(wodId) {
       if (!rows.length) return '<div style="padding:14px;text-align:center;font-size:11px;color:var(--ink2);background:#F8FAFC">Aucun mouvement — configurez les mouvements dans Programme</div>';
       // ★ Colonnes Cumul et Heure supprimées — uniquement le mouvement
       var tbRows = rows.map(function(row) {
+        if (String(row).indexOf('§HDR§')===0) {
+          return '<tr><td style="padding:6px 12px;font-size:10px;font-weight:900;background:#B91C1C;color:#fff;text-transform:uppercase;letter-spacing:1px">' + escHtml(String(row).slice(5)) + '</td></tr>';
+        }
         if (String(row).indexOf('§TOUR§')===0) {
           return '<tr><td style="padding:6px 12px;font-size:10px;font-weight:900;background:#1E3A5F;color:#fff;text-transform:uppercase;letter-spacing:1.5px">\ud83d\udd04 TOUR ' + String(row).slice(6) + '</td></tr>';
         }
@@ -22364,10 +22399,42 @@ function printScorecardWod(wodId) {
           if(p)lbl+=' · '+p; if(t)lbl+=' · '+t; return lbl;
       }
       // ★ MULTI-TOURS : un bloc par tour (perso OU identiques>1), marqueur §TOUR§
+      //   + cas spéciaux DEATH BY et EMOM qui reflètent la config du WOD.
       var adaptRows = [];
       var _pcCustom = (wod.toursMode==='custom') && Array.isArray(wod.toursPerso) && wod.toursPerso.length>0;
       var _pcRounds = parseInt(wod.rounds||1,10)||1;
-      if (_pcCustom) {
+      var _fmtKeyRows = String(wod.wodFormat||wod.type||'').toLowerCase();
+
+      if (_fmtKeyRows==='deathby') {
+        // ★ DEATH BY : échelle ascendante. Reps tour N = départ + (N-1)×incrément,
+        //   nombre de tours = time cap / durée par tour. Lit la config du WOD
+        //   (dbStartReps / dbIncPerRound / dbRoundSec) → se met à jour si on modifie
+        //   le WOD. Défauts alignés sur le reste de l'app (1 / 1 / 60).
+        var _dbStart = parseInt(wod.dbStartReps!=null?wod.dbStartReps:((wod.mouvements&&wod.mouvements[0]&&wod.mouvements[0].qty)||1),10)||1;
+        var _dbInc   = parseInt(wod.dbIncPerRound!=null?wod.dbIncPerRound:1,10); if(isNaN(_dbInc))_dbInc=1;
+        var _dbSec   = parseInt(wod.dbRoundSec||60,10)||60;
+        var _dbCap   = parseInt(wod.duree|| (parseInt(wod.capMinutes||0,10)*60) || 0,10)||0;
+        var _dbN     = _dbCap>0 ? Math.max(1, Math.floor(_dbCap/_dbSec)) : 12; // défaut 12 tours si pas de cap
+        if(_dbN>40) _dbN=40; // garde-fou
+        var _dbMovNom = (wod.mouvements&&wod.mouvements[0]) ? (_cv2(wod.mouvements[0].nomParCat)||wod.mouvements[0].nom||'Mouvement') : 'Mouvement';
+        for(var _dn=1; _dn<=_dbN; _dn++){
+          var _dreps = _dbStart + (_dn-1)*_dbInc;
+          adaptRows.push('§HDR§MIN '+_dn+'  ·  '+_dreps+' '+_dbMovNom);
+        }
+      } else if (_fmtKeyRows==='emom') {
+        // ★ EMOM : un bloc par intervalle (rounds), étiqueté "MIN/INT" avec la durée
+        //   de travail/repos si définie. Répète les mouvements du WOD à chaque intervalle.
+        var _emWork = parseInt(wod.workMin||0,10)||0;
+        var _emRest = parseInt(wod.restMin||0,10)||0;
+        var _emN = _pcRounds>0?_pcRounds:1;
+        var _emBase = (wod.mouvements||[]).map(_mapMov);
+        var _emTiming = _emWork>0 ? (' ('+secToMmss(_emWork)+(_emRest>0?' / '+secToMmss(_emRest)+' repos':'')+')') : '';
+        for(var _en=1; _en<=_emN; _en++){
+          adaptRows.push('§HDR§INTERVALLE '+_en+_emTiming);
+          _emBase.forEach(function(mv){ adaptRows.push(mv); });
+        }
+        if(!_emBase.length){ adaptRows = []; for(var _en2=1;_en2<=_emN;_en2++){ adaptRows.push('§HDR§INTERVALLE '+_en2+_emTiming); } }
+      } else if (_pcCustom) {
         wod.toursPerso.forEach(function(tp,ti){
           adaptRows.push('§TOUR§'+(ti+1));
           (tp&&Array.isArray(tp.mouvements)?tp.mouvements:[]).forEach(function(m){ adaptRows.push(_mapMov(m)); });
@@ -22465,7 +22532,7 @@ function printScorecardWod(wodId) {
       });
     });
 
-    if (!count) { toast('Aucune équipe dans les heats', '#E65100'); try{ _printWin.close(); }catch(e){} return; }
+    if (!count) { _scDone = true; toast('Aucune équipe dans les heats', '#E65100'); try{ _printWin.close(); }catch(e){} return; }
 
     var w = _printWin; // ★ FIX : réutiliser la fenêtre déjà ouverte
     w.document.open();
@@ -22490,7 +22557,22 @@ function printScorecardWod(wodId) {
       + '<div class="sc-grid">' + cards + '</div>'
       + '');
     w.document.close();
+    _scDone = true;
     toast('✅ ' + count + ' scorecards · ' + scoredCount + ' scores pré-remplis');
+   } catch(_err) {
+    // ★ Au lieu de rester bloqué sur "Génération en cours", on AFFICHE l'erreur.
+    try {
+      _printWin.document.body.innerHTML =
+        '<div style="font-family:Arial;padding:30px;color:#B91C1C">'
+        + '<h2>❌ Erreur pendant la génération</h2>'
+        + '<p style="font-size:14px;color:#0F1C2E"><b>'+(_err&&_err.message?_err.message:_err)+'</b></p>'
+        + '<pre style="font-size:11px;background:#F8FAFC;padding:12px;border:1px solid #E2E8F0;overflow:auto;white-space:pre-wrap">'+(_err&&_err.stack?String(_err.stack):'')+'</pre>'
+        + '<p style="font-size:12px;color:#3A5270">Fais une capture et envoie-la — ça dit exactement quoi corriger.</p>'
+        + '</div>';
+    } catch(_e2) {}
+    if(typeof toast==='function') toast('❌ Erreur scorecard : '+(_err&&_err.message?_err.message:_err), '#B91C1C');
+    console.error('Scorecard doRender error:', _err);
+   }
   }
 
   function _proceed(){
@@ -22528,10 +22610,11 @@ function printScorecardWod(wodId) {
                    catId: h.catId, catNom: h.catName || '',
                    wodId: h.wodId, slots: slots });
       });
-      if (!arr.length) { try{ _printWin.close(); }catch(e){} toast('Générez les heats d&rsquo;abord (onglet Catégories)', '#E65100'); return; }
+      if (!arr.length) { _scDone = true; try{ _printWin.close(); }catch(e){} toast('Générez les heats d&rsquo;abord (onglet Catégories)', '#E65100'); return; }
       HEATS_RESULT = arr;
       _proceed();
     }).catch(function(){
+      _scDone = true;
       try{ _printWin.close(); }catch(e){}
       toast('Impossible de charger les heats depuis Firebase', '#D32F2F');
     });
