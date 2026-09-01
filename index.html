@@ -4417,6 +4417,13 @@ function reactiveUpdate(){try{
   safeCall(renderZonesList,"renderZonesList");
   if(RESULT){RESULT=computePlanning();safeCall(renderPlanningView,"renderPlanningView");safeCall(renderCoverageAlerts,"renderCoverageAlerts");}
   safeCall(renderTimeline2,"renderTimeline2");
+  // ★ RECALCUL AUTO DES HORAIRES : à chaque changement, recalcule les horaires de
+  //   tous les WOD/heats et rafraîchit le synoptique s'il est affiché.
+  if(typeof HEATS_RESULT!=='undefined' && HEATS_RESULT && HEATS_RESULT.length){
+    safeCall(computeHorairesOnly,"computeHorairesOnly");
+    var _synEl=document.getElementById('synoptique');
+    if(_synEl && _synEl.classList.contains('active')) safeCall(renderSynoptique,"renderSynoptique");
+  }
   clearTimeout(saveTimer);saveTimer=setTimeout(autoSave,5000);
   // QR refresh — toujours mettre à jour la grille juges + badge
   renderJugeQRGrid();
@@ -5376,22 +5383,23 @@ function renderStatsView(){
     var repasKeys=Object.keys(repasMap2).filter(function(k){return k!=="Non renseigné";});
     if(!repasKeys.length){repasEl2.innerHTML='<div style="color:#888;font-size:11px;padding:8px">Aucun régime renseigné</div>';}
     else{
-      // Répartition sur 2 jours
-      var repasJ1={},repasJ2={};
+      // ★ REPAS = détail par JOUR (pour commander au traiteur) : Samedi (J1) et Dimanche (J2).
+      //   Un bénévole présent les 2 jours = 1 repas samedi + 1 repas dimanche.
+      var repasJ1={},repasJ2={},totJ1=0,totJ2=0;
       BENEVOLES.forEach(function(b){
         var r=b.repas||"Non renseigné";
-        if(benOnDay(b,1))repasJ1[r]=(repasJ1[r]||0)+1;
-        if(benOnDay(b,2))repasJ2[r]=(repasJ2[r]||0)+1;
+        if(benOnDay(b,1)){repasJ1[r]=(repasJ1[r]||0)+1;totJ1++;}
+        if(benOnDay(b,2)){repasJ2[r]=(repasJ2[r]||0)+1;totJ2++;}
       });
-      var maxR=Math.max.apply(null,Object.keys(repasMap2).map(function(r){return repasMap2[r];}))||1;
-      repasEl2.innerHTML='<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:6px;font-size:10px;font-weight:700"><span style="color:#1E88E5">📅 Jour 1</span><span style="color:#2E7D32">📅 Jour 2</span></div>'
-        +Object.keys(repasMap2).sort().map(function(r){
-          var n=repasMap2[r],col=repasColors2[r]||"#888";
+      var maxR=Math.max.apply(null,Object.keys(repasMap2).map(function(r){return Math.max(repasJ1[r]||0,repasJ2[r]||0);}))||1;
+      repasEl2.innerHTML='<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;font-size:11px;font-weight:800"><span style="color:#1565C0">🗓 Samedi · '+totJ1+' repas</span><span style="color:#2E7D32">🗓 Dimanche · '+totJ2+' repas</span></div>'
+        +Object.keys(repasMap2).sort(function(a,b){return repasMap2[b]-repasMap2[a];}).map(function(r){
+          var col=repasColors2[r]||"#888";
           var n1=repasJ1[r]||0,n2=repasJ2[r]||0;
-          return'<div class="stat-bar-wrap"><span class="stat-label" style="font-size:10px">'+r+'</span>'
-            +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:3px">'
-            +'<div class="stat-bar-bg"><div class="stat-bar-fill" style="width:'+(n1/maxR*100)+'%;background:#1E88E5">'+n1+'</div></div>'
-            +'<div class="stat-bar-bg"><div class="stat-bar-fill" style="width:'+(n2/maxR*100)+'%;background:#2E7D32">'+n2+'</div></div>'
+          return'<div style="margin-bottom:6px"><div style="font-size:10px;font-weight:700;color:#334155;margin-bottom:2px">'+r+'</div>'
+            +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">'
+            +'<div style="display:flex;align-items:center;gap:5px"><div style="flex:1;height:14px;background:#EEF2F7;border-radius:7px;overflow:hidden"><div style="width:'+(n1/maxR*100)+'%;height:100%;background:#1E88E5"></div></div><span style="font-size:11px;font-weight:800;color:#1565C0;min-width:18px;text-align:right">'+n1+'</span></div>'
+            +'<div style="display:flex;align-items:center;gap:5px"><div style="flex:1;height:14px;background:#EEF2F7;border-radius:7px;overflow:hidden"><div style="width:'+(n2/maxR*100)+'%;height:100%;background:#43A047"></div></div><span style="font-size:11px;font-weight:800;color:#2E7D32;min-width:18px;text-align:right">'+n2+'</span></div>'
             +'</div></div>';
         }).join("");
     }
@@ -5407,23 +5415,15 @@ function renderStatsView(){
     var tshirtKeys2=tshirtOrder2.filter(function(k){return tshirtMap2[k]&&k!=="Non renseigné";}).concat(Object.keys(tshirtMap2).filter(function(k){return tshirtOrder2.indexOf(k)===-1&&tshirtMap2[k];}));
     if(!tshirtKeys2.length){tshirtEl2.innerHTML='<div style="color:#888;font-size:11px;padding:8px">Aucune taille renseignée</div>';}
     else{
-      // Répartition sur 2 jours
-      var tsJ1={},tsJ2={};
-      BENEVOLES.forEach(function(b){
-        var t=b.tshirt||"Non renseigné";
-        if(benOnDay(b,1))tsJ1[t]=(tsJ1[t]||0)+1;
-        if(benOnDay(b,2))tsJ2[t]=(tsJ2[t]||0)+1;
-      });
-      var maxT2=Math.max.apply(null,tshirtKeys2.map(function(k){return tshirtMap2[k];}));
-      tshirtEl2.innerHTML='<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:6px;font-size:10px;font-weight:700"><span style="color:#1E88E5">📅 Jour 1</span><span style="color:#2E7D32">📅 Jour 2</span></div>'
+      // ★ RÉCAP WEEK-END UNIQUE : chaque bénévole compté UNE fois (tshirtMap2 = 1/bénévole)
+      var maxT2=Math.max.apply(null,tshirtKeys2.map(function(k){return tshirtMap2[k];}))||1;
+      var totTs=tshirtKeys2.reduce(function(s,k){return s+tshirtMap2[k];},0)||1;
+      tshirtEl2.innerHTML='<div style="font-size:10px;color:#64748B;font-weight:700;margin-bottom:8px">Total week-end · '+totTs+' t-shirts</div>'
         +tshirtKeys2.map(function(t){
           var n=tshirtMap2[t],col=tshirtColors2[t]||"#607D8B";
-          var n1=tsJ1[t]||0,n2=tsJ2[t]||0;
           return'<div class="stat-bar-wrap"><span class="stat-label" style="font-size:11px;font-weight:700">'+t+'</span>'
-            +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:3px">'
-            +'<div class="stat-bar-bg"><div class="stat-bar-fill" style="width:'+(n1/maxT2*100)+'%;background:#1E88E5">'+n1+'</div></div>'
-            +'<div class="stat-bar-bg"><div class="stat-bar-fill" style="width:'+(n2/maxT2*100)+'%;background:#2E7D32">'+n2+'</div></div>'
-            +'</div></div>';
+            +'<div class="stat-bar-bg"><div class="stat-bar-fill" style="width:'+(n/maxT2*100)+'%;background:'+col+'">'+n+'</div></div>'
+            +'<span class="stat-val" style="color:'+col+'">'+n+'</span></div>';
         }).join("");
     }
   }
@@ -5463,32 +5463,44 @@ function renderStatsView(){
   var sorted=BENEVOLES.slice().filter(function(b){ return _jCount(b)>0 || _hCount(b)>0; }).sort(function(a,b){ return _statTot(b)-_statTot(a); });
   var maxA=Math.max.apply(null,sorted.map(function(b){return _statTot(b);}))||1;
   if(!sorted.length){ document.getElementById("stat-planning-chart").innerHTML='<div style="color:#888;font-size:11px;padding:12px">Aucun juge affecté pour le moment. Génère/publie le planning des juges.</div>'; }
-  else document.getElementById("stat-planning-chart").innerHTML='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:4px">'
-    +sorted.map(function(b){
-      var nJuge=_jCount(b);                       // vraies affectations de juge (heats)
-      var nHead=_hCount(b);                        // heats supervisés (head judge, à part)
-      var nPoste=(RESULT.day1.assignCount[b.id]||0)+(RESULT.day2.assignCount[b.id]||0); // postes bénévoles
-      // ★ Si la personne juge, on affiche SON VRAI COMPTE JUGE (pas le poste, qui
-      //   ferait doublon). Le poste ne s'affiche que pour les non-juges (bénévoles).
-      var tot, badge;
-      if(nJuge>0){
-        tot=nJuge;
-        var _j1c=(_realCounts&&_realCounts.j1&&_realCounts.j1[String(b.id)])||0;
-        var _j2c=(_realCounts&&_realCounts.j2&&_realCounts.j2[String(b.id)])||0;
-        badge='<span style="background:#1E88E5;color:#fff;border-radius:3px;padding:0 6px;font-size:9px;font-weight:700">⚖ '+nJuge+' juge</span>'
-          +' <span style="background:#E3F2FD;color:#1565C0;border-radius:3px;padding:0 5px;font-size:8px;font-weight:700">J1:'+_j1c+'</span>'
-          +' <span style="background:#E8F5E9;color:#2E7D32;border-radius:3px;padding:0 5px;font-size:8px;font-weight:700">J2:'+_j2c+'</span>';
-        if(nHead) badge+=' <span style="background:#6A1B9A;color:#fff;border-radius:3px;padding:0 5px;font-size:8px;font-weight:700">👑 HJ '+nHead+'</span>';
-      } else if(nHead>0){
-        tot=nHead;
-        badge='<span style="background:#6A1B9A;color:#fff;border-radius:3px;padding:0 6px;font-size:9px;font-weight:700">👑 Head judge · '+nHead+' heats</span>';
-      } else {
-        tot=nPoste;
-        badge='<span style="background:#00796B;color:#fff;border-radius:3px;padding:0 6px;font-size:9px;font-weight:700">🧩 '+nPoste+' poste</span>';
-      }
-      return'<div class="stat-bar-wrap"><span class="stat-label" style="font-size:9px">'+b.prenom+' '+b.nom+'<br><span style="color:#888;font-size:8px">'+joursLabel(b.jours)+'</span></span><div class="stat-bar-bg"><div class="stat-bar-fill" style="width:'+(tot/maxA*100)+'%;background:'+slotColor(b.slot)+'">'+badge+'</div></div><span class="stat-val" style="color:#555">'+tot+'</span></div>';
-    }).join("")
-    +'</div>';
+  else {
+    // ★ Affichage LISIBLE : une ligne par juge — nom, total, puis J1 et J2 séparés
+    //   avec leurs propres barres. Head judge indiqué à part.
+    var _maxDay = 1;
+    sorted.forEach(function(b){
+      var j1=(_realCounts&&_realCounts.j1&&_realCounts.j1[String(b.id)])||0;
+      var j2=(_realCounts&&_realCounts.j2&&_realCounts.j2[String(b.id)])||0;
+      if(j1>_maxDay)_maxDay=j1; if(j2>_maxDay)_maxDay=j2;
+    });
+    document.getElementById("stat-planning-chart").innerHTML=
+      '<div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:10px;font-size:10px;font-weight:800">'
+      +'<span style="color:#1565C0">■ Jour 1</span><span style="color:#2E7D32">■ Jour 2</span><span style="color:#6A1B9A">■ Head judge</span>'
+      +'</div>'
+      +'<div style="display:flex;flex-direction:column;gap:8px">'
+      +sorted.map(function(b){
+        var nJuge=_jCount(b), nHead=_hCount(b);
+        var j1=(_realCounts&&_realCounts.j1&&_realCounts.j1[String(b.id)])||0;
+        var j2=(_realCounts&&_realCounts.j2&&_realCounts.j2[String(b.id)])||0;
+        var tot=nJuge>0?nJuge:nHead;
+        // barre J1 + barre J2
+        var bars='';
+        if(nJuge>0){
+          bars='<div style="display:flex;flex-direction:column;gap:3px;flex:1">'
+            +'<div style="display:flex;align-items:center;gap:6px"><span style="font-size:9px;font-weight:800;color:#1565C0;min-width:22px">J1</span><div style="flex:1;height:14px;background:#EEF2F7;border-radius:7px;overflow:hidden"><div style="width:'+(j1/_maxDay*100)+'%;height:100%;background:#1E88E5;border-radius:7px"></div></div><span style="font-size:10px;font-weight:800;color:#1565C0;min-width:20px;text-align:right">'+j1+'</span></div>'
+            +'<div style="display:flex;align-items:center;gap:6px"><span style="font-size:9px;font-weight:800;color:#2E7D32;min-width:22px">J2</span><div style="flex:1;height:14px;background:#EEF2F7;border-radius:7px;overflow:hidden"><div style="width:'+(j2/_maxDay*100)+'%;height:100%;background:#43A047;border-radius:7px"></div></div><span style="font-size:10px;font-weight:800;color:#2E7D32;min-width:20px;text-align:right">'+j2+'</span></div>'
+            +'</div>';
+        } else {
+          bars='<div style="flex:1;font-size:10px;color:#6A1B9A;font-weight:700">👑 supervise '+nHead+' heats</div>';
+        }
+        return '<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:#F8FAFF;border:1px solid #E8EEF7;border-radius:9px">'
+          +'<div style="min-width:120px"><div style="font-size:12px;font-weight:800;color:#0F172A">'+escHtml((b.prenom||'')+' '+(b.nom||''))+'</div>'
+          +'<div style="font-size:8px;color:#94A3B8;font-weight:700">'+joursLabel(b.jours)+(nHead&&nJuge?' · 👑 HJ':'')+'</div></div>'
+          +bars
+          +'<div style="min-width:44px;text-align:center"><div style="font-size:18px;font-weight:900;color:#0F172A;line-height:1">'+tot+'</div><div style="font-size:8px;color:#94A3B8;font-weight:700">total</div></div>'
+          +'</div>';
+      }).join("")
+      +'</div>';
+  }
 
   // ── STATS HEAD JUDGES (uniquement ceux définis "Juge principal"/head) ──
   (function(){
@@ -15121,9 +15133,9 @@ function printSynoptique(){
         +  '<span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:'+cat.couleur+';margin-right:5px;vertical-align:middle"></span>'
         +  '<strong style="font-size:10px">'+cat.nom+'</strong>'
         +'</td>'
-        +'<td style="padding:3px 6px;border-bottom:1px solid #eee;font-size:9px;color:#555;text-align:center">'+cat.teams.length+'</td>'
-        +'<td style="padding:3px 6px;border-bottom:1px solid #eee;font-size:9px;color:#555;text-align:center">'+catHts.length+'</td>'
-        +'<td style="padding:3px 6px;border-bottom:1px solid #eee;font-size:9px;color:#888">'+timeStr+'</td>'
+        +'<td style="padding:3px 6px;border-bottom:1px solid #eee;font-size:11px;color:#555;text-align:center">'+cat.teams.length+'</td>'
+        +'<td style="padding:3px 6px;border-bottom:1px solid #eee;font-size:11px;color:#555;text-align:center">'+catHts.length+'</td>'
+        +'<td style="padding:3px 6px;border-bottom:1px solid #eee;font-size:11px;color:#888">'+timeStr+'</td>'
         +'</tr>';
     }).join('');
     return rows;
@@ -15149,7 +15161,7 @@ function printSynoptique(){
       var alph = wi%2===0?'ff':'bb';
       return '<div style="position:absolute;left:'+pL+'%;width:'+pW+'%;top:1px;bottom:1px;'
         +'background:'+cat.couleur+alph+';border-radius:3px;overflow:hidden">'
-        +'<span style="font-size:8px;font-weight:800;color:#fff;padding:0 4px;white-space:nowrap">'+nbH+'H '+minToTimeStr(bS)+'</span>'
+        +'<span style="font-size:10px;font-weight:800;color:#fff;padding:0 4px;white-space:nowrap">'+nbH+'H '+minToTimeStr(bS)+'</span>'
         +'</div>';
     }).join('');
     var bg = ci%2===0?'#fff':'#F8FAFF';
@@ -15157,7 +15169,7 @@ function printSynoptique(){
       +'<td style="padding:3px 8px;border-bottom:1px solid #eee;white-space:nowrap;width:160px;min-width:160px">'
       +  '<span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:'+cat.couleur+';margin-right:5px;vertical-align:middle;box-shadow:0 1px 3px '+cat.couleur+'66"></span>'
       +  '<strong style="font-size:10px;color:#1A3A6B">'+cat.nom+'</strong>'
-      +  '<span style="font-size:8px;color:'+zC+';margin-left:5px;font-weight:700">Z'+(cat.zone||1)+'</span>'
+      +  '<span style="font-size:10px;color:'+zC+';margin-left:5px;font-weight:700">Z'+(cat.zone||1)+'</span>'
       +'</td>'
       +'<td style="padding:2px 0;border-bottom:1px solid #eee">'
       +  '<div style="position:relative;height:22px">'+bars+'</div>'
@@ -15169,7 +15181,7 @@ function printSynoptique(){
   var tlTicks = ticks.map(function(t){
     var pct=(t-tMin)/span*100;
     if(pct<-1||pct>101) return '';
-    return '<div style="position:absolute;left:'+pct+'%;transform:translateX(-50%);font-size:8px;font-weight:700;color:#3A5270">'+minToTimeStr(t)+'</div>';
+    return '<div style="position:absolute;left:'+pct+'%;transform:translateX(-50%);font-size:10px;font-weight:700;color:#3A5270">'+minToTimeStr(t)+'</div>';
   }).join('');
 
   // WOD header bands for timeline
@@ -15183,13 +15195,13 @@ function printSynoptique(){
     var col=cols[wi%cols.length];
     return '<div style="position:absolute;left:'+pL+'%;width:'+pW+'%;height:100%;background:'+col
       +';display:flex;align-items:center;justify-content:center;overflow:hidden;border-right:2px solid rgba(255,255,255,.3)">'
-      +'<span style="font-size:9px;font-weight:900;color:#fff;white-space:nowrap;padding:0 6px;overflow:hidden;text-overflow:ellipsis">'+wod.nom+' · '+minToTimeStr(wS)+'–'+minToTimeStr(wE)+'</span>'
+      +'<span style="font-size:11px;font-weight:900;color:#fff;white-space:nowrap;padding:0 6px;overflow:hidden;text-overflow:ellipsis">'+wod.nom+' · '+minToTimeStr(wS)+'–'+minToTimeStr(wE)+'</span>'
       +'</div>';
   }).join('');
 
   // ── Grille WOD × Heat ─────────────────────────────────────────
   var gridHeaders = filtWods.map(function(wod){
-    return '<th style="padding:5px 8px;background:#1E88E5;color:#fff;font-size:9px;font-weight:900;border:1px solid rgba(255,255,255,.2);min-width:100px;white-space:nowrap">'
+    return '<th style="padding:5px 8px;background:#1E88E5;color:#fff;font-size:11px;font-weight:900;border:1px solid rgba(255,255,255,.2);min-width:100px;white-space:nowrap">'
       +wod.nom+'<br><span style="font-weight:500;opacity:.8">⏱'+wod.duree+'min · J'+(wod.jour||1)+'</span></th>';
   }).join('');
 
@@ -15207,14 +15219,14 @@ function printSynoptique(){
       var teamNames = teams.slice(0,4).map(function(s){
         var teamName = (typeof s.team==='string') ? s.team : ((s.team&&s.team.nom)||'—');
         var isG = s.team&&typeof s.team!=='string'&&s.team.isGuest;
-        return '<span style="display:inline-block;padding:1px 4px;border-radius:2px;font-size:7px;margin:1px;'
+        return '<span style="display:inline-block;padding:1px 4px;border-radius:2px;font-size:11px;margin:1px;'
           +(isG?'border:1px dashed '+(s.team.guestCatCouleur||'#888')+';color:'+(s.team.guestCatCouleur||'#888')
               :'background:'+heat.catCouleur+'22;color:'+heat.catCouleur)+'">'
           +escHtml(teamName)+(isG?' ▸':'')+'</span>';
       }).join('');
-      if(teams.length>4) teamNames+='<span style="font-size:7px;color:#6A84A0">+'+( teams.length-4)+'</span>';
+      if(teams.length>4) teamNames+='<span style="font-size:11px;color:#6A84A0">+'+( teams.length-4)+'</span>';
       return '<td style="padding:4px 6px;border:1px solid #E8EFF8;vertical-align:top;'+(isThisWod?'':'background:#F8FAFF')+'">'
-        +'<div style="font-size:8px;font-weight:800;color:'+(isThisWod?'var(--blue)':'#94A3B8')+';margin-bottom:2px">'+(isThisWod?('🕐'+timeStr):'—')+'</div>'
+        +'<div style="font-size:10px;font-weight:800;color:'+(isThisWod?'var(--blue)':'#94A3B8')+';margin-bottom:2px">'+(isThisWod?('🕐'+timeStr):'—')+'</div>'
         +'<div style="line-height:1.4">'+teamNames+'</div>'
         +'</td>';
     }).join('');
@@ -15223,8 +15235,8 @@ function printSynoptique(){
       +  '<div style="display:flex;align-items:center;gap:5px">'
       +    '<div style="width:8px;height:8px;border-radius:2px;background:'+heat.catCouleur+'"></div>'
       +    '<div>'
-      +      '<div style="font-size:9px;font-weight:800;color:#1A3A6B">'+heat.catNom+'</div>'
-      +      '<div style="font-size:8px;color:'+zC+'">H'+getHeatDisplayNum(heat)+'/'+getHeatDisplayTotal(heat)+' · Z'+(heat.catZone||1)+'</div>'
+      +      '<div style="font-size:11px;font-weight:800;color:#1A3A6B">'+heat.catNom+'</div>'
+      +      '<div style="font-size:10px;color:'+zC+'">H'+getHeatDisplayNum(heat)+'/'+getHeatDisplayTotal(heat)+' · Z'+(heat.catZone||1)+'</div>'
       +    '</div>'
       +  '</div>'
       +'</td>'
@@ -15244,7 +15256,7 @@ function printSynoptique(){
   var kpiHtml = kpiData.map(function(k){
     return '<div style="background:'+k.grad+';border-radius:10px;padding:10px 12px;color:#fff;position:relative;overflow:hidden;min-width:90px">'
       +'<div style="position:absolute;right:-5px;bottom:-5px;font-size:36px;opacity:.15;line-height:1">'+k.icon+'</div>'
-      +'<div style="font-size:8px;font-weight:800;letter-spacing:1px;text-transform:uppercase;opacity:.75;margin-bottom:4px">'+k.label+'</div>'
+      +'<div style="font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase;opacity:.75;margin-bottom:4px">'+k.label+'</div>'
       +'<div style="font-size:26px;font-weight:900;line-height:1;letter-spacing:-1px">'+k.val+'</div>'
       +'</div>';
   }).join('');
@@ -15267,9 +15279,9 @@ function printSynoptique(){
     +  '<div style="display:flex;align-items:center;gap:12px">'
     +    '<div style="width:44px;height:44px;background:#D32F2F;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:900">K</div>'
     +    '<div>'
-    +      '<div style="font-size:7px;letter-spacing:4px;opacity:.6;text-transform:uppercase">Zone K · Hybride Center · Toul</div>'
+    +      '<div style="font-size:11px;letter-spacing:4px;opacity:.6;text-transform:uppercase">Zone K · Hybride Center · Toul</div>'
     +      '<div style="font-size:20px;font-weight:900;letter-spacing:.5px">'+nomEv+'</div>'
-    +      '<div style="font-size:9px;opacity:.75">Synoptique compétition · '+jourLabel+(dateStr?' · '+dateStr:'')+'</div>'
+    +      '<div style="font-size:11px;opacity:.75">Synoptique compétition · '+jourLabel+(dateStr?' · '+dateStr:'')+'</div>'
     +    '</div>'
     +  '</div>'
     +  '<div style="font-size:10px;opacity:.7;text-align:right">Imprimé le '+(new Date().toLocaleDateString('fr-FR'))+'<br>Format A3 paysage</div>'
@@ -15291,13 +15303,13 @@ function printSynoptique(){
            var zCats=filtCats.filter(function(c){return(c.zone||1)===zone;});
            var zH=filtHeats.filter(function(h){return(h.catZone||1)===zone;});
            return '<div style="background:'+zBg+';border:1.5px solid '+zColor+'33;border-radius:8px;padding:8px">'
-             +'<div style="font-size:9px;font-weight:900;color:'+zColor+';margin-bottom:6px;letter-spacing:.5px">'+zLabel
+             +'<div style="font-size:11px;font-weight:900;color:'+zColor+';margin-bottom:6px;letter-spacing:.5px">'+zLabel
              +' <span style="background:'+zColor+'22;padding:1px 6px;border-radius:10px">'+zCats.length+' cat · '+zH.length+'H</span></div>'
              +'<table><thead><tr>'
-             +'<th style="text-align:left;font-size:8px;color:var(--ink2);padding:2px 5px;font-weight:600">Catégorie</th>'
-             +'<th style="font-size:8px;color:var(--ink2);padding:2px 4px;font-weight:600;text-align:center">Éq</th>'
-             +'<th style="font-size:8px;color:var(--ink2);padding:2px 4px;font-weight:600;text-align:center">H</th>'
-             +'<th style="font-size:8px;color:var(--ink2);padding:2px 4px;font-weight:600">Horaires</th>'
+             +'<th style="text-align:left;font-size:10px;color:var(--ink2);padding:2px 5px;font-weight:600">Catégorie</th>'
+             +'<th style="font-size:10px;color:var(--ink2);padding:2px 4px;font-weight:600;text-align:center">Éq</th>'
+             +'<th style="font-size:10px;color:var(--ink2);padding:2px 4px;font-weight:600;text-align:center">H</th>'
+             +'<th style="font-size:10px;color:var(--ink2);padding:2px 4px;font-weight:600">Horaires</th>'
              +'</tr></thead><tbody>'+buildZoneSummary(zone)+'</tbody></table>'
              +'</div>';
          }).join('')
@@ -15323,7 +15335,7 @@ function printSynoptique(){
     +  '<div style="overflow-x:auto;border:1.5px solid #E2E8F0;border-radius:8px;overflow:hidden">'
     +  '<table style="min-width:600px">'
     +  '<thead><tr>'
-    +    '<th style="padding:6px 10px;background:#1A3A6B;color:#fff;font-size:9px;font-weight:900;text-align:left;min-width:130px">Catégorie · Heat</th>'
+    +    '<th style="padding:6px 10px;background:#1A3A6B;color:#fff;font-size:11px;font-weight:900;text-align:left;min-width:130px">Catégorie · Heat</th>'
     +    gridHeaders
     +  '</tr></thead>'
     +  '<tbody>'+gridRows+'</tbody>'
