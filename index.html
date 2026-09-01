@@ -5454,9 +5454,12 @@ function renderStatsView(){
     if(nH>0) return nH;
     return (RESULT.day1.assignCount[b.id]||0)+(RESULT.day2.assignCount[b.id]||0);
   }
-  var sorted=BENEVOLES.slice().sort(function(a,b){ return _statTot(b)-_statTot(a); });
+  // ★ Ne garder QUE les juges : personnes ayant des affectations de juge OU head judge.
+  //   Les bénévoles de poste (sans affectation juge) sont exclus de ce graphique.
+  var sorted=BENEVOLES.slice().filter(function(b){ return _jCount(b)>0 || _hCount(b)>0; }).sort(function(a,b){ return _statTot(b)-_statTot(a); });
   var maxA=Math.max.apply(null,sorted.map(function(b){return _statTot(b);}))||1;
-  document.getElementById("stat-planning-chart").innerHTML='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:4px">'
+  if(!sorted.length){ document.getElementById("stat-planning-chart").innerHTML='<div style="color:#888;font-size:11px;padding:12px">Aucun juge affecté pour le moment. Génère/publie le planning des juges.</div>'; }
+  else document.getElementById("stat-planning-chart").innerHTML='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:4px">'
     +sorted.map(function(b){
       var nJuge=_jCount(b);                       // vraies affectations de juge (heats)
       var nHead=_hCount(b);                        // heats supervisés (head judge, à part)
@@ -11114,24 +11117,33 @@ function buildJugeAssignment(){
         // Priorité 2 : parmi les juges de la même zone, celui qui a le plus de pauses
         // consécutives passe en premier (pause uniquement si lignes insuffisantes)
         if(sa.consecPause!==sb.consecPause) return sb.consecPause-sa.consecPause;
-        // Priorité 3 : équilibrage — celui qui a le moins travaillé
+        // ★ ÉQUITÉ RENFORCÉE : celui qui a le moins jugé sur TOUTE la journée passe en
+        //   premier. Remonté ici (avant les critères de confort) pour réduire l'écart
+        //   global entre juges (ex : 33 vs 10) sans casser la continuité pendant un WOD.
+        var caG = chargeMap[aId]||0, cbG = chargeMap[bId]||0;
+        if(caG!==cbG) return caG-cbG;
+        // Priorité 3 : équilibrage local zone (worked - paused)
         var diffA = sa.worked - sa.paused;
         var diffB = sb.worked - sb.paused;
         if(diffA!==diffB) return diffA-diffB;
         // Priorité 4 : celui qui a travaillé le plus récemment attend
         if(sa.lastWorkedSeq!==sb.lastWorkedSeq) return sb.lastWorkedSeq-sa.lastWorkedSeq;
-        // Priorité 5 : charge globale (celui qui a le moins travaillé sur toute la journée)
-        var ca = chargeMap[aId]||0, cb = chargeMap[bId]||0;
-        if(ca!==cb) return ca-cb;
         // Priorité 6 : rotation circulaire pour départager à égalité parfaite
         var ra = (((orderedIndexMap[aId]||0) - offset) % nbJuges + nbJuges) % nbJuges;
         var rb = (((orderedIndexMap[bId]||0) - offset) % nbJuges + nbJuges) % nbJuges;
         return ra-rb;
       }
       // D'abord placer les juges en continuité de lane (même WOD, heat suivant)
+      // ★ RÈGLE : la continuité de ligne ne vaut QUE pour un juge qui a travaillé
+      //   au heat précédent (consecPause === 0). Un juge qui REVIENT D'UNE PAUSE
+      //   (consecPause > 0) ne reprend PAS d'office sa ligne : il repasse par
+      //   l'équilibrage (compareJudgeCandidates) pour être placé là où c'est le
+      //   plus équitable.
       freeEligibleJuges.forEach(function(ben){
         var benId = String(ben.id);
         if(usedJudgeIds[benId]) return;
+        var _st = (zoneFairStats[zoneDayKey] && zoneFairStats[zoneDayKey][benId]) || null;
+        if(_st && _st.consecPause>0) return; // revient de pause → équilibrage, pas de reprise auto
         var prevLane = groupLaneMemory[benId];
         if(prevLane==null) return;
         prevLane = parseInt(prevLane,10);
