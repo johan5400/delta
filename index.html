@@ -6106,57 +6106,69 @@ function hjToggleHeat(id, heatId, on){
 //   auto (hjHeats vide = toute la zone) ou manuel (heats cochés). Rien d'autre à régler.
 function printHeadJudgePlanning(){
   var hjs=getHeadJudges();
-  if(!hjs.length){ toast('Aucun head judge — mets la fonction « Head judge » sur un bénévole','#E65100'); return; }
-  if(!HEATS_RESULT||!HEATS_RESULT.length){ toast('Génère d\'abord le planning (⚡)','#E65100'); return; }
+  if(!hjs.length){ toast('Aucun head judge \u2014 mets la fonction \u00ab Head judge \u00bb sur un b\u00e9n\u00e9vole','#E65100'); return; }
+  if(typeof generateHeatsSilent==='function' && (!HEATS_RESULT||!HEATS_RESULT.length)){ try{ generateHeatsSilent(); }catch(e){} }
+  if(!HEATS_RESULT||!HEATS_RESULT.length){ toast('G\u00e9n\u00e8re d\'abord le planning (\u26a1)','#E65100'); return; }
+  if(typeof computeHorairesOnly==='function'){ try{ computeHorairesOnly(); }catch(e){} }
   if(typeof closeModal==='function'){ try{ closeModal('print-modal'); }catch(e){} }
   var nom_ev=(document.getElementById('ev-nom')||{}).value||'FOC 2026';
   hjs.sort(function(a,b){ return String(a.nom||'').localeCompare(String(b.nom||'')); });
-  var body='';
-  hjs.forEach(function(hj){
-    var zone=headJudgeZone(hj);
-    var zoneHeats=_hjHeatsOfZone(zone, hj.jours);
-    var manual=(Array.isArray(hj.hjHeats)&&hj.hjHeats.length)?hj.hjHeats.map(String):null;
-    var heats=manual?zoneHeats.filter(function(h){ return manual.indexOf(String(h.id))!==-1; }):zoneHeats;
-    var modeLbl=manual?('✋ Manuel · '+heats.length+' heat'+(heats.length>1?'s':'')):('🌍 Auto · toute la zone '+zone);
-    body+='<h2>'+(hj.prenom||'')+' '+(hj.nom||'')+' · Zone '+zone+' · '+modeLbl+'</h2>';
-    if(!heats.length){ body+='<div class="sub">Aucun heat supervisé.</div>'; return; }
-    // ★ arborescence : WOD en tête, ses heats en dessous (numéro + catégorie + jour)
-    var _wodGroups={}, _wodOrder=[];
-    heats.forEach(function(h){
-      var _k=(h.wod&&String(h.wod).trim())?String(h.wod).trim():'—';
-      if(!_wodGroups[_k]){ _wodGroups[_k]=[]; _wodOrder.push(_k); }
-      _wodGroups[_k].push(h);
+
+  // mêmes couleurs que le tableau écran
+  var records=hjs.map(function(hj,idx){
+    var assignedByHeat={};
+    (HEATS_RESULT||[]).forEach(function(h){
+      var gid=String(h.globalNum||h.id||getHeatDisplayNum(h));
+      if(hjIsOnHeat(hj, gid)) assignedByHeat[gid]=true;
     });
-    _wodOrder.sort(function(a,b){ var fa=_wodGroups[a][0], fb=_wodGroups[b][0]; return (fa.jour-fb.jour)||(parseInt(fa.num,10)-parseInt(fb.num,10)); });
-    body+='<table><thead><tr><th>Heat</th><th class="nm">Catégorie</th><th>Jour</th></tr></thead><tbody>';
-    _wodOrder.forEach(function(_wn){
-      var _list=_wodGroups[_wn].slice().sort(function(a,b){ return (a.jour-b.jour)||(parseInt(a.num,10)-parseInt(b.num,10)); });
-      body+='<tr class="wodrow"><td colspan="3">'+(_wn==='—'?'Sans WOD':((_list[0].wodNum?'WOD '+_list[0].wodNum+' · ':'')+escHtml(_wn)))+' <span class="wc">· '+_list.length+' heat'+(_list.length>1?'s':'')+'</span></td></tr>';
-      _list.forEach(function(h){
-        body+='<tr><td class="cell-assign">H'+h.num+'</td><td class="nm">'+escHtml(h.cat||'—')+'</td><td>J'+h.jour+'</td></tr>';
-      });
-    });
-    body+='</tbody></table>';
+    return { ben:hj, name:((hj.prenom||'')+' '+(hj.nom||'')).trim()||('HJ '+hj.id), color:judgePlanningColorSet(idx), assignedByHeat:assignedByHeat };
   });
+
+  var body='';
+  [1,2].forEach(function(day){
+    var cols=buildJudgePlanningColumnsForDay(day).filter(function(c){return c.type==='heat';});
+    if(!cols.length) return;
+    // en-tête colonnes = head judges
+    var header=records.map(function(rec){
+      var jc=rec.color; var ini=(((rec.ben.prenom||'?').charAt(0))+((rec.ben.nom||'').charAt(0))).toUpperCase();
+      return '<th class="hj" style="border-top:3px solid '+jc.solid+'"><span class="dot" style="background:'+jc.solid+'">'+ini+'</span><br>'+escHtml(rec.name)+'</th>';
+    }).join('');
+    var rows=cols.map(function(col){
+      var heatId=String(col.globalNum);
+      var first='<td class="hcell"><b>'+escHtml(col.horaire||'\u2014')+'</b> '+escHtml(col.wod||'WOD')+' <span class="hnum">H'+escHtml(col.heat)+' \u00b7 Z'+escHtml(col.zone)+'</span></td>';
+      var cells=records.map(function(rec){
+        var on=!!rec.assignedByHeat[heatId];
+        if(on){ var jc=rec.color; var ini=(((rec.ben.prenom||'?').charAt(0))+((rec.ben.nom||'').charAt(0))).toUpperCase();
+          return '<td style="background:'+jc.bg+'"><span class="chk" style="background:'+jc.solid+'">'+ini+' \u2713</span></td>';
+        }
+        return '<td class="empty">\u00b7</td>';
+      }).join('');
+      return '<tr>'+first+cells+'</tr>';
+    }).join('');
+    body+='<h2>Jour '+day+'</h2>'
+      +'<table><thead><tr><th class="hh">Heat</th>'+header+'</tr></thead><tbody>'+rows+'</tbody></table>';
+  });
+
   var w=window.open('','_blank','width=1100,height=800');
-  if(!w){ toast('Popup bloquée','#D32F2F'); return; }
-  w.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Planning head judge · '+nom_ev+'</title>'
-    +'<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Inter,sans-serif;font-size:10px;color:#0F172A;margin:0;padding:16px}'
-    +'h1{font-size:14px;font-weight:900;margin:0 0 4px}h2{font-size:12px;font-weight:900;color:#0F172A;margin:16px 0 6px}'
+  if(!w){ toast('Popup bloqu\u00e9e','#D32F2F'); return; }
+  w.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Planning head judge \u00b7 '+nom_ev+'</title>'
+    +'<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Inter,Arial,sans-serif;font-size:10px;color:#0F172A;padding:16px}'
+    +'h1{font-size:15px;font-weight:900;margin:0 0 4px}h2{font-size:12px;font-weight:900;margin:14px 0 6px}'
     +'.sub{font-size:10px;color:#64748B;margin-bottom:12px}'
-    +'table{border-collapse:collapse;width:100%;font-size:9px;margin-bottom:10px}'
-    +'th{background:#0F172A;color:#fff;padding:5px 6px;text-align:center;font-weight:800;white-space:nowrap}'
+    +'table{border-collapse:collapse;width:100%;font-size:9px;margin-bottom:12px}'
+    +'th{background:#FAFBFC;color:#0F172A;padding:5px 6px;text-align:center;font-weight:800;border:1px solid #E2E8F0}'
+    +'th.hh{background:#0F172A;color:#fff;text-align:left}'
+    +'th.hj .dot{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;color:#fff;font-weight:900;font-size:9px}'
     +'td{padding:4px 6px;border:1px solid #E2E8F0;text-align:center;vertical-align:middle}'
-    +'tr:nth-child(even) td{background:#F8FAFF}'
-    +'td.nm{text-align:left;font-weight:700}th.nm{text-align:left}'
-    +'.cell-assign{background:#DBEAFE;color:#1D4ED8;font-weight:800;border-radius:3px;padding:2px 4px}'
-    +'tr.wodrow td{background:#0F172A;color:#fff;font-weight:900;text-align:left;padding:6px 8px;font-size:10px;letter-spacing:.3px}'
-    +'tr.wodrow .wc{font-weight:700;color:#94A3B8;font-size:9px}'
+    +'td.hcell{text-align:left;font-weight:600;white-space:nowrap}td.hcell .hnum{color:#64748B;font-weight:700}'
+    +'td.empty{color:#CBD5E1}'
+    +'.chk{display:inline-block;color:#fff;font-weight:900;border-radius:5px;padding:1px 7px;font-size:9px}'
+    +'tr:nth-child(even) td.hcell{background:#F8FAFF}'
     +'.no-print{margin-bottom:12px}@media print{body{padding:8px}.no-print{display:none}@page{size:A4 landscape;margin:8mm}}'
     +'</style></head><body>'
-    +'<div class="no-print"><button onclick="window.print()" style="padding:7px 16px;background:#0F172A;color:#fff;border:none;border-radius:6px;font-weight:700;cursor:pointer;margin-right:8px">🖨️ Imprimer</button><button onclick="window.close()" style="padding:7px 16px;background:#e2e8f0;border:none;border-radius:6px;cursor:pointer">✕ Fermer</button></div>'
-    +'<h1>🧑‍⚖️ Planning head judge · '+nom_ev+'</h1>'
-    +'<div class="sub">Heats supervisés (auto par zone ou sélection manuelle) · '+hjs.length+' head judge'+(hjs.length>1?'s':'')+' · imprimé le '+new Date().toLocaleDateString('fr-FR')+'</div>'
+    +'<div class="no-print"><button onclick="window.print()" style="padding:7px 16px;background:#0F172A;color:#fff;border:none;border-radius:6px;font-weight:700;cursor:pointer;margin-right:8px">\ud83d\udda8\ufe0f Imprimer</button><button onclick="window.close()" style="padding:7px 16px;background:#e2e8f0;border:none;border-radius:6px;cursor:pointer">\u2715 Fermer</button></div>'
+    +'<h1>\ud83e\uddd1\u200d\u2696\ufe0f Planning head judge \u00b7 '+nom_ev+'</h1>'
+    +'<div class="sub">'+hjs.length+' head judge'+(hjs.length>1?'s':'')+' \u00b7 case color\u00e9e = supervise le heat \u00b7 imprim\u00e9 le '+new Date().toLocaleDateString('fr-FR')+'</div>'
     +body
     +'<scr'+'ipt>window.onload=function(){setTimeout(function(){window.print();},500);}<\\/scr'+'ipt>'
     +'</body></html>');
