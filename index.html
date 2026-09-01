@@ -1935,7 +1935,7 @@ function checkPassword(){
     <div id="recap-alert"></div>
     <div style="margin-top:10px"><div id="recap-slots-table"></div></div>
   </div>
-  <div class="card" style="margin-bottom:14px">
+  <div class="card" style="margin-bottom:14px;display:none">
     <div class="sh-card-title">🍽️ Repas & 👕 T-Shirts — Récap</div>
     <div id="recap-repas-tshirt" style="display:grid;grid-template-columns:1fr 1fr;gap:16px"></div>
   </div>
@@ -14804,8 +14804,14 @@ function renderSynTimeline(){
 
   var ROW_H   = 44;
   var LABEL_W = 170;
+  // ★ LISIBILITÉ : largeur mini généreuse pour que chaque bloc WOD ait la place
+  //   d'afficher son nom sans s'écraser. ~150px par tranche de 30 min. La timeline
+  //   scrolle horizontalement si besoin (écran ET impression).
+  var _nTicks = Math.max(1, ticks.length);
+  var TRACK_MIN = Math.max(700, _nTicks*150);   // px
+  var TOTAL_MIN = LABEL_W + TRACK_MIN;
 
-  var html = '<div style="font-family:inherit">';
+  var html = '<div style="font-family:inherit;overflow-x:auto"><div style="min-width:'+TOTAL_MIN+'px">';
 
   // ── Time axis ──────────────────────────────────────────────────────
   html += '<div style="display:flex;margin-bottom:2px">';
@@ -14873,8 +14879,8 @@ function renderSynTimeline(){
         + 'box-shadow:0 2px 6px '+cat.couleur+'44;cursor:default;border:1px solid rgba(255,255,255,.14)" '
         + 'title="'+cat.nom+' · '+entry.wodNom+' · '+heatLbl+' · '+minToTimeStr(entry.debut)+'→'+minToTimeStr(entry.fin)+'">'
         + '<div style="padding:3px 6px;height:100%;display:flex;flex-direction:column;justify-content:center">'
-        + '<div style="font-size:9px;font-weight:900;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+heatLbl+'</div>'
-        + '<div style="font-size:8px;color:rgba(255,255,255,.92);margin-top:2px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+entry.wodNom+'</div>'
+        + '<div style="font-size:11px;font-weight:900;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+heatLbl+'</div>'
+        + '<div style="font-size:10px;color:rgba(255,255,255,.95);margin-top:1px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+entry.wodNom+'</div>'
         + '</div>'
         + '</div>';
     });
@@ -14883,7 +14889,7 @@ function renderSynTimeline(){
     html += '</div>';
   });
 
-  html += '</div></div></div>';
+  html += '</div></div></div></div>';
   el.innerHTML = html;
 }
 
@@ -15318,13 +15324,15 @@ function printSynoptique(){
 
       +'<div>'
       +  '<h2>🕐 Timeline</h2>'
-      +  '<div style="border:1.5px solid #E2E8F0;border-radius:8px;overflow:hidden">'
-      +    '<div style="position:relative;height:26px;background:#1A3A6B">'+tlWodBands+'</div>'
-      +    '<div style="position:relative;height:18px;background:#F8FAFF;border-bottom:1px solid #E2E8F0">'+tlTicks+'</div>'
-      +    '<table>'
+      +  '<div style="overflow-x:auto;border:1.5px solid #E2E8F0;border-radius:8px">'
+      +  '<div style="min-width:'+Math.max(900, ticks.length*150)+'px">'
+      +    '<div style="position:relative;height:32px;background:#1A3A6B">'+tlWodBands+'</div>'
+      +    '<div style="position:relative;height:20px;background:#F8FAFF;border-bottom:1px solid #E2E8F0">'+tlTicks+'</div>'
+      +    '<table style="width:100%">'
       +      '<colgroup><col style="width:160px"><col></colgroup>'
       +      '<tbody>'+tlBars+'</tbody>'
       +    '</table>'
+      +  '</div>'
       +  '</div>'
       +'</div>'
 
