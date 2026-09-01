@@ -5940,89 +5940,110 @@ function hjIsOnHeat(b, heatId){
 function renderHeadJudgePlanningTab(){
   var el=document.getElementById('hj-planning-content'); if(!el) return;
   if(typeof generateHeatsSilent==='function' && (typeof HEATS_RESULT==='undefined' || !HEATS_RESULT || !HEATS_RESULT.length)){ try{ generateHeatsSilent(); }catch(e){} }
+  if(typeof computeHorairesOnly==='function'){ try{ computeHorairesOnly(); }catch(e){} }
   var hjs=getHeadJudges();
   if(!hjs.length){
     el.innerHTML='<div style="text-align:center;padding:30px 18px;color:var(--ink2);font-size:12px;border:1px dashed #E2E8F0;border-radius:12px">'
-      +'<div style="font-size:26px;margin-bottom:8px">🧑‍⚖️</div>'
+      +'<div style="font-size:26px;margin-bottom:8px">\ud83e\uddd1\u200d\u2696\ufe0f</div>'
       +'<div style="font-weight:800;color:var(--ink);margin-bottom:4px">Aucun head judge</div>'
-      +'Mets la fonction <b>« Juge principal / Head judge »</b> sur un bénévole (onglet Bénévoles → fiche → Fonction).</div>';
+      +'Mets la fonction <b>\u00ab Juge principal / Head judge \u00bb</b> sur un b\u00e9n\u00e9vole (onglet B\u00e9n\u00e9voles \u2192 fiche \u2192 Fonction).</div>';
     return;
   }
   if(typeof HEATS_RESULT==='undefined' || !HEATS_RESULT || !HEATS_RESULT.length){
     el.innerHTML='<div style="text-align:center;padding:30px 18px;color:#B45309;font-size:12px;border:1px dashed #FDBA74;border-radius:12px;background:#FFFBEB">'
-      +'⚡ Génère d\'abord le planning (onglet Catégories) pour pouvoir assigner les heats.</div>';
+      +'\u26a1 G\u00e9n\u00e8re d\'abord le planning (onglet Cat\u00e9gories) pour pouvoir assigner les heats.</div>';
     return;
   }
   hjs.sort(function(a,b){ return String(a.nom||'').localeCompare(String(b.nom||'')); });
 
-  // Palette de couleurs par head judge (stable par index)
   var hjColors=['#6A1B9A','#1565C0','#00796B','#C2410C','#AD1457','#4527A0','#00838F','#EF6C00'];
   function hjColor(i){ return hjColors[i % hjColors.length]; }
 
-  // Liste des heats (toutes zones, triés jour puis num)
+  // Heats groupés par jour puis zone (comme le planning juge)
   var heats=(HEATS_RESULT||[]).slice().sort(function(a,b){
     var ja=parseInt(a.catJour||a.jour||1,10)||1, jb=parseInt(b.catJour||b.jour||1,10)||1;
-    return (ja-jb) || ((getHeatDisplayNum(a)||0)-(getHeatDisplayNum(b)||0));
+    if(ja!==jb) return ja-jb;
+    var za=parseInt(a.catZone||a.zone||1,10)||1, zb=parseInt(b.catZone||b.zone||1,10)||1;
+    if(za!==zb) return za-zb;
+    return (getHeatDisplayNum(a)||0)-(getHeatDisplayNum(b)||0);
   });
 
-  // 1) Bandeau de jetons (head judges) à glisser
-  var chips='<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;padding:12px 14px;border:1.5px solid #E2E8F0;border-radius:14px;background:linear-gradient(135deg,#FAF5FF,#FFFFFF)">'
-    +'<div style="width:100%;font-size:11px;color:#64748B;font-weight:700;margin-bottom:2px">🖐️ Glisse un head judge sur un heat pour l\'assigner :</div>'
-    +hjs.map(function(hj,i){
-      var col=hjColor(i);
-      var ini=(((hj.prenom||'?').charAt(0))+((hj.nom||'').charAt(0))).toUpperCase();
-      return '<div draggable="true" ondragstart="hjDragStart(event,\''+hj.id+'\')" '
-        +'style="display:flex;align-items:center;gap:7px;background:#fff;border:1.5px solid '+col+';border-radius:999px;padding:5px 11px 5px 5px;cursor:grab;user-select:none">'
-        +'<span style="width:24px;height:24px;border-radius:50%;background:'+col+';color:#fff;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:11px">'+ini+'</span>'
-        +'<span style="font-size:12px;font-weight:800;color:'+col+'">'+escHtml((hj.prenom||'')+' '+(hj.nom||''))+'</span>'
-        +'</div>';
-    }).join('')
-    +'</div>';
+  function heatHoraire(h){
+    try{ var ho=h.horaires&&(h.horaires[h.wodId]||h.horaires[Object.keys(h.horaires)[0]]); if(ho&&ho.start) return ho.start; }catch(e){}
+    return '';
+  }
+  function heatWod(h){ return h.wodNom||(h.wodInfo&&h.wodInfo.nom)||''; }
 
-  // 2) Tableau heats × head judges
-  var thead='<tr><th style="position:sticky;left:0;z-index:3;background:#0F172A;color:#fff;padding:8px 10px;text-align:left;font-size:11px;min-width:180px">Heat</th>'
-    +hjs.map(function(hj,i){
-      var col=hjColor(i);
-      return '<th style="min-width:120px;padding:0;background:#FAFBFC;border-bottom:1px solid #E2E8F0">'
-        +'<div style="border-top:3px solid '+col+';padding:7px 6px;text-align:center;font-size:11px;font-weight:800;color:'+col+';white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+escHtml((hj.prenom||'')+' '+(hj.nom||''))+'">'+escHtml((hj.prenom||'')+' '+(hj.nom||''))+'</div>'
-        +'</th>';
-    }).join('')+'</tr>';
-
-  var rows=heats.map(function(h,ri){
-    var heatId=String(h.globalNum||h.id||getHeatDisplayNum(h));
-    var zebra=(ri%2===0)?'#FFFFFF':'#F8FAFC';
-    var wodN=h.wodNom||(h.wodInfo&&h.wodInfo.nom)||'';
-    var hor=(h.horaires&&(h.horaires[h.wodId]||h.horaires[Object.keys(h.horaires)[0]]))||'';
-    var horTxt=(hor&&hor.start)?hor.start:'';
-    var first='<td style="position:sticky;left:0;z-index:2;background:'+zebra+';border-right:1px solid #E2E8F0;border-bottom:1px solid #EEF2F7;padding:7px 10px;min-width:180px">'
-      +'<div style="display:flex;align-items:center;gap:8px">'
-      +'<span style="font-size:11px;font-weight:900;color:#1E3A5F;min-width:40px">H'+escHtml(getHeatDisplayNum(h))+'</span>'
-      +'<span style="font-size:11px;font-weight:700;color:#334155;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+escHtml(wodN||'WOD')+'</span>'
-      +'<span style="font-size:9px;color:#64748B;white-space:nowrap">'+escHtml(h.catNom||h.catName||'')+' · J'+(parseInt(h.catJour||h.jour||1,10)||1)+'</span>'
-      +'</div></td>';
-    var cells=hjs.map(function(hj,i){
-      var col=hjColor(i);
-      var on=hjIsOnHeat(hj, heatId);
-      var cell='<td ondragover="event.preventDefault()" ondrop="hjDropOnHeat(event,\''+heatId+'\')" '
-        +'style="border-right:1px solid #F1F5F9;border-bottom:1px solid #EEF2F7;background:'+(on?col+'18':zebra)+';text-align:center;padding:5px;min-width:120px;height:34px">';
-      if(on){
-        var ini=(((hj.prenom||'?').charAt(0))+((hj.nom||'').charAt(0))).toUpperCase();
-        cell+='<span style="display:inline-flex;align-items:center;gap:5px;background:'+col+';color:#fff;border-radius:999px;padding:2px 6px 2px 7px;font-size:10px;font-weight:800">'
-          +ini
-          +'<button onclick="hjRemoveFromHeat(\''+hj.id+'\',\''+heatId+'\')" style="background:none;border:none;color:#fff;cursor:pointer;font-size:12px;line-height:1;padding:0;margin-left:2px">×</button>'
-          +'</span>';
-      }
-      cell+='</td>';
-      return cell;
-    }).join('');
-    return '<tr>'+first+cells+'</tr>';
+  // En-tête head judges (colonnes) — style identique au planning juge
+  var headerHJ=hjs.map(function(hj,i){
+    var col=hjColor(i);
+    var nm=((hj.prenom||'')+' '+(hj.nom||'')).trim();
+    return '<th style="min-width:110px;max-width:150px;padding:0;border-bottom:1px solid #E2E8F0;background:#FAFBFC;vertical-align:middle">'
+      +'<div draggable="true" ondragstart="hjDragStart(event,\''+hj.id+'\')" style="border-top:3px solid '+col+';background:'+col+'12;padding:7px 6px;cursor:grab">'
+      +'<div style="font-size:11px;font-weight:800;color:'+col+';line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center" title="'+escHtml(nm)+'">'+escHtml(nm)+'</div>'
+      +'</div></th>';
   }).join('');
 
-  el.innerHTML=chips
-    +'<div style="overflow:auto;border:1.5px solid #E2E8F0;border-radius:14px;background:#fff">'
-    +'<table style="border-collapse:collapse;width:100%"><thead>'+thead+'</thead><tbody>'+rows+'</tbody></table>'
-    +'</div>'
-    +'<div style="font-size:10px;color:#64748B;margin-top:8px">Astuce : un head judge sans aucune case cochée supervise <b>toute sa zone</b> par défaut. Dès que tu glisses/retires, il passe en sélection manuelle.</div>';
+  // Sections par jour puis zone
+  var byDayZone={};
+  heats.forEach(function(h){
+    var d=parseInt(h.catJour||h.jour||1,10)||1;
+    var z=parseInt(h.catZone||h.zone||1,10)||1;
+    var k=d+'|'+z;
+    (byDayZone[k]=byDayZone[k]||[]).push(h);
+  });
+  var keys=Object.keys(byDayZone).sort(function(a,b){
+    var pa=a.split('|').map(Number), pb=b.split('|').map(Number);
+    return (pa[0]-pb[0])||(pa[1]-pb[1]);
+  });
+
+  var sections=keys.map(function(k){
+    var parts=k.split('|'); var day=parts[0], zone=parts[1];
+    var zHeats=byDayZone[k];
+    var _ri=0;
+    var bodyRows=zHeats.map(function(h){
+      var heatId=String(h.globalNum||h.id||getHeatDisplayNum(h));
+      var zebra=(_ri++ %2===0)?'#FFFFFF':'#F8FAFC';
+      var first='<td style="position:sticky;left:0;z-index:2;padding:7px 10px;border-bottom:1px solid #EEF2F7;border-right:1px solid #E2E8F0;background:'+zebra+';min-width:160px">'
+        +'<div style="display:flex;align-items:center;gap:8px">'
+        +'<span style="font-family:ui-monospace,monospace;font-size:11px;font-weight:800;color:#1E3A5F;min-width:38px">'+escHtml(heatHoraire(h)||'\u2014')+'</span>'
+        +'<span style="font-size:11px;font-weight:700;color:#334155;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+escHtml(heatWod(h)||'WOD')+'</span>'
+        +'<span style="font-size:9px;font-weight:700;color:#64748B;white-space:nowrap">H'+escHtml(getHeatDisplayNum(h))+' \u00b7 '+escHtml(h.catNom||h.catName||'')+'</span>'
+        +'</div></td>';
+      var cells=hjs.map(function(hj,i){
+        var col=hjColor(i);
+        var on=hjIsOnHeat(hj, heatId);
+        var c='<td ondragover="event.preventDefault()" ondrop="hjDropOnHeat(event,\''+heatId+'\')" style="padding:4px;border-bottom:1px solid #F1F5F9;background:'+(on?col+'18':zebra)+';vertical-align:middle;text-align:center;min-width:110px;height:34px">';
+        if(on){
+          var ini=(((hj.prenom||'?').charAt(0))+((hj.nom||'').charAt(0))).toUpperCase();
+          c+='<span style="display:inline-flex;align-items:center;gap:4px;background:'+col+';color:#fff;border-radius:999px;padding:2px 6px 2px 7px;font-size:10px;font-weight:800">'+ini
+            +'<button onclick="hjRemoveFromHeat(\''+hj.id+'\',\''+heatId+'\')" style="background:none;border:none;color:#fff;cursor:pointer;font-size:12px;line-height:1;padding:0;margin-left:1px">\u00d7</button></span>';
+        }
+        c+='</td>';
+        return c;
+      }).join('');
+      return '<tr>'+first+cells+'</tr>';
+    }).join('');
+
+    return '<div style="background:#fff;border:1px solid #E2E8F0;border-radius:12px;overflow:hidden;margin-bottom:14px">'
+      +'<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:#F8FAFF;border-bottom:1px solid #E2E8F0">'
+      +'<span style="font-size:12px;font-weight:800;color:#0F172A">Jour '+day+' \u00b7 Zone '+zone+'</span>'
+      +'<span style="font-size:10px;font-weight:600;color:#64748B">'+zHeats.length+' heats</span>'
+      +'</div>'
+      +'<div style="overflow:auto;max-height:60vh">'
+      +'<table style="width:100%;border-collapse:separate;border-spacing:0;min-width:'+(180+hjs.length*110)+'px;font-size:11px">'
+      +'<thead><tr>'
+      +'<th style="position:sticky;left:0;top:0;z-index:4;padding:8px 10px;text-align:left;color:#64748B;font-size:10px;font-weight:700;border-bottom:1px solid #E2E8F0;border-right:1px solid #E2E8F0;background:#FAFBFC;min-width:160px">Heat</th>'
+      +headerHJ
+      +'</tr></thead><tbody>'+bodyRows+'</tbody></table></div></div>';
+  }).join('');
+
+  var chips='<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:14px;padding:12px 14px;border:1.5px solid #E2E8F0;border-radius:14px;background:linear-gradient(135deg,#FAF5FF,#FFFFFF)">'
+    +'<div style="font-size:11px;color:#64748B;font-weight:700">\ud83d\udd90\ufe0f Glisse un head judge (depuis l\'en-t\u00eate de colonne) sur un heat pour l\'ajouter \u00b7 \u00d7 pour retirer.</div>'
+    +'</div>';
+
+  el.innerHTML=chips+sections
+    +'<div style="font-size:10px;color:#64748B;margin-top:2px">Au d\u00e9part, chaque head judge supervise automatiquement toute sa zone. D\u00e8s que tu glisses ou retires un heat, il passe en s\u00e9lection manuelle.</div>';
 }
 function hjSetAuto(id){
   var b=_hjGetBen(id); if(!b) return;
