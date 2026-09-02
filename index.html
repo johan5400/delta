@@ -15332,14 +15332,51 @@ function printSynoptique(){
 
     +'<div>'
     +  '<h2>🗂️ Grille WOD × Heat</h2>'
-    +  '<div style="overflow-x:auto;border:1.5px solid #E2E8F0;border-radius:8px;overflow:hidden">'
-    +  '<table style="min-width:600px">'
-    +  '<thead><tr>'
-    +    '<th style="padding:6px 10px;background:#1A3A6B;color:#fff;font-size:11px;font-weight:900;text-align:left;min-width:130px">Catégorie · Heat</th>'
-    +    gridHeaders
-    +  '</tr></thead>'
-    +  '<tbody>'+gridRows+'</tbody>'
-    +  '</table></div>'
+    +  (function(){
+        // ★ GRILLE LISIBLE : groupée par WOD (fini la matrice avec des cases vides —).
+        //   Chaque WOD = un bloc, avec ses heats (heure + catégorie + équipes).
+        var out='';
+        filtWods.forEach(function(wod){
+          var wHeats=heatsSorted.filter(function(h){ return String(h.wodId||'')===String(wod.id); });
+          if(!wHeats.length) return;
+          var wc=(wod.wodFormat||wod.type||'AMRAP').toUpperCase();
+          var _s=parseInt(wod.duree||0,10)||0; var dur=_s?(Math.floor(_s/60)+'min'+(_s%60?(_s%60)+'s':'')):'';
+          // plage horaire du WOD
+          var hors=wHeats.map(function(h){return h.horaires&&h.horaires[wod.id]?h.horaires[wod.id]:null;}).filter(Boolean);
+          var plage=hors.length?(minToTimeStr(Math.min.apply(null,hors.map(function(h){return h.debut;})))+' – '+minToTimeStr(Math.max.apply(null,hors.map(function(h){return h.fin;})))):'';
+          out+='<div style="margin-bottom:10px;border:1px solid #E2E8F0;border-radius:8px;overflow:hidden;break-inside:avoid">'
+            +'<div style="background:#1E88E5;color:#fff;padding:6px 12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
+            +'<span style="font-size:12px;font-weight:900">'+escHtml(wod.nom)+'</span>'
+            +'<span style="font-size:10px;background:rgba(255,255,255,.2);border-radius:4px;padding:1px 7px">'+wc+(dur?' · '+dur:'')+'</span>'
+            +(plage?'<span style="margin-left:auto;font-size:10px;font-weight:800;background:rgba(255,255,255,.25);border-radius:5px;padding:1px 9px">🕐 '+plage+'</span>':'')
+            +'</div>';
+          wHeats.forEach(function(heat,hi){
+            var hor=heat.horaires&&heat.horaires[wod.id]?heat.horaires[wod.id]:null;
+            var heure=hor?minToTimeStr(hor.debut):'—';
+            var teams=heat.slots.filter(function(s){return !s.empty&&s.team;});
+            var bg=hi%2?'#F8FAFF':'#fff';
+            out+='<div style="padding:5px 12px;background:'+bg+';border-top:1px solid #EEF2F7">'
+              +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">'
+              +'<span style="font-family:monospace;font-size:13px;font-weight:900;color:#1565C0">'+heure+'</span>'
+              +'<span style="background:'+heat.catCouleur+';color:#fff;border-radius:4px;padding:1px 8px;font-size:10px;font-weight:900">'+escHtml(heat.catNom)+'</span>'
+              +'<span style="font-size:10px;color:#64748B;font-weight:700">H'+getHeatDisplayNum(heat)+'/'+getHeatDisplayTotal(heat)+'</span>'
+              +'<span style="margin-left:auto;font-size:9px;color:#94A3B8">'+teams.length+' éq.</span>'
+              +'</div>';
+            if(teams.length){
+              out+='<div style="display:flex;flex-wrap:wrap;gap:3px">';
+              teams.forEach(function(s){
+                var tn=(typeof s.team==='string')?s.team:((s.team&&s.team.nom)||'—');
+                out+='<span style="display:inline-flex;align-items:center;gap:4px;background:'+heat.catCouleur+'15;border:1px solid '+heat.catCouleur+'33;border-radius:5px;padding:1px 7px;font-size:10px">'
+                  +'<b style="color:'+heat.catCouleur+'">L'+s.ligne+'</b> '+escHtml(tn)+'</span>';
+              });
+              out+='</div>';
+            }
+            out+='</div>';
+          });
+          out+='</div>';
+        });
+        return out||'<div style="padding:16px;color:#94A3B8;font-size:11px">Aucun heat.</div>';
+      })()
     +'</div>'
 
     +'</div>' // page-wrap
