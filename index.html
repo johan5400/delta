@@ -14807,6 +14807,62 @@ function renderSynTimeline(){
 
   var html = '<div style="font-family:inherit">';
 
+  // ★ VUE ENCHAÎNEMENT PAR ZONE : une ligne par zone, tous les WOD qui s'enchaînent
+  //   avec les TROUS/attentes visibles (⏳). Le survol détaillé de la timeline
+  //   ci-dessous reste inchangé.
+  (function(){
+    var zones={};
+    entries.forEach(function(e){ var z=e.catZone||1; (zones[z]=zones[z]||[]).push(e); });
+    // Regrouper par WOD dans chaque zone (un bloc par passage WOD)
+    function zoneBlocks(zEntries){
+      var byWod={};
+      zEntries.forEach(function(e){ (byWod[e.wodId]=byWod[e.wodId]||[]).push(e); });
+      var blocks=Object.keys(byWod).map(function(wid){
+        var g=byWod[wid];
+        return { wodNom:g[0].wodNom, debut:Math.min.apply(null,g.map(function(x){return x.debut;})), fin:Math.max.apply(null,g.map(function(x){return x.fin;})) };
+      }).sort(function(a,b){ return a.debut-b.debut; });
+      return blocks;
+    }
+    var zColors={1:'#1E88E5',2:'#16A34A'};
+    var rowsHtml='';
+    [1,2].forEach(function(z){
+      var zEnt=zones[z]||[];
+      var blocks=zoneBlocks(zEnt);
+      var track='';
+      // grille de fond
+      ticks.forEach(function(t){ var p=(t-tMin)/span*100; if(p<0||p>100)return; track+='<div style="position:absolute;top:0;bottom:0;left:'+p+'%;width:1px;background:rgba(0,0,0,.05)"></div>'; });
+      if(!blocks.length){
+        track+='<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:11px;color:#CBD5E1;font-style:italic">Zone vide</div>';
+      } else {
+        blocks.forEach(function(b,i){
+          var l=(b.debut-tMin)/span*100, w=Math.max((b.fin-b.debut)/span*100,2.5);
+          track+='<div title="'+escHtml(b.wodNom)+' · '+minToTimeStr(b.debut)+'–'+minToTimeStr(b.fin)+'" style="position:absolute;top:9px;left:'+l+'%;width:'+w+'%;height:28px;background:'+zColors[z]+';border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;overflow:hidden;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.2)">'
+            +'<span style="font-size:9px;font-weight:900;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis;padding:0 4px">'+escHtml(b.wodNom)+'</span>'
+            +'<span style="font-size:8px;opacity:.9">'+minToTimeStr(b.debut)+'</span></div>';
+          // trou après ce bloc
+          if(i<blocks.length-1){
+            var gap=blocks[i+1].debut-b.fin;
+            if(gap>=10){
+              var gl=(b.fin-tMin)/span*100, gw=(gap)/span*100;
+              track+='<div title="Attente '+gap+' min" style="position:absolute;top:15px;left:'+gl+'%;width:'+gw+'%;height:16px;display:flex;align-items:center;justify-content:center"><span style="font-size:8px;font-weight:800;color:#B45309;background:#FEF3C7;border:1px solid #FCD34D;border-radius:8px;padding:0 5px;white-space:nowrap">⏳'+gap+'min</span></div>';
+            }
+          }
+        });
+      }
+      rowsHtml+='<div style="display:flex;align-items:stretch;border-top:1px solid #EEF2F7;min-height:48px">'
+        +'<div style="width:90px;flex-shrink:0;background:'+zColors[z]+';color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900">ZONE '+z+'</div>'
+        +'<div style="flex:1;position:relative;background:#fff">'+track+'</div>'
+        +'</div>';
+    });
+    html += '<div style="border:1.5px solid #E2E8F0;border-radius:12px;overflow:hidden;margin-bottom:16px">'
+      +'<div style="background:#0F172A;color:#fff;padding:7px 12px;font-size:11px;font-weight:800;letter-spacing:.5px">🔀 Enchaînement par zone — ordre des WOD et temps d\'attente (⏳)</div>'
+      +'<div style="display:flex;height:18px;background:#F8FAFF;border-bottom:1px solid #E2E8F0"><div style="width:90px;flex-shrink:0"></div><div style="flex:1;position:relative">'
+      + ticks.map(function(t){ var p=(t-tMin)/span*100; return (p<0||p>100)?'':'<span style="position:absolute;left:'+p+'%;transform:translateX(-50%);font-size:9px;font-weight:700;color:#64748B">'+minToTimeStr(t)+'</span>'; }).join('')
+      +'</div></div>'
+      + rowsHtml
+      +'</div>';
+  })();
+
   // ── Time axis ──────────────────────────────────────────────────────
   html += '<div style="display:flex;margin-bottom:2px">';
   html += '<div style="width:'+LABEL_W+'px;flex-shrink:0"></div>';
@@ -15314,6 +15370,32 @@ function printSynoptique(){
              +'</div>';
          }).join('')
       +'</div>'
+      +'</div>'
+
+      +'<div>'
+      +  '<h2>🔀 Enchaînement par zone</h2>'
+      +  (function(){
+          var zones={}; entries.forEach(function(e){ var z=e.catZone||1; (zones[z]=zones[z]||[]).push(e); });
+          var zColors={1:'#1E88E5',2:'#16A34A'};
+          function blocks(zEnt){ var bw={}; zEnt.forEach(function(e){(bw[e.wodId]=bw[e.wodId]||[]).push(e);});
+            return Object.keys(bw).map(function(wid){var g=bw[wid];return {nom:g[0].wodNom,debut:Math.min.apply(null,g.map(function(x){return x.debut;})),fin:Math.max.apply(null,g.map(function(x){return x.fin;}))};}).sort(function(a,b){return a.debut-b.debut;}); }
+          var axis='<div style="display:flex;height:16px;background:#F8FAFF;border-bottom:1px solid #E2E8F0"><div style="width:80px;flex-shrink:0"></div><div style="flex:1;position:relative">'
+            + ticks.map(function(t){var p=(t-tMin)/span*100;return (p<0||p>100)?'':'<span style="position:absolute;left:'+p+'%;transform:translateX(-50%);font-size:8px;font-weight:700;color:#64748B">'+minToTimeStr(t)+'</span>';}).join('')
+            +'</div></div>';
+          var rows='';
+          [1,2].forEach(function(z){
+            var bl=blocks(zones[z]||[]); var track='';
+            ticks.forEach(function(t){var p=(t-tMin)/span*100;if(p<0||p>100)return;track+='<div style="position:absolute;top:0;bottom:0;left:'+p+'%;width:1px;background:rgba(0,0,0,.05)"></div>';});
+            if(!bl.length){ track+='<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:10px;color:#CBD5E1;font-style:italic">Zone vide</div>'; }
+            else bl.forEach(function(b,i){
+              var l=(b.debut-tMin)/span*100,w=Math.max((b.fin-b.debut)/span*100,2.5);
+              track+='<div style="position:absolute;top:7px;left:'+l+'%;width:'+w+'%;height:26px;background:'+zColors[z]+';border-radius:5px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;overflow:hidden"><span style="font-size:8px;font-weight:900;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis;padding:0 3px">'+escHtml(b.nom)+'</span><span style="font-size:7px;opacity:.9">'+minToTimeStr(b.debut)+'</span></div>';
+              if(i<bl.length-1){var gap=bl[i+1].debut-b.fin;if(gap>=10){var gl=(b.fin-tMin)/span*100,gw=gap/span*100;track+='<div style="position:absolute;top:13px;left:'+gl+'%;width:'+gw+'%;height:14px;display:flex;align-items:center;justify-content:center"><span style="font-size:7px;font-weight:800;color:#B45309;background:#FEF3C7;border:1px solid #FCD34D;border-radius:7px;padding:0 4px;white-space:nowrap">⏳'+gap+'m</span></div>';}}
+            });
+            rows+='<div style="display:flex;align-items:stretch;border-top:1px solid #EEF2F7;min-height:42px"><div style="width:80px;flex-shrink:0;background:'+zColors[z]+';color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900">ZONE '+z+'</div><div style="flex:1;position:relative;background:#fff">'+track+'</div></div>';
+          });
+          return '<div style="border:1.5px solid #E2E8F0;border-radius:8px;overflow:hidden;margin-bottom:14px">'+axis+rows+'</div>';
+        })()
       +'</div>'
 
       +'<div>'
