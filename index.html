@@ -14522,7 +14522,8 @@ function renderSynMain(){
         if(!wodBlocs[wid]){ wodBlocs[wid]={nom:h.wodNom||'WOD',col:h.catCouleur||zColor2,heats:[],tMin:9999,tMax:0}; wodOrder.push(wid); }
         var w = wodBlocs[wid];
         w.heats.push(h);
-        var hor = h.horaires&&Object.values(h.horaires)[0];
+        var hor = h.horaires && (h.horaires[String(h.wodId)] || h.horaires[wid]);
+        if(!hor && h.horaires){ var _hk2=Object.keys(h.horaires); if(_hk2.length===1) hor=h.horaires[_hk2[0]]; }
         if(hor){ if(hor.debut<w.tMin) w.tMin=hor.debut; if(hor.fin>w.tMax) w.tMax=hor.fin; }
       });
 
@@ -14535,7 +14536,11 @@ function renderSynMain(){
       zHeats.forEach(function(h){
         var cat=h.catNom||h.catName||'—';
         var wid=String(h.wodId||h.wodNom||'');
-        var hor=h.horaires&&Object.values(h.horaires)[0];
+        // ★ FIX : prendre l'horaire DU BON WOD (h.horaires[wodId]), pas le premier de
+        //   l'objet — sinon deux catégories lisaient le même mauvais horaire et
+        //   affichaient la même attente (impossible, elles ne passent pas ensemble).
+        var hor = h.horaires && (h.horaires[String(h.wodId)] || h.horaires[wid]);
+        if(!hor && h.horaires){ var _hk=Object.keys(h.horaires); if(_hk.length===1) hor=h.horaires[_hk[0]]; }
         if(!hor) return;
         if(!catWods[cat]) catWods[cat]=[];
         var e=null; for(var _q=0;_q<catWods[cat].length;_q++){ if(catWods[cat][_q].wid===wid){ e=catWods[cat][_q]; break; } }
