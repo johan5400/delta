@@ -4366,7 +4366,7 @@ function renderMatZone(z, mat){
 }
 
 function formatType(w){
-  var m={amrap:'AMRAP',fortime:'FOR TIME',emom:'EMOM',rounds:'ROUNDS',open:'OPEN',deathby:'DEATH BY',cleanladder:'CLEAN LADDER'}[w.wodFormat||w.type||'']||'WOD';
+  var m={amrap:'AMRAP',amrapsteph:'AMRAP STEPH',fortime:'FOR TIME',emom:'EMOM',rounds:'ROUNDS',open:'OPEN',deathby:'DEATH BY',cleanladder:'CLEAN LADDER'}[w.wodFormat||w.type||'']||'WOD';
   var _ds=(w.duree>0?w.duree:((w.capMinutes||0)*60)); var _dm=(_ds>0?(Math.floor(_ds/60)+'min'+(_ds%60?(_ds%60)+'s':'')):''); return m+(_dm?' · '+_dm:'');
 }
 
@@ -12506,10 +12506,27 @@ function updateWodFmt(id, fmt) {
   //     pour que le public voie les mètres. La logique juge/chrono reste celle du For Time.
   if(fmt==='fortime'||fmt==='rameursbc') w.scoreType='time';
   else if(w.scoreType==='time') w.scoreType='reps';
+  // ★ AMRAP STEPH : AMRAP au temps où SEUL le DERNIER mouvement compte (valeur
+  //   cumulée, typiquement le bike en cals). Tours illimités. Le score suit le
+  //   type du dernier mouvement (cal si ergo cal, sinon dist/reps).
+  if(fmt==='amrapsteph'){
+    w.rounds = 0;                 // 0 = illimité (grisé dans l'UI)
+    var _last = (w.mouvements && w.mouvements.length) ? w.mouvements[w.mouvements.length-1] : null;
+    if(_last && _last.type==='ergo'){
+      w.scoreType = (String(_last.ergoUnit||'').toLowerCase()==='cal') ? 'cal' : 'dist';
+      // ★ le DERNIER mouvement = valeur libre cumulée qui SCORE (cals/dist du bike)
+      _last.ergoFree = true;
+    } else {
+      w.scoreType = w.scoreType==='time' ? 'reps' : (w.scoreType||'cal');
+    }
+    w.scoreFinale = w.scoreType;
+    w.judgeMode='ergo';
+    w.stephLastScores = true;     // marqueur : seul le dernier mvt score
+  }
   // Sync judgeMode legacy
   if(fmt==='maxload') w.judgeMode='maxload';
   else if(fmt==='open'){ w.judgeMode='movements'; w.hasTiebreak=true; w.scoreType='reps'; }
-  else w.judgeMode='movements';
+  else if(fmt!=='amrapsteph') w.judgeMode='movements';
   renderProgWodsList();
   refreshCompetitionAuto();
   autoSave();
@@ -12972,7 +12989,7 @@ function renderProgWodsList() {
     var _cust = (w.toursMode==='custom') && Array.isArray(w.toursPerso) && w.toursPerso.length>0;
     var nT = _cust ? w.toursPerso.length : (parseInt(w.rounds||1,10)||1);
     var nM = _cust ? w.toursPerso.reduce(function(a,tp){return a+((tp&&tp.mouvements)?tp.mouvements.length:0);},0) : (w.mouvements||[]).length;
-    var FMTL = {amrap:'AMRAP',fortime:'FOR TIME',open:'OPEN',rounds:'ROUNDS',emom:'EMOM',tabata:'TABATA',deathby:'DEATH BY',cleanladder:'CLEAN LADDER'};
+    var FMTL = {amrap:'AMRAP',amrapsteph:'AMRAP STEPH',fortime:'FOR TIME',open:'OPEN',rounds:'ROUNDS',emom:'EMOM',tabata:'TABATA',deathby:'DEATH BY',cleanladder:'CLEAN LADDER'};
     var SCL  = {reps:'reps',load:'kg',dist:'m',time:'temps',cal:'cal'};
     var nTb  = tbCountTotal(w);
     var chips = ''
@@ -13041,7 +13058,7 @@ function renderProgWodsList() {
         +     '</select></div>'
         +   '<div><label style="'+LABEL+'">Format</label>'
         +     '<select onchange="updateWodFmt('+w.id+',this.value)" style="'+IS+';border:1.5px solid #BFDBFE;background:#fff;padding:7px 8px;font-size:11px" onclick="event.stopPropagation()">'
-        +     [{v:'amrap',l:'⏱ AMRAP'},{v:'fortime',l:'🏁 For Time'},{v:'rameursbc',l:'🚣 Rameur SBC'},{v:'open',l:'🏅 Open'},{v:'rounds',l:'🔄 Rounds'},{v:'emom',l:'📡 EMOM'},{v:'tabata',l:'💥 Tabata'},{v:'deathby',l:'💀 Death By'},{v:'cleanladder',l:'💪 Clean Ladder'}]
+        +     [{v:'amrap',l:'⏱ AMRAP'},{v:'amrapsteph',l:'🔁 Amrap Steph'},{v:'fortime',l:'🏁 For Time'},{v:'rameursbc',l:'🚣 Rameur SBC'},{v:'open',l:'🏅 Open'},{v:'rounds',l:'🔄 Rounds'},{v:'emom',l:'📡 EMOM'},{v:'tabata',l:'💥 Tabata'},{v:'deathby',l:'💀 Death By'},{v:'cleanladder',l:'💪 Clean Ladder'}]
             .map(function(o){return '<option value="'+o.v+'"'+((w.wodFormat||'amrap')===o.v?' selected':'')+'>'+o.l+'</option>';}).join('')
         +     '</select></div>'
         +   '<div><label style="'+LABEL+'">Score</label>'
@@ -13207,8 +13224,8 @@ function renderProgWodsList() {
             +   '<textarea rows="2" onchange="updateWodProg('+w.id+',\'conditions\',this.value)" onclick="event.stopPropagation()" onfocus="event.stopPropagation()" placeholder="Ex: Un seul erg en binôme, les deux autres solo." style="'+IS+';height:auto;resize:vertical;font-weight:400">'+escHtml(w.conditions||'')+'</textarea></div>'
             + '<div><label style="'+LABEL+'">Champs scorecard</label>'
             + '<div style="display:flex;flex-wrap:wrap;gap:5px">'
-            + ['reps','load','dist','time','tiebreak','notes'].map(function(f){
-                var icons={reps:'Reps',load:'Poids',dist:'Distance',time:'Temps',tiebreak:'Tiebreak',notes:'Notes'};
+            + ['reps','load','dist','cal','time','tiebreak','notes'].map(function(f){
+                var icons={reps:'Reps',load:'Poids',dist:'Distance',cal:'Calories',time:'Temps',tiebreak:'Tiebreak',notes:'Notes'};
                 var chk=(w.scoreFields||['reps']).indexOf(f)>=0;
                 return '<label style="display:flex;align-items:center;gap:4px;background:'+(chk?'#E3F2FD':'#F5F9FF')+';border:1.5px solid '+(chk?'#1E88E5':'#d0e4ff')+';border-radius:20px;padding:4px 10px;cursor:pointer;font-size:10px;font-weight:700;color:'+(chk?'#1E88E5':'#94A3B8')+';">'
                   +'<input type="checkbox" '+(chk?'checked':'')+' onchange="toggleWodField('+w.id+',\''+f+'\',this.checked)" style="cursor:pointer;width:12px;height:12px" onclick="event.stopPropagation()">'
@@ -13234,13 +13251,35 @@ function renderProgWodsList() {
   }).join('');
 }
 
-// ★ Champs scorecard auto : le champ du score principal + tiebreak (si TB configuré)
-//   sont toujours cochés. N'enlève jamais un choix manuel (union seulement).
+// ★ Champs scorecard AUTO : détectés depuis ce qui est saisi dans le WOD.
+//   - le score principal (scoreType) → son champ
+//   - chaque mouvement ergo en 'cal' → champ Calories ; en distance → champ Distance
+//   - un mouvement avec une charge (poids) → champ Poids
+//   - un tiebreak configuré → champ Tiebreak
+//   N'enlève jamais un choix manuel (union seulement).
 function syncScoreFields(w){
   var f = w.scoreFields || (w.scoreFields = ['reps']);
-  var map = {reps:'reps', load:'load', dist:'dist', time:'time'};
+  var map = {reps:'reps', load:'load', dist:'dist', time:'time', cal:'cal'};
   var need = map[w.scoreType];
   if(need && f.indexOf(need) < 0) f.push(need);
+  // Parcourir TOUS les mouvements (liste plate + tours perso) pour déduire les champs
+  function scan(mvs){
+    (mvs||[]).forEach(function(m){
+      if(!m||typeof m!=='object') return;
+      if(m.type==='ergo'){
+        var u=String(m.ergoUnit||'').toLowerCase();
+        if(u==='cal'){ if(f.indexOf('cal')<0) f.push('cal'); }
+        else { if(f.indexOf('dist')<0) f.push('dist'); }
+      }
+      if(m.type==='load'){ if(f.indexOf('load')<0) f.push('load'); }
+      // charge saisie (poids par cat ou global non vide) → champ Poids
+      var hasP=false;
+      if(m.poids){ if(typeof m.poids==='string'){ hasP=!!m.poids.trim(); } else { hasP=Object.keys(m.poids).some(function(k){var v=m.poids[k];return v!=null&&v!=='';}); } }
+      if(hasP && f.indexOf('load')<0) f.push('load');
+    });
+  }
+  scan(w.mouvements);
+  if(Array.isArray(w.toursPerso)) w.toursPerso.forEach(function(tp){ if(tp&&Array.isArray(tp.mouvements)) scan(tp.mouvements); });
   if(typeof tbCountTotal==='function' && tbCountTotal(w) > 0 && f.indexOf('tiebreak') < 0) f.push('tiebreak');
 }
 
@@ -22262,7 +22301,7 @@ function lsBuildScorecardHTML(heat, slot, wod, sc, nomEv, timeStr) {
   var rows = blocks.reduce(function(a,b){return a.concat(b.rows);},[]);
 
   var wodFmt   = String(wod.wodFormat||wod.type||'amrap').toLowerCase();
-  var fmtLabels= {amrap:'AMRAP',fortime:'FOR TIME',emom:'EMOM',rounds:'ROUNDS',maxload:'MAX LOAD',tabata:'TABATA',deathby:'DEATH BY',cleanladder:'CLEAN LADDER'};
+  var fmtLabels= {amrap:'AMRAP',amrapsteph:'AMRAP STEPH',fortime:'FOR TIME',emom:'EMOM',rounds:'ROUNDS',maxload:'MAX LOAD',tabata:'TABATA',deathby:'DEATH BY',cleanladder:'CLEAN LADDER'};
   var fmtLabel = fmtLabels[wodFmt] || 'AMRAP';
   var capLabel = fmtLabel + ' \u00b7 ' + secToMmss(wod.duree||0);
   var fmtBgMap = {amrap:'#1E40AF',fortime:'#B91C1C',emom:'#065F46',rounds:'#6B21A8',maxload:'#92400E',tabata:'#0E7490',deathby:'#B91C1C',cleanladder:'#047857'};
@@ -22461,6 +22500,9 @@ function printBlankScorecards(wodId){
   function movTable(rows, color){
     if(!rows.length) return '<div style="padding:12px;text-align:center;font-size:11px;color:#94A3B8">Aucun mouvement configuré</div>';
     var body = rows.map(function(row){
+      if(String(row).indexOf('§SCORE§')===0){
+        return '<tr><td style="padding:6px 10px;font-size:12px;font-weight:900;background:#FEF3C7;border-bottom:2px solid #F59E0B;color:#92400E">⭐ '+escHtml(String(row).slice(7))+'</td><td style="width:70px;border-bottom:2px solid #F59E0B;border-left:1px solid #E2E8F0;background:#FFFBEB;text-align:center;font-size:8px;color:#B45309;font-weight:800">score</td></tr>';
+      }
       if(String(row).indexOf('§HDR§')===0){
         return '<tr><td colspan="2" style="padding:5px 10px;font-size:9px;font-weight:900;background:#B91C1C;color:#fff;text-transform:uppercase;letter-spacing:1px">'+escHtml(String(row).slice(5))+'</td></tr>';
       }
@@ -22595,7 +22637,7 @@ function printScorecardWod(wodId) {
     var rows = (wod.scorecardRows||'').trim().split('\n').filter(function(r){return r.trim();});
 
     var wodType  = wod.wodFormat || 'amrap';
-    var wodLabel = {amrap:'AMRAP',fortime:'FOR TIME',rounds:'ROUNDS',emom:'EMOM',tabata:'TABATA',maxload:'MAX LOAD',deathby:'DEATH BY',cleanladder:'CLEAN LADDER'}[wodType] || 'AMRAP';
+    var wodLabel = {amrap:'AMRAP',amrapsteph:'AMRAP STEPH',fortime:'FOR TIME',rounds:'ROUNDS',emom:'EMOM',tabata:'TABATA',maxload:'MAX LOAD',deathby:'DEATH BY',cleanladder:'CLEAN LADDER'}[wodType] || 'AMRAP';
     var capLabel = wodLabel + ' · ' + secToMmss(wod.duree||0);
     var fields   = wod.scoreFields || ['reps'];
     var scoreType = wod.scoreType || (fields.indexOf('time')>=0?'time': fields.indexOf('load')>=0?'load':'reps');
@@ -22632,6 +22674,9 @@ function printScorecardWod(wodId) {
       if (!rows.length) return '<div style="padding:14px;text-align:center;font-size:11px;color:var(--ink2);background:#F8FAFC">Aucun mouvement — configurez les mouvements dans Programme</div>';
       // ★ Colonnes Cumul et Heure supprimées — uniquement le mouvement
       var tbRows = rows.map(function(row) {
+        if (String(row).indexOf('§SCORE§')===0) {
+          return '<tr><td style="padding:7px 12px;font-size:12px;font-weight:900;background:#FEF3C7;border-bottom:2px solid #F59E0B;color:#92400E">⭐ ' + escHtml(String(row).slice(7)) + ' <span style="float:right;font-size:9px;font-weight:800;color:#B45309">▢ compte au score</span></td></tr>';
+        }
         if (String(row).indexOf('§HDR§')===0) {
           return '<tr><td style="padding:6px 12px;font-size:10px;font-weight:900;background:#B91C1C;color:#fff;text-transform:uppercase;letter-spacing:1px">' + escHtml(String(row).slice(5)) + '</td></tr>';
         }
@@ -22797,7 +22842,25 @@ function printScorecardWod(wodId) {
       var _pcRounds = parseInt(wod.rounds||1,10)||1;
       var _fmtKeyRows = String(wod.wodFormat||wod.type||'').toLowerCase();
 
-      if (_fmtKeyRows==='deathby') {
+      if (_fmtKeyRows==='amrapsteph') {
+        // ★ AMRAP STEPH : AMRAP au temps, les mouvements bouclent (dernier → 1er).
+        //   On imprime N blocs "TOUR" (grille de tours vierges à cocher) avec les
+        //   mouvements, le DERNIER (bike) mis en évidence = celui qui SCORE (cals/dist).
+        //   Nb de tours affichés = estimation (case à cocher), défaut 8.
+        var _asBase = (wod.mouvements||[]);
+        var _asN = 8; // nb de tours vierges à cocher (l'AMRAP est illimité)
+        var _asLastIdx = _asBase.length-1;
+        for(var _at=1; _at<=_asN; _at++){
+          adaptRows.push('§TOUR§'+_at);
+          _asBase.forEach(function(mv,mi){
+            var line=_mapMov(mv);
+            // marquer le dernier mouvement (celui qui score) avec ⭐
+            if(mi===_asLastIdx){ adaptRows.push('§SCORE§'+line); }
+            else { adaptRows.push(line); }
+          });
+        }
+        if(!_asBase.length){ adaptRows=[]; for(var _at2=1;_at2<=_asN;_at2++){ adaptRows.push('§TOUR§'+_at2); } }
+      } else if (_fmtKeyRows==='deathby') {
         // ★ DEATH BY : échelle ascendante. Reps tour N = départ + (N-1)×incrément,
         //   nombre de tours = time cap / durée par tour. Lit la config du WOD
         //   (dbStartReps / dbIncPerRound / dbRoundSec) → se met à jour si on modifie
