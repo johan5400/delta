@@ -3541,6 +3541,10 @@ function ecAdd(){
   var _lastIdx=(SC&&SC.moves)?(SC.moves.length-1):0;
   var _fmtEc=String((SC&&SC.fmt)||'').toLowerCase();
   var _isTimed=(_fmtEc==='emom'||_fmtEc==='interval');
+  // ★ AMRAP STEPH / AMRAP : le dernier mouvement (bike ergo) vient d'être saisi →
+  //   on BOUCLE au mouvement 1 pour le tour suivant (tours illimités au temps).
+  //   Sans ça, le juge restait bloqué après le bike (« ça revient pas au mvt 1 »).
+  var _isAmrapLoop=(_fmtEc==='amrap'||_fmtEc==='amrapsteph'||_fmtEc===''||!_fmtEc);
   if(moveIdx < _lastIdx){
     // Il reste un mouvement dans le tour (ex : snatch après le vélo) → y aller directement.
     moveIdx++; moveReps=0;
@@ -3549,6 +3553,15 @@ function ecAdd(){
     try{ vib([50,30,50]); }catch(e){}
     if(typeof updateDisplay==='function') updateDisplay();
     if(typeof updateEmomDisplay==='function') updateEmomDisplay();
+    if(db && typeof pushScoreLive==='function') pushScoreLive();
+  } else if(_isAmrapLoop && !done){
+    // ★ Dernier mouvement (bike) saisi → nouveau tour : retour au mouvement 1.
+    currentRound++;
+    moveIdx=0; moveReps=0;
+    var _m1=SC.moves[0];
+    if(_m1 && typeof toast==='function') toast('🔄 Tour '+currentRound+' · ▶ '+(_m1.n||'Mouvement 1'),'#FFB74D',1800);
+    try{ vib([80,40,80]); }catch(e){}
+    if(typeof updateDisplay==='function') updateDisplay();
     if(db && typeof pushScoreLive==='function') pushScoreLive();
   } else if(_isTimed && !done){
     // Le vélo est le DERNIER mouvement du tour.

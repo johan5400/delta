@@ -2191,8 +2191,18 @@ function renderRankCards(rows,w,st,showLiveChips,h,catId,catLeader){
     var _ergoLiveStr=(_ergoLiveVal>0?String(_ergoLiveVal)+' '+_ergoLiveUnit:'—');
     // ★ Mouvement à paliers (rameur) : le gros compteur affiche les MÈTRES (clics×pas).
     var _pasScore=movePasProg(_curMov,_cr,_q,catId);
+    // ★ FIX AMRAP STEPH : sur un WOD ergo cumulé (score cal/dist via bike final), tant
+    //   que l'équipe n'a pas encore fait de cals (dist=0, elle est sur les 1ers mouvements),
+    //   afficher la PROGRESSION du mouvement en cours (reps) au lieu de « — ». Dès qu'elle
+    //   pédale, on bascule sur les cals cumulées.
+    var _ergoButNoValYet = _isErgoLive && _ergoLiveVal<=0;
     var _liveScore=!val&&st==='live'
-      ?(_pasScore?_pasScore:(_isErgoLive?_ergoLiveStr:(_cr>0?String(_cr)+(_q>0?' / '+_q:''):(_tot>0?String(_tot):'—'))))
+      ?(_pasScore?_pasScore
+         :(_isErgoLive
+            ?(_ergoButNoValYet
+                ?(_cr>0?String(_cr)+(_q>0?' / '+_q:''):(_tot>0?String(_tot)+' reps':'—'))
+                :_ergoLiveStr)
+            :(_cr>0?String(_cr)+(_q>0?' / '+_q:''):(_tot>0?String(_tot):'—'))))
       :'';
     var _subLine='';
     var _roundHtml='';
