@@ -667,6 +667,7 @@ body.brief-mode #s-judge{display:none!important}
     </div>
     <div class="j-btns">
       <button class="btn-rep" id="btn-rep" onclick="addRep()">+ REP</button>
+      <button class="btn-tb" id="btn-rep-minus" onclick="removeRep()" style="background:rgba(255,59,92,.12);border-color:rgba(255,59,92,.45);color:#FF6B85">➖<br>REP</button>
       <button class="btn-tb" id="btn-tb" onclick="manualTB()" style="display:none">🎯<br>TB</button>
       <button class="btn-tb" id="btn-drop" onclick="deathByDrop()" style="display:none;background:rgba(255,59,92,.15);border-color:rgba(255,59,92,.5);color:#FF6B85">🏳️<br>LÂCHE</button>
       <button class="btn-tb" id="btn-clfini" onclick="cleanLadderFini()" style="display:none;background:rgba(4,120,87,.18);border-color:rgba(4,120,87,.55);color:#34D399">🏁<br>FINI</button>
@@ -3884,6 +3885,31 @@ function addRep(){
   if(fmt==='emom'||fmt==='interval') emomRoundReps++;
   var nel=$('j-num'); nel.classList.remove('pop'); void nel.offsetWidth; nel.classList.add('pop');
   updateDisplay();
+  if(db) pushScoreLive();
+}
+// ★ BOUTON REP -1 (demande chef) : corrige une rep comptée en trop. Fonctionne pour
+//   TOUS les formats. Décrémente le mouvement en cours ; si on est à 0 et qu'un
+//   mouvement précédent existe, revient dessus (à son quota). Plancher global à 0.
+function removeRep(){
+  if(!guardScoreEdit('Saisie bloquée')) return;
+  if(moveReps>0){
+    moveReps--; if(totalReps>0) totalReps--;
+    var _fmtR=SC.fmt||'';
+    if(_fmtR==='emom'||_fmtR==='interval'){ if(emomRoundReps>0) emomRoundReps--; }
+  } else if(moveIdx>0){
+    // Revenir au mouvement précédent, positionné à son quota (dernière rep)
+    moveIdx--;
+    var _pm=SC.moves[moveIdx];
+    var _pq=(_pm&&_pm.q>0)?_pm.q:0;
+    moveReps=_pq>0?_pq-1:0;
+    if(totalReps>0) totalReps--;
+  } else {
+    vib([20]); toast('Rien à retirer'); return;
+  }
+  vib([25,15,25]);
+  var nel=$('j-num'); if(nel){ nel.classList.remove('pop'); void nel.offsetWidth; nel.classList.add('pop'); }
+  if(typeof updateDisplay==='function') updateDisplay();
+  if(typeof updateEmomDisplay==='function') updateEmomDisplay();
   if(db) pushScoreLive();
 }
 function nextMove(){

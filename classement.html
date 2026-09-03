@@ -293,7 +293,7 @@ function editScore(hid,ln,teamName,wod){
   var type=wod.wodFormat||wod.type||'amrap';
   var isFortime=type==='fortime'||wod.scoreFinale==='time';
   var isMaxload=wod.judgeMode==='maxload'||wod.scoreFinale==='load';
-  var isErgo=wod.judgeMode==='ergo';
+  var isErgo=wod.judgeMode==='ergo'||wod.scoreFinale==='dist'||wod.scoreFinale==='cal'||(wod.scoreType||'').toLowerCase()==='cal'||(wod.scoreType||'').toLowerCase()==='dist';
 
   var msg='Modifier le score de '+teamName+'\n\n';
   var newVal, newSc=JSON.parse(JSON.stringify(sc||{}));
@@ -302,6 +302,16 @@ function editScore(hid,ln,teamName,wod){
     newVal=prompt(msg+'Charge actuelle : '+(sc.load||0)+' kg\nNouvelle charge (kg) :',sc.load||0);
     if(newVal===null)return;
     newSc.load=parseFloat(newVal)||0;
+    newSc.judgeOk=true;
+  } else if(isErgo){
+    // ★ FIX (cal/distance) : pour un WOD ergo (cals du bike, mètres rameur…),
+    //   modifier la valeur ergo (dist/ergoVal), PAS les reps.
+    var _eu=((wod.scoreType||wod.scoreFinale||'').toLowerCase()==='cal')?'cal':'m';
+    var _cur=parseFloat(sc.ergoVal||sc.dist||sc.distance)||0;
+    newVal=prompt(msg+'Valeur actuelle : '+_cur+' '+_eu+'\nNouvelle valeur ('+_eu+') :',_cur);
+    if(newVal===null)return;
+    var _nv=parseFloat(newVal)||0;
+    newSc.dist=_nv; newSc.ergoVal=_nv; newSc.distance=_nv;
     newSc.judgeOk=true;
   } else if(isFortime){
     var cur=sc.finalTime>0?Math.floor(sc.finalTime/60)+'m'+(sc.finalTime%60)+'s':'—';
