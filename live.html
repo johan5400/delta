@@ -361,16 +361,6 @@ body{height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-fami
   animation:np-shine 4s linear infinite;filter:drop-shadow(0 0 16px rgba(255,138,0,.5))
 }
 @keyframes np-shine{0%{background-position:0% center}100%{background-position:200% center}}
-/* ★ Cycliste qui pédale (Amrap Steph) : affiché quand l'équipe est sur le bike et que
-   le juge n'a pas encore saisi de cals. Le vélo tressaute façon effort. */
-@keyframes bikePedal{0%,100%{transform:translateY(0) rotate(-1deg)}50%{transform:translateY(-3px) rotate(1deg)}}
-.bike-anim{display:inline-flex;align-items:center;gap:8px;animation:bikePedal .5s ease-in-out infinite}
-.bike-anim .bike-ico{font-size:1.15em;filter:drop-shadow(0 0 8px rgba(45,156,255,.5))}
-.bike-anim .bike-txt{font-family:var(--fc);font-weight:900;letter-spacing:1px;color:#7FD4FF;font-size:.82em;text-transform:uppercase}
-@keyframes bikeDots{0%{opacity:.2}33%{opacity:1}66%{opacity:.2}}
-.bike-anim .bike-d1{animation:bikeDots 1.1s infinite}
-.bike-anim .bike-d2{animation:bikeDots 1.1s infinite .35s}
-.bike-anim .bike-d3{animation:bikeDots 1.1s infinite .7s}
 .np-cd{
   font-family:var(--fm);font-size:clamp(26px,3.6vw,46px);font-weight:900;
   color:#fff;line-height:1;margin-top:4px;letter-spacing:-1px;
@@ -1939,11 +1929,22 @@ function compareScores(a,b,w){
   var _cjm=((w&&w.judgeMode)||'').toLowerCase();
   var _csf=((w&&(w.scoreType||w.scoreFinale))||'').toLowerCase();
   if(_cjm==='ergo'||_csf==='dist'||_csf==='cal'){
-    // ★ RÈGLE CHEF : bike (distance) d'abord, PUIS le nombre de snatch (départage) —
-    //   en DIRECT ET au FINAL. Une équipe à 0 bike reste classée par ses snatch.
-    //   Validé → snatch total (sc.reps) ; en direct → snatch du tour (roundReps).
-    var _ar=a.ok ? (parseInt((a.sc&&a.sc.reps)||0,10)||0) : (parseInt((a.sc&&(a.sc.roundReps!=null?a.sc.roundReps:a.sc.reps))||0,10)||0);
-    var _br=b.ok ? (parseInt((b.sc&&b.sc.reps)||0,10)||0) : (parseInt((b.sc&&(b.sc.roundReps!=null?b.sc.roundReps:b.sc.reps))||0,10)||0);
+    // ★ CLASSEMENT DYNAMIQUE reps → distance (Amrap Steph) :
+    //   - tant qu'il n'y a PAS encore de distance/cals (bike pas atteint), on classe sur
+    //     le TOTAL de reps effectuées depuis le début (shuttle run + SU + …) → ça bouge
+    //     dès la 1ère rep.
+    //   - dès qu'il y a des cals, scoreVal (au-dessus) a déjà tranché ; ici on ne sert
+    //     que de départage à cals égales, où le total de reps fait encore foi.
+    var _av2=parseFloat((a.sc&&(a.sc.dist||a.sc.ergoVal||a.sc.distance))||0)||0;
+    var _bv2=parseFloat((b.sc&&(b.sc.dist||b.sc.ergoVal||b.sc.distance))||0)||0;
+    // reps totales : validé → sc.reps ; en direct → max(reps total, roundReps du tour)
+    function _repsTot(sc){
+      if(!sc) return 0;
+      var _t=parseInt(sc.reps||0,10)||0;
+      var _rr=parseInt(sc.roundReps||0,10)||0;
+      return Math.max(_t,_rr);
+    }
+    var _ar=_repsTot(a.sc), _br=_repsTot(b.sc);
     if(_br!==_ar) return _br-_ar;
   }
   // ★ Multi-TB : comparer chaque TB dans l'ordre (plus petit = plus rapide = meilleur)
@@ -2204,21 +2205,14 @@ function renderRankCards(rows,w,st,showLiveChips,h,catId,catLeader){
     // ★ FIX AMRAP STEPH : sur un WOD ergo cumulé (score cal/dist via bike final), tant
     //   que l'équipe n'a pas encore fait de cals (dist=0, elle est sur les 1ers mouvements),
     //   afficher la PROGRESSION du mouvement en cours (reps) au lieu de « — ». Dès qu'elle
-    //   pédale, on bascule sur les cals cumulées.
+    //   pédale, on affiche le TOTAL de cals cumulées (dist/ergoVal = somme de tous les tours).
     var _ergoButNoValYet = _isErgoLive && _ergoLiveVal<=0;
-    // ★ CYCLISTE QUI PÉDALE : si le mouvement EN COURS est le bike (ergoFree) et que le
-    //   juge n'a pas encore saisi de cals → on affiche une petite animation vélo pour le
-    //   public (au lieu d'un « — » figé), en attendant la saisie.
-    var _onBikeNoVal = _isErgoLive && _ergoLiveVal<=0 && _curMov && _curMov.ergoFree;
-    var _bikeAnimHtml = '<span class="bike-anim"><span class="bike-ico">🚴</span><span class="bike-txt">sur le vélo<span class="bike-d1">.</span><span class="bike-d2">.</span><span class="bike-d3">.</span></span></span>';
     var _liveScore=!val&&st==='live'
       ?(_pasScore?_pasScore
          :(_isErgoLive
-            ?(_onBikeNoVal
-                ? _bikeAnimHtml
-                :(_ergoButNoValYet
-                    ?(_cr>0?String(_cr)+(_q>0?' / '+_q:''):(_tot>0?String(_tot)+' reps':'—'))
-                    :_ergoLiveStr))
+            ?(_ergoButNoValYet
+                ?(_cr>0?String(_cr)+(_q>0?' / '+_q:''):(_tot>0?String(_tot)+' reps':'—'))
+                :_ergoLiveStr)
             :(_cr>0?String(_cr)+(_q>0?' / '+_q:''):(_tot>0?String(_tot):'—'))))
       :'';
     var _subLine='';
@@ -2718,25 +2712,9 @@ function startTeamBandIH(zone,ihTarget,doneHid,doneH,doneW,catId,catLeader){
     }
     startTeamBandIH._sched[zone]={hid:doneHid,heatEnd:heatEnd,wodEnd:wodEnd,previewStart:previewStart};
   }
-  // ★ CHEF : LAISSER SOUFFLER L'ATHLÈTE — après la fin du heat, on attend ~30 s AVANT
-  //   d'afficher les résultats (du heat, ou du WOD si dernier heat). Plafonné au tiers
-  //   de l'inter-heat pour ne pas manger le temps des résultats/preview quand il est court.
-  if(!startTeamBandIH._breathe) startTeamBandIH._breathe={};
-  var _br=startTeamBandIH._breathe[zone];
-  var breatheEnd;
-  if(_br && _br.hid===doneHid){ breatheEnd=_br.end; }
-  else {
-    var _brDur=Math.min(30000, Math.max(0, Math.round(totalSec*1000/3)));
-    // Pas de souffle pendant une coupure (les sponsors couvrent déjà le temps mort).
-    if((ih.ihType||'')==='coupure') _brDur=0;
-    breatheEnd=now()+_brDur;
-    // Le souffle ne doit pas dépasser le début prévu des résultats.
-    if(breatheEnd>heatEnd) breatheEnd=Math.min(breatheEnd,heatEnd);
-    startTeamBandIH._breathe[zone]={hid:doneHid,end:breatheEnd};
-  }
   // Phase initiale déduite du planning (jamais rejouée en arrière car le temps avance).
   var _t0=now();
-  var phase=(_t0<breatheEnd)?'breathe':((_t0<heatEnd)?'heat':((wodEnd&&_t0<wodEnd)?'wod':'preview')); // 'breathe'|'heat'|'wod'|'preview'
+  var phase=(_t0<heatEnd)?'heat':((wodEnd&&_t0<wodEnd)?'wod':'preview'); // 'heat'|'wod'|'preview'
   function _setPhase(p){ phase=p; renderPhase(); }
 
   // ★ HARMONISATION HEADER : on synchronise le wod-hdr de la zone avec la phase
@@ -2797,19 +2775,7 @@ function startTeamBandIH(zone,ihTarget,doneHid,doneH,doneW,catId,catLeader){
   function renderPhase(){
     var el2=document.getElementById('tband-'+zone);
     if(!el2) return;
-    if(phase==='breathe'){
-      // ★ Phase « souffle » : le heat vient de finir, on laisse ~30 s aux athlètes
-      //   avant d'afficher les résultats. Écran neutre et calme (pas de scores encore).
-      syncHeader('done');
-      var _brRem=Math.max(0,Math.ceil((breatheEnd-now())/1000));
-      el2.innerHTML=''
-        +'<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:clamp(20px,5vh,60px) 16px;text-align:center;gap:14px">'
-        +  '<div style="font-size:clamp(38px,7vw,72px);line-height:1;filter:drop-shadow(0 0 22px rgba(45,156,255,.5))">🏁</div>'
-        +  '<div style="font-family:var(--ff);font-size:clamp(20px,2.6vw,34px);letter-spacing:2px;color:#9DD4FF;text-transform:uppercase">Heat terminé</div>'
-        +  '<div style="font-family:var(--fc);font-size:clamp(12px,1.4vw,17px);color:#7F9BC0;letter-spacing:1px">'+esc(doneW.nom||'WOD')+(doneH.catName?(' · '+esc(doneH.catName)):'')+'</div>'
-        +  '<div style="font-family:var(--fc);font-size:clamp(11px,1.2vw,15px);color:#64748B;letter-spacing:2px;text-transform:uppercase;margin-top:2px">Résultats dans '+_brRem+' s…</div>'
-        +'</div>';
-    } else if(phase==='heat'){
+    if(phase==='heat'){
       // ★ FIX SÉQUENCE RÉSULTATS (bug chef) : ne JAMAIS afficher en « résultats » un
       //   heat qui n'est pas réellement TERMINÉ. Si le heat pointé est en fait le
       //   prochain (pending/pre — cas de latence où le heat fini n'est pas encore passé
@@ -2894,10 +2860,7 @@ function startTeamBandIH(zone,ihTarget,doneHid,doneH,doneW,catId,catLeader){
     if(rem<=0){clearTeamIv(zone);scheduleRender();return;}
 
     // Transitions de phase
-    if(phase==='breathe'){
-      if(t>=breatheEnd){ _setPhase(t<heatEnd?'heat':((wodEnd&&t<wodEnd)?'wod':'preview')); }
-      else { renderPhase(); } // rafraîchir le décompte « résultats dans X s »
-    } else if(phase==='heat' && t>=heatEnd){
+    if(phase==='heat' && t>=heatEnd){
       // Phase wod (classement général) seulement sur le DERNIER heat de la catégorie
       if(isLast && wodSec>=3){_setPhase('wod');}
       else if(t>=previewStart){_setPhase('preview');}
