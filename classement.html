@@ -554,6 +554,14 @@ function rankWod(catName,wodName,zone){
     if(!aOk&&bOk)return 1;
     if(!aOk&&!bOk)return String(a.teamName||"").localeCompare(String(b.teamName||""));
     if(a.val!==b.val)return b.val-a.val;
+    // ★ AMRAP STEPH (demande chef) : à CALS ÉGALES, départage sur le TOTAL de reps
+    //   effectuées (celui qui a fait le plus de reps passe devant). Uniquement pour
+    //   ce format, pour ne pas toucher au départage des autres WOD.
+    if(String(wod.wodFormat||'').toLowerCase()==='amrapsteph'){
+      var _arS=parseInt((a.sc&&a.sc.reps)||0,10)||0;
+      var _brS=parseInt((b.sc&&b.sc.reps)||0,10)||0;
+      if(_brS!==_arS) return _brS-_arS;
+    }
     // ★ CLEAN LADDER v2 : départage (en course > éliminé, puis avancement). Éliminés gardent leur cumul.
     var _clt=clTieBreak(a,b); if(_clt!==0) return _clt;
     var aTbs=tbArrCl(a.sc),bTbs=tbArrCl(b.sc);
@@ -1204,6 +1212,12 @@ function renderFinalRanking(finalHeats){
       if(aOk&&!bOk)return -1;if(!aOk&&bOk)return 1;
       if(!aOk&&!bOk)return String(a.teamName||"").localeCompare(String(b.teamName||""));
       if(a.val!==b.val)return b.val-a.val;
+      // ★ AMRAP STEPH : départage total de reps à cals égales (cf. classement général).
+      if(String((wodInfo&&wodInfo.wodFormat)||'').toLowerCase()==='amrapsteph'){
+        var _arH=parseInt((a.sc&&a.sc.reps)||0,10)||0;
+        var _brH=parseInt((b.sc&&b.sc.reps)||0,10)||0;
+        if(_brH!==_arH) return _brH-_arH;
+      }
       var _cltF=clTieBreak(a,b); if(_cltF!==0) return _cltF;
       return String(a.teamName||"").localeCompare(String(b.teamName||""));
     });

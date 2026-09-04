@@ -22503,6 +22503,9 @@ function printBlankScorecards(wodId){
       if(String(row).indexOf('§SCORE§')===0){
         return '<tr><td style="padding:6px 10px;font-size:12px;font-weight:900;background:#FEF3C7;border-bottom:2px solid #F59E0B;color:#92400E">⭐ '+escHtml(String(row).slice(7))+'</td><td style="width:70px;border-bottom:2px solid #F59E0B;border-left:1px solid #E2E8F0;background:#FFFBEB;text-align:center;font-size:8px;color:#B45309;font-weight:800">score</td></tr>';
       }
+      if(String(row).indexOf('§TB§')===0){
+        return '<tr><td style="padding:6px 10px;font-size:12px;font-weight:900;background:#EEF2FF;border-bottom:2px solid #6366F1;color:#3730A3">🏁 '+escHtml(String(row).slice(4))+'</td><td style="width:70px;border-bottom:2px solid #6366F1;border-left:1px solid #E2E8F0;background:#F5F3FF;text-align:center;font-size:8px;color:#4F46E5;font-weight:800">départage</td></tr>';
+      }
       if(String(row).indexOf('§HDR§')===0){
         return '<tr><td colspan="2" style="padding:5px 10px;font-size:9px;font-weight:900;background:#B91C1C;color:#fff;text-transform:uppercase;letter-spacing:1px">'+escHtml(String(row).slice(5))+'</td></tr>';
       }
@@ -22676,6 +22679,9 @@ function printScorecardWod(wodId) {
       var tbRows = rows.map(function(row) {
         if (String(row).indexOf('§SCORE§')===0) {
           return '<tr><td style="padding:7px 12px;font-size:12px;font-weight:900;background:#FEF3C7;border-bottom:2px solid #F59E0B;color:#92400E">⭐ ' + escHtml(String(row).slice(7)) + ' <span style="float:right;font-size:9px;font-weight:800;color:#B45309">▢ compte au score</span></td></tr>';
+        }
+        if (String(row).indexOf('§TB§')===0) {
+          return '<tr><td style="padding:7px 12px;font-size:12px;font-weight:900;background:#EEF2FF;border-bottom:2px solid #6366F1;color:#3730A3">🏁 ' + escHtml(String(row).slice(4)) + ' <span style="float:right;font-size:9px;font-weight:800;color:#4F46E5">▢ départage</span></td></tr>';
         }
         if (String(row).indexOf('§HDR§')===0) {
           return '<tr><td style="padding:6px 12px;font-size:10px;font-weight:900;background:#B91C1C;color:#fff;text-transform:uppercase;letter-spacing:1px">' + escHtml(String(row).slice(5)) + '</td></tr>';
@@ -22860,6 +22866,11 @@ function printScorecardWod(wodId) {
           });
         }
         if(!_asBase.length){ adaptRows=[]; for(var _at2=1;_at2<=_asN;_at2++){ adaptRows.push('§TOUR§'+_at2); } }
+        // ★ RÉCAP pour le classement + tie-break : le SCORE = total de CALS du bike ;
+        //   le DÉPARTAGE (à cals égales) = TOTAL de REPS. On imprime deux cases dédiées.
+        adaptRows.push('§HDR§RÉSULTAT FINAL');
+        adaptRows.push('§SCORE§TOTAL CALORIES (bike) — score');
+        adaptRows.push('§TB§TOTAL REPS (départage à égalité)');
       } else if (_fmtKeyRows==='deathby') {
         // ★ DEATH BY : échelle ascendante. Reps tour N = départ + (N-1)×incrément,
         //   nombre de tours = time cap / durée par tour. Lit la config du WOD

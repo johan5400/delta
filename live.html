@@ -2540,6 +2540,11 @@ function renderZone(zone){
     if(m.comment) tags+='<span style="background:rgba(5,150,105,.18);color:#6EE7B7;border-radius:3px;padding:0 5px;font-size:10px;margin-left:2px">'+(CLBLS[m.comment]||esc(m.comment))+'</span>';
     return '<div class="mov">'+_tb+'<span class="mov-q">'+(m.ergoFree?'MAX':'×'+m.q)+'</span><span class="mov-n">'+esc(m.nom)+'</span>'+(m.poids?'<span class="mov-p">'+esc(m.poids)+'</span>':'')+tags+'</div>';
   }).join('');
+  // ★ AMRAP STEPH : badge « Relais A/B » pour indiquer clairement que les deux athlètes
+  //   alternent (un tour complet chacun, A commence). Placé en tête des mouvements.
+  if(String(w.wodFormat||'').toLowerCase()==='amrapsteph'){
+    movsHtml = '<div class="mov" style="background:linear-gradient(135deg,rgba(127,224,192,.18),rgba(147,197,253,.18));border:1px solid rgba(127,224,192,.45)"><span style="font-size:12px;font-weight:900;letter-spacing:.5px;color:#7FE0C0">🔄 RELAIS</span><span style="background:#7FE0C0;color:#0a1410;border-radius:4px;padding:0 6px;font-size:11px;font-weight:900;margin-left:5px">A</span><span style="color:#94a3b8;font-size:11px;font-weight:900;margin:0 2px">→</span><span style="background:#93C5FD;color:#0a1410;border-radius:4px;padding:0 6px;font-size:11px;font-weight:900">B</span></div>' + movsHtml;
+  }
   var ST={'live':'LIVE','timecap':'TIMECAP','pre':'PRÊT','done':'TERMINÉ','pending':'ATTENTE'};
   var catLeaders=getLeaders();
   var catLeader=catLeaders[catId]||null;
