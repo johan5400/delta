@@ -19690,9 +19690,11 @@ function renderClassementAdmin(heatsData, scoresData){
     });
   });
 
-  // ★ TOUS LES WODS PROGRAMMÉS : union avec la config WODS — chaque WOD de la
-  //   zone de la catégorie apparaît en colonne (J1+J2 en Général), même sans
-  //   heats générés ni scores. Les cellules restent à « — » tant que rien n'est joué.
+  // ★ WODS PROGRAMMÉS (colonnes) : on n'ajoute un WOD à une catégorie QUE si cette
+  //   catégorie n'a encore AUCUN heat généré (sinon ses WODs viennent des heats, qui
+  //   sont la seule source fiable de l'association WOD↔catégorie). Sans cette garde,
+  //   toutes les catégories d'une même zone héritaient de TOUS les WODs de la zone
+  //   (bug : 6 catégories en Zone 1 → chacune affichait les 16 WODs).
   try{
     var _allWods = (typeof WODS!=='undefined' && Array.isArray(WODS)) ? WODS : [];
     _allWods.forEach(function(w){
@@ -19703,8 +19705,11 @@ function renderClassementAdmin(heatsData, scoresData){
       var wid = String(w.id||w.nom);
       Object.keys(byCategory).forEach(function(cid){
         var c = byCategory[cid];
+        // Catégorie qui a déjà des heats → ne rien ajouter : ses WODs sont ceux
+        //   de ses heats, point. On ne complète que les catégories sans aucun heat.
+        if(c.totalHeats && c.totalHeats>0) return;
         if(c.zone && wz && c.zone!==wz) return;       // WOD d'une autre zone
-        if(c.wods[wid]) return;                        // déjà présent (via heats)
+        if(c.wods[wid]) return;                        // déjà présent
         var dup=false;                                  // anti-doublon par nom
         Object.keys(c.wods).forEach(function(k){ if(String(c.wods[k].nom||'')===String(w.nom)) dup=true; });
         if(dup) return;
