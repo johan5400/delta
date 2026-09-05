@@ -3358,11 +3358,13 @@ var _spMaxW = 480;          // largeur cible après compression
 var _spInited = false;
 
 var YO_HIDDEN=false, _yoWatchOn=false;
+var YO_POS=0;               // ★ position du logo YO-TIMER dans l'ordre d'affichage (index)
 function loadYoTimerState(){
   var db=getDb(); if(!db||typeof db.ref!=='function'){ return; }
   if(_yoWatchOn){ return; }
   _yoWatchOn=true;
   db.ref('system/yoTimerHidden').on('value',function(s){ YO_HIDDEN=(s.val()===true); try{ renderSponsors(); }catch(e){} });
+  db.ref('system/yoTimerPos').on('value',function(s){ var p=parseInt(s.val(),10); YO_POS=(isNaN(p)?0:p); try{ renderSponsors(); }catch(e){} });
 }
 function toggleYoTimer(){
   var db=getDb(); if(!db){ toast&&toast('Firebase indisponible','#E65100'); return; }
@@ -3447,29 +3449,79 @@ function renderSponsors(){
   if(!grid) return;
   if(cnt) cnt.textContent=SPONSORS.length+' / 12';
   if(empty) empty.style.display=(SPONSORS.length||!YO_HIDDEN)?'none':'block';
-  // Carte YO-TIMER (chrono officiel) — gérée comme un sponsor : supprimable / remettable
-  var yoCard='<div style="background:#fff;border:1px solid '+(YO_HIDDEN?'rgba(220,38,38,.3)':'var(--brd2)')+';border-radius:12px;padding:10px;position:relative;box-shadow:0 4px 14px rgba(15,28,46,.12);opacity:'+(YO_HIDDEN?'.45':'1')+'">'
-    +'<div style="position:absolute;top:6px;left:6px;background:#182b43;color:#7FB8E0;font-size:7px;font-weight:900;padding:2px 5px;border-radius:4px;letter-spacing:.5px;z-index:1">CHRONO OFFICIEL</div>'
-    +'<div style="aspect-ratio:16/9;display:flex;align-items:center;justify-content:center;overflow:hidden;border-radius:6px">'
-    +'<img src="yotimer_.jpg" style="max-width:100%;max-height:100%;object-fit:contain">'
-    +'</div>'
-    +'<div style="display:flex;gap:4px;margin-top:8px;align-items:center;justify-content:center">'
-    +(YO_HIDDEN
-       ?'<button onclick="toggleYoTimer()" style="flex:1;background:rgba(0,229,160,.12);border:1px solid rgba(0,229,160,.3);border-radius:6px;padding:5px 9px;font-size:11px;font-weight:800;cursor:pointer;color:#00B87A;font-family:inherit">↩︎ Remettre sur le live</button>'
-       :'<span style="flex:1;font-size:10px;font-weight:800;color:var(--ink3);text-align:center">YO-TIMER</span><button onclick="toggleYoTimer()" title="Retirer du live" style="background:rgba(220,38,38,.1);border:1px solid rgba(220,38,38,.25);border-radius:6px;padding:5px 9px;font-size:12px;font-weight:800;cursor:pointer;color:#DC2626;font-family:inherit">🗑</button>')
-    +'</div></div>';
-  grid.innerHTML=yoCard+SPONSORS.map(function(s,i){
+
+  // ★ Liste COMBINÉE affichée = sponsors + carte YO-TIMER insérée à sa position (YO_POS),
+  //   de sorte que le YO-TIMER se déplace avec ◀ ▶ exactement comme les autres sponsors.
+  //   Quand YO-TIMER est masqué (YO_HIDDEN), sa carte reste affichée dans l'admin (pour
+  //   pouvoir le remettre) mais n'entre pas dans l'ordre du live.
+  var combined = SPONSORS.map(function(s,i){ return {kind:'sp', sp:s, spIdx:i}; });
+  var yoPos = parseInt(YO_POS,10); if(isNaN(yoPos)||yoPos<0) yoPos=0; if(yoPos>combined.length) yoPos=combined.length;
+  combined.splice(yoPos, 0, {kind:'yo'});
+  var total = combined.length;
+
+  grid.innerHTML = combined.map(function(item, pos){
+    var isFirst = (pos===0), isLast = (pos===total-1);
+    // Flèches de déplacement communes (YO-TIMER + sponsors)
+    var arrows = ''
+      + '<button onclick="moveCombined('+pos+',-1)" '+(isFirst?'disabled':'')+' style="flex:1;background:var(--s2);border:1px solid var(--brd);border-radius:6px;padding:5px;font-size:12px;font-weight:800;cursor:'+(isFirst?'default':'pointer')+';opacity:'+(isFirst?'.3':'1')+';color:var(--ink2);font-family:inherit">◀</button>'
+      + '<span style="font-size:10px;font-weight:800;color:var(--ink3);min-width:20px;text-align:center">'+(pos+1)+'</span>'
+      + '<button onclick="moveCombined('+pos+',1)" '+(isLast?'disabled':'')+' style="flex:1;background:var(--s2);border:1px solid var(--brd);border-radius:6px;padding:5px;font-size:12px;font-weight:800;cursor:'+(isLast?'default':'pointer')+';opacity:'+(isLast?'.3':'1')+';color:var(--ink2);font-family:inherit">▶</button>';
+
+    if(item.kind==='yo'){
+      // Carte YO-TIMER (chrono officiel) : déplaçable + masquable
+      return '<div style="background:#fff;border:1px solid '+(YO_HIDDEN?'rgba(220,38,38,.3)':'var(--brd2)')+';border-radius:12px;padding:10px;position:relative;box-shadow:0 4px 14px rgba(15,28,46,.12);opacity:'+(YO_HIDDEN?'.45':'1')+'">'
+        +'<div style="position:absolute;top:6px;left:6px;background:#182b43;color:#7FB8E0;font-size:7px;font-weight:900;padding:2px 5px;border-radius:4px;letter-spacing:.5px;z-index:1">CHRONO OFFICIEL</div>'
+        +'<div style="aspect-ratio:16/9;display:flex;align-items:center;justify-content:center;overflow:hidden;border-radius:6px">'
+        +'<img src="yotimer_.jpg" style="max-width:100%;max-height:100%;object-fit:contain">'
+        +'</div>'
+        +'<div style="display:flex;gap:4px;margin-top:8px;align-items:center;justify-content:center">'
+        +(YO_HIDDEN
+           ? '<button onclick="toggleYoTimer()" style="flex:1;background:rgba(0,229,160,.12);border:1px solid rgba(0,229,160,.3);border-radius:6px;padding:5px 9px;font-size:11px;font-weight:800;cursor:pointer;color:#00B87A;font-family:inherit">↩︎ Remettre sur le live</button>'
+           : arrows+'<button onclick="toggleYoTimer()" title="Retirer du live" style="background:rgba(220,38,38,.1);border:1px solid rgba(220,38,38,.25);border-radius:6px;padding:5px 9px;font-size:12px;font-weight:800;cursor:pointer;color:#DC2626;font-family:inherit">🗑</button>')
+        +'</div></div>';
+    }
+    // Carte sponsor normal
+    var s=item.sp;
     return '<div style="background:#fff;border:1px solid var(--brd2);border-radius:12px;padding:10px;position:relative;box-shadow:0 4px 14px rgba(15,28,46,.12)">'
       +'<div style="aspect-ratio:16/9;display:flex;align-items:center;justify-content:center;overflow:hidden;border-radius:6px">'
       +'<img src="'+s.img+'" style="max-width:100%;max-height:100%;object-fit:contain">'
       +'</div>'
       +'<div style="display:flex;gap:4px;margin-top:8px;align-items:center">'
-      +'<button onclick="moveSponsor('+i+',-1)" '+(i===0?'disabled':'')+' style="flex:1;background:var(--s2);border:1px solid var(--brd);border-radius:6px;padding:5px;font-size:12px;font-weight:800;cursor:'+(i===0?'default':'pointer')+';opacity:'+(i===0?'.3':'1')+';color:var(--ink2);font-family:inherit">◀</button>'
-      +'<span style="font-size:10px;font-weight:800;color:var(--ink3);min-width:20px;text-align:center">'+(i+1)+'</span>'
-      +'<button onclick="moveSponsor('+i+',1)" '+(i===SPONSORS.length-1?'disabled':'')+' style="flex:1;background:var(--s2);border:1px solid var(--brd);border-radius:6px;padding:5px;font-size:12px;font-weight:800;cursor:'+(i===SPONSORS.length-1?'default':'pointer')+';opacity:'+(i===SPONSORS.length-1?'.3':'1')+';color:var(--ink2);font-family:inherit">▶</button>'
-      +'<button onclick="removeSponsor('+i+')" style="background:rgba(220,38,38,.1);border:1px solid rgba(220,38,38,.25);border-radius:6px;padding:5px 9px;font-size:12px;font-weight:800;cursor:pointer;color:#DC2626;font-family:inherit">🗑</button>'
+      +arrows
+      +'<button onclick="removeSponsor('+item.spIdx+')" style="background:rgba(220,38,38,.1);border:1px solid rgba(220,38,38,.25);border-radius:6px;padding:5px 9px;font-size:12px;font-weight:800;cursor:pointer;color:#DC2626;font-family:inherit">🗑</button>'
       +'</div></div>';
   }).join('');
+}
+
+// ★ Déplacement dans la liste COMBINÉE (sponsors + YO-TIMER). Gère les 3 cas :
+//   YO↔sponsor (bouge la position du YO), sponsor↔sponsor (permute le tableau),
+//   sponsor↔YO (idem, symétrique). Persiste la nouvelle position/ordre dans Firebase.
+function moveCombined(pos, dir){
+  var target = pos + dir;
+  // Reconstituer la liste combinée telle qu'affichée
+  var combined = SPONSORS.map(function(s,i){ return {kind:'sp', spIdx:i}; });
+  var yoPos = parseInt(YO_POS,10); if(isNaN(yoPos)||yoPos<0) yoPos=0; if(yoPos>combined.length) yoPos=combined.length;
+  combined.splice(yoPos, 0, {kind:'yo'});
+  if(target<0 || target>=combined.length) return;
+
+  var a=combined[pos], b=combined[target];
+  if(a.kind==='yo' || b.kind==='yo'){
+    // Un des deux est le YO-TIMER → on déplace simplement la position du YO d'un cran
+    YO_POS = (a.kind==='yo') ? target : pos;
+    // Normaliser dans [0, SPONSORS.length]
+    if(YO_POS<0) YO_POS=0; if(YO_POS>SPONSORS.length) YO_POS=SPONSORS.length;
+    saveYoTimerPos();
+  } else {
+    // Deux sponsors → permuter dans le tableau SPONSORS
+    var t=SPONSORS[a.spIdx]; SPONSORS[a.spIdx]=SPONSORS[b.spIdx]; SPONSORS[b.spIdx]=t;
+    saveSponsors();
+  }
+  renderSponsors();
+}
+function saveYoTimerPos(){
+  var db=getDb(); if(!db) return;
+  try{ db.ref('system/yoTimerPos').set(parseInt(YO_POS,10)||0).catch(function(){}); }catch(e){}
+  autoSave();
 }
 
 function moveSponsor(i,dir){
