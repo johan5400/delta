@@ -1819,6 +1819,16 @@ function judgeBuildNextInstruction(){
   if(current){
     var sameZone=String(current.zone||'')===String(next.zone||'');
     var sameLane=String(current.lane||'')===String(next.lane||'');
+    // ★ PAUSE : le juge saute au moins un heat entre son heat courant et son prochain
+    //   heat assigné → vraie pause (il peut quitter sa ligne). globalNum est un compteur
+    //   global CONTIGU des heats (1..N) ; un écart > 1 = des heats non jugés entre les deux.
+    //   On teste ça AVANT l'écart horaire, qui est trompeur : sur un WOD long (AMRAP 14mn)
+    //   le juge valide juste avant le départ suivant et gap tombe < 15 → faux "reste sur ta ligne".
+    var _curGN=parseInt(current.globalNum,10), _nextGN=parseInt(next.globalNum,10);
+    if(!isNaN(_curGN) && !isNaN(_nextGN) && (_nextGN-_curGN)>1){
+      return {kind:'pause', requireRescan:false, title:'Va en pause',
+        body:'Pause — tu peux quitter ta ligne. Reprise : '+heatLbl+' sur la '+zoneLbl+', '+laneLbl+when+'. Tu seras notifié au départ.'};
+    }
     // ★ FIX : plus de requireRescan — le juge a scanné UNE fois et suit son planning automatiquement
     if(gap!=null && gap>=15){
       return {kind:'wait', requireRescan:false, title:'Attends sur place',
@@ -2129,8 +2139,14 @@ function showNextScreen(){
     sub=info.body||'C\'est fini pour aujourd\'hui. Repos bien mérité, à demain !';
     heroBg='background:linear-gradient(180deg,rgba(76,29,149,.55),rgba(13,20,31,.98))';
     actionCls=''; btnCls='next-end'; btnTxt='↩ Retour';
-  } else if(info.kind==='pause' || info.kind==='wait'){
-    // ★ FIX : plus de rescan — juste un message d'attente
+  } else if(info.kind==='pause'){
+    // ★ Vraie pause : le juge saute des heats → il peut quitter sa ligne
+    ico='☕'; action='VA EN PAUSE';
+    sub=info.body||'Tu peux quitter ta ligne. Tu seras notifié automatiquement avant ton prochain heat.';
+    heroBg='background:linear-gradient(180deg,rgba(30,58,138,.5),rgba(13,20,31,.98))';
+    actionCls=''; btnCls='next-stay'; btnTxt='↩ Compris';
+  } else if(info.kind==='wait'){
+    // ★ FIX : plus de rescan — juste un message d'attente sur place
     ico='⏳'; action='ATTENDS SUR PLACE';
     sub=info.body||'Tu seras notifié automatiquement au départ du prochain heat.';
     heroBg='background:linear-gradient(180deg,rgba(30,58,138,.5),rgba(13,20,31,.98))';
