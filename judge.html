@@ -672,6 +672,11 @@ body.brief-mode #s-judge{display:none!important}
       <button class="btn-tb" id="btn-drop" onclick="deathByDrop()" style="display:none;background:rgba(255,59,92,.15);border-color:rgba(255,59,92,.5);color:#FF6B85">🏳️<br>LÂCHE</button>
       <button class="btn-tb" id="btn-clfini" onclick="cleanLadderFini()" style="display:none;background:rgba(4,120,87,.18);border-color:rgba(4,120,87,.55);color:#34D399">🏁<br>FINI</button>
     </div>
+    <!-- ★ RUN : bouton plein largeur affiché à la place de +REP quand le mouvement courant est un run.
+         Le juge ne court pas avec l'athlète → un simple clic valide la station et passe au mouvement suivant. -->
+    <div id="j-run-zone" style="display:none;padding:8px 12px 12px">
+      <button id="btn-run" onclick="validateRun()" style="width:100%;padding:20px;border:none;border-radius:14px;background:linear-gradient(135deg,#EA580C,#FB923C);color:#fff;font-family:var(--ff);font-size:22px;letter-spacing:3px;cursor:pointer;font-weight:900;box-shadow:0 4px 18px rgba(234,88,12,.3)">🏃 VALIDER RUN</button>
+    </div>
   </div>
 
   <!-- Zone MAXLOAD -->
@@ -1321,7 +1326,8 @@ function wodToScenario(wod){
       //   qty. Sans ça, le juge visait qty (défaut 10) au lieu des 15 cal saisis.
       //   On n'applique ça QU'aux ergos non-free avec un ergoTarget>0 : les ergoFree
       //   (skierg max/tour, ergoTarget=0) et les mouvements reps sont intacts.
-      q: (((m.type||'reps')==='ergo') && !m.ergoFree && baseDist>0) ? baseDist : baseQty,
+      q: (m.type==='run') ? 0
+         : ((((m.type||'reps')==='ergo') && !m.ergoFree && baseDist>0) ? baseDist : baseQty),
       // ★ FIX POIDS FANTÔME (bug chef) : un mouvement ergo (bike/rameur/skierg =
       //   distance ou cals) ne porte JAMAIS de poids de barre. Même si la donnée en
       //   contient un (incohérence poidsGlobal/poids[cat] ou fuite), on ne le propage
@@ -3679,6 +3685,13 @@ function updateDisplay(){
   var _clB=$('btn-clfini');
   if(_clB){ _clB.style.display='none'; } // ★ CL v2 : plus de bouton FINI (avance auto par timing)
   var m=SC.moves[moveIdx], isAmrap=(SC.fmt==='amrap');
+  // ★ RUN : si le mouvement courant est un run, on remplace le compteur +REP par le
+  //   gros bouton « VALIDER RUN » (le juge valide d'un clic, aucune rep à compter).
+  var _curIsRun=!!(m && m.type==='run');
+  var _runZone=$('j-run-zone');
+  if(_runZone) _runZone.style.display=_curIsRun?'block':'none';
+  var _jbtns=document.querySelector('.j-btns');
+  if(_jbtns) _jbtns.style.display=_curIsRun?'none':'flex';
   // ★ ergo cumulé (valeur libre) : si le WOD a un mouvement ergo-libre, on affiche
   //   la zone de saisie cumulée À LA PLACE du compteur +REP, MAIS sans couper le WOD :
   //   le chrono et l'avancement des tours (EMOM/AMRAP) continuent normalement.
@@ -3748,7 +3761,8 @@ function updateDisplay(){
     var pct=isDone?100:(isAct&&m2.q>0?Math.min(100,Math.round(moveReps/m2.q*100)):0);
     var cls=isDone?'mv done':isAct?'mv active':'mv pending';
     var lbl=(isDone?'✓ ':isAct?'▶ ':'')+escH(m2.n);
-    if(m2.ergoFree) lbl+=' MAX'; else if(m2.q>0) lbl+=' ×'+m2.q;
+    if(m2.type==='run'){ var _rd=parseInt(m2.ergoTarget||0,10)||0; lbl+=_rd>0?(' 🏃 '+_rd+'m'):' 🏃'; }
+    else if(m2.ergoFree) lbl+=' MAX'; else if(m2.q>0) lbl+=' ×'+m2.q;
     if(m2.poids) lbl+=' · <span style="color:#C084FC;font-size:.8em">'+escH(m2.poids)+'</span>';
     if(m2.temps) lbl+=' · <span style="color:#6EE7B7;font-size:.8em">'+escH(m2.temps)+'</span>';
     var qTag='',cTag='';
@@ -3919,6 +3933,31 @@ function removeRep(){
   if(typeof updateDisplay==='function') updateDisplay();
   if(typeof updateEmomDisplay==='function') updateEmomDisplay();
   if(db) pushScoreLive();
+}
+/* ── RUN : valider la station course d'un clic (pas de reps à compter) ── */
+function validateRun(){
+  if(!guardScoreEdit('Saisie bloquée')) return;
+  var m=SC.moves[moveIdx]; if(!m || m.type!=='run') return;
+  var isLastMove=(moveIdx>=SC.moves.length-1);
+  var dist=parseInt(m.q||m.ergoTarget||0,10)||0;
+  playMoveChangeSound(); vib([80,40,80,40,160]);
+  if(!isLastMove){
+    // Run au milieu de la séquence → station validée, on passe au mouvement suivant
+    toast('🏃 Run validé'+(dist>0?(' ('+dist+'m)'):'')+' ▶','#EA580C',1500);
+    nextMove();
+  } else {
+    // Run = dernier mouvement → le WOD est terminé, le juge valide le score (temps For Time)
+    toast('🏃 Run validé — appuie sur VALIDER','#00E5A0',2200);
+    var _vBtn=document.querySelector('.btn-validate');
+    if(_vBtn){
+      _vBtn.style.transform='scale(1.04)';
+      _vBtn.style.boxShadow='0 0 0 4px #00E5A0, 0 8px 30px rgba(0,229,160,.55)';
+      _vBtn.style.animation='valPulse 1.2s ease-in-out infinite';
+      setTimeout(function(){ try{_vBtn.scrollIntoView({behavior:'smooth',block:'center'});}catch(e){} },300);
+    }
+    updateDisplay();
+    if(db) pushScoreLive();
+  }
 }
 function nextMove(){
   moveIdx++; moveReps=0;
