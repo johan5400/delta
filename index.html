@@ -7920,7 +7920,7 @@ function applyState(state){
   }
   if(state.heatsResult)HEATS_RESULT=state.heatsResult;
   if(state.zones&&state.zones.length)ZONES=state.zones;function _setEl(id,v){var e=document.getElementById(id);if(e&&v)e.value=v;}_setEl("zone1-resp",state.zone1Resp);_setEl("zone1-contact",state.zone1Contact);_setEl("zone1-desc",state.zone1Desc);_setEl("zone2-resp",state.zone2Resp);_setEl("zone2-contact",state.zone2Contact);_setEl("zone2-desc",state.zone2Desc);
-  if(state.wods&&state.wods.length){WODS=state.wods;WODS.forEach(ensureWodTiming);}
+  if(state.wods&&state.wods.length){WODS=state.wods;WODS.forEach(ensureWodTiming);WODS.forEach(purgeOrphanTbCfg);}
 
   if(state.presence)PRESENCE=state.presence;
   if(state.heureArr)HEURE_ARR=state.heureArr;
@@ -20072,11 +20072,58 @@ function tbSetCfg(wod, catId, list){
   }
 }
 
+// ★ Nettoyage des tiebreaks orphelins : supprime de tbCfg toute clé de catégorie
+//   qui n'existe plus (ex. "1001" d'une catégorie de démo), remet hasTiebreak et
+//   les champs legacy en cohérence. Appelé au chargement des WODs (après que
+//   CATEGORIES soit chargé). Purge en mémoire ; la prochaine sauvegarde du WOD
+//   propage le nettoyage à Firebase, sans intervention manuelle.
+function purgeOrphanTbCfg(wod){
+  if(!wod || !wod.tbCfg || typeof wod.tbCfg!=='object') return;
+  var realIds = {};
+  if(typeof CATEGORIES!=='undefined' && CATEGORIES && CATEGORIES.length){
+    CATEGORIES.forEach(function(c){ if(c && c.id!=null) realIds[String(c.id)] = true; });
+  }
+  // Sans catégories chargées, on ne touche à rien (on ne sait pas ce qui est orphelin)
+  if(!Object.keys(realIds).length) return;
+  var changed = false;
+  Object.keys(wod.tbCfg).forEach(function(k){
+    if(!realIds[String(k)]){ delete wod.tbCfg[k]; changed = true; }
+  });
+  if(!changed) return;
+  // Recalculer hasTiebreak et purger le legacy si plus aucun TB réel
+  var allTb = [];
+  Object.keys(wod.tbCfg).forEach(function(k){
+    if(Array.isArray(wod.tbCfg[k])) wod.tbCfg[k].forEach(function(tb){ if(tb) allTb.push(tb); });
+  });
+  wod.hasTiebreak = allTb.length > 0;
+  if(allTb.length === 1 && allTb[0] && allTb[0].moveIdx!=null){
+    wod.tiebreakMoveIdx = parseInt(allTb[0].moveIdx,10);
+    wod.tiebreakReps = allTb[0].rep!=null ? parseInt(allTb[0].rep,10) : null;
+    wod.tiebreakDesc = allTb[0].desc || '';
+  } else if(allTb.length === 0){
+    delete wod.tiebreakMoveIdx;
+    delete wod.tiebreakReps;
+    delete wod.tiebreakDesc;
+  }
+}
+
 // Compte le nombre total de TB d'un WOD (toutes catégories confondues)
+//   ★ FIX BADGE FANTÔME "1 TB" : on ne compte QUE les tiebreaks rattachés à une
+//   catégorie qui existe réellement. Une entrée tbCfg orpheline (ex. clé "1001"
+//   d'une catégorie de démo supprimée) ne doit pas gonfler le compteur alors que
+//   l'éditeur 🎯 affiche "Aucun tiebreak" pour chaque vraie catégorie.
 function tbCountTotal(wod){
   if(!wod || !wod.tbCfg) return 0;
+  // Ensemble des IDs de catégories réelles
+  var realIds = {};
+  if(typeof CATEGORIES!=='undefined' && CATEGORIES && CATEGORIES.length){
+    CATEGORIES.forEach(function(c){ if(c && c.id!=null) realIds[String(c.id)] = true; });
+  }
+  var hasRealCats = Object.keys(realIds).length > 0;
   var n=0;
   Object.keys(wod.tbCfg).forEach(function(k){
+    // Si on connaît les vraies catégories, ignorer les clés orphelines
+    if(hasRealCats && !realIds[String(k)]) return;
     if(Array.isArray(wod.tbCfg[k])) n += wod.tbCfg[k].length;
   });
   return n;
