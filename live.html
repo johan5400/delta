@@ -222,6 +222,26 @@ body{height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-fami
 .tc{flex-shrink:0;padding:5px 14px;border-radius:8px;
   border:1px solid rgba(255,255,255,.07);background:rgba(12,18,30,.9);transition:border-color .3s,background .3s}
 .tc.ok{border-color:rgba(0,229,160,.25);background:rgba(0,229,160,.05)}
+
+/* ════ AFFICHAGE ADAPTATIF DES ÉQUIPES ════
+   Quand .teams-band a un attribut data-count (nb d'équipes), les cartes GRANDISSENT
+   pour remplir toute la hauteur disponible et le texte s'agrandit quand il y a peu
+   d'équipes (2-3), se compacte quand il y en a beaucoup (6). Au-delà de 8, on repasse
+   en mode scroll pour ne jamais tronquer. Le mode direct (scores qui montent) garde
+   ses chips/écarts : on ne touche qu'à la taille de police et au remplissage vertical. */
+.teams-band[data-count]{overflow:hidden}                 /* tout tient → pas de scroll */
+.teams-band[data-count] .tc{flex:1 1 0;min-height:0;display:flex;flex-direction:column;justify-content:center}
+.teams-band[data-count="7"], .teams-band[data-count="8"]{overflow-y:auto}
+.teams-band[data-count="7"] .tc, .teams-band[data-count="8"] .tc{flex:1 1 0}
+/* Échelle de police par nombre d'équipes (facteur appliqué aux clamp de base) */
+.teams-band[data-count="2"]{font-size:1.9em}
+.teams-band[data-count="3"]{font-size:1.55em}
+.teams-band[data-count="4"]{font-size:1.3em}
+.teams-band[data-count="5"]{font-size:1.12em}
+.teams-band[data-count="6"]{font-size:1em}
+.teams-band[data-count="7"]{font-size:.92em}
+.teams-band[data-count="8"]{font-size:.85em}
+
 .tm{display:flex;align-items:center;gap:12px}
 .tcol{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
 .tmeta{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:3px}
@@ -231,6 +251,11 @@ body{height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-fami
   flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .tsc{font-family:var(--fm);font-size:clamp(14px,1.8vw,26px);font-weight:900;text-align:right;flex-shrink:0}
 .tsc.lv{color:#FFB020}.tsc.vl{color:#00E5A0}.tsc.nd{color:var(--ink3)}
+/* ★ ADAPTATIF : à l'intérieur d'un tband data-count, les tailles deviennent RELATIVES (em)
+   pour que le facteur d'échelle du parent s'applique. On garde des bornes min/max par clamp. */
+.teams-band[data-count] .rk{font-size:clamp(18px,1.35em,64px);min-width:1.3em}
+.teams-band[data-count] .tn{font-size:clamp(15px,1.15em,56px)}
+.teams-band[data-count] .tsc{font-size:clamp(13px,1em,48px)}
 .crown{display:inline-block;font-size:clamp(16px,1.8vw,26px);margin-left:6px;vertical-align:middle;
   filter:drop-shadow(0 0 8px rgba(255,209,102,.6))}
 .mini{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:4px;
@@ -2164,6 +2189,15 @@ function gapText(row,lead,w,st){
   var dr3=Math.max(0,liveReps(lead.sc)-liveReps(row.sc));
   return dr3>0?'- '+dr3+' reps':'ÉGALITÉ';
 }
+// ★ ADAPTATIF : pose sur un .teams-band le nombre d'équipes (data-count) pour piloter le
+//   remplissage vertical et la taille du texte via CSS. Cap à 8 (au-delà : scroll).
+function _setTeamCount(tbEl, n){
+  if(!tbEl) return;
+  n = parseInt(n,10)||0;
+  if(n>=2 && n<=8){ tbEl.setAttribute('data-count', String(n)); }
+  else if(n>8){ tbEl.setAttribute('data-count','8'); }
+  else { tbEl.removeAttribute('data-count'); }   // 0 ou 1 → rendu par défaut
+}
 function renderRankCards(rows,w,st,showLiveChips,h,catId,catLeader){
   if(!rows.length)return '<div style="display:flex;align-items:center;justify-content:center;flex:1;font-family:var(--ff);font-size:clamp(18px,2.5vw,32px);letter-spacing:2px;color:var(--ink3)">AUCUN CLASSEMENT</div>';
   var lead=rows[0]||null;
@@ -2545,9 +2579,8 @@ function renderZone(zone){
       // Hors IH : juste refresh les scores
       var tb=document.getElementById('tband-'+zone);
       var hFull=Object.assign({},h,{startTimestamp:h.startTimestamp||(HEATS[hid]&&HEATS[hid].startTimestamp)||0});
-      if(tb) tb.innerHTML=renderRankCards(
-        rankHeatEntries(hid,h,w),w,st,st==='live'||st==='pre',hFull,catId,catLeader
-      );
+      var _rr=rankHeatEntries(hid,h,w);
+      if(tb){ tb.innerHTML=renderRankCards(_rr,w,st,st==='live'||st==='pre',hFull,catId,catLeader); _setTeamCount(tb,_rr.length); }
     }
     // Pendant IH : ne rien toucher, le _teamIv gère le tband
     startClock(zone,hid,h,w);
@@ -2643,6 +2676,7 @@ function renderZone(zone){
       +'</div>'
     +'</div>';
 
+  _setTeamCount(document.getElementById('tband-'+zone), (heatRows&&heatRows.length)||0);
   startClock(zone,hid,h,w);
 
   // ★ FIX FLASH « PROCHAIN HEAT » : ne démarrer la séquence résultats→preview QUE si le
@@ -2657,46 +2691,47 @@ function renderZone(zone){
 // ════ TEAMS BAND IH PREVIEW ════
 function clearTeamIv(z){clearInterval(_teamIv[z]);_teamIv[z]=null;}
 
-// Déclenche l'affichage résultats/IH pour une zone dès la fin d'un heat
-// Retry jusqu'à 10s si system/interheat pas encore actif dans Firebase
+// Déclenche l'affichage résultats/IH pour une zone dès la fin d'un heat.
+// ★ FIX CLASSEMENT LENT : le classement du heat s'affiche IMMÉDIATEMENT dès que le heat
+//   est done — SANS attendre que l'inter-heat/coupure soit actif dans Firebase. Avant, on
+//   attendait ihActive (jusqu'à 4s de retry) ; or le TK ne pré-publie PAS l'inter-heat pour
+//   les COUPURES (coordination inter-zones), d'où un délai pouvant atteindre ~1 min avant un
+//   changement de WOD. On peint donc le classement tout de suite avec les données locales,
+//   puis quand l'inter-heat arrive la séquence complète (résultats→classement→preview) prend
+//   le relais via startTeamBandIH.
 function _triggerIHDisplay(zone, hid, h){
+  function paintHeatRanking(){
+    var w = (h&&h.wodInfo)||{};
+    var catId = String((h&&h.catId)||'');
+    var catLeaders = (typeof getLeaders==='function')?getLeaders():{};
+    var catLeader = catLeaders[catId]||null;
+    var tb = document.getElementById('tband-'+zone);
+    if(!tb) return;
+    var heatRows = rankHeatEntries(hid, h, w);
+    var hFull = Object.assign({}, h, {startTimestamp:(h&&h.startTimestamp)||(HEATS[hid]&&HEATS[hid].startTimestamp)||0});
+    tb.innerHTML = renderRankCards(heatRows, w, (h&&h.status)||'done', false, hFull, catId, catLeader);
+    _setTeamCount(tb, heatRows.length);
+  }
+  // 1) Affichage IMMÉDIAT du classement heat (le heat vient de finir, données déjà locales).
+  _dh[zone] = null;              // forcer le rebuild propre du DOM de la zone au prochain render
+  paintHeatRanking();            // et peindre le classement tout de suite dans le tband
+  scheduleRender();
+
+  // 2) Si l'inter-heat/coupure n'est pas encore actif, on re-peint le classement à chaque
+  //    tick (250ms) tant qu'il n'arrive pas — pour qu'il ne soit jamais écrasé ni figé —
+  //    jusqu'à ce que la séquence complète prenne le relais (ou 10s de garde-fou).
   var _attempts = 0;
-  function tryDisplay(){
+  function keepAlive(){
     var ih = IH[String(zone)];
     var ihActive = ih && ih.active && ih.target > now();
-    if(ihActive){
-      // IH actif : lancer directement
-      _dh[zone] = null; // forcer rebuild DOM
-      scheduleRender();
-      return;
-    }
-    // IH pas encore arrivé : attendre un peu, mais plus nerveux pour le live
-    if(_attempts < 16){
+    if(ihActive){ _dh[zone]=null; scheduleRender(); return; }  // séquence complète prend le relais
+    if(_attempts < 40){          // 40 * 250ms = 10s de maintien du classement
       _attempts++;
-      setTimeout(tryDisplay, 250);
-    } else {
-      // Fallback : afficher quand même les résultats sans IH
-      var w = h.wodInfo||{};
-      var catId = String(h.catId||'');
-      var catLeaders = getLeaders();
-      var catLeader = catLeaders[catId]||null;
-      var tb = document.getElementById('tband-'+zone);
-      if(tb){
-        var heatRows = rankHeatEntries(hid, h, w);
-        var isLast = isLastCategoryHeat(h);
-        tb.innerHTML = '<div class="p-title">🏁 '+esc(w.nom||'WOD')+'</div>'
-        +'<div class="p-sub">'+esc(h.catName||'')+' · Heat '+(h.catHeatNum||'—')+' / '+(h.nbHeatsTotal||'—')+'</div>'
-        + renderRankCards(heatRows, w, h.status||'done', false, h, catId, catLeader);
-        if(isLast){
-          setTimeout(function(){
-            if(tb) tb.innerHTML = renderWodHtml(h);
-          }, 3000);
-        }
-      }
+      paintHeatRanking();        // re-peindre seulement le tband (pas tout le DOM → pas de clignotement)
+      setTimeout(keepAlive, 250);
     }
   }
-  // Petite attente pour laisser remonter les scores, sans ralentir visuellement
-  setTimeout(tryDisplay, 250);
+  setTimeout(keepAlive, 250);
 }
 
 function startTeamBandIH(zone,ihTarget,doneHid,doneH,doneW,catId,catLeader){
@@ -2767,13 +2802,30 @@ function startTeamBandIH(zone,ihTarget,doneHid,doneH,doneW,catId,catLeader){
     //   toute la coupure ; « PROCHAIN HEAT » n'apparaît que dans les derniers 15%
     //   (aligné sur la fenêtre sponsors → handoff propre vers le prochain heat).
     if((ih.ihType||'')==='coupure'){
-      // Pendant une coupure, « PROCHAIN HEAT » n'apparaît que tard (page sponsors devant),
-      //   mais on garantit quand même le plancher : équipes visibles >= PREVIEW_MIN_S avant la reprise.
+      // ★ FIX CRITIQUE : une coupure a lieu ENTRE DEUX WODS — c'est justement le moment
+      //   où le CLASSEMENT GÉNÉRAL de fin de WOD doit être montré. L'ancien code mettait
+      //   wodEnd=null, ce qui SUPPRIMAIT la phase classement général avant chaque coupure.
+      //   On garde donc : résultats du heat → classement général (si dernier heat du WOD)
+      //   → puis « PROCHAIN HEAT » n'apparaît que tard.
       var _coupLead=Math.max(PREVIEW_MIN_S*1000,8000,Math.round(totalSec*1000*0.15));
       previewStart=ihTarget-_coupLead;
-      heatEnd=previewStart; wodEnd=null;
+      if(isLast){
+        wodEnd = heatEnd + wodSec*1000;
+        if(wodEnd > previewStart) wodEnd = previewStart;
+        if(heatEnd > previewStart) heatEnd = previewStart;
+      } else {
+        wodEnd = null;
+        if(heatEnd > previewStart) heatEnd = previewStart;
+      }
     }
     startTeamBandIH._sched[zone]={hid:doneHid,heatEnd:heatEnd,wodEnd:wodEnd,previewStart:previewStart,seqStart:now()};
+  }
+  // ★ SYNC SPONSORS : on mémorise, par zone, la fin réelle du classement général (ou des
+  //   résultats si pas de classement) pour cette coupure, afin que la page sponsors
+  //   n'apparaisse JAMAIS par-dessus le classement (elle attend cet instant). En ms epoch.
+  if((ih.ihType||'')==='coupure'){
+    if(!startTeamBandIH._sponsorAfter) startTeamBandIH._sponsorAfter={};
+    startTeamBandIH._sponsorAfter[zone] = (wodEnd || heatEnd);
   }
   // seqStart = instant de démarrage de la séquence pour ce heat fini (persistant).
   var _seqStart=(_sc && _sc.hid===doneHid && _sc.seqStart)?_sc.seqStart:now();
@@ -2873,11 +2925,14 @@ function startTeamBandIH(zone,ihTarget,doneHid,doneH,doneW,catId,catLeader){
         +'<div class="p-sub">'+esc(doneW.nom||'WOD')
         +' · Heat '+(doneH.catHeatNum||'—')+' / '+(doneH.nbHeatsTotal||'—')+'</div>'
         +renderRankCards(heatRows,doneW,'done',false,HEATS[doneHid]||doneH,catId,catLeader);
+      _setTeamCount(el2, (heatRows&&heatRows.length)||0);
     } else if(phase==='wod'){
       syncHeader('wod');
+      el2.removeAttribute('data-count');
       el2.innerHTML=renderWodHtml(doneH);
     } else {
       syncHeader('next');
+      el2.removeAttribute('data-count');
       // preview prochain heat
       var nd=getNext(zone);
       if(!nd){
@@ -3270,8 +3325,17 @@ var LIVE_SPONSORS=[];
 var _spOverlayShown=false;
 function _renderSponsorsGrid(){
   var g=document.getElementById('sp-ov-grid'); if(!g) return;
-  // ★ YO-TIMER en 1er (partenaire chrono officiel) — sauf si masqué depuis l'admin
-  var list=(window.YO_HIDDEN?[]:[{id:'yotimer',img:'yotimer_.jpg',nom:'YO-TIMER',_fixed:true}]).concat(LIVE_SPONSORS||[]);
+  // ★ YO-TIMER inséré à sa position configurée (window.YO_POS, index dans la liste combinée),
+  //   comme un sponsor déplaçable — sauf s'il est masqué depuis l'admin.
+  var others=(LIVE_SPONSORS||[]).slice();
+  var list;
+  if(window.YO_HIDDEN){
+    list=others;
+  } else {
+    var yo={id:'yotimer',img:'yotimer_.jpg',nom:'YO-TIMER',_fixed:true};
+    var pos=parseInt(window.YO_POS,10); if(isNaN(pos)||pos<0) pos=0; if(pos>others.length) pos=others.length;
+    list=others.slice(0,pos).concat([yo]).concat(others.slice(pos));
+  }
   var n=list.length;
   var cols = n<=1?1 : n<=4?2 : n<=9?3 : 4;
   g.style.gridTemplateColumns='repeat('+cols+',1fr)';
@@ -3303,25 +3367,34 @@ function _coupureFirstHalf(ih){
   return n>=start && n<mid;           // uniquement la 1ère moitié
 }
 // ★ FENÊTRE SPONSORS — ordre voulu : résultat → classement → SPONSORS → preview prochain heat.
-//   Les sponsors NE recouvrent PLUS le résultat ni le classement : ils sortent au MILIEU
-//   de la coupure (après ~55% = résultat ~25% + classement ~30%), et s'arrêtent assez tôt
-//   pour réserver du temps à l'affichage du prochain heat (≥10s, ~22% de la coupure).
-function _coupureSponsorWindow(ih){
+//   Les sponsors NE recouvrent JAMAIS le résultat ni le classement général : ils n'apparaissent
+//   qu'APRÈS la fin réelle du classement (instant mémorisé par la séquence dans _sponsorAfter,
+//   synchronisé avec l'affichage réel), et s'arrêtent assez tôt pour réserver du temps au
+//   prochain heat (≥8s, ~15% de la coupure). Repli sur un % sûr si le timing exact manque.
+function _coupureSponsorWindow(ih, zone){
   if(!ih||!ih.active||ih.ihType!=='coupure') return false;
   var tgt=ih.target||0, secs=parseInt(ih.seconds,10)||0, n=now();
   if(tgt<=n) return false;                       // coupure finie
   if(secs<=0) return tgt>n;                       // durée inconnue → sponsors tant que ça dure
   var start=tgt-secs*1000;
-  var afterClassement=start+Math.round(secs*1000*0.12);            // ★ #3 : sponsors ENCORE PLUS VITE (résultat très court, 12%)
-  var previewReserveMs=Math.max(8000,Math.round(secs*1000*0.15));  // ★ #7 : prochain heat à 15% du temps restant
+  // Instant réel de fin du classement général pour cette zone (posé par startTeamBandIH).
+  //   Si présent et cohérent avec cette coupure, on l'utilise → sponsors APRÈS le classement.
+  var afterClassement;
+  var sa = (startTeamBandIH._sponsorAfter && zone!=null) ? startTeamBandIH._sponsorAfter[zone] : null;
+  if(sa && sa>start && sa<tgt){
+    afterClassement = sa;                          // synchronisé sur l'affichage réel
+  } else {
+    afterClassement = start+Math.round(secs*1000*0.45);  // repli sûr : résultat + classement ≈ 45%
+  }
+  var previewReserveMs=Math.max(8000,Math.round(secs*1000*0.15));  // prochain heat à 15% du temps restant
   var sponEnd=tgt-previewReserveMs;
   if(sponEnd<=afterClassement) return false;      // coupure trop courte → on saute les sponsors
   return n>=afterClassement && n<sponEnd;
 }
 // Les 2 zones sont-elles en coupure ET dans la fenêtre sponsors ?
 function _bothZonesInCoupure(){
-  var c1=_coupureSponsorWindow(IH['1']);
-  var c2=_coupureSponsorWindow(IH['2']);
+  var c1=_coupureSponsorWindow(IH['1'],'1');
+  var c2=_coupureSponsorWindow(IH['2'],'2');
   var hasZ2=Object.keys(HEATS||{}).some(function(k){var h=HEATS[k]||{};return String(h.catZone!=null?h.catZone:h.zone)==='2';});
   if(!hasZ2) return c1 || c2;
   return c1 && c2;
@@ -3440,6 +3513,7 @@ if(db){
   });
   db.ref('system/interheat').on('value',function(s){IH=s.val()||{};_ds[1]=null;_ds[2]=null;scheduleRender();});
   db.ref('system/sponsors').on('value',function(s){var v=s.val();LIVE_SPONSORS=(v&&Array.isArray(v.list))?v.list:[];if(_spOverlayShown){_renderSponsorsGrid();}scheduleRender();});
+  db.ref('system/yoTimerPos').on('value',function(s){var p=parseInt(s.val(),10);window.YO_POS=(isNaN(p)?0:p);if(_spOverlayShown){_renderSponsorsGrid();}});
   db.ref('system/yoTimerHidden').on('value',function(s){
     window.YO_HIDDEN=(s.val()===true);
     var w=document.getElementById('yo-watermark'); if(w) w.style.display=window.YO_HIDDEN?'none':'';
