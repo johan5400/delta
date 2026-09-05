@@ -1349,11 +1349,16 @@ function wodToScenario(wod){
 
   var hasTB = !!(wod.hasTiebreak);
   var tbAuto = (wod.tiebreakMoveIdx!=null) ? parseInt(wod.tiebreakMoveIdx) : -1;
-  // ★ MULTI-TB : construire la liste depuis le nouveau format tbCfg[catId]
-  //   avec fallback sur l'ancien format unique (tiebreakMoveIdx/tiebreakReps)
+  // ★ MULTI-TB : le nouveau format tbCfg[catId] fait AUTORITÉ.
+  //   Le fallback legacy (tiebreakMoveIdx/tiebreakReps) n'est utilisé QUE pour un WOD
+  //   qui n'a jamais touché au nouveau système (aucun tbCfg du tout). Dès qu'un WOD
+  //   possède un objet tbCfg — même vide pour cette catégorie — cela signifie
+  //   "tiebreaks gérés via l'éditeur", donc "aucun TB pour cette catégorie" = vraiment
+  //   aucun, et on n'affiche PAS l'ancien tiebreakMoveIdx résiduel (fix fantôme "5").
   var catKey = String(arguments[1]||'');
+  var tbManaged = !!(wod.tbCfg && typeof wod.tbCfg==='object'); // WOD passé au nouveau système
   var tbList = [];
-  if(wod.tbCfg && catKey && Array.isArray(wod.tbCfg[catKey]) && wod.tbCfg[catKey].length>0){
+  if(tbManaged && catKey && Array.isArray(wod.tbCfg[catKey]) && wod.tbCfg[catKey].length>0){
     tbList = wod.tbCfg[catKey].map(function(tb){
       return {
         tour: tb.tour!=null ? parseInt(tb.tour,10) : null,
@@ -1363,14 +1368,17 @@ function wodToScenario(wod){
       };
     });
     hasTB = true;
-  } else if(hasTB && tbAuto>=0){
-    // Fallback : ancien format → on le met dans tbList pour uniformité
+  } else if(!tbManaged && hasTB && tbAuto>=0){
+    // Fallback ancien format — uniquement si le WOD n'a jamais eu de tbCfg
     tbList = [{
       tour: null,
       moveIdx: tbAuto,
       rep: (wod.tiebreakReps!=null && wod.tiebreakReps>0) ? parseInt(wod.tiebreakReps,10) : null,
       desc: wod.tiebreakDesc||''
     }];
+  } else {
+    // WOD géré via tbCfg mais rien pour cette catégorie → aucun tiebreak
+    hasTB = false;
   }
 
   return {

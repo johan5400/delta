@@ -20051,15 +20051,24 @@ function tbSetCfg(wod, catId, list){
   });
   wod.hasTiebreak = hasAny;
   wod._customized = true;
-  // Compat ascendante : si exactement 1 TB sur la cat principale, recopier dans
-  // les anciens champs pour que le juge legacy continue à fonctionner
-  if(catId && wod.tbCfg[String(catId)] && wod.tbCfg[String(catId)].length===1){
-    var first = wod.tbCfg[String(catId)][0];
-    if(first && first.moveIdx!=null){
-      wod.tiebreakMoveIdx = parseInt(first.moveIdx,10);
-      wod.tiebreakReps = first.rep!=null ? parseInt(first.rep,10) : null;
-      wod.tiebreakDesc = first.desc || '';
-    }
+  // Compat ascendante : tant qu'il reste EXACTEMENT 1 TB (toutes catégories
+  //   confondues), on recopie dans les anciens champs pour que le juge legacy
+  //   continue à fonctionner. Dès qu'il y en a 0 (ou plusieurs), on EFFACE le
+  //   legacy — sinon un ancien tiebreakMoveIdx ressuscite un tiebreak supprimé
+  //   (bug fantôme "5" sur le live/juge alors que l'éditeur affiche 0).
+  var allTb = [];
+  Object.keys(wod.tbCfg||{}).forEach(function(k){
+    if(Array.isArray(wod.tbCfg[k])){ wod.tbCfg[k].forEach(function(tb){ allTb.push(tb); }); }
+  });
+  if(allTb.length===1 && allTb[0] && allTb[0].moveIdx!=null){
+    wod.tiebreakMoveIdx = parseInt(allTb[0].moveIdx,10);
+    wod.tiebreakReps = allTb[0].rep!=null ? parseInt(allTb[0].rep,10) : null;
+    wod.tiebreakDesc = allTb[0].desc || '';
+  } else {
+    // 0 TB (ou multi-TB géré par tbCfg) → purge du legacy
+    delete wod.tiebreakMoveIdx;
+    delete wod.tiebreakReps;
+    delete wod.tiebreakDesc;
   }
 }
 

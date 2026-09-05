@@ -1133,7 +1133,7 @@ function getZoneClockState(zone){
     }
     // ★ FIX TOUR EMOM : utiliser le label du frame (ex "⚙️ TRAVAIL · R2/7") quand
     //   il existe — seul l'EMOM le pose. Les autres formats gardent "Z1/Z2".
-    return{val:frame.value,vcls:frame.vcls,lbl:frame.lbl||('⏱ Z'+zone),bcls:frame.bcls,round:frame.round||'',phase:frame.phase||''};
+    return{val:frame.value,vcls:frame.vcls,lbl:frame.lbl||('⏱ Z'+zone),bcls:frame.bcls,round:frame.round||'',phase:frame.phase||'',isFortime:!!frame.isFortime};
   }
 
   // ★ FIX FLASH "--:--" : fallback (pending, etc.) — afficher le cap du WOD
@@ -1198,7 +1198,10 @@ function getSharedClockState(){
 // inter-heat, fin). Ici on ne fait que PEINDRE chaque zone séparément, avec
 // une ancre anti-flash PROPRE à chaque zone (aucun état partagé).
 var _zAnchor={1:null,2:null};
+var _zAnchorUp={1:null,2:null};   // ★ anchor MONTANT (For Time) — cf. tickZoneClock
 var _zLastKey={1:null,2:null};
+function parseSecVal(v){var p=String(v).split(':');return p.length===2?((parseInt(p[0],10)||0)*60+(parseInt(p[1],10)||0)):(parseInt(v,10)||0);}
+function toMMSSval(sec){sec=Math.max(0,sec|0);return Math.floor(sec/60)+':'+(sec%60<10?'0':'')+(sec%60);}
 
 function tickZoneClock(zone){
   var cv=document.getElementById('cv-z'+zone),
@@ -1213,8 +1216,44 @@ function tickZoneClock(zone){
   if(isHeatEnded){ _zAnchor[zone]=null; anchor=null; }
 
   var isHole=(s.val==='--:--' || s.vcls==='idle');
-  var isActiveCountdown=(typeof s.val==='string' && /^\d+:\d{2}$/.test(s.val) &&
+  // ★ FIX SABLIER FOR TIME : l'anchor extrapole une valeur À LA BAISSE pendant les
+  //   trous Firebase (utile pour un AMRAP décroissant). MAIS un For Time est un chrono
+  //   MONTANT : capturer sa valeur puis la faire redescendre produit un "sablier" qui
+  //   tourne à l'envers puis se fige (bug AUTO sur le WOD BBJ). On EXCLUT donc du
+  //   mécanisme d'anchor les formats montants (For Time) et les EMOM (valeur = temps
+  //   de phase qui se réinitialise à chaque tour, pas un décompte global continu).
+  var isCountUp=(s.isFortime===true) || !!s.round;
+  var isActiveCountdown=(!isCountUp && typeof s.val==='string' && /^\d+:\d{2}$/.test(s.val) &&
                         (s.vcls==='run' || s.vcls==='hot' || s.vcls==='warn'));
+
+  // Un For Time (montant) ne doit jamais hériter d'un anchor de décompte résiduel.
+  //   On gère son propre anchor MONTANT (_zAnchorUp) : on mémorise la dernière
+  //   valeur réelle qui monte, et pendant un trou Firebase on continue de la faire
+  //   MONTER (au lieu d'afficher "--:--" ou de la faire redescendre). Dès qu'une
+  //   vraie valeur revient, elle reprend la main.
+  if(isCountUp){ _zAnchor[zone]=null; anchor=null; }
+  var upAnchor=_zAnchorUp[zone];
+  var isRealCountUp=(s.isFortime===true && typeof s.val==='string' && /^\d+:\d{2}$/.test(s.val) &&
+                     (s.vcls==='run' || s.vcls==='hot' || s.vcls==='warn'));
+  if(isRealCountUp){
+    _zAnchorUp[zone]={sec:parseSecVal(s.val),capturedAt:now(),vcls:s.vcls,lbl:s.lbl,bcls:s.bcls};
+  } else if(isCountUp && isHole && upAnchor){
+    var ageUp=now()-upAnchor.capturedAt;
+    if(ageUp<=20000){
+      var upSec=upAnchor.sec+Math.floor(ageUp/1000);   // ★ MONTE (For Time)
+      s={
+        val: toMMSSval(upSec),
+        vcls: upAnchor.vcls||'run',
+        lbl: upAnchor.lbl||'⏱ CHRONO',
+        bcls: upAnchor.bcls
+      };
+    } else {
+      _zAnchorUp[zone]=null;
+    }
+  } else if(!s.isFortime){
+    // Heat non-For-Time (ou fin de heat) : l'anchor montant ne sert plus.
+    _zAnchorUp[zone]=null;
+  }
 
   if(isActiveCountdown){
     function parseSec(v){
