@@ -361,14 +361,6 @@ body{height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-fami
   animation:np-shine 4s linear infinite;filter:drop-shadow(0 0 16px rgba(255,138,0,.5))
 }
 @keyframes np-shine{0%{background-position:0% center}100%{background-position:200% center}}
-.np-cd{
-  font-family:var(--fm);font-size:clamp(26px,3.6vw,46px);font-weight:900;
-  color:#fff;line-height:1;margin-top:4px;letter-spacing:-1px;
-  filter:drop-shadow(0 0 20px rgba(45,156,255,.5))
-}
-/* ★ Décompte 30 s avant départ : passe en rouge pulsé pour bien marquer l'imminence */
-.np-cd.imminent{color:#FF5C6C;filter:drop-shadow(0 0 22px rgba(255,92,108,.6));animation:np-cdpulse 1s ease-in-out infinite}
-@keyframes np-cdpulse{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
 .np-wod{
   font-family:var(--fc);font-weight:900;font-size:clamp(11px,1.3vw,16px);letter-spacing:2px;
   color:#9DD4FF;margin-top:6px;text-transform:uppercase;line-height:1.3;padding:0 8px;white-space:normal;overflow-wrap:anywhere
@@ -2720,13 +2712,37 @@ function startTeamBandIH(zone,ihTarget,doneHid,doneH,doneW,catId,catLeader){
   //   - DERNIER heat de la catégorie : résultats (~25%) → classement général figé (~30%) → preview (~45%)
   //   Le classement général ne s'affiche QUE sur le dernier heat car entre 2 heats
   //   intermédiaires les scores changent (équipes qui zigzaguent → confusion public).
-  var reserveSec=Math.max(4,Math.min(6,Math.round(totalSec*0.08)));
+  // ★ CHEF : les équipes du PROCHAIN heat (sur les lignes, prêtes au départ) doivent
+  //   être affichées AU MOINS 20 s avant le go — quelle que soit la durée de l'inter-heat.
+  //   PREVIEW_MIN_S est le plancher absolu ; on ne touche jamais à ihTarget (le départ).
+  var PREVIEW_MIN_S=20;
+  var reserveSec=Math.max(PREVIEW_MIN_S,Math.min(6,Math.round(totalSec*0.08)));
+  reserveSec=Math.max(reserveSec,PREVIEW_MIN_S); // garantit >= 20 s
   var workSec=Math.max(4,totalSec-reserveSec);
-  // ★ CHEF (partie 1) : résultats laissés en PAUSE ~20 s pour être bien lus. Se réduit
-  //   automatiquement si l'inter-heat est court (sinon plus de place pour annoncer le
-  //   prochain heat). Puis preview du prochain heat jusqu'au départ (avec décompte).
-  var heatSec=isLast?Math.max(6,Math.min(20,Math.round(workSec*0.35))):Math.max(6,Math.min(20,Math.round(workSec*0.45)));
-  var wodSec =isLast?Math.max(5,Math.min(14,Math.round(workSec*0.26))):0;
+  // ★ CHEF (v2) : sur un inter-heat LONG (≈4 min en général ici), les résultats et le
+  //   classement général doivent rester lisibles NETTEMENT plus longtemps qu'avant.
+  //   Cibles pleines : résultat du heat = 60 s, classement général (fin de WOD) = 45 s.
+  //   Ces valeurs s'ADAPTENT à la longueur réelle de l'inter-heat :
+  //     - inter-heat long  → on atteint les cibles pleines (plafonds 60/45)
+  //     - inter-heat court → réduction proportionnelle (pourcentages), pour toujours
+  //       laisser au moins ~25 s de « PROCHAIN HEAT » avant le départ.
+  //   IMPORTANT : on ne redistribue le temps qu'À L'INTÉRIEUR de l'inter-heat ;
+  //   ihTarget (départ du prochain heat) et la coupure ne bougent JAMAIS.
+  var MIN_PREVIEW=Math.max(20,PREVIEW_MIN_S);      // preview minimale garantie (s) — équipes prochain heat
+  var HEAT_CAP=isLast?60:60;                       // plafond résultat du heat (s)
+  var WOD_CAP=45;                                  // plafond classement général (s)
+  var heatSec=isLast?Math.max(6,Math.min(HEAT_CAP,Math.round(workSec*0.45)))
+                    :Math.max(6,Math.min(HEAT_CAP,Math.round(workSec*0.70)));
+  var wodSec =isLast?Math.max(5,Math.min(WOD_CAP,Math.round(workSec*0.34))):0;
+  // Garde-fou : garder MIN_PREVIEW pour annoncer le prochain heat. Si résultat +
+  //   classement dépassent (workSec - MIN_PREVIEW), on rogne d'abord le classement,
+  //   puis le résultat — sans jamais toucher à ihTarget.
+  var _avail=Math.max(0,workSec-MIN_PREVIEW);
+  if(heatSec+wodSec>_avail){
+    var _over=(heatSec+wodSec)-_avail;
+    var _cutW=Math.min(wodSec-(isLast?5:0),_over); wodSec-=_cutW; _over-=_cutW;
+    if(_over>0){ heatSec=Math.max(6,heatSec-_over); }
+  }
 
   // ★ FIX #3 (classement général zappé) + #4 (résultat sauté avant coupure) :
   //   PLANNING PERSISTANT par heat terminé. scheduleRender rappelle cette fonction
@@ -2751,11 +2767,16 @@ function startTeamBandIH(zone,ihTarget,doneHid,doneH,doneW,catId,catLeader){
     //   toute la coupure ; « PROCHAIN HEAT » n'apparaît que dans les derniers 15%
     //   (aligné sur la fenêtre sponsors → handoff propre vers le prochain heat).
     if((ih.ihType||'')==='coupure'){
-      previewStart=ihTarget-Math.max(8000,Math.round(totalSec*1000*0.15));
+      // Pendant une coupure, « PROCHAIN HEAT » n'apparaît que tard (page sponsors devant),
+      //   mais on garantit quand même le plancher : équipes visibles >= PREVIEW_MIN_S avant la reprise.
+      var _coupLead=Math.max(PREVIEW_MIN_S*1000,8000,Math.round(totalSec*1000*0.15));
+      previewStart=ihTarget-_coupLead;
       heatEnd=previewStart; wodEnd=null;
     }
-    startTeamBandIH._sched[zone]={hid:doneHid,heatEnd:heatEnd,wodEnd:wodEnd,previewStart:previewStart};
+    startTeamBandIH._sched[zone]={hid:doneHid,heatEnd:heatEnd,wodEnd:wodEnd,previewStart:previewStart,seqStart:now()};
   }
+  // seqStart = instant de démarrage de la séquence pour ce heat fini (persistant).
+  var _seqStart=(_sc && _sc.hid===doneHid && _sc.seqStart)?_sc.seqStart:now();
   // Phase initiale déduite du planning (jamais rejouée en arrière car le temps avance).
   var _t0=now();
   var phase=(_t0<heatEnd)?'heat':((wodEnd&&_t0<wodEnd)?'wod':'preview'); // 'heat'|'wod'|'preview'
@@ -2831,8 +2852,16 @@ function startTeamBandIH(zone,ihTarget,doneHid,doneH,doneW,catId,catLeader){
       //   en preview = FLASH « prochain heat » en début de séquence. On affiche donc les
       //   résultats du heat pointé (doneHid) sans sauter, tant qu'il n'est pas 'pending'/'pre'
       //   (= un vrai prochain heat, cas à éviter). Plus de flash.
+      // ★ FIX FLASH PROCHAIN HEAT (v2) : startTeamBandIH est appelée SPÉCIFIQUEMENT pour
+      //   un heat qui vient de finir (doneHid fiable par construction). Juste après la fin,
+      //   Firebase peut mettre ~1 s à écrire 'done' → le statut lu est encore 'pending'/'pre'.
+      //   Sauter en preview à ce moment = le flash « prochain heat » d'une demi-seconde en
+      //   début de séquence. On ignore donc ce statut transitoire pendant une fenêtre de
+      //   propagation (2 s) : on affiche les résultats de doneHid. Passé ce délai, si le heat
+      //   est TOUJOURS pending/pre, c'est un vrai cas de mauvaise cible → là on saute en preview.
       var _dhSt=(HEATS[doneHid]&&HEATS[doneHid].status)||(doneH&&doneH.status)||'';
-      if(_dhSt==='pending' || _dhSt==='pre'){ _setPhase('preview'); return; }
+      var _propWin=(now()-_seqStart) > 2000; // fenêtre de propagation Firebase écoulée ?
+      if((_dhSt==='pending' || _dhSt==='pre') && _propWin){ _setPhase('preview'); return; }
       syncHeader('done');
       var heatRows=rankHeatEntries(doneHid,HEATS[doneHid]||doneH,doneW);
       // ★ VISUEL HEAT FINI — plus de gros logo tournant qui écrase la colonne.
@@ -2855,18 +2884,17 @@ function startTeamBandIH(zone,ihTarget,doneHid,doneH,doneW,catId,catLeader){
         el2.innerHTML='<div style="font-family:var(--ff);font-size:clamp(20px,3vw,36px);letter-spacing:2px;color:var(--ink3);text-align:center;padding:20px">FIN DE CATÉGORIE</div>';
         return;
       }
-      var remP=Math.max(0,Math.ceil((ihTarget-now())/1000));
-      var cdTxt=p2(Math.floor(remP/60))+':'+p2(remP%60);
-      // ★ ANTI-CLIGNOTEMENT : si le bloc preview existe déjà, on met seulement
-      //   à jour le texte du compte à rebours. On NE recrée PAS les cartes
-      //   (sinon l'animation d'entrée se relance toutes les 500ms → clignote).
-      var existingCd=document.getElementById('prev-cd-'+zone);
-      if(existingCd){
-        existingCd.textContent=cdTxt;
-        // ★ CHEF : décompte 30 s avant départ → rouge pulsé
-        if(remP<=30) existingCd.classList.add('imminent'); else existingCd.classList.remove('imminent');
+      // (décompte supprimé : le gros chrono central de la zone affiche déjà le
+      //   temps restant avant le prochain heat — on évite le doublon à l'écran)
+      // ★ ANTI-CLIGNOTEMENT : le décompte a été retiré (le gros chrono central de la
+      //   zone l'affiche déjà — plus de doublon). On ne reconstruit donc le bloc
+      //   « PROCHAIN HEAT » qu'UNE fois par prochain heat ; les ticks suivants ne
+      //   touchent plus au DOM (sinon l'animation d'entrée se relance → clignote).
+      var _nid=String((nd.h&&(nd.h.catHeatNum||nd.h.globalNum||nd.h.id))||'');
+      if(el2.getAttribute('data-prev-nid')===_nid && document.getElementById('prev-hdr-'+zone)){
         return;
       }
+      el2.setAttribute('data-prev-nid',_nid);
       // Premier rendu de la preview : on construit tout une seule fois
       var slots=nd.h.slots||nd.h.lanes||{};
       var laneKeys=Object.keys(slots).sort(function(a,b){return parseInt(a)-parseInt(b);})
@@ -2875,9 +2903,8 @@ function startTeamBandIH(zone,ihTarget,doneHid,doneH,doneW,catId,catLeader){
       var _nWod=esc(_nW.nom||'');
       var _nCat=esc(nd.h.catName||'');
       var _wodSub=(_nWod||_nCat)?('<div class="np-wod">'+[_nWod,_nCat].filter(Boolean).join(' · ')+'</div>'):'';
-      el2.innerHTML='<div class="np-hdr">'
+      el2.innerHTML='<div class="np-hdr" id="prev-hdr-'+zone+'">'
           +'<div class="np-hdr-lbl">⚡ PROCHAIN HEAT</div>'
-          +'<div class="np-cd'+(remP<=30?' imminent':'')+'" id="prev-cd-'+zone+'">'+cdTxt+'</div>'
           +_wodSub
         +'</div>'
         +laneKeys.map(function(ln){
