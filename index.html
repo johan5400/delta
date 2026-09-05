@@ -12700,6 +12700,7 @@ function renderMouvements(w) {
 
   return w.mouvements.map(function(m, i) {
     var isErgo = m.type === 'ergo';
+    var isRun = m.type === 'run';   // ★ RUN : mouvement course, validé d'un clic par le juge, distance affichée sur le live
     // ★ RAMEUR SBC : le champ « pas » (mètres/clic) n'apparaît QUE dans ce format,
     //   et seulement sur un mouvement ergo. Les autres formats/ergos sont intacts.
     var isRameurSBC = String(w.wodFormat||'').toLowerCase()==='rameursbc';
@@ -12718,20 +12719,25 @@ function renderMouvements(w) {
     +   '<select onchange="updateMouvement('+w.id+','+i+',\'type\',this.value)" onclick="event.stopPropagation()" style="'+INP+';width:90px;flex-shrink:0">'
     +     '<option value="reps"'+(m.type==='reps'||!m.type?' selected':'')+'>Reps</option>'
     +     '<option value="ergo"'+(m.type==='ergo'?' selected':'')+'>Ergo</option>'
+    +     '<option value="run"'+(m.type==='run'?' selected':'')+'>🏃 Run</option>'
     +   '</select>'
     +   '<button onclick="event.stopPropagation();deleteMouvement('+w.id+','+i+')" style="background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.2);border-radius:6px;color:#DC2626;font-size:14px;font-weight:900;cursor:pointer;padding:4px 9px;flex-shrink:0">×</button>'
     + '</div>'
 
     // ── Ligne 2 : Reps/Distance + Poids + Unité ergo ──
-    + '<div style="display:grid;grid-template-columns:'+(isErgo?'1fr 80px':'1fr 1fr')+';gap:6px;margin-bottom:8px">'
+    + '<div style="display:grid;grid-template-columns:'+((isErgo||isRun)?'1fr 80px':'1fr 1fr')+';gap:6px;margin-bottom:8px">'
     +   '<div>'
-    +     '<label style="'+LBL+'">'+(isErgo?'Distance / Cible':'Nombre de reps')+'</label>'
-    +     '<input type="number" min="0" value="'+(isErgo?(m.ergoTarget||0):(m.qty||0))+'" placeholder="0" '
-    +       'onchange="updateMouvement('+w.id+','+i+','+(isErgo?'\'ergoTarget\',parseInt(this.value)||0':'\'qty\',parseInt(this.value)||0')+')" '
+    +     '<label style="'+LBL+'">'+(isRun?'Distance du run (m)':(isErgo?'Distance / Cible':'Nombre de reps'))+'</label>'
+    +     '<input type="number" min="0" value="'+((isErgo||isRun)?(m.ergoTarget||0):(m.qty||0))+'" placeholder="0" '
+    +       'onchange="updateMouvement('+w.id+','+i+','+((isErgo||isRun)?'\'ergoTarget\',parseInt(this.value)||0':'\'qty\',parseInt(this.value)||0')+')" '
     +       'onclick="event.stopPropagation()" '
-    +       'style="'+INP+';color:'+(isErgo?'#7C3AED':'#1E88E5')+';font-size:16px;font-weight:900;text-align:center">'
+    +       'style="'+INP+';color:'+(isRun?'#EA580C':(isErgo?'#7C3AED':'#1E88E5'))+';font-size:16px;font-weight:900;text-align:center">'
     +   '</div>'
-    +   (isErgo
+    +   (isRun
+        ? '<div><label style="'+LBL+'">Unité</label>'
+        +   '<input value="m" disabled style="'+INP+';text-align:center;opacity:.7">'
+        + '</div>'
+        : isErgo
         ? '<div><label style="'+LBL+'">Unité</label>'
         +   '<select onchange="updateMouvement('+w.id+','+i+',\'ergoUnit\',this.value)" onclick="event.stopPropagation()" style="'+INP+'"><option value="m"'+(m.ergoUnit==='m'?' selected':'')+'>m</option><option value="cal"'+(m.ergoUnit==='cal'?' selected':'')+'>cal</option></select>'
         + '</div>'
