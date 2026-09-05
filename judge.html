@@ -893,6 +893,23 @@ var _restMsgs=[
   {e:'😅',t:'Respire par le nez, champion.'},
   {e:'🧘',t:'Petit moment zen. Savoure-le.'}
 ];
+// ★ Messages humoristiques affichés quand LE JUGE est en pause (il saute des heats).
+//   Ton "juge en repos", différent de _restMsgs (repos de l'athlète entre les tours).
+var _pauseMsgs=[
+  {e:'☕',t:'Pause ! Pose le compteur, va voler un café à l\'accueil.'},
+  {e:'🪑',t:'Assieds-toi, respire : personne à juger pour l\'instant.'},
+  {e:'🧘',t:'Mode zen activé. Tu l\'as bien mérité.'},
+  {e:'🍩',t:'Petit creux ? C\'est le moment. On te rappelle avant ton heat.'},
+  {e:'🕵️',t:'En pause : va espionner la technique des autres lignes.'},
+  {e:'😎',t:'Rien à faire, et c\'est parfaitement normal. Profite.'},
+  {e:'🦵',t:'Dégourdis-toi les jambes, ton prochain heat t\'attend pas encore.'},
+  {e:'📱',t:'Autorisation exceptionnelle de scroller ton tel. Un peu.'},
+  {e:'🎧',t:'Une chanson, une gorgée d\'eau, et c\'est reparti.'},
+  {e:'🥤',t:'Hydrate-toi, juge de l\'extrême. La suite arrive.'},
+  {e:'🌴',t:'Petites vacances entre deux heats. Bronze pas trop.'},
+  {e:'🍕',t:'Le seul WOD autorisé maintenant : soulever une part de pizza.'}
+];
+var _pauseCdIv=null; // interval du décompte "reprise dans" sur l'écran de pause
 var emomRoundReps=0, emomRoundHistory=[], emomTotalReps=0;
 var _judgeAutoChainEnabled=false;
 var _judgeScheduleEntries=[];
@@ -1117,7 +1134,16 @@ function showInterheatBanner(data){
       //   saisie VERROUILLÉ à ~-20s. L'interface juge s'affiche grisée avec le
       //   compte à rebours ; la saisie ne se débloque qu'au GO du TK (status:live).
       var _notActive = ['s-wait','s-next','s-brief'].indexOf(_currentScreen)!==-1;
-      if(_notActive && FB_JUGE_ID && SC && SC.heat){
+      // ★ PAUSE : l'inter-heat est stocké PAR ZONE (system/interheat[zone]) et compte
+      //   vers le prochain heat de la zone — pas forcément un heat que CE juge doit
+      //   juger. Si le juge est en pause (il saute ce/ces heat(s)), ne PAS ouvrir
+      //   l'écran de jugement verrouillé : sinon il voit une interface de jugement
+      //   grisée pendant sa pause et croit qu'il va juger. Son vrai retour (son heat
+      //   assigné passant pre/live) est géré par _doApplyNext/applyRealData +
+      //   le listener _heatStatusRef — startJudgeLocked n'est qu'une avance ~-20s.
+      var _instrIH = (typeof judgeBuildNextInstruction==='function') ? judgeBuildNextInstruction() : null;
+      var _onPauseIH = !!(_instrIH && _instrIH.kind==='pause');
+      if(_notActive && !_onPauseIH && FB_JUGE_ID && SC && SC.heat){
         // data.target = timestamp prévu du GO du prochain heat
         startJudgeLocked(data.target||(serverNow()+rem*1000));
       }
@@ -2031,6 +2057,30 @@ function toggleWodRecall(){
 
 // Affiche le briefing plein écran + gère le compte à rebours jusqu'à -20s
 function showBriefScreen(next, secondsUntilStartHint){
+  // ★ PAUSE : ne pas ouvrir le brief athlète tant que le heat JUSTE AVANT le heat de
+  //   reprise du juge n'est pas terminé. Pendant une pause, des chemins (enchaînement
+  //   auto, inter-heat de zone) peuvent déclencher le brief trop tôt → le juge en pause
+  //   voit le brief de son prochain heat alors que le heat précédent tourne encore.
+  //   globalNum == numéro de heat (h4→4), donc le heat d'avant = 'h'+(globalNum-1).
+  //   On laisse passer si ce heat est fini (done/timecap) OU si le heat de reprise est
+  //   déjà en cours de lancement (pre/countdown/live/timecap) — c'est le vrai retour.
+  try{
+    var _instrB=(typeof judgeBuildNextInstruction==='function')?judgeBuildNextInstruction():null;
+    if(_instrB && _instrB.kind==='pause' && typeof judgeFindCurrentAndNextAssignments==='function'){
+      var _resume=(judgeFindCurrentAndNextAssignments()||{}).next;
+      var _rgn=_resume?parseInt(_resume.globalNum,10):NaN;
+      if(_resume && !isNaN(_rgn) && _rgn>1){
+        var _heatsC=window._judgeHeatsCache||{};
+        var _prevId='h'+(_rgn-1);
+        var _prevSt=(_heatsC[_prevId]||_heatsC[String(_prevId)]||{}).status;
+        var _prevFini=(_prevSt==='done'||_prevSt==='timecap');
+        var _resId=_resume.heatId||('h'+_rgn);
+        var _resSt=(_heatsC[_resId]||_heatsC[String(_resId)]||{}).status;
+        var _resActif=(_resSt==='pre'||_resSt==='countdown'||_resSt==='live'||_resSt==='timecap');
+        if(!_prevFini && !_resActif) return false; // heat d'avant pas fini → pas de brief
+      }
+    }
+  }catch(e){}
   if(!fillBriefScreen(next)) return false;
   _briefActive=true;
   // Reset du bouton JE SUIS PRÊT (caché par défaut, réaffiché si heat=pre + 1er heat)
@@ -2140,9 +2190,11 @@ function showNextScreen(){
     heroBg='background:linear-gradient(180deg,rgba(76,29,149,.55),rgba(13,20,31,.98))';
     actionCls=''; btnCls='next-end'; btnTxt='↩ Retour';
   } else if(info.kind==='pause'){
-    // ★ Vraie pause : le juge saute des heats → il peut quitter sa ligne
-    ico='☕'; action='VA EN PAUSE';
-    sub=info.body||'Tu peux quitter ta ligne. Tu seras notifié automatiquement avant ton prochain heat.';
+    // ★ Vraie pause : le juge saute des heats → il peut quitter sa ligne.
+    //   Message humoristique aléatoire + décompte "reprise dans" (carte + interval plus bas).
+    var _pm=_pauseMsgs[Math.floor(Math.random()*_pauseMsgs.length)]||{e:'☕',t:'Pause bien méritée.'};
+    ico=_pm.e; action='EN PAUSE';
+    sub=_pm.t;
     heroBg='background:linear-gradient(180deg,rgba(30,58,138,.5),rgba(13,20,31,.98))';
     actionCls=''; btnCls='next-stay'; btnTxt='↩ Compris';
   } else if(info.kind==='wait'){
@@ -2234,8 +2286,16 @@ function showNextScreen(){
       +'</div>';
     }
 
-    // ★ FIX : plus de re-scan — juste un message d'attente
-    if(info.kind==='pause' || info.kind==='wait'){
+    // ★ PAUSE : carte décompte "Reprise dans MM:SS" (mise à jour par _pauseCdIv, cf. plus bas)
+    if(info.kind==='pause'){
+      cardsHtml+='<div class="next-card" style="background:rgba(255,176,32,.1);border:2px solid rgba(255,176,32,.4);justify-content:space-between;align-items:center">'
+        +'<div>'
+          +'<div class="next-card-lbl">Reprise dans</div>'
+          +'<div class="next-card-val" id="pause-cd" style="color:#FFB020;font-variant-numeric:tabular-nums">—</div>'
+        +'</div>'
+        +'<div style="font-size:44px;opacity:.25">⏳</div>'
+      +'</div>';
+    } else if(info.kind==='wait'){
       cardsHtml+='<div class="next-card" style="background:rgba(77,166,255,.08);border:1px solid rgba(77,166,255,.2)">'
         +'<div class="next-card-lbl">En attente</div>'
         +'<div class="next-card-val" style="color:#4DA6FF;font-size:clamp(14px,4vw,20px)">⏳ Tu seras notifié au départ</div>'
@@ -2255,6 +2315,44 @@ function showNextScreen(){
   _currentScreen='s-next';
   _nextShownAt=Date.now();
   vib([80,60,80,60,80]);
+
+  // ★ PAUSE : décompte live "Reprise dans MM:SS". À CHAQUE seconde on relit le cache
+  //   temps réel des heats : dès que le TK arme le heat de reprise (il écrit
+  //   countdownTarget / startTimestamp), le compteur bascule sur la valeur EXACTE.
+  //   Tant que le heat est encore pending sans timestamp, on estime via l'heure
+  //   planifiée (startMinute = minute du jour). L'interval s'auto-nettoie à la sortie.
+  clearInterval(_pauseCdIv); _pauseCdIv=null;
+  if(info && info.kind==='pause'){
+    var _resHid=(next&&(next.heatId||next.hid))||(next&&next.globalNum?('h'+next.globalNum):'');
+    var _plannedTarget=(function(nx){
+      if(nx&&nx.startMinute!=null){
+        var d=new Date(serverNow()); d.setHours(0,0,0,0);
+        return d.getTime()+(parseInt(nx.startMinute,10)||0)*60000;
+      }
+      return 0;
+    })(next);
+    var _updPauseCd=function(){
+      if(_currentScreen!=='s-next'){ clearInterval(_pauseCdIv); _pauseCdIv=null; return; }
+      var el=$('pause-cd'); if(!el) return;
+      // Cible : vrai timestamp Firebase si le TK a armé le heat, sinon estimation planifiée
+      var _target=_plannedTarget;
+      try{
+        var heats=window._judgeHeatsCache||{};
+        var h=_resHid?(heats[_resHid]||heats[String(_resHid)]):null;
+        if(h){
+          var real=parseInt(h.startTimestamp,10)||parseInt(h.countdownTarget,10)||0;
+          if(real>0) _target=real;
+        }
+      }catch(e){}
+      var rem=_target>0?Math.round((_target-serverNow())/1000):-1;
+      if(rem>3600){ el.textContent='+1 h'; }
+      else if(rem>0){ var m=Math.floor(rem/60), s=rem%60; el.textContent=(m<10?'0':'')+m+':'+(s<10?'0':'')+s; }
+      else if(rem>-1){ el.textContent='c\'est bientôt !'; el.style.fontSize='clamp(14px,4vw,20px)'; }
+      else { el.textContent='à l\'annonce du TK'; el.style.fontSize='clamp(14px,4vw,20px)'; }
+    };
+    _updPauseCd();
+    _pauseCdIv=setInterval(_updPauseCd,1000);
+  }
 
   // ★ BRIEFING PLEIN ÉCRAN : 5s après l'écran de confirmation de score,
   //   bascule sur le briefing du prochain heat (si un prochain heat existe).
