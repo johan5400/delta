@@ -7650,9 +7650,23 @@ function syncBenevolesToFirebase(){
     //   par défaut. Publier maintenant écraserait les vrais noms du chef. On attend donc
     //   le 1er retour Firebase avant TOUTE publication (vide ou non).
     if(!window._deltaBackupLoadedOnce){
-      console.warn('syncBenevolesToFirebase: publication ignorée — Firebase pas encore chargé (protection anti-écrasement)');
+      // ★ FIX SYNC BÉNÉVOLES : avant, on abandonnait ici définitivement si Firebase
+      //   n'avait pas encore chargé → les changements de rôle/dispo faits juste après
+      //   le démarrage n'étaient JAMAIS publiés (restaient en mémoire locale, absents
+      //   de Firebase, donc invisibles pour le planning et les autres appareils).
+      //   Désormais on RÉESSAYE automatiquement toutes les 800 ms (jusqu'à ~24 s) tant
+      //   que Firebase n'est pas prêt, puis la publication part dès qu'il l'est.
+      console.warn('syncBenevolesToFirebase: Firebase pas encore chargé → nouvelle tentative dans 800 ms');
+      window._benSyncRetryCount = (window._benSyncRetryCount||0) + 1;
+      if(window._benSyncRetryCount <= 30){
+        setTimeout(function(){ try{ syncBenevolesToFirebase(); }catch(e){} }, 800);
+      } else {
+        console.warn('syncBenevolesToFirebase: abandon après 30 tentatives (Firebase muet)');
+        window._benSyncRetryCount = 0;
+      }
       return;
     }
+    window._benSyncRetryCount = 0;
     var benMap = {};
     (BENEVOLES||[]).forEach(function(b){
       if(!b || !b.id) return;
@@ -18594,9 +18608,38 @@ async function generateAndPublishAll(){
   try{
     var bensObj={};
     ((typeof BENEVOLES!=='undefined'?BENEVOLES:[])||[]).forEach(function(b){
-      bensObj[String(b.id)]={id:b.id,prenom:b.prenom||'',nom:b.nom||'',role:b.notes||'Juge',jours:b.jours||'12'};
+      if(!b || !b.id) return;
+      // ★ FIX CRITIQUE : avant, le rôle était lu depuis b.notes (mauvais champ, toujours
+      //   vide) → tous les bénévoles repassaient en "Juge" à chaque publication, écrasant
+      //   les "Juge principal" / "Table de marque". De plus, les créneaux de disponibilité
+      //   (slotJ1/slotJ2/slot) n'étaient PAS publiés → dispos perdues dans Firebase, donc
+      //   le planning ne pouvait pas les respecter. On publie désormais le VRAI rôle et
+      //   TOUS les champs utiles (dispos, qualif, zone, head judge), comme syncBenevolesToFirebase.
+      bensObj[String(b.id)]={
+        id: b.id,
+        prenom: b.prenom||'',
+        nom: b.nom||'',
+        role: b.role||'Juge',
+        qualification: b.qualification||b.qualif||5,
+        qualif: b.qualif||b.qualification||5,
+        slot: b.slot||'Journée',
+        slotJ1: b.slotJ1||b.slot||'Journée',
+        slotJ2: b.slotJ2||b.slot||'Journée',
+        slotJ3: b.slotJ3||'absent',
+        slotJ4: b.slotJ4||'absent',
+        jours: b.jours||'12',
+        zone: b.zone||1,
+        zoneAssign: b.zoneAssign!=null ? String(b.zoneAssign) : '',
+        prefStation: b.prefStation||'',
+        isAthlete: !!b.isAthlete,
+        isHeadJudge: !!(typeof isHeadJudge==='function' && isHeadJudge(b)),
+        hjZone: (b.hjZone!=null && b.hjZone!=='') ? String(b.hjZone) : '',
+        hjHeats: Array.isArray(b.hjHeats) ? b.hjHeats.map(String) : []
+      };
     });
     if(Object.keys(bensObj).length) await _db.ref('benevoles').set(bensObj);
+    // Persister aussi le backup complet (lu au démarrage sur tous les appareils)
+    try{ await _db.ref('admin_backup/benevoles').set(BENEVOLES||[]); }catch(e){}
   }catch(e){}
 
   // 5 — Judge assignments
@@ -19264,6 +19307,10 @@ function manualBackup(){
   var _db2=(typeof LS_FB_DB!=='undefined'&&LS_FB_DB)||window.db||null;
   if(!_db2){ toast('Firebase non connecté','#FF3B5C'); return; }
   var state=typeof getStateToSave==='function'?getStateToSave():{};
+  // ★ Forcer aussi la publication du nœud "benevoles" (lu par le planning des juges),
+  //   pas seulement admin_backup, pour que rôles + disponibilités arrivent partout.
+  window._deltaBackupLoadedOnce = true; // débloque une éventuelle protection démarrage
+  if(typeof syncBenevolesToFirebase==='function'){ try{ syncBenevolesToFirebase(); }catch(e){} }
   _db2.ref('admin_backup').set({
     wods:WODS||[], categories:CATEGORIES||[], benevoles:BENEVOLES||[],
     savedAt:Date.now(), version:'delta', manual:true,
