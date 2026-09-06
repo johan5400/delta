@@ -11248,6 +11248,7 @@ function buildJugeAssignment(){
     // Vue zonée de globalActiveLane pour ce groupe (zone|lane → state)
     var groupLaneMemory = globalLaneMemory;   // shared reference
     var activeLaneState = globalActiveLane;   // shared reference
+    var groupStintDone = {};                  // ★ juges dont le stint vient d'expirer → pause au heat suivant
     var totalGroupHeats = group.heats ? group.heats.length : 1;
     var nbJuges = orderedJuges.length; // taille du pool pour la rotation circulaire
 
@@ -11387,6 +11388,10 @@ function buildJugeAssignment(){
       freeEligibleJuges.forEach(function(ben){
         var benId = String(ben.id);
         if(usedJudgeIds[benId]) return;
+        // ★ Stint expiré → ce juge prend sa pause CE heat : pas de reprise de ligne.
+        //   On consomme le marqueur (sa pause est "prise") pour qu'il puisse être
+        //   réaffecté normalement au heat suivant via l'équilibrage.
+        if(groupStintDone[benId]){ delete groupStintDone[benId]; return; }
         var _st = (zoneFairStats[zoneDayKey] && zoneFairStats[zoneDayKey][benId]) || null;
         if(_st && _st.consecPause>0) return; // revient de pause → équilibrage, pas de reprise auto
         var prevLane = groupLaneMemory[benId];
@@ -11418,6 +11423,7 @@ function buildJugeAssignment(){
         laneJudgeMap[String(nextLane)] = ben;
         usedLanes[nextLane] = true;
         usedJudgeIds[benId] = true;
+        groupLaneMemory[benId] = nextLane;   // ★ mémoriser la ligne → stable pour les heats suivants du WOD
         activeLaneState[zone+'|'+String(nextLane)] = {
           judgeId: benId,
           remaining: pickHeatStintLength(heatLaneNumbers.length, heatWindows, groupHeats.length - heatIdx)
@@ -11564,11 +11570,17 @@ function buildJugeAssignment(){
         if(!laneJudgeMap[zkLane]) return;
         activeLaneState[zoneKey].remaining = Math.max(0, (activeLaneState[zoneKey].remaining||1) - 1);
         if(activeLaneState[zoneKey].remaining === 0){
-          var expiredJudgeId = String(activeLaneState[zoneKey].judgeId||'');
-          if(expiredJudgeId && groupLaneMemory[expiredJudgeId]===parseInt(zkLane,10)){
-            delete groupLaneMemory[expiredJudgeId];
+          // ★ FIX CHANGEMENTS DE LIGNE EN PLEIN WOD + rotation :
+          //   Le "stint" expire → ce juge doit partir EN PAUSE au heat suivant (rotation).
+          //   On le marque comme "stint fini" pour que la continuité de ligne le saute
+          //   (sinon il reprendrait sa ligne et ne partirait jamais en pause). Sa mémoire
+          //   de ligne est effacée ICI, à l'expiration du stint (= il part en pause).
+          var _expId = String(activeLaneState[zoneKey].judgeId||'');
+          if(_expId){
+            groupStintDone[_expId] = true;                 // partira en pause au heat suivant
+            if(groupLaneMemory[_expId]===parseInt(zkLane,10)) delete groupLaneMemory[_expId];
           }
-          delete activeLaneState[zoneKey]; // ★ libérer pour le prochain WOD
+          delete activeLaneState[zoneKey]; // libérer la place pour la rotation
         }
       });
 
