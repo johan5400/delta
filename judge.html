@@ -6321,8 +6321,14 @@ function startWatchNextHeat(){
         return;
       }
     }
-    // Respecter le planning : ne charger que si le heat est prêt (pas pending sauf si done=true)
-    if(!done && best.status==='pending') return; // pas encore prêt — rester en attente
+    // ★ FIX PAUSE/DÉRIVE : ne charger le prochain heat que s'il est RÉELLEMENT armé par
+    //   le TK (pre/live/timecap). Auparavant le bypass "|| done" faisait avancer FB_HEAT_ID
+    //   sur le heat de reprise (encore pending) dès que le juge validait son heat courant
+    //   (done=true) → l'appli croyait le juge "sur" h4, son prochain devenait h5 (9h24),
+    //   puis h6… (décompte qui dérive + brief affiché 4-5 heats trop tôt).
+    //   done = "MON heat courant est fini", ce n'est PAS "le prochain heat est prêt".
+    //   Le juge reste donc calé sur son dernier heat validé jusqu'au vrai départ du suivant.
+    if(best.status==='pending') return; // pas encore armé par le TK — rester en attente
     _checked=true;
     clearInterval(_nextHeatWatchIv);
     if(_nextHeatWatchRef){ _nextHeatWatchRef.off(); _nextHeatWatchRef=null; }
