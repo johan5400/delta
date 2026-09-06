@@ -11249,6 +11249,7 @@ function buildJugeAssignment(){
     var groupLaneMemory = globalLaneMemory;   // shared reference
     var activeLaneState = globalActiveLane;   // shared reference
     var groupStintDone = {};                  // ★ juges dont le stint vient d'expirer → pause au heat suivant
+    var prevHeatAssign = {};                  // ★ juge → ligne au heat IMMÉDIATEMENT précédent (null si pause). Sert à VERROUILLER la ligne d'un juge qui retravaille sans pause.
     var totalGroupHeats = group.heats ? group.heats.length : 1;
     var nbJuges = orderedJuges.length; // taille du pool pour la rotation circulaire
 
@@ -11312,20 +11313,28 @@ function buildJugeAssignment(){
       var usedLanes = {};
       var usedJudgeIds = {};
 
-      heatLaneNumbers.forEach(function(laneNumber){
-        var laneState = activeLaneState[zone+'|'+String(laneNumber)];
-        if(!laneState || (laneState.remaining||0) <= 0) return;
-        var ownerId = String(laneState.judgeId||'');
-        if(!ownerId || usedLanes[laneNumber] || usedJudgeIds[ownerId]) return;
-        var ownerJudge = orderedJuges.find(function(ben){ return String(ben.id)===ownerId; });
-        if(!ownerJudge){ delete activeLaneState[zone+'|'+String(laneNumber)]; return; }
-        // Juge absent ce heat (pause slot ou conflit) → libérer la lane pour ce heat
-        // mais conserver activeLaneState pour tenter la continuité au heat suivant
+      // ★★ RÈGLE ABSOLUE — CONTINUITÉ DE LIGNE ENTRE HEATS CONSÉCUTIFS ★★
+      //   Un juge qui a jugé le heat IMMÉDIATEMENT précédent (prevHeatAssign) et qui est
+      //   disponible ce heat REPREND EXACTEMENT sa ligne, sans aucune condition (ni stint,
+      //   ni équilibrage). C'est la garantie demandée : PAS de changement de ligne entre
+      //   deux heats qu'un juge enchaîne. Un juge ne peut changer de ligne QU'APRÈS une
+      //   pause (auquel cas il n'est pas dans prevHeatAssign et passe par l'équilibrage).
+      //   On verrouille ces lignes en premier, avant toute autre affectation.
+      Object.keys(prevHeatAssign).forEach(function(benId){
+        var prevLane = prevHeatAssign[benId];
+        if(prevLane==null) return;
+        prevLane = parseInt(prevLane,10);
+        if(isNaN(prevLane)) return;
+        if(heatLaneNumbers.indexOf(prevLane)===-1) return; // cette ligne n'existe pas dans ce heat
+        if(usedLanes[prevLane]) return;                    // déjà verrouillée (ne devrait pas arriver)
+        var ownerJudge = orderedJuges.find(function(ben){ return String(ben.id)===benId; });
+        if(!ownerJudge) return;
+        // Juge indisponible ce heat (slot/pause/conflit) → il NE reprend pas, sa ligne se libère
         if(!judgeSlotCoversWindows(ownerJudge, jour, heatWindows)) return;
-        if(!judgeIsFreeForWindows(ownerId, heatWindows)) return;
-        laneJudgeMap[String(laneNumber)] = ownerJudge;
-        usedLanes[laneNumber] = true;
-        usedJudgeIds[ownerId] = true;
+        if(!judgeIsFreeForWindows(benId, heatWindows)) return;
+        laneJudgeMap[String(prevLane)] = ownerJudge;
+        usedLanes[prevLane] = true;
+        usedJudgeIds[benId] = true;
       });
 
       // Juges de la zone assignée d'abord
@@ -11385,25 +11394,12 @@ function buildJugeAssignment(){
       //   (consecPause > 0) ne reprend PAS d'office sa ligne : il repasse par
       //   l'équilibrage (compareJudgeCandidates) pour être placé là où c'est le
       //   plus équitable.
-      freeEligibleJuges.forEach(function(ben){
-        var benId = String(ben.id);
-        if(usedJudgeIds[benId]) return;
-        // ★ Stint expiré → ce juge prend sa pause CE heat : pas de reprise de ligne.
-        //   On consomme le marqueur (sa pause est "prise") pour qu'il puisse être
-        //   réaffecté normalement au heat suivant via l'équilibrage.
-        if(groupStintDone[benId]){ delete groupStintDone[benId]; return; }
-        var _st = (zoneFairStats[zoneDayKey] && zoneFairStats[zoneDayKey][benId]) || null;
-        if(_st && _st.consecPause>0) return; // revient de pause → équilibrage, pas de reprise auto
-        var prevLane = groupLaneMemory[benId];
-        if(prevLane==null) return;
-        prevLane = parseInt(prevLane,10);
-        if(isNaN(prevLane)) return;
-        if(heatLaneNumbers.indexOf(prevLane)===-1) return;
-        if(usedLanes[prevLane]) return;
-        laneJudgeMap[String(prevLane)] = ben;
-        usedLanes[prevLane] = true;
-        usedJudgeIds[benId] = true;
-      });
+      // (La continuité de ligne est désormais gérée UNIQUEMENT par le verrou
+      //  prevHeatAssign en amont : un juge qui enchaîne garde sa ligne ; un juge qui
+      //  revient de pause n'est pas dans prevHeatAssign et passe par l'équilibrage
+      //  ci-dessous, où il peut prendre une nouvelle ligne. Pas d'autre reprise auto.)
+
+
 
 
 
@@ -11562,27 +11558,32 @@ function buildJugeAssignment(){
         };
         chargeMapDay[jour][benId] = (chargeMapDay[jour][benId]||0) + 1;
       });
+      // ── Fin de heat : préparer prevHeatAssign pour le HEAT SUIVANT ──
+      //   prevHeatAssign = qui vient d'être affecté et sur quelle ligne. Au heat suivant,
+      //   ces juges reprendront leur ligne (règle absolue) — SAUF ceux dont le stint expire,
+      //   qu'on retire ici pour qu'ils partent en pause (et puissent changer de ligne au retour).
+      var newPrevHeatAssign = {};
+      Object.keys(laneJudgeMap).forEach(function(laneKey){
+        var jb = laneJudgeMap[laneKey]; if(!jb) return;
+        newPrevHeatAssign[String(jb.id)] = parseInt(laneKey,10);
+      });
+      // Décrémenter le stint des juges affectés ; à expiration → pause au heat suivant.
       Object.keys(activeLaneState).forEach(function(zoneKey){
-        // zoneKey = "zone|lane" (ex: "1|2")
         var zkParts=zoneKey.split('|'); if(zkParts.length<2) return;
         var zkZone=zkParts[0], zkLane=zkParts[1];
-        if(String(zkZone)!==String(zone)) return; // only touch this group's zone
+        if(String(zkZone)!==String(zone)) return;
         if(!laneJudgeMap[zkLane]) return;
         activeLaneState[zoneKey].remaining = Math.max(0, (activeLaneState[zoneKey].remaining||1) - 1);
         if(activeLaneState[zoneKey].remaining === 0){
-          // ★ FIX CHANGEMENTS DE LIGNE EN PLEIN WOD + rotation :
-          //   Le "stint" expire → ce juge doit partir EN PAUSE au heat suivant (rotation).
-          //   On le marque comme "stint fini" pour que la continuité de ligne le saute
-          //   (sinon il reprendrait sa ligne et ne partirait jamais en pause). Sa mémoire
-          //   de ligne est effacée ICI, à l'expiration du stint (= il part en pause).
           var _expId = String(activeLaneState[zoneKey].judgeId||'');
           if(_expId){
-            groupStintDone[_expId] = true;                 // partira en pause au heat suivant
+            delete newPrevHeatAssign[_expId];   // ★ retiré → part en pause au heat suivant
             if(groupLaneMemory[_expId]===parseInt(zkLane,10)) delete groupLaneMemory[_expId];
           }
-          delete activeLaneState[zoneKey]; // libérer la place pour la rotation
+          delete activeLaneState[zoneKey];
         }
       });
+      prevHeatAssign = newPrevHeatAssign;   // pour le prochain heat de ce WOD
 
       if(nbJuges){
         zoneRotation[zoneDayKey] = (offset + 1) % nbJuges;
