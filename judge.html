@@ -1844,9 +1844,17 @@ function judgeBuildNextInstruction(){
   if(current){
     var sameZone=String(current.zone||'')===String(next.zone||'');
     var sameLane=String(current.lane||'')===String(next.lane||'');
-    // ★ FIX : plus de requireRescan — le juge a scanné UNE fois et suit son planning automatiquement
-    if(gap!=null && gap>=15){
-      return {kind:'wait', requireRescan:false, title:'Attends sur place',
+    // ★ FIX DÉTECTION PAUSE : un juge est EN PAUSE dès qu'il SAUTE au moins un heat,
+    //   peu importe la durée. Avant, on se basait sur un seuil de 15 min (gap>=15), ce
+    //   qui ratait les pauses courtes (1-2 heats sautés → l'appli croyait qu'il jugeait
+    //   encore et affichait "reste sur ta ligne"). On compare désormais les globalNum :
+    //   si le prochain heat du juge n'est pas juste après son heat courant, il y a des
+    //   heats intercalés qu'il ne juge pas = PAUSE.
+    var _curGN = parseInt(current.globalNum,10)||0;
+    var _nextGN = parseInt(next.globalNum,10)||0;
+    var _skipsHeats = (_curGN>0 && _nextGN>0 && _nextGN > _curGN + 1);
+    if(_skipsHeats){
+      return {kind:'pause', requireRescan:false, title:'Pause',
         body:'Prochain : '+heatLbl+' sur la '+zoneLbl+', '+laneLbl+when+'. Tu seras notifié au départ.'};
     }
     if(sameZone && sameLane){
@@ -2212,7 +2220,23 @@ function showNextScreen(){
       +'<div class="next-card-val" style="color:#00E5A0">'+scoreStr+'</div>'
     +'</div>';
 
-    if(next && info.kind!=='end' && info.kind!=='endday'){
+    // ★ PAUSE LONGUE : si le juge saute plusieurs heats (ou une coupure), on NE montre
+    //   PAS les détails de son prochain heat (poste/ligne/équipe) — ça l'embrouille de
+    //   voir un heat qui n'arrive que dans 3-4 heats. On affiche juste "PAUSE + reprise".
+    //   Les détails réapparaissent quand son heat est PROCHE (heat juste suivant, ou <2 à venir).
+    var _pauseLongue=false;
+    if(info.kind==='pause' || info.kind==='wait'){
+      var _cur=(pair&&pair.current)?pair.current:null;
+      var _cg=_cur?(parseInt(_cur.globalNum,10)||0):0;
+      var _ng=next?(parseInt(next.globalNum,10)||0):0;
+      // heats intercalés = _ng - _cg - 1. Détails masqués dès qu'il y a AU MOINS 1 heat
+      //   d'écart (le juge saute un heat → il est en pause, on ne montre pas encore le heat).
+      if(_cg>0 && _ng>0 && (_ng - _cg) >= 2) _pauseLongue=true;
+      // Coupure : toujours considérée comme pause longue (plus rien sur le floor)
+      if(info.body && /coupure/i.test(info.body)) _pauseLongue=true;
+    }
+
+    if(next && info.kind!=='end' && info.kind!=='endday' && !_pauseLongue){
       var zoneLbl='Zone '+(next.zone||'—');
       var laneLbl='Ligne '+(next.lane||'—');
       var wodName=(next.wod||next.wodNom||'—');
@@ -6774,6 +6798,36 @@ function listenHeatStatus(){
     _departBannerIv=setInterval(updateBanner,1000);
   });
 
+// ★ Écran PAUSE pendant une COUPURE (tous les juges off-floor). Reprise = fin de coupure.
+function showCoupurePauseScreen(d){
+  try{
+    var _hm=_randPauseHumor();
+    var ico=$('next-ico'); if(ico) ico.textContent=_hm.e;
+    var act=$('next-action'); if(act){ act.textContent='PAUSE'; act.style.color='#4DA6FF'; }
+    // Reprise = target de la coupure (timestamp du prochain départ)
+    var _reprise='';
+    if(d && d.target){
+      var _remS=Math.max(0,Math.round((d.target-serverNow())/1000));
+      var _rd=new Date(d.target);
+      var _hh=_rd.getHours(), _mm=_rd.getMinutes();
+      var _hStr=_hh+'h'+(_mm<10?'0':'')+_mm;
+      _reprise = _remS>=60
+        ? ('Reprise dans ~'+Math.round(_remS/60)+' min (à '+_hStr+')')
+        : ('Reprise dans ~'+_remS+' s (à '+_hStr+')');
+    }
+    var sub=$('next-sub');
+    if(sub) sub.textContent=(_reprise?_reprise+'\n':'')+'⏸ Coupure — plus aucun heat sur le floor.\n'+_hm.t+'\n\nLe jugement reprend automatiquement à la fin de la coupure.';
+    var hero=$('next-hero');
+    if(hero) hero.setAttribute('style','background:linear-gradient(180deg,rgba(124,45,18,.5),rgba(13,20,31,.98));flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:28px 20px 20px;gap:8px;text-align:center');
+    // Masquer les cartes "prochain heat" (pas pertinent pendant une coupure générale)
+    var cards=$('next-cards'); if(cards) cards.innerHTML='';
+    var btn=$('next-btn-action'); if(btn){ btn.textContent='↩ Coupure en cours'; btn.disabled=true; btn.style.pointerEvents='none'; }
+    var cdl=$('next-countdown-lbl'); if(cdl) cdl.textContent='';
+    window._judgeOnPause=true;  // masque le bandeau inter-heat par-dessus
+    if(typeof show==='function'){ show('s-next'); _currentScreen='s-next'; }
+  }catch(e){ if(window.logError) window.logError('showCoupurePauseScreen', e); }
+}
+
   _interheatRef=db.ref('system/interheat');
   _interheatRef.on('value',function(snap){
     var all=snap.val()||{};
@@ -6783,6 +6837,16 @@ function listenHeatStatus(){
     var d=all[String(z)]||all[z]||null;
     if(d&&d.active&&d.target&&d.target>Date.now()&&d.seconds>0){
       showInterheatBanner(d);
+      // ★ COUPURE = plus AUCUN heat sur le floor → TOUS les juges sont en pause.
+      //   On affiche l'écran PAUSE plein écran (message + reprise = fin de la coupure),
+      //   sauf si le juge est en train de finir/soumettre son heat précédent (on ne coupe
+      //   pas une saisie en cours). L'écran normal reprend à la fin de la coupure.
+      if((d.ihType||'')==='coupure'){
+        var _busy = (_currentScreen==='s-judge' || _currentScreen==='s-cd')
+                    && (HEAT_STATUS==='live' || HEAT_STATUS==='timecap'
+                        || (typeof judgeIsPostHeatEntryOpen==='function' && judgeIsPostHeatEntryOpen()));
+        if(!_busy){ showCoupurePauseScreen(d); }
+      }
     } else {
       hideInterheatBanner();
     }
