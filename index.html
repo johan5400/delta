@@ -11256,23 +11256,39 @@ function buildJugeAssignment(){
     // - juges disponibles sur LA fenêtre horaire de CE heat
     // - heats restants à partir de CE heat
     function pickHeatStintLength(heatLanesCount, heatWindows_, heatsRemaining){
-      // Juges disponibles sur cette fenêtre précise
+      // ★ ROTATION ÉQUILIBRÉE : le "stint" = nombre de heats CONSÉCUTIFS qu'un juge tient
+      //   sur la MÊME ligne avant de passer en pause. On le veut COURT et RÉGULIER pour :
+      //     1. garder la ligne stable pendant le travail (pas de changement en plein WOD),
+      //     2. répartir les pauses en petits blocs au lieu d'un seul trou de plusieurs heures.
+      //   nbDispos est recalculé À CHAQUE heat sur la fenêtre horaire réelle → si le chef
+      //   AJOUTE / SUPPRIME / met en pause un juge, la rotation s'adapte automatiquement.
       var nbDispos = orderedJuges.filter(function(ben){
         return judgeSlotCoversWindows(ben, jour, heatWindows_)
           && judgeIsFreeForWindows(String(ben.id), heatWindows_);
       }).length;
-      // Fallback : pool complet du jour si pas d horaires
+      // Fallback : pool complet du jour si pas d'horaires
       if(nbDispos === 0) nbDispos = orderedJuges.length;
       var lanesCount = heatLanesCount || 1;
-      var MIN_STINT = 4; // minimum 4 heats consécutifs sur la même ligne
+
       if(nbDispos <= lanesCount){
-        // Pas assez de juges → juge garde sa lane jusqu à la fin
+        // Pas assez de juges pour tourner → chaque juge garde sa ligne jusqu'au bout
+        //   (aucune pause possible sans laisser une ligne sans juge).
         return Math.max(1, heatsRemaining);
       }
-      // Plus de juges que de lanes → stint équilibré
-      var rounds = Math.ceil(nbDispos / lanesCount);
-      var idealStint = Math.max(MIN_STINT, Math.floor(heatsRemaining / rounds));
-      return Math.max(MIN_STINT, Math.min(idealStint, heatsRemaining));
+
+      // Assez de juges pour tourner → STINT COURT FIXE (rotation régulière).
+      //   - Base : 4 heats de travail d'affilée (~1h à 1h15 selon la durée des WODs),
+      //     assez long pour que le juge s'installe sur sa ligne, assez court pour que
+      //     tout le monde tourne et que personne ne reste bloqué trop longtemps.
+      //   - On raccourcit un peu si le pool est très surdimensionné (beaucoup plus de
+      //     juges que de lignes), pour faire revenir chaque juge plus souvent en petites
+      //     pauses plutôt qu'un seul long repos.
+      var STINT_BASE = 4;
+      var ratio = nbDispos / lanesCount;              // ex : 14 juges / 5 lignes = 2.8
+      var stint = STINT_BASE;
+      if(ratio >= 2.5) stint = 3;                      // pool très surdimensionné → stint 3
+      // Ne jamais dépasser ce qu'il reste de heats.
+      return Math.max(1, Math.min(stint, heatsRemaining));
     }
     var groupHeats = (group.heats||[]).slice().sort(function(a,b){
       var aw = getHeatWindow(a, wid);
