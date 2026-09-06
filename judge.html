@@ -363,7 +363,7 @@ body.brief-mode #s-judge{display:none!important}
 .next-hero{flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 20px 24px;gap:10px;text-align:center}
 .next-ico{font-size:72px;line-height:1;filter:drop-shadow(0 4px 16px rgba(0,0,0,.4))}
 .next-action{font-family:var(--ff);font-size:clamp(36px,10vw,64px);letter-spacing:5px;line-height:1;text-shadow:0 2px 12px rgba(0,0,0,.4)}
-.next-sub{font-family:var(--fc);font-size:15px;font-weight:700;letter-spacing:.5px;color:rgba(255,255,255,.85);line-height:1.6;max-width:320px;margin-top:2px}
+.next-sub{font-family:var(--fc);font-size:15px;font-weight:700;letter-spacing:.5px;color:rgba(255,255,255,.85);line-height:1.6;max-width:320px;margin-top:2px;white-space:pre-line}
 .next-cards{display:flex;flex-direction:column;gap:8px;padding:0 14px 14px;width:100%}
 .next-card{border-radius:16px;padding:14px 18px;display:flex;align-items:center;gap:14px}
 .next-card-lbl{font-family:var(--fc);font-size:10px;font-weight:900;letter-spacing:2px;text-transform:uppercase;opacity:.55;margin-bottom:2px}
@@ -894,6 +894,23 @@ var _restMsgs=[
   {e:'🧘',t:'Petit moment zen. Savoure-le.'}
 ];
 var emomRoundReps=0, emomRoundHistory=[], emomTotalReps=0;
+// ★ Messages humoristiques affichés sur l'écran de PAUSE ENTRE HEATS (juge au repos
+//   le temps que d'autres passent). Un message au hasard à chaque mise en pause.
+var _pauseHumor=[
+  {e:'☕',t:'Pause bien méritée. Va pas trop loin quand même.'},
+  {e:'😎',t:'Repos de star. Profites-en, ça va repartir.'},
+  {e:'🧘',t:'Respire, détends-toi… mais garde un œil ouvert.'},
+  {e:'🍕',t:'C\'est pas encore l\'heure de la pizza. Patience.'},
+  {e:'🦥',t:'Mode paresseux activé. Temporairement.'},
+  {e:'🎮',t:'Petite pause. Pas le temps pour une partie, désolé.'},
+  {e:'🕶️',t:'Repose tes yeux de juge, ils ont bossé.'},
+  {e:'⚡',t:'Recharge les batteries, on te rappelle très vite.'},
+  {e:'🏖️',t:'Mini-vacances. Très mini. Genre quelques minutes.'},
+  {e:'🤙',t:'Cool, tranquille. Le chrono t\'attend pas loin.'},
+  {e:'🍩',t:'Pause donut. Sans le donut. Mais avec le repos.'},
+  {e:'😴',t:'Petit somme autorisé. Léger, hein.'}
+];
+function _randPauseHumor(){ return _pauseHumor[Math.floor(Math.random()*_pauseHumor.length)]; }
 var _judgeAutoChainEnabled=false;
 var _judgeScheduleEntries=[];
 var _judgeInitialAssignmentKey='';
@@ -1091,7 +1108,9 @@ function showInterheatBanner(data){
     //   startJudgeLocked réaffiche s-judge verrouillé (~-15/25s), celui-ci a déjà son
     //   propre compte à rebours ; le bandeau flottant par-dessus donnait l'écran coupé
     //   en deux. On ne montre le bandeau que sur les écrans d'attente/brief.
-    if(_currentScreen==='s-judge'||_currentScreen==='s-cd'||_currentScreen==='s-pre'){
+    if(_currentScreen==='s-judge'||_currentScreen==='s-cd'||_currentScreen==='s-pre' || window._judgeOnPause){
+      // Sur un écran de jugement OU quand le juge est en PAUSE : pas de bandeau flottant
+      //   (il cacherait le message de pause « reprise dans X » + humour).
       box.classList.remove('show');
     } else {
       box.classList.add('show');
@@ -1754,16 +1773,22 @@ function judgeFindCurrentAndNextAssignments(){
     currentIdx=lastDoneIdx;
   }
   var current=currentIdx>=0?sorted[currentIdx]:null;
-  // Prochain = premier non-done APRÈS le courant (dans l'ordre trié)
+  // ★ FIX DÉCALAGE / REPRISE QUI RECULE :
+  //   _judgeScheduleEntries ne contient QUE les heats de CE juge. Son "prochain heat"
+  //   est donc simplement LE PREMIER DE SA LISTE qui n'est pas encore terminé
+  //   (pending/pre/live), quel que soit ce qui se termine AILLEURS. Avant, on prenait
+  //   "le heat après le courant", et en pause le courant retombait sur le dernier heat
+  //   done GLOBAL (Matching 3) → le prochain heat du juge reculait à chaque heat fini
+  //   (reprise 9h15 → 9h45 → 10h15…). On calcule désormais next indépendamment de ça.
   var next=null;
-  for(var i=currentIdx+1;i<sorted.length;i++){
-    if(sorted[i].status!=='done'&&sorted[i].status!=='timecap'){ next=sorted[i]; break; }
-  }
-  // Pas de suivant après → premier non-done de toute la liste (sauf le courant)
-  if(!next){
-    next=sorted.find(function(e,i){
-      return i!==currentIdx && e.status!=='done' && e.status!=='timecap';
-    })||null;
+  for(var _i=0;_i<sorted.length;_i++){
+    var _st=sorted[_i].status;
+    if(_st!=='done' && _st!=='timecap'){
+      // Ne pas reproposer le heat courant lui-même comme "prochain"
+      if(currentIdx>=0 && _i===currentIdx) continue;
+      next=sorted[_i];
+      break;
+    }
   }
   return {current:current,next:next};
 }
@@ -2113,6 +2138,7 @@ function showNextScreen(){
   //   le score du heat en cours n'a pas été validé (évite de déconcentrer le juge
   //   pendant le WOD). Le flag est armé dans validate() et remis à zéro à chaque heat.
   if(!_scoreValidated) return;
+  window._judgeOnPause = false;   // ★ réinitialisé ; remis à true seulement dans le cas pause ci-dessous
   var info=judgeBuildNextInstruction();
   var pair=judgeFindCurrentAndNextAssignments();
   var next=pair.next;
@@ -2130,11 +2156,26 @@ function showNextScreen(){
     heroBg='background:linear-gradient(180deg,rgba(76,29,149,.55),rgba(13,20,31,.98))';
     actionCls=''; btnCls='next-end'; btnTxt='↩ Retour';
   } else if(info.kind==='pause' || info.kind==='wait'){
-    // ★ FIX : plus de rescan — juste un message d'attente
-    ico='⏳'; action='ATTENDS SUR PLACE';
-    sub=info.body||'Tu seras notifié automatiquement au départ du prochain heat.';
+    // ★ ÉCRAN PAUSE : le juge est au repos le temps que d'autres passent. On affiche
+    //   un message humoristique + "reprise dans X" calculé sur l'heure de son PROCHAIN heat.
+    window._judgeOnPause = true;   // ★ masque le bandeau inter-heat (sinon il cache ce message)
+    var _hm=_randPauseHumor();
+    ico=_hm.e; action='PAUSE';
+    var _reprise='';
+    if(next && next.startMinute!=null){
+      var _nowMin = (function(){ var d=new Date(); return d.getHours()*60+d.getMinutes(); })();
+      var _delta = next.startMinute - _nowMin;
+      if(_delta>0){
+        _reprise = _delta>=60
+          ? ('Reprise dans '+Math.floor(_delta/60)+'h'+(_delta%60<10?'0':'')+(_delta%60)+' (à '+fmtMinutes(next.startMinute)+')')
+          : ('Reprise dans ~'+_delta+' min (à '+fmtMinutes(next.startMinute)+')');
+      } else {
+        _reprise = 'Reprise imminente (à '+fmtMinutes(next.startMinute)+')';
+      }
+    }
+    sub=(_reprise? _reprise+'\n' : '') + _hm.t + '\n\nTu seras notifié automatiquement au départ de ton prochain heat.';
     heroBg='background:linear-gradient(180deg,rgba(30,58,138,.5),rgba(13,20,31,.98))';
-    actionCls=''; btnCls='next-stay'; btnTxt='↩ Attendre';
+    actionCls=''; btnCls='next-stay'; btnTxt='↩ Compris, je patiente';
   } else if(info.kind==='zone_change'){
     ico='➡️'; action='CHANGE DE ZONE';
     sub=info.body||'Déplace-toi rapidement vers la nouvelle zone.';
