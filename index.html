@@ -11568,6 +11568,19 @@ function buildJugeAssignment(){
         newPrevHeatAssign[String(jb.id)] = parseInt(laneKey,10);
       });
       // Décrémenter le stint des juges affectés ; à expiration → pause au heat suivant.
+      //   ★ TOLÉRANCE D'ÉQUITÉ (choix chef) : on privilégie la STABILITÉ DE LIGNE. Un juge
+      //   dont le stint expire NE part PAS forcément en pause : il GARDE sa ligne tant que
+      //   son écart de charge avec le juge éligible le MOINS chargé reste ≤ TOLERANCE (4).
+      //   On ne le fait tourner (= changer de ligne) que si l'écart dépasse 4 heats.
+      //   → lignes stables la plupart du temps, équité maintenue à ~4 heats près.
+      var _TOL_CHARGE = 4;
+      // Charge mini parmi les juges du jour réellement disponibles (pour comparer l'écart)
+      var _minCharge = null;
+      (orderedJuges||[]).forEach(function(_b){
+        var _c = chargeOf(_b.id, jour);
+        if(_minCharge===null || _c < _minCharge) _minCharge = _c;
+      });
+      if(_minCharge===null) _minCharge = 0;
       Object.keys(activeLaneState).forEach(function(zoneKey){
         var zkParts=zoneKey.split('|'); if(zkParts.length<2) return;
         var zkZone=zkParts[0], zkLane=zkParts[1];
@@ -11576,11 +11589,20 @@ function buildJugeAssignment(){
         activeLaneState[zoneKey].remaining = Math.max(0, (activeLaneState[zoneKey].remaining||1) - 1);
         if(activeLaneState[zoneKey].remaining === 0){
           var _expId = String(activeLaneState[zoneKey].judgeId||'');
-          if(_expId){
-            delete newPrevHeatAssign[_expId];   // ★ retiré → part en pause au heat suivant
-            if(groupLaneMemory[_expId]===parseInt(zkLane,10)) delete groupLaneMemory[_expId];
+          // Écart de charge de ce juge vs le moins chargé
+          var _ecart = chargeOf(_expId, jour) - _minCharge;
+          if(_ecart <= _TOL_CHARGE){
+            // Écart acceptable → on GARDE sa ligne : on prolonge son stint, il ne part pas
+            //   en pause, il reste dans newPrevHeatAssign (donc reprend sa ligne au heat suivant).
+            activeLaneState[zoneKey].remaining = pickHeatStintLength(heatLaneNumbers.length, heatWindows, groupHeats.length - heatIdx);
+          } else {
+            // Écart trop grand (>4) → on le fait tourner pour rééquilibrer : pause au heat suivant.
+            if(_expId){
+              delete newPrevHeatAssign[_expId];
+              if(groupLaneMemory[_expId]===parseInt(zkLane,10)) delete groupLaneMemory[_expId];
+            }
+            delete activeLaneState[zoneKey];
           }
-          delete activeLaneState[zoneKey];
         }
       });
       prevHeatAssign = newPrevHeatAssign;   // pour le prochain heat de ce WOD
