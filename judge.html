@@ -2164,9 +2164,11 @@ function showNextScreen(){
     heroBg='background:linear-gradient(180deg,rgba(76,29,149,.55),rgba(13,20,31,.98))';
     actionCls=''; btnCls='next-end'; btnTxt='↩ Retour';
   } else if(info.kind==='pause' || info.kind==='wait'){
-    // ★ ÉCRAN PAUSE : le juge est au repos le temps que d'autres passent. On affiche
-    //   un message humoristique + "reprise dans X" calculé sur l'heure de son PROCHAIN heat.
-    window._judgeOnPause = true;   // ★ masque le bandeau inter-heat (sinon il cache ce message)
+    // ★ ÉCRAN PAUSE : le juge est au repos le temps que d'autres passent.
+    //   Gros "PAUSE" + décompte reprise + message humoristique. Le chrono inter-heat
+    //   reste visible en haut (info principale) — l'écran pause a un padding-top pour
+    //   ne pas passer dessous (fix du chrono qui écrasait le message).
+    window._judgeOnPause = false;   // ★ garder le chrono inter-heat visible en haut
     var _hm=_randPauseHumor();
     ico=_hm.e; action='PAUSE';
     var _reprise='';
@@ -2181,7 +2183,7 @@ function showNextScreen(){
         _reprise = 'Reprise imminente (à '+fmtMinutes(next.startMinute)+')';
       }
     }
-    sub=(_reprise? _reprise+'\n' : '') + _hm.t + '\n\nTu seras notifié automatiquement au départ de ton prochain heat.';
+    sub=(_reprise? _reprise+'\n' : '') + _hm.t;
     heroBg='background:linear-gradient(180deg,rgba(30,58,138,.5),rgba(13,20,31,.98))';
     actionCls=''; btnCls='next-stay'; btnTxt='↩ Compris, je patiente';
   } else if(info.kind==='zone_change'){
@@ -2203,7 +2205,11 @@ function showNextScreen(){
 
   // Hero
   var hero=$('next-hero');
-  if(hero){ hero.setAttribute('style', heroBg+';flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:28px 20px 20px;gap:8px;text-align:center'); }
+  if(hero){
+    var _isPause=(info.kind==='pause'||info.kind==='wait');
+    var _pad=_isPause ? 'padding:150px 20px 20px' : 'padding:28px 20px 20px';
+    hero.setAttribute('style', heroBg+';flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;'+_pad+';gap:8px;text-align:center');
+  }
   var ico_el=$('next-ico'); if(ico_el) ico_el.textContent=ico;
   var act_el=$('next-action'); if(act_el){ act_el.textContent=action; act_el.style.color=btnCls==='next-stay'?'#4ade80':btnCls==='next-rescan'?'#f87171':'#fb923c'; }
   var sub_el=$('next-sub'); if(sub_el) sub_el.textContent=sub;
@@ -2220,21 +2226,11 @@ function showNextScreen(){
       +'<div class="next-card-val" style="color:#00E5A0">'+scoreStr+'</div>'
     +'</div>';
 
-    // ★ PAUSE LONGUE : si le juge saute plusieurs heats (ou une coupure), on NE montre
-    //   PAS les détails de son prochain heat (poste/ligne/équipe) — ça l'embrouille de
-    //   voir un heat qui n'arrive que dans 3-4 heats. On affiche juste "PAUSE + reprise".
-    //   Les détails réapparaissent quand son heat est PROCHE (heat juste suivant, ou <2 à venir).
-    var _pauseLongue=false;
-    if(info.kind==='pause' || info.kind==='wait'){
-      var _cur=(pair&&pair.current)?pair.current:null;
-      var _cg=_cur?(parseInt(_cur.globalNum,10)||0):0;
-      var _ng=next?(parseInt(next.globalNum,10)||0):0;
-      // heats intercalés = _ng - _cg - 1. Détails masqués dès qu'il y a AU MOINS 1 heat
-      //   d'écart (le juge saute un heat → il est en pause, on ne montre pas encore le heat).
-      if(_cg>0 && _ng>0 && (_ng - _cg) >= 2) _pauseLongue=true;
-      // Coupure : toujours considérée comme pause longue (plus rien sur le floor)
-      if(info.body && /coupure/i.test(info.body)) _pauseLongue=true;
-    }
+    // ★ EN PAUSE : "PAUSE et rien d'autre" → on NE montre PAS les détails du prochain
+    //   heat (poste/ligne/équipe), qui embrouillent quand le heat n'arrive que dans
+    //   plusieurs tours. Quand le juge ENCHAÎNE (kind ≠ pause/wait), les détails
+    //   s'affichent normalement comme avant.
+    var _pauseLongue=(info.kind==='pause' || info.kind==='wait');
 
     if(next && info.kind!=='end' && info.kind!=='endday' && !_pauseLongue){
       var zoneLbl='Zone '+(next.zone||'—');
