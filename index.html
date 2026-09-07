@@ -11203,6 +11203,7 @@ function buildJugeAssignment(){
   // ★ FIX : mémoire globale cross-WOD — continuité de ligne entre WODs
   var globalLaneMemory = {};    // { judgeId: laneNumber } persiste entre WOD groups
   var globalActiveLane = {};    // { "zone|lane": { judgeId, remaining } } persiste entre WOD groups
+  var lastWodLaneByJudge = {};  // ★ { judgeId: laneNumber } ligne au WOD PRÉCÉDENT → pour ROTATION entre WODs (éviter la même ligne, anti-lassitude)
 
   wodGroupsOrdered.forEach(function(group){
     var wid = String(group.wid||'');
@@ -11415,7 +11416,19 @@ function buildJugeAssignment(){
         var benId = String(ben.id);
         if(usedJudgeIds[benId]) return;
         if(!remainingLanes.length) return;
-        var nextLane = remainingLanes.shift();
+        var nextLane;
+        // ★ ROTATION ENTRE WODS (anti-lassitude) : au 1ER heat d'un WOD, on essaie de
+        //   donner au juge une ligne DIFFÉRENTE de celle qu'il avait au WOD précédent
+        //   (pour qu'il ne juge pas toujours la même ligne/équipe). Aux heats suivants
+        //   du WOD, attribution normale (la stabilité intra-WOD est gérée par prevHeatAssign).
+        if(heatIdx===0 && lastWodLaneByJudge[benId]!=null && remainingLanes.length>1){
+          var _prevWodLane = parseInt(lastWodLaneByJudge[benId],10);
+          var _idxDiff = remainingLanes.findIndex(function(l){ return l!==_prevWodLane; });
+          if(_idxDiff>=0){ nextLane = remainingLanes.splice(_idxDiff,1)[0]; }
+          else { nextLane = remainingLanes.shift(); }
+        } else {
+          nextLane = remainingLanes.shift();
+        }
         laneJudgeMap[String(nextLane)] = ben;
         usedLanes[nextLane] = true;
         usedJudgeIds[benId] = true;
@@ -11646,6 +11659,13 @@ function buildJugeAssignment(){
         }
       });
       zoneHeatSeq[zoneDayKey] = heatSeq + 1;
+    });
+    // ★ FIN DE WOD : mémoriser la ligne de chaque juge sur ce WOD, pour que le PROCHAIN
+    //   WOD lui donne une ligne DIFFÉRENTE (rotation anti-lassitude). On lit groupLaneMemory
+    //   qui contient la dernière ligne connue de chaque juge dans ce groupe WOD.
+    Object.keys(groupLaneMemory).forEach(function(_jid){
+      var _ln = groupLaneMemory[_jid];
+      if(_ln!=null) lastWodLaneByJudge[_jid] = parseInt(_ln,10);
     });
   });
 
