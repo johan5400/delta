@@ -11259,7 +11259,10 @@ function buildJugeAssignment(){
     //     • Équilibrage : rotation circulaire du pool de juges dispos.
     //   Tout est calculé d'avance et ne dépend d'aucun état résiduel : débuggable.
     // ════════════════════════════════════════════════════════════════════
-    var BLOC_HEATS = 4; // nombre de heats consécutifs sur la même ligne avant rotation
+    var BLOC_HEATS = 2; // nombre de heats consécutifs sur la même ligne avant rotation.
+    //   2 = le meilleur compromis (testé sur données réelles) : le juge garde sa ligne sur
+    //   2 heats d'affilée (pas de changement à chaque heat), et les PAUSES restent COURTES
+    //   (~30 min max) et bien réparties au lieu de longs trous d'1 h. Équité quasi parfaite.
 
     // Compteur de WOD pour ce jour (0 pour le 1er WOD, 1 pour le 2e, etc.)
     var groupWodIdx = wodCounterByDay[jour] || 0;
