@@ -1155,9 +1155,14 @@ function showInterheatBanner(data){
       //   saisie VERROUILLÉ à ~-20s. L'interface juge s'affiche grisée avec le
       //   compte à rebours ; la saisie ne se débloque qu'au GO du TK (status:live).
       var _notActive = ['s-wait','s-next','s-brief'].indexOf(_currentScreen)!==-1;
-      if(_notActive && FB_JUGE_ID && SC && SC.heat){
+      // ★ FIX (demande chef) : si le juge est EN PAUSE, NE PAS ouvrir l'écran de saisie
+      //   du prochain heat. Il doit rester sur le GROS ÉCRAN PAUSE. On ne bascule en
+      //   saisie verrouillée QUE si le juge juge réellement le prochain heat.
+      if(_notActive && FB_JUGE_ID && SC && SC.heat && !judgeIsOnPauseNow()){
         // data.target = timestamp prévu du GO du prochain heat
         startJudgeLocked(data.target||(serverNow()+rem*1000));
+      } else if(judgeIsOnPauseNow()){
+        showJudgePauseScreen();
       }
     }
     if(rem<=0){ clearInterval(_ihIv); _ihIv=null; hideInterheatBanner(); }
@@ -1175,28 +1180,35 @@ function hideInterheatBanner(){
     setTimeout(function(){
       db.ref('heats').once('value').then(function(snap){
         var best=selectBestJudgeAssignment(FB_JUGE_ID, snap.val()||{});
-        // Uniquement si c'est un heat DIFFERENT — jamais reset le heat en cours
-        if(best && String(best.heatId)!==String(FB_HEAT_ID)){
-          db.ref('heats/'+best.heatId).once('value').then(function(hs){
-            var h=hs.val()||{};
-            var li=(h.lanes||{})[String(best.lane)]||{};
-            applyRealData({
-              heatId:best.heatId, lane:String(best.lane),
-              teamName:li.teamName||best.teamName||'—',
-              catName:judgeLaneCatName(li,h)||best.catName||'—',
-              catId:judgeLaneCatId(li,h)||best.catId||'',
-              zone:parseInt(h.catZone||h.zone||best.zone||1)||1,
-              wodInfo:h.wodInfo||best.wodInfo||null,
-              wodNom:judgeHeatWodName(h, li, best.wodNom),
-              globalNum:judgeHeatGlobalNum(best.heatId, h),
-              startMinute:judgeStartMinuteFromHeat(h),
-              prenom:best.prenom||FB_JUGE_PRENOM||'Juge',
-              nom:best.nom||FB_JUGE_NOM||'',
-              status:h.status||'pending',
-              startTimestamp:h.startTimestamp||null
-            });
+        if(!best) return;
+        // ★ FIX (appli qui ne repart pas après la coupure) : on recharge le heat du juge
+        //   à la fin de l'inter-heat/coupure — Y COMPRIS si c'est le MÊME heatId. Avant,
+        //   on ne rechargeait que si le heat était DIFFÉRENT ; mais si l'appli avait
+        //   déjà préchargé le prochain heat comme heat courant pendant la pause, le heatId
+        //   était identique → aucune bascule → l'appli restait figée sur l'écran pause.
+        //   En rechargeant, applyRealData relit le STATUT à jour (live) et ré-affiche le
+        //   bon écran (jugement si le heat tourne, sinon attente).
+        db.ref('heats/'+best.heatId).once('value').then(function(hs){
+          var h=hs.val()||{};
+          var li=(h.lanes||{})[String(best.lane)]||{};
+          // Ne pas interrompre une saisie déjà démarrée entre-temps.
+          if(['s-pre','s-cd','s-judge'].indexOf(_currentScreen)!==-1) return;
+          applyRealData({
+            heatId:best.heatId, lane:String(best.lane),
+            teamName:li.teamName||best.teamName||'—',
+            catName:judgeLaneCatName(li,h)||best.catName||'—',
+            catId:judgeLaneCatId(li,h)||best.catId||'',
+            zone:parseInt(h.catZone||h.zone||best.zone||1)||1,
+            wodInfo:h.wodInfo||best.wodInfo||null,
+            wodNom:judgeHeatWodName(h, li, best.wodNom),
+            globalNum:judgeHeatGlobalNum(best.heatId, h),
+            startMinute:judgeStartMinuteFromHeat(h),
+            prenom:best.prenom||FB_JUGE_PRENOM||'Juge',
+            nom:best.nom||FB_JUGE_NOM||'',
+            status:h.status||'pending',
+            startTimestamp:h.startTimestamp||null
           });
-        }
+        });
       });
     }, 1000);
   }
@@ -1818,9 +1830,9 @@ function judgeFindCurrentAndNextAssignments(){
 //   s'ouvre et décale la reprise).
 function judgeIsOnPauseNow(){
   if(typeof FB_HEAT_ID!=='undefined' && FB_HEAT_ID && _judgeScheduleEntries && _judgeScheduleEntries.length){
-    var cur=_normHeatId(FB_HEAT_ID), myEntry=null;
+    var cur=_normHeatId(FB_HEAT_ID), myEntry=null, myIdx=-1;
     for(var i=0;i<_judgeScheduleEntries.length;i++){
-      if(_normHeatId(_judgeScheduleEntries[i].heatId)===cur){ myEntry=_judgeScheduleEntries[i]; break; }
+      if(_normHeatId(_judgeScheduleEntries[i].heatId)===cur){ myEntry=_judgeScheduleEntries[i]; myIdx=i; break; }
     }
     // 1) Le heat en cours n'est pas à lui → repos.
     if(!myEntry) return true;
@@ -1832,6 +1844,11 @@ function judgeIsOnPauseNow(){
         if(info && (info.kind==='pause' || info.kind==='wait')) return true;
       }catch(e){}
     }
+    // NB : on ne bloque PAS ici quand le heat courant est à lui mais pas encore lancé
+    //   (pending/pre) — car dans ce cas il doit justement voir son BRIEF / écran pré-heat
+    //   pour préparer son équipe pendant l'inter-heat. La distinction « je juge le prochain
+    //   heat » vs « je suis en pause » est portée par les règles 1 et 2 : si le heat courant
+    //   n'est pas à lui (règle 1) OU si son heat est fini et l'instruction est pause (règle 2).
   }
   return false;
 }
@@ -1840,13 +1857,27 @@ function judgeIsOnPauseNow(){
 //   qui NE change PAS quand d'autres heats se terminent → plus de décalage.
 var _pauseEmojis=['☕','😎','🧘','🍕','🦥','🎮','🕶️','⚡','🏖️','🤙','🍩','😴'];
 function showJudgePauseScreen(){
-  // Trouver le prochain heat du juge (le 1er non-terminé de SON planning).
+  // Trouver le prochain heat du juge : le 1er heat NON terminé, dans l'ordre
+  //   chronologique. ★ FIX heure de reprise fausse (9h34 au lieu de 9h28) : on prend
+  //   le heat non-done dont le départ est le PLUS PROCHE dans le futur — pas simplement
+  //   le 1er de la liste (qui pouvait être un heat plus tardif si l'ordre/préchargement
+  //   décalait). On se base sur startMinute vs l'heure courante.
   var next=null;
   if(_judgeScheduleEntries && _judgeScheduleEntries.length){
     var sorted=_judgeScheduleEntries.slice().sort(judgeCompareHeatSequence);
+    var nowMin=(function(){ var d=new Date(); return d.getHours()*60+d.getMinutes(); })();
+    // 1) Prochain heat non-done dont le départ est encore à venir (startMinute >= maintenant - 2min de marge).
     for(var i=0;i<sorted.length;i++){
-      var st=sorted[i].status;
-      if(st!=='done' && st!=='timecap'){ next=sorted[i]; break; }
+      var e=sorted[i], st=e.status;
+      if(st==='done' || st==='timecap') continue;
+      if(e.startMinute!=null && e.startMinute >= (nowMin-2)){ next=e; break; }
+    }
+    // 2) Repli : si aucun futur trouvé, 1er heat non-done tout court (ancien comportement).
+    if(!next){
+      for(var j=0;j<sorted.length;j++){
+        var st2=sorted[j].status;
+        if(st2!=='done' && st2!=='timecap'){ next=sorted[j]; break; }
+      }
     }
   }
   var repEl=$('pause-reprise');
@@ -2131,6 +2162,13 @@ function toggleWodRecall(){
 
 // Affiche le briefing plein écran + gère le compte à rebours jusqu'à -20s
 function showBriefScreen(next, secondsUntilStartHint){
+  // ★ FIX (demande chef) : JAMAIS de brief quand le juge est EN PAUSE. Il doit rester
+  //   sur le GROS ÉCRAN PAUSE — pas voir le prochain heat s'afficher. Garde à la source
+  //   pour couvrir TOUS les points d'appel (inter-heat, preload 1er heat, watcher…).
+  if(typeof judgeIsOnPauseNow==='function' && judgeIsOnPauseNow()){
+    if(typeof showJudgePauseScreen==='function') showJudgePauseScreen();
+    return false;
+  }
   if(!fillBriefScreen(next)) return false;
   _briefActive=true;
   // Reset du bouton JE SUIS PRÊT (caché par défaut, réaffiché si heat=pre + 1er heat)
@@ -2938,6 +2976,12 @@ function goCD(){
    watchers Firebase (status passe à 'live' OU countdown s'écoule). */
 function startJudgeLocked(targetTs){
   if(!SC) return;
+  // ★ FIX (demande chef) : si le juge est EN PAUSE, ne JAMAIS ouvrir l'écran de saisie
+  //   (verrouillé ou non) du prochain heat. Il reste sur le GROS ÉCRAN PAUSE.
+  if(typeof judgeIsOnPauseNow==='function' && judgeIsOnPauseNow()){
+    if(typeof showJudgePauseScreen==='function') showJudgePauseScreen();
+    return;
+  }
   var target=parseInt(targetTs,10)||0;
   // Si pour une raison quelconque le target est dans le passé, on n'arme
   // pas de verrou : startJudge() classique fera le bon choix.
@@ -2954,6 +2998,15 @@ function startJudgeLocked(targetTs){
 
 /* ── Démarrage juge ── */
 function startJudge(){
+  // ★ FIX (demande chef) : Adeline pause → coupure → heat. Pendant sa pause, l'écran de
+  //   JUGEMENT de son prochain heat s'ouvrait et se figeait alors qu'elle ne juge pas
+  //   encore. On bloque ici À LA SOURCE : si le juge est EN PAUSE (le heat en cours n'est
+  //   pas à lui), on n'ouvre JAMAIS le jugement → on garde le GROS ÉCRAN PAUSE. Couvre
+  //   tous les chemins (filets, watchers, coupure, inter-heat…).
+  if(typeof judgeIsOnPauseNow==='function' && judgeIsOnPauseNow()){
+    if(typeof showJudgePauseScreen==='function') showJudgePauseScreen();
+    return;
+  }
   // ★ FIX BOUCLE REVALIDATION : ne JAMAIS rouvrir l'écran de saisie pour un
   // heat dont le score a déjà été validé. _scoreValidated n'est remis à false
   // que par applyRealData au chargement d'un NOUVEAU heat (ou par le listener
@@ -5295,6 +5348,13 @@ function applyRealData(data){
   listenHeatStatus();
 
   // Afficher le bon écran directement selon le statut actuel
+  // ★ FIX (demande chef) : un juge qui COMMENCE sa journée par une PAUSE (il ne juge pas
+  //   le heat en cours) doit voir l'ÉCRAN PAUSE, pas l'écran de jugement du heat qu'il ne
+  //   juge pas. Idem à tout moment si le heat courant n'est pas à lui. Garde au point
+  //   d'entrée : si en pause → écran pause et on s'arrête là.
+  if(typeof judgeIsOnPauseNow==='function' && judgeIsOnPauseNow()){
+    if(typeof showJudgePauseScreen==='function'){ showJudgePauseScreen(); return; }
+  }
   if(data.status==='pre' || data.status==='countdown'){
     _preShown=true; // bloquer le listener pour ne pas re-déclencher goPre
     if(!maybeAutoReadyNextHeat()) setTimeout(goPre, 400);
@@ -5427,6 +5487,16 @@ function loadAndShowPlanning(jugeId){
     updateJudgeInstructionPanels();
     // ★ Afficher TOUS les passages du juge (liste complète avec horaires) dès l'attente
     renderJudgeFullSchedule();
+    // ★ FIX (demande chef) : maintenant que le planning du juge est chargé, si le juge
+    //   est EN PAUSE (il ne juge pas le heat en cours — typiquement il COMMENCE sa journée
+    //   par une pause), on affiche le GROS ÉCRAN PAUSE au lieu du brief / de l'écran de
+    //   jugement du heat qu'il ne juge pas. On ne le fait pas s'il est déjà en train de
+    //   juger (s-judge/s-cd) pour ne pas interrompre une saisie en cours.
+    if(typeof judgeIsOnPauseNow==='function' && judgeIsOnPauseNow()
+       && ['s-judge','s-cd'].indexOf(_currentScreen)<0){
+      window._pendingFirstHeatBrief=null;   // annuler un éventuel brief 1er heat en attente
+      if(typeof showJudgePauseScreen==='function'){ showJudgePauseScreen(); return; }
+    }
     if(window._pendingFirstHeatBrief){
       var _pfb=window._pendingFirstHeatBrief;
       window._pendingFirstHeatBrief=null;
