@@ -1895,7 +1895,7 @@ function etaInfoForRow(row,w,h,catId){
     }
     // Données suffisantes : projection précise
     var err=Math.max(1,Math.round((1-Math.min(0.9,0.5+nSamples*0.05))*projReps*0.06));
-    return {text:'~'+projReps+' reps',cls:'eta'};
+    return {text:'~'+projReps+' REPS',cls:'eta'};
   }
 
   // Pas de cap : afficher rythme
@@ -2157,7 +2157,7 @@ function gapText(row,lead,w,st){
       try{
         var prog=progressInfoForWod(w,row.sc,(row.catId||row.cat||''));
         var remain=Math.max(0,(prog.total||0)-(prog.done||0));
-        if(prog.total>0) return 'reste '+remain+' reps';
+        if(prog.total>0) return 'reste '+remain+' REPS';
       }catch(e){}
     }
   }
@@ -2166,30 +2166,30 @@ function gapText(row,lead,w,st){
     var _lgv=parseFloat((lead.sc&&(lead.sc.dist||lead.sc.ergoVal||lead.sc.distance))||0)||0;
     var _rgv=parseFloat((row.sc&&(row.sc.dist||row.sc.ergoVal||row.sc.distance))||0)||0;
     var _gdd=Math.max(0,_lgv-_rgv);
-    var _gu=(sf==='cal'?'cal':((row.sc&&row.sc.ergoUnit)||'m'));
+    var _gu=(sf==='cal'?'CAL':String((row.sc&&row.sc.ergoUnit)||'m').toUpperCase());
     return _gdd>0?('- '+_gdd+' '+_gu):'ÉGALITÉ';
   }
   if(st==='live' || !row.ok || !lead.ok){
     var dr=Math.max(0,liveReps(lead.sc)-liveReps(row.sc));
-    return dr>0?'- '+dr+' reps':'ÉGALITÉ';
+    return dr>0?'- '+dr+' REPS':'ÉGALITÉ';
   }
   if(jm==='maxload'||sf==='load'){
     var dl=(parseFloat((lead.sc&&lead.sc.load)||0)-parseFloat((row.sc&&row.sc.load)||0));
-    return dl>0?'- '+dl+' kg':'ÉGALITÉ';
+    return dl>0?'- '+dl+' KG':'ÉGALITÉ';
   }
   if(sf==='dist'){
     var dd=(parseFloat((lead.sc&&(lead.sc.dist||lead.sc.distance))||0)-parseFloat((row.sc&&(row.sc.dist||row.sc.distance))||0));
-    return dd>0?'- '+dd+' m':'ÉGALITÉ';
+    return dd>0?'- '+dd+' M':'ÉGALITÉ';
   }
   if(isT){
     var lt=parseInt((lead.sc&&lead.sc.finalTime)||0,10)||0;
     var rt=parseInt((row.sc&&row.sc.finalTime)||0,10)||0;
     if(lt>0&&rt>0&&rt>=lt)return '+ '+fmt(rt-lt);
     var dr2=Math.max(0,liveReps(lead.sc)-liveReps(row.sc));
-    return dr2>0?'- '+dr2+' reps':'ÉGALITÉ';
+    return dr2>0?'- '+dr2+' REPS':'ÉGALITÉ';
   }
   var dr3=Math.max(0,liveReps(lead.sc)-liveReps(row.sc));
-  return dr3>0?'- '+dr3+' reps':'ÉGALITÉ';
+  return dr3>0?'- '+dr3+' REPS':'ÉGALITÉ';
 }
 // ★ ADAPTATIF : pose sur un .teams-band le nombre d'équipes (data-count) pour piloter le
 //   remplissage vertical et la taille du texte via CSS. Cap à 8 (au-delà : scroll).
@@ -2265,7 +2265,7 @@ function renderRankCards(rows,w,st,showLiveChips,h,catId,catLeader){
     var _freeMov=(_movs||[]).filter(function(m){return m&&m.ergoFree;})[0]||null;
     var _isErgoLive=(_jmLive==='ergo'||_sfLive==='dist'||_sfLive==='cal'||!!_freeMov);
     var _ergoLiveVal=parseFloat(sc.dist||sc.ergoVal||sc.distance)||0;
-    var _ergoLiveUnit=(_freeMov&&_freeMov.ergoUnit)?_freeMov.ergoUnit:(_sfLive==='cal'?'cal':(sc.ergoUnit||'m'));
+    var _ergoLiveUnit=(_freeMov&&_freeMov.ergoUnit)?String(_freeMov.ergoUnit).toUpperCase():(_sfLive==='cal'?'CAL':String(sc.ergoUnit||'m').toUpperCase());
     var _ergoLiveStr=(_ergoLiveVal>0?String(_ergoLiveVal)+' '+_ergoLiveUnit:'—');
     // ★ Mouvement à paliers (rameur) : le gros compteur affiche les MÈTRES (clics×pas).
     var _pasScore=movePasProg(_curMov,_cr,_q,catId);
@@ -2278,7 +2278,7 @@ function renderRankCards(rows,w,st,showLiveChips,h,catId,catLeader){
       ?(_pasScore?_pasScore
          :(_isErgoLive
             ?(_ergoButNoValYet
-                ?(_cr>0?String(_cr)+(_q>0?' / '+_q:''):(_tot>0?String(_tot)+' reps':'—'))
+                ?(_cr>0?String(_cr)+(_q>0?' / '+_q:''):(_tot>0?String(_tot)+' REPS':'—'))
                 :_ergoLiveStr)
             :(_cr>0?String(_cr)+(_q>0?' / '+_q:''):(_tot>0?String(_tot):'—'))))
       :'';
@@ -2410,7 +2410,7 @@ function renderRankCards(rows,w,st,showLiveChips,h,catId,catLeader){
         var _lgv=parseFloat((lead.sc&&(lead.sc.dist||lead.sc.ergoVal||lead.sc.distance))||0)||0;
         var _mgv=parseFloat((sc.dist||sc.ergoVal||sc.distance))||0;
         var eDiff=_lgv-_mgv;
-        var _egu=((w.scoreType||w.scoreFinale||'').toLowerCase()==='cal')?'cal':'m';
+        var _egu=((w.scoreType||w.scoreFinale||'').toLowerCase()==='cal')?'CAL':'M';
         // ★ REPS DE RETARD AU SNATCH (demande chef) : départage après la distance. En
         //   direct on compare le snatch du tour (roundReps), validé le total (reps).
         //   La ligne bouge à chaque snatch dès le début du tour, avant la saisie bike.
@@ -2428,7 +2428,7 @@ function renderRankCards(rows,w,st,showLiveChips,h,catId,catLeader){
         // AMRAP / reps
         var rDiff=leadVal-meVal;
         if(rDiff<=0){ repGap=leadVal>0?'=':''; gapCls='lead'; }
-        else { repGap='- '+rDiff+' rep'+(rDiff>1?'s':''); gapCls='gap'; }
+        else { repGap='- '+rDiff+' REP'+(rDiff>1?'S':''); gapCls='gap'; }
       }
     }
     var eta=etaInfoForRow(e,w,h,catId);

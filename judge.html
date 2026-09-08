@@ -1098,7 +1098,15 @@ function showInterheatBanner(data){
   var isCoupure=(data.ihType||'')==='coupure';
   var preloadKey=String(data.zone||((SC&&SC.zone)||''))+'_'+String(data.target||'');
   box.classList.toggle('warn', isCoupure);
-  box.classList.add('show');
+  // ★ Ne pas afficher le bandeau flottant d'emblée si le juge est déjà sur un écran
+  //   « où aller » / brief / pause / jugement (il le cacherait). La boucle ci-dessous
+  //   gère ensuite l'affichage selon l'écran courant.
+  var _hideOn=['s-judge','s-cd','s-pre','s-next','s-brief','s-pause'];
+  if(_hideOn.indexOf(_currentScreen)===-1 && !window._judgeOnPause){
+    box.classList.add('show');
+  } else {
+    box.classList.remove('show');
+  }
   if(title) title.textContent=(isCoupure?'Coupure':'Inter-heat').toUpperCase();
   if(label) label.textContent=data.label||'Préparation du prochain départ';
   // Afficher dans s-wait aussi
@@ -1117,9 +1125,11 @@ function showInterheatBanner(data){
     //   startJudgeLocked réaffiche s-judge verrouillé (~-15/25s), celui-ci a déjà son
     //   propre compte à rebours ; le bandeau flottant par-dessus donnait l'écran coupé
     //   en deux. On ne montre le bandeau que sur les écrans d'attente/brief.
-    if(_currentScreen==='s-judge'||_currentScreen==='s-cd'||_currentScreen==='s-pre' || window._judgeOnPause){
-      // Sur un écran de jugement OU quand le juge est en PAUSE : pas de bandeau flottant
-      //   (il cacherait le message de pause « reprise dans X » + humour).
+    if(_currentScreen==='s-judge'||_currentScreen==='s-cd'||_currentScreen==='s-pre'||_currentScreen==='s-next'||_currentScreen==='s-brief'||_currentScreen==='s-pause' || window._judgeOnPause){
+      // Sur un écran de JUGEMENT, sur l'écran « OÙ ALLER » (s-next), sur le BRIEF, sur la
+      //   PAUSE, OU quand le juge est en pause : PAS de bandeau flottant. Il cacherait
+      //   l'instruction « reste sur ta ligne / change de ligne / va en pause » (s-next),
+      //   le brief, ou le message de pause. Ces écrans ont déjà leur propre info + chrono.
       box.classList.remove('show');
     } else {
       box.classList.add('show');
