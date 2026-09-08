@@ -655,13 +655,13 @@ function _renderZoneInner(z){
     var gap = (!isFirst && leaderReps>0 && !s.judgeOk) ? (leaderReps-reps) : 0;
     var medal = ['🥇','🥈','🥉'][i]||String(i+1);
 
-    // Score principal
+    // Score principal — ★ unités en MAJUSCULES (cohérence écran live)
     var scoreStr, scoreCls;
     if(s.judgeOk){
-      scoreStr = s.finalTime ? fmtT(s.finalTime) : (s.load ? s.load+'kg' : (s.ergoVal||s.dist) ? (s.ergoVal||s.dist)+'m' : reps+' reps');
+      scoreStr = s.finalTime ? fmtT(s.finalTime) : (s.load ? s.load+' KG' : (s.ergoVal||s.dist) ? (s.ergoVal||s.dist)+' M' : reps+' REPS');
       scoreCls = 'ok';
     } else if(isLive){
-      scoreStr = reps+' reps';
+      scoreStr = reps+' REPS';
       scoreCls = 'live';
     } else {
       scoreStr = '—'; scoreCls = 'none';
@@ -741,12 +741,12 @@ function checkScoreAlerts(z, newScores){
         var team = (ns.teamName && String(ns.teamName).trim())
                 || (lanesInfo[ln] && lanesInfo[ln].teamName)
                 || ('Lane '+ln);
-        // Score validé
+        // Score validé — ★ unités en MAJUSCULES
         if(ns.judgeOk && !ps.judgeOk){
           var scoreStr = ns.finalTime ? fmtT(ns.finalTime)
-                       : ns.load ? (ns.load+'kg')
-                       : (ns.ergoVal||ns.dist) ? ((ns.ergoVal||ns.dist)+'m')
-                       : ((ns.reps||0)+' reps');
+                       : ns.load ? (ns.load+' KG')
+                       : (ns.ergoVal||ns.dist) ? ((ns.ergoVal||ns.dist)+' M')
+                       : ((ns.reps||0)+' REPS');
           pushAlert('score','✅','<strong>'+escH(team)+'</strong> — Score validé : '+scoreStr+' (Z'+z.replace('z','')+')');
         }
         // Tiebreak

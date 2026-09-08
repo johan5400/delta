@@ -234,6 +234,7 @@ body{height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-fami
 .teams-band[data-count="7"], .teams-band[data-count="8"]{overflow-y:auto}
 .teams-band[data-count="7"] .tc, .teams-band[data-count="8"] .tc{flex:1 1 0}
 /* Échelle de police par nombre d'équipes (facteur appliqué aux clamp de base) */
+.teams-band[data-count="1"]{font-size:2.3em}
 .teams-band[data-count="2"]{font-size:1.9em}
 .teams-band[data-count="3"]{font-size:1.55em}
 .teams-band[data-count="4"]{font-size:1.3em}
@@ -728,14 +729,15 @@ function scoreStr(sc,w){
   if(!sc)return '0';
   var sf=(w.scoreType||w.scoreFinale||'').toLowerCase(),jm=(w.judgeMode||'').toLowerCase();
   var isT=(w.wodFormat||'').toLowerCase()==='fortime'||sf==='time';
-  if(jm==='maxload'||sf==='load') return (sc.load||0)+' kg';
-  if(jm==='ergo'||sf==='dist'||sf==='cal') return (parseFloat(sc.dist||sc.ergoVal||sc.distance)||0)+(sf==='cal'?' cal':(' '+(sc.ergoUnit||'m')));
+  // ★ UNITÉS EN MAJUSCULES (demande chef) : bien visibles sur écran géant.
+  if(jm==='maxload'||sf==='load') return (sc.load||0)+' KG';
+  if(jm==='ergo'||sf==='dist'||sf==='cal') return (parseFloat(sc.dist||sc.ergoVal||sc.distance)||0)+(sf==='cal'?' CAL':(' '+String(sc.ergoUnit||'m').toUpperCase()));
   if(isT){                                     // ★ CAP + reps : le public voit le travail accompli
     if(sc.finalTime>0) return fmt(sc.finalTime);
     var _r=parseInt(sc.reps||0,10)||0;
-    return _r>0 ? 'CAP · '+_r+' reps' : 'CAP';
+    return _r>0 ? 'CAP · '+_r+' REPS' : 'CAP';
   }
-  return (sc.reps||0)+' reps';
+  return (sc.reps||0)+' REPS';
 }
 function scoreVal(sc,w){
   if(!sc)return 0;
@@ -2194,9 +2196,9 @@ function gapText(row,lead,w,st){
 function _setTeamCount(tbEl, n){
   if(!tbEl) return;
   n = parseInt(n,10)||0;
-  if(n>=2 && n<=8){ tbEl.setAttribute('data-count', String(n)); }
+  if(n>=1 && n<=8){ tbEl.setAttribute('data-count', String(n)); }
   else if(n>8){ tbEl.setAttribute('data-count','8'); }
-  else { tbEl.removeAttribute('data-count'); }   // 0 ou 1 → rendu par défaut
+  else { tbEl.removeAttribute('data-count'); }   // 0 → rendu par défaut
 }
 function renderRankCards(rows,w,st,showLiveChips,h,catId,catLeader){
   if(!rows.length)return '<div style="display:flex;align-items:center;justify-content:center;flex:1;font-family:var(--ff);font-size:clamp(18px,2.5vw,32px);letter-spacing:2px;color:var(--ink3)">AUCUN CLASSEMENT</div>';
@@ -2346,12 +2348,12 @@ function renderRankCards(rows,w,st,showLiveChips,h,catId,catLeader){
     } else if(_subLine){
       _movHtml='<div style="font-size:.42em;opacity:.45;font-family:var(--fc);letter-spacing:.5px;margin-top:2px">'+_subLine+'</div>';
     }
-    var s=val?scoreStr(sc,w):(_isErgoLive?_ergoLiveStr:(_tot>0?String(_tot)+' reps':'—'));
+    var s=val?scoreStr(sc,w):(_isErgoLive?_ergoLiveStr:(_tot>0?String(_tot)+' REPS':'—'));
     // ★ Death By : marquer l'athlète hors course
-    if(sc&&sc.dbOut){ s='🏳️ '+((parseInt(sc.reps)||0)||_tot||0)+' reps · HORS COURSE'; }
+    if(sc&&sc.dbOut){ s='🏳️ '+((parseInt(sc.reps)||0)||_tot||0)+' REPS · HORS COURSE'; }
     // ★ SKI+SNATCH : marquer l'équipe hors course (snatch du tour non bouclés). On garde
     //   la distance ski déjà validée comme score, suivie du statut.
-    else if(sc&&sc.ssOut){ s=(val?scoreStr(sc,w):(_isErgoLive?_ergoLiveStr:(_tot>0?String(_tot)+' reps':'—')))+' · 🚫 HORS COURSE'; }
+    else if(sc&&sc.ssOut){ s=(val?scoreStr(sc,w):(_isErgoLive?_ergoLiveStr:(_tot>0?String(_tot)+' REPS':'—')))+' · 🚫 HORS COURSE'; }
     // ★ Death By (en cours) : total + reps de l'intervalle courant (roundReps se remet à 0
     //   à chaque intervalle côté juge et est poussé en direct → le live reflète le reset).
     else if(!val && w && String(w.wodFormat||'').toLowerCase()==='deathby'){
@@ -2360,7 +2362,7 @@ function renderRankCards(rows,w,st,showLiveChips,h,catId,catLeader){
       var _dbCurL=Math.floor(_dbElL/_dbIntL)+1;
       var _dbSL=parseInt(w.dbStartReps||1,10)||1, _dbIL=parseInt(w.dbIncPerRound||0,10)||0;
       var _dbObjL=_dbSL+_dbIL*(_dbCurL-1);
-      s='☠️ TOUR '+_dbCurL+' · obj '+_dbObjL+' · '+(_tot||0)+' reps';
+      s='☠️ TOUR '+_dbCurL+' · obj '+_dbObjL+' · '+(_tot||0)+' REPS';
     }
     // ★ CLEAN LADDER v2 : le score = cumul kg. Statut = station en cours / éliminé / bonus.
     if(w && String(w.wodFormat||'').toLowerCase()==='cleanladder'){
@@ -2373,9 +2375,9 @@ function renderRankCards(rows,w,st,showLiveChips,h,catId,catLeader){
       } else if(!val && _bc){
         s='💪 '+_cumul+' kg · St. '+(_bc.station||1)+'/'+(_bc.nbStations||'?');
       } else if(!val){
-        s='💪 '+_cumul+' kg';
+        s='💪 '+_cumul+' KG';
       } else {
-        s='🏆 '+_cumul+' kg';
+        s='🏆 '+_cumul+' KG';
       }
     }
     var repLead=liveReps(lead.sc),repMe=liveReps(sc);
@@ -2401,7 +2403,7 @@ function renderRankCards(rows,w,st,showLiveChips,h,catId,catLeader){
       } else if(isLoad){
         var lDiff=leadVal-meVal;
         if(lDiff<=0){ repGap=leadVal>0?'=':''; gapCls='lead'; }
-        else { repGap='- '+lDiff+' kg'; gapCls='gap'; }
+        else { repGap='- '+lDiff+' KG'; gapCls='gap'; }
       } else if(isErgo){
         // ★ Écart en DISTANCE en direct (dist/ergoVal), pas en reps — sinon pendant le
         //   live le retard sur le 1er restait à 0 (tout le monde ~même nombre de reps).
@@ -2523,10 +2525,19 @@ function renderZone(zone){
     var nd=getNext(zone);
     if(nd) data=nd;
     else if(doneData) data=doneData; // fallback si pas de prochain
-  } else if(doneData && !data){
-    // ★ Pas d'IH mais un heat est done → afficher direct le classement du heat done,
-    // pas besoin d'attendre les juges, pas besoin d'IH.
-    data=doneData;
+  } else if(doneData){
+    // ★ FIX RÉSULTAT QUI DISPARAÎT : un heat vient de finir et AUCUN inter-heat n'est
+    //   encore actif. Avant, on n'affichait le classement du heat fini QUE si aucun
+    //   prochain heat n'était sélectionné (!data). Or dès que le TK préparait le heat
+    //   suivant (pending/pre), l'écran basculait dessus et le classement du heat fini
+    //   disparaissait — d'où « résultats longs à arriver / qui sautent ». Désormais :
+    //   tant que le prochain heat n'est pas réellement LANCÉ (live/timecap), on garde
+    //   le classement du heat qui vient de finir à l'écran.
+    var _nextLive = data && (data.h?data.h.status:(data.status)) ;
+    var _isNextRunning = (_nextLive==='live' || _nextLive==='timecap');
+    if(!_isNextRunning){
+      data=doneData;
+    }
   }
 
   if(!data){
@@ -2718,18 +2729,31 @@ function _triggerIHDisplay(zone, hid, h){
   scheduleRender();
 
   // 2) Si l'inter-heat/coupure n'est pas encore actif, on re-peint le classement à chaque
-  //    tick (250ms) tant qu'il n'arrive pas — pour qu'il ne soit jamais écrasé ni figé —
-  //    jusqu'à ce que la séquence complète prenne le relais (ou 10s de garde-fou).
-  var _attempts = 0;
+  //    tick tant qu'il n'arrive pas — pour qu'il ne soit jamais écrasé ni figé.
+  //    ★ FIX RÉSULTAT QUI DISPARAÎT : avant, on ne maintenait le classement que 10 s.
+  //    Si le TK tardait à lancer l'inter-heat (fréquent : il gère plusieurs choses),
+  //    le classement du heat qui vient de finir S'EFFAÇAIT en attendant. On le maintient
+  //    donc JUSQU'À ce que l'inter-heat démarre OU qu'un nouveau heat passe live/pre sur
+  //    la zone (plus de garde-fou à 10 s). Le heat reste "done" → on garde son classement.
   function keepAlive(){
+    // Stop si le heat fini n'est plus le dernier état pertinent (un nouveau heat a démarré).
+    var doneStill = HEATS[doneHid] && (HEATS[doneHid].status==='done' || HEATS[doneHid].status==='timecap');
+    if(!doneStill){ return; }  // le heat a été relancé/reset → on arrête de forcer
+    // Un nouveau heat est-il devenu actif sur cette zone ? Alors on laisse la main.
+    var newLiveOnZone=false;
+    Object.keys(HEATS).forEach(function(k){
+      var hh=HEATS[k]; if(!hh||k===doneHid) return;
+      var hz=parseInt(hh.catZone!=null?hh.catZone:hh.zone,10)||1;
+      if(hz!==zone) return;
+      if(hh.status==='live'||hh.status==='pre'||hh.status==='countdown') newLiveOnZone=true;
+    });
+    if(newLiveOnZone){ return; }  // le prochain heat prend le relais
     var ih = IH[String(zone)];
     var ihActive = ih && ih.active && ih.target > now();
     if(ihActive){ _dh[zone]=null; scheduleRender(); return; }  // séquence complète prend le relais
-    if(_attempts < 40){          // 40 * 250ms = 10s de maintien du classement
-      _attempts++;
-      paintHeatRanking();        // re-peindre seulement le tband (pas tout le DOM → pas de clignotement)
-      setTimeout(keepAlive, 250);
-    }
+    // Sinon : maintenir le classement du heat fini, indéfiniment, toutes les 250 ms.
+    paintHeatRanking();
+    setTimeout(keepAlive, 250);
   }
   setTimeout(keepAlive, 250);
 }
@@ -3480,6 +3504,20 @@ if(db){
     HEATS[hid].scores[ln]=v;
   }
   clearTimeout(_d);_d=setTimeout(scheduleRender,120);
+  // ★ FIX RÉSULTATS LENTS (1er heat) : si un score arrive pour un heat DÉJÀ terminé
+  //   (done/timecap), re-peindre son classement TOUT DE SUITE au lieu d'attendre le
+  //   prochain cycle. Au 1er heat, les scores des lignes arrivent juste après le passage
+  //   en done ; sans ça le classement restait incomplet quelques secondes.
+  try{
+    if(v && v.heat){
+      var _hid=String(v.heat), _hh=HEATS[_hid];
+      if(_hh && (_hh.status==='done'||_hh.status==='timecap')){
+        var _z=parseInt(_hh.catZone!=null?_hh.catZone:_hh.zone,10)||1;
+        _dh[_z]=null;
+        if(typeof _triggerIHDisplay==='function') _triggerIHDisplay(_z, _hid, _hh);
+      }
+    }
+  }catch(e){}
 }
     function onScRemoved(s){
       var k=s.key;
@@ -3511,7 +3549,27 @@ if(db){
     });
     scheduleRender();
   });
-  db.ref('system/interheat').on('value',function(s){IH=s.val()||{};_ds[1]=null;_ds[2]=null;scheduleRender();});
+  db.ref('system/interheat').on('value',function(s){
+    var incoming=s.val()||{};
+    // ★ FIX INTER-HEAT QUI SAUTE (4mn → 3m40 → repart 4mn) :
+    //   le TK republie parfois system/interheat en cours de décompte avec un target
+    //   légèrement différent (recalcul), ce qui faisait sauter/reculer le chrono public.
+    //   On VERROUILLE le target : tant qu'un inter-heat est actif sur une zone, on garde
+    //   le PREMIER target reçu si le nouveau est proche (< 8s d'écart) et de même type.
+    //   Un vrai changement (nouvelle coupure, écart important, type différent) passe normalement.
+    ['1','2'].forEach(function(z){
+      var oldIH=IH&&IH[z], newIH=incoming[z];
+      if(oldIH && oldIH.active && newIH && newIH.active
+         && (oldIH.ihType||'')===(newIH.ihType||'')
+         && oldIH.target && newIH.target
+         && Math.abs(newIH.target-oldIH.target)<8000
+         && oldIH.target>now()){
+        // Conserver l'ancien target (anti-reset), garder le reste des champs entrants.
+        newIH.target=oldIH.target;
+      }
+    });
+    IH=incoming;_ds[1]=null;_ds[2]=null;scheduleRender();
+  });
   db.ref('system/sponsors').on('value',function(s){var v=s.val();LIVE_SPONSORS=(v&&Array.isArray(v.list))?v.list:[];if(_spOverlayShown){_renderSponsorsGrid();}scheduleRender();});
   db.ref('system/yoTimerPos').on('value',function(s){var p=parseInt(s.val(),10);window.YO_POS=(isNaN(p)?0:p);if(_spOverlayShown){_renderSponsorsGrid();}});
   db.ref('system/yoTimerHidden').on('value',function(s){

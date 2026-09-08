@@ -11201,9 +11201,7 @@ function buildJugeAssignment(){
   }
 
   // ★ FIX : mémoire globale cross-WOD — continuité de ligne entre WODs
-  var globalLaneMemory = {};    // { judgeId: laneNumber } persiste entre WOD groups
-  var globalActiveLane = {};    // { "zone|lane": { judgeId, remaining } } persiste entre WOD groups
-  var lastWodLaneByJudge = {};  // ★ { judgeId: laneNumber } ligne au WOD PRÉCÉDENT → pour ROTATION entre WODs (éviter la même ligne, anti-lassitude)
+  var wodCounterByDay = {};     // ★ { jour: nbWodsDéjàTraités } → sert de décalage de rotation par WOD
 
   wodGroupsOrdered.forEach(function(group){
     var wid = String(group.wid||'');
@@ -11245,54 +11243,6 @@ function buildJugeAssignment(){
     orderedJuges.forEach(function(ben, idx){
       orderedIndexMap[String(ben.id)] = idx;
     });
-    // ★ FIX : utiliser les maps globales pour continuité cross-WOD
-    // Vue zonée de globalActiveLane pour ce groupe (zone|lane → state)
-    var groupLaneMemory = globalLaneMemory;   // shared reference
-    var activeLaneState = globalActiveLane;   // shared reference
-    var groupStintDone = {};                  // ★ juges dont le stint vient d'expirer → pause au heat suivant
-    var prevHeatAssign = {};                  // ★ juge → ligne au heat IMMÉDIATEMENT précédent (null si pause). Sert à VERROUILLER la ligne d'un juge qui retravaille sans pause.
-    var totalGroupHeats = group.heats ? group.heats.length : 1;
-    var nbJuges = orderedJuges.length; // taille du pool pour la rotation circulaire
-
-    // Calcul dynamique du stint à chaque heat :
-    // - lanes réelles de CE heat (pas du groupe entier)
-    // - juges disponibles sur LA fenêtre horaire de CE heat
-    // - heats restants à partir de CE heat
-    function pickHeatStintLength(heatLanesCount, heatWindows_, heatsRemaining){
-      // ★ ROTATION ÉQUILIBRÉE : le "stint" = nombre de heats CONSÉCUTIFS qu'un juge tient
-      //   sur la MÊME ligne avant de passer en pause. On le veut COURT et RÉGULIER pour :
-      //     1. garder la ligne stable pendant le travail (pas de changement en plein WOD),
-      //     2. répartir les pauses en petits blocs au lieu d'un seul trou de plusieurs heures.
-      //   nbDispos est recalculé À CHAQUE heat sur la fenêtre horaire réelle → si le chef
-      //   AJOUTE / SUPPRIME / met en pause un juge, la rotation s'adapte automatiquement.
-      var nbDispos = orderedJuges.filter(function(ben){
-        return judgeSlotCoversWindows(ben, jour, heatWindows_)
-          && judgeIsFreeForWindows(String(ben.id), heatWindows_);
-      }).length;
-      // Fallback : pool complet du jour si pas d'horaires
-      if(nbDispos === 0) nbDispos = orderedJuges.length;
-      var lanesCount = heatLanesCount || 1;
-
-      if(nbDispos <= lanesCount){
-        // Pas assez de juges pour tourner → chaque juge garde sa ligne jusqu'au bout
-        //   (aucune pause possible sans laisser une ligne sans juge).
-        return Math.max(1, heatsRemaining);
-      }
-
-      // Assez de juges pour tourner → STINT COURT FIXE (rotation régulière).
-      //   - Base : 4 heats de travail d'affilée (~1h à 1h15 selon la durée des WODs),
-      //     assez long pour que le juge s'installe sur sa ligne, assez court pour que
-      //     tout le monde tourne et que personne ne reste bloqué trop longtemps.
-      //   - On raccourcit un peu si le pool est très surdimensionné (beaucoup plus de
-      //     juges que de lignes), pour faire revenir chaque juge plus souvent en petites
-      //     pauses plutôt qu'un seul long repos.
-      var STINT_BASE = 4;
-      var ratio = nbDispos / lanesCount;              // ex : 14 juges / 5 lignes = 2.8
-      var stint = STINT_BASE;
-      if(ratio >= 2.5) stint = 3;                      // pool très surdimensionné → stint 3
-      // Ne jamais dépasser ce qu'il reste de heats.
-      return Math.max(1, Math.min(stint, heatsRemaining));
-    }
     var groupHeats = (group.heats||[]).slice().sort(function(a,b){
       var aw = getHeatWindow(a, wid);
       var bw = getHeatWindow(b, wid);
@@ -11300,373 +11250,129 @@ function buildJugeAssignment(){
       return (a.globalNum||0)-(b.globalNum||0);
     });
 
-    groupHeats.forEach(function(heat, heatIdx){
-      var heatSlots = (heat.slots||[]).filter(function(s){ return s && !s.empty && s.team; });
-      var heatLaneNumbers = heatSlots.map(function(s){ return parseInt(s.ligne,10); }).filter(function(n){ return !isNaN(n); }).sort(function(a,b){ return a-b; });
-      if(!heatLaneNumbers.length) return;
+    // ════════════════════════════════════════════════════════════════════
+    // ★★★ ALGO SIMPLE & DÉTERMINISTE (blocs de heats, rotation par WOD) ★★★
+    //   Objectif (demande chef) :
+    //     • Un juge tient un BLOC de 3-4 heats consécutifs sur la MÊME ligne.
+    //     • À chaque WOD on décale la ligne de départ → un juge change de ligne
+    //       AU CHANGEMENT DE WOD (jamais en plein WOD) = simple à gérer pour les pauses.
+    //     • Équilibrage : rotation circulaire du pool de juges dispos.
+    //   Tout est calculé d'avance et ne dépend d'aucun état résiduel : débuggable.
+    // ════════════════════════════════════════════════════════════════════
+    var BLOC_HEATS = 4; // nombre de heats consécutifs sur la même ligne avant rotation
 
-      var heatWin = getHeatWindow(heat, wid);
-      var heatWindows = heatWin ? [{jour:jour,start:heatWin.start,end:heatWin.end}] : [];
-      var heatStartRef = heatWin ? heatWin.start : group.firstStart;
-      var offset = zoneRotation[zoneDayKey] || 0;
-      var heatSeq = zoneHeatSeq[zoneDayKey] || 0;
-      var laneJudgeMap = {};
-      var usedLanes = {};
-      var usedJudgeIds = {};
+    // Compteur de WOD pour ce jour (0 pour le 1er WOD, 1 pour le 2e, etc.)
+    var groupWodIdx = wodCounterByDay[jour] || 0;
 
-      // ★★ RÈGLE ABSOLUE — CONTINUITÉ DE LIGNE ENTRE HEATS CONSÉCUTIFS ★★
-      //   Un juge qui a jugé le heat IMMÉDIATEMENT précédent (prevHeatAssign) et qui est
-      //   disponible ce heat REPREND EXACTEMENT sa ligne, sans aucune condition (ni stint,
-      //   ni équilibrage). C'est la garantie demandée : PAS de changement de ligne entre
-      //   deux heats qu'un juge enchaîne. Un juge ne peut changer de ligne QU'APRÈS une
-      //   pause (auquel cas il n'est pas dans prevHeatAssign et passe par l'équilibrage).
-      //   On verrouille ces lignes en premier, avant toute autre affectation.
-      Object.keys(prevHeatAssign).forEach(function(benId){
-        var prevLane = prevHeatAssign[benId];
-        if(prevLane==null) return;
-        prevLane = parseInt(prevLane,10);
-        if(isNaN(prevLane)) return;
-        if(heatLaneNumbers.indexOf(prevLane)===-1) return; // cette ligne n'existe pas dans ce heat
-        if(usedLanes[prevLane]) return;                    // déjà verrouillée (ne devrait pas arriver)
-        var ownerJudge = orderedJuges.find(function(ben){ return String(ben.id)===benId; });
-        if(!ownerJudge) return;
-        // Juge indisponible ce heat (slot/pause/conflit) → il NE reprend pas, sa ligne se libère
-        if(!judgeSlotCoversWindows(ownerJudge, jour, heatWindows)) return;
-        if(!judgeIsFreeForWindows(benId, heatWindows)) return;
-        laneJudgeMap[String(prevLane)] = ownerJudge;
-        usedLanes[prevLane] = true;
-        usedJudgeIds[benId] = true;
+    // Pool de juges de CE jour, dans l'ordre stable défini plus haut.
+    var poolDay = orderedJuges.slice();
+
+    // ── Découper les heats du WOD en BLOCS de BLOC_HEATS heats consécutifs ──
+    var blocs = [];
+    for(var bi=0; bi<groupHeats.length; bi+=BLOC_HEATS){
+      blocs.push(groupHeats.slice(bi, bi+BLOC_HEATS));
+    }
+
+    // Pour chaque bloc : choisir les juges LES MOINS CHARGÉS (équité globale) et
+    //   les affecter aux lignes ; ils gardent leur ligne sur TOUT le bloc.
+    blocs.forEach(function(blocHeats, blocIdx){
+      // Nb de lignes max sur ce bloc = combien de juges il faut mobiliser.
+      var maxLanesInBloc = 0;
+      var blocWindows = [];
+      blocHeats.forEach(function(h){
+        var hs = (h.slots||[]).filter(function(s){ return s && !s.empty && s.team; });
+        if(hs.length > maxLanesInBloc) maxLanesInBloc = hs.length;
+        var hw = getHeatWindow(h, wid);
+        if(hw) blocWindows.push({jour:jour, start:hw.start, end:hw.end});
       });
+      if(maxLanesInBloc === 0) return;
 
-      // Juges de la zone assignée d'abord
-      var freeZoneJuges = orderedJuges.filter(function(ben){
-        var benId = String(ben.id);
-        if(usedJudgeIds[benId]) return false;
-        return judgeMatchesZone(ben, zone)
-          && judgeSlotCoversWindows(ben, jour, heatWindows)
-          && judgeIsFreeForWindows(benId, heatWindows);
+      // Juges disponibles sur la fenêtre de CE bloc (slot couvre + pas de conflit ailleurs).
+      var dispoJuges = poolDay.filter(function(ben){
+        return judgeSlotCoversWindows(ben, jour, blocWindows)
+            && judgeIsFreeForWindows(String(ben.id), blocWindows);
       });
-      var neededCount = heatLaneNumbers.filter(function(laneNumber){ return !usedLanes[laneNumber]; }).length;
-      // Juges hors-zone uniquement si pas assez de juges dans la zone pour couvrir toutes les lignes
-      var freeEligibleJuges;
-      if(freeZoneJuges.length >= neededCount){
-        freeEligibleJuges = freeZoneJuges;
-      } else {
-        var freeExtraJuges = orderedJuges.filter(function(ben){
-          var benId = String(ben.id);
-          if(usedJudgeIds[benId]) return false;
-          if(judgeMatchesZone(ben, zone)) return false; // déjà dans freeZoneJuges
-          return judgeSlotCoversWindows(ben, jour, heatWindows)
-            && judgeIsFreeForWindows(benId, heatWindows)
-            && judgeCanBorrowAcrossZones(ben, jour, zone, heatWindows);
-        });
-        freeEligibleJuges = freeZoneJuges.concat(freeExtraJuges);
-      }
-      function compareJudgeCandidates(a,b){
-        var aId = String(a.id), bId = String(b.id);
-        var sa = zoneFairStats[zoneDayKey][aId] || {worked:0,paused:0,consecPause:0,lastWorkedSeq:-1};
-        var sb = zoneFairStats[zoneDayKey][bId] || {worked:0,paused:0,consecPause:0,lastWorkedSeq:-1};
-        // Priorité 1 : zone assignée — juge de la bonne zone toujours avant les autres
-        // (sur cette compétition il n'y a qu'une zone, donc ce critère est neutre).
-        var za = judgeZonePriority(a, zone), zb = judgeZonePriority(b, zone);
-        if(za!==zb) return za-zb;
-        // ★ ÉQUITÉ MAX : le juge le MOINS chargé sur toute la journée passe en premier,
-        //   AVANT tout critère de confort. C'est ce qui resserre les écarts entre juges
-        //   également disponibles (ex : 22 vs 33). N'affecte PAS la continuité pendant un
-        //   WOD (gérée séparément) ni l'anti-conflit horaire.
-        var caG = chargeOf(aId, jour), cbG = chargeOf(bId, jour);
-        if(caG!==cbG) return caG-cbG;
-        // Priorité 2 : celui qui a le plus de pauses consécutives passe ensuite
-        if(sa.consecPause!==sb.consecPause) return sb.consecPause-sa.consecPause;
-        // Priorité 3 : équilibrage local zone (worked - paused)
-        var diffA = sa.worked - sa.paused;
-        var diffB = sb.worked - sb.paused;
-        if(diffA!==diffB) return diffA-diffB;
-        // Priorité 4 : celui qui a travaillé le plus récemment attend
-        if(sa.lastWorkedSeq!==sb.lastWorkedSeq) return sb.lastWorkedSeq-sa.lastWorkedSeq;
-        // Priorité 5 : rotation circulaire pour départager à égalité parfaite
-        var ra = (((orderedIndexMap[aId]||0) - offset) % nbJuges + nbJuges) % nbJuges;
-        var rb = (((orderedIndexMap[bId]||0) - offset) % nbJuges + nbJuges) % nbJuges;
-        return ra-rb;
-      }
-      // D'abord placer les juges en continuité de lane (même WOD, heat suivant)
-      // ★ RÈGLE : la continuité de ligne ne vaut QUE pour un juge qui a travaillé
-      //   au heat précédent (consecPause === 0). Un juge qui REVIENT D'UNE PAUSE
-      //   (consecPause > 0) ne reprend PAS d'office sa ligne : il repasse par
-      //   l'équilibrage (compareJudgeCandidates) pour être placé là où c'est le
-      //   plus équitable.
-      // (La continuité de ligne est désormais gérée UNIQUEMENT par le verrou
-      //  prevHeatAssign en amont : un juge qui enchaîne garde sa ligne ; un juge qui
-      //  revient de pause n'est pas dans prevHeatAssign et passe par l'équilibrage
-      //  ci-dessous, où il peut prendre une nouvelle ligne. Pas d'autre reprise auto.)
+      if(dispoJuges.length < maxLanesInBloc) dispoJuges = poolDay.slice();
 
-
-
-
-
-      // Recalculer les juges libres après placement des continuités
-      var neededAfterContinuity = heatLaneNumbers.filter(function(ln){ return !usedLanes[ln]; }).length;
-      var selectedJuges = freeEligibleJuges.filter(function(ben){ return !usedJudgeIds[String(ben.id)]; })
-        .sort(compareJudgeCandidates).slice(0, neededAfterContinuity);
-
-      var remainingLanes = heatLaneNumbers.filter(function(laneNumber){
-        return !usedLanes[laneNumber];
+      // Trier les dispos par charge croissante (les moins chargés d'abord), puis nom
+      //   (stable). On applique aussi un petit décalage de rotation par WOD pour éviter
+      //   qu'à charge égale ce soit toujours les mêmes juges au même endroit.
+      var rankedJuges = dispoJuges.slice().sort(function(a,b){
+        var ca = chargeOf(a.id, jour), cb = chargeOf(b.id, jour);
+        if(ca!==cb) return ca-cb;
+        var fa=(a.prenom+' '+a.nom).toLowerCase(), fb=(b.prenom+' '+b.nom).toLowerCase();
+        return fa<fb?-1:fa>fb?1:0;
       });
-      selectedJuges.forEach(function(ben){
-        var benId = String(ben.id);
-        if(usedJudgeIds[benId]) return;
-        if(!remainingLanes.length) return;
-        var nextLane;
-        // ★ ROTATION ENTRE WODS (anti-lassitude) : au 1ER heat d'un WOD, on essaie de
-        //   donner au juge une ligne DIFFÉRENTE de celle qu'il avait au WOD précédent
-        //   (pour qu'il ne juge pas toujours la même ligne/équipe). Aux heats suivants
-        //   du WOD, attribution normale (la stabilité intra-WOD est gérée par prevHeatAssign).
-        if(heatIdx===0 && lastWodLaneByJudge[benId]!=null && remainingLanes.length>1){
-          var _prevWodLane = parseInt(lastWodLaneByJudge[benId],10);
-          var _idxDiff = remainingLanes.findIndex(function(l){ return l!==_prevWodLane; });
-          if(_idxDiff>=0){ nextLane = remainingLanes.splice(_idxDiff,1)[0]; }
-          else { nextLane = remainingLanes.shift(); }
-        } else {
-          nextLane = remainingLanes.shift();
+      // Décalage circulaire par WOD (varie qui prend la ligne 1 d'un WOD à l'autre)
+      var shift = ((groupWodIdx % rankedJuges.length) + rankedJuges.length) % rankedJuges.length;
+      var chosenPool = rankedJuges.slice(shift).concat(rankedJuges.slice(0, shift));
+      // Les maxLanesInBloc premiers = les juges de ce bloc (dans l'ordre des lignes).
+      var chosen = chosenPool.slice(0, maxLanesInBloc);
+
+      // ── Affecter chaque heat du bloc : ligne i → chosen[i] ──
+      blocHeats.forEach(function(heat){
+        var heatSlots = (heat.slots||[]).filter(function(s){ return s && !s.empty && s.team; });
+        var heatLaneNumbers = heatSlots.map(function(s){ return parseInt(s.ligne,10); }).filter(function(n){ return !isNaN(n); }).sort(function(a,b){ return a-b; });
+        if(!heatLaneNumbers.length) return;
+
+        var heatWin = getHeatWindow(heat, wid);
+        var heatWindows = heatWin ? [{jour:jour,start:heatWin.start,end:heatWin.end}] : [];
+        var heatSeq = zoneHeatSeq[zoneDayKey] || 0;
+
+        var laneJudgeMap = {};
+        for(var li=0; li<heatLaneNumbers.length; li++){
+          if(li < chosen.length) laneJudgeMap[String(heatLaneNumbers[li])] = chosen[li];
         }
-        laneJudgeMap[String(nextLane)] = ben;
-        usedLanes[nextLane] = true;
-        usedJudgeIds[benId] = true;
-        groupLaneMemory[benId] = nextLane;   // ★ mémoriser la ligne → stable pour les heats suivants du WOD
-        activeLaneState[zone+'|'+String(nextLane)] = {
-          judgeId: benId,
-          remaining: pickHeatStintLength(heatLaneNumbers.length, heatWindows, groupHeats.length - heatIdx)
-        };
-      });
 
-      if(remainingLanes.length){
-        // ── Passe 1 : zone libre, slot OK, temps OK (comportement actuel) ──
-        var rescueJuges = orderedJuges.filter(function(ben){
-          var benId = String(ben.id);
-          if(usedJudgeIds[benId]) return false;
-          return judgeSlotCoversWindows(ben, jour, heatWindows)
-            && judgeIsFreeForWindows(benId, heatWindows);
-        }).sort(compareJudgeCandidates);
-
-        rescueJuges.forEach(function(ben){
-          var benId = String(ben.id);
-          if(usedJudgeIds[benId] || !remainingLanes.length) return;
-          var prevLane = groupLaneMemory[benId];
-          if(prevLane==null) return;
-          prevLane = parseInt(prevLane,10);
-          if(isNaN(prevLane) || heatLaneNumbers.indexOf(prevLane)===-1 || usedLanes[prevLane]) return;
-          laneJudgeMap[String(prevLane)] = ben;
-          usedLanes[prevLane] = true;
-          usedJudgeIds[benId] = true;
-          activeLaneState[zone+'|'+String(prevLane)] = {
-            judgeId: benId,
-            remaining: pickHeatStintLength(heatLaneNumbers.length, heatWindows, groupHeats.length - heatIdx)
-          };
-          remainingLanes = remainingLanes.filter(function(l){ return l!==prevLane; });
-        });
-
-        rescueJuges.forEach(function(ben){
-          var benId = String(ben.id);
-          if(usedJudgeIds[benId] || !remainingLanes.length) return;
-          var nextLane = remainingLanes.shift();
-          laneJudgeMap[String(nextLane)] = ben;
-          usedLanes[nextLane] = true;
-          usedJudgeIds[benId] = true;
-          activeLaneState[zone+'|'+String(nextLane)] = {
-            judgeId: benId,
-            remaining: pickHeatStintLength(heatLaneNumbers.length, heatWindows, groupHeats.length - heatIdx)
-          };
-        });
-      }
-
-      // ── Passe 2 : ignorer les conflits horaires (slot OK, zone libre) ──
-      if(remainingLanes.length){
-        var rescue2 = orderedJuges.filter(function(ben){
-          var benId = String(ben.id);
-          if(usedJudgeIds[benId]) return false;
-          return judgeSlotCoversWindows(ben, jour, heatWindows);
-        }).sort(compareJudgeCandidates);
-        rescue2.forEach(function(ben){
-          var benId = String(ben.id);
-          if(usedJudgeIds[benId] || !remainingLanes.length) return;
-          var nextLane = remainingLanes.shift();
-          laneJudgeMap[String(nextLane)] = ben;
-          usedLanes[nextLane] = true;
-          usedJudgeIds[benId] = true;
-          activeLaneState[zone+'|'+String(nextLane)] = {
-            judgeId: benId,
-            remaining: pickHeatStintLength(heatLaneNumbers.length, heatWindows, groupHeats.length - heatIdx)
-          };
-        });
-      }
-
-      // ── Passe 3 : ignorer slot ET conflits horaires (zone libre) ──
-      if(remainingLanes.length){
-        var rescue3 = orderedJuges.filter(function(ben){
-          return !usedJudgeIds[String(ben.id)];
-        }).sort(compareJudgeCandidates);
-        rescue3.forEach(function(ben){
-          var benId = String(ben.id);
-          if(usedJudgeIds[benId] || !remainingLanes.length) return;
-          var nextLane = remainingLanes.shift();
-          laneJudgeMap[String(nextLane)] = ben;
-          usedLanes[nextLane] = true;
-          usedJudgeIds[benId] = true;
-          activeLaneState[zone+'|'+String(nextLane)] = {
-            judgeId: benId,
-            remaining: pickHeatStintLength(heatLaneNumbers.length, heatWindows, groupHeats.length - heatIdx)
-          };
-        });
-      }
-
-      // ── Passe 4 (dernier recours) : réutiliser les juges déjà assignés ce heat ──
-      // Priorité : celui qui a la charge la plus faible globalement
-      if(remainingLanes.length){
-        var rescue4 = orderedJuges.slice().sort(function(a,b){
-          return chargeOf(a.id, jour) - chargeOf(b.id, jour);
-        });
-        rescue4.forEach(function(ben){
-          if(!remainingLanes.length) return;
-          var nextLane = remainingLanes.shift();
-          // Ne pas écraser une affectation déjà valide sur cette ligne
-          if(laneJudgeMap[String(nextLane)]) return;
-          laneJudgeMap[String(nextLane)] = ben;
-          usedLanes[nextLane] = true;
-          activeLaneState[zone+'|'+String(nextLane)] = {
-            judgeId: String(ben.id),
-            remaining: pickHeatStintLength(heatLaneNumbers.length, heatWindows, groupHeats.length - heatIdx)
-          };
-        });
-      }
-
-      if(!assignment[heat.globalNum]) assignment[heat.globalNum] = {};
-      Object.keys(laneJudgeMap).forEach(function(laneKey){
-        var ben = laneJudgeMap[laneKey];
-        if(!ben) return;
-        var benId = String(ben.id);
-        var assignedLaneNum = parseInt(laneKey,10);
-        groupLaneMemory[benId] = assignedLaneNum;
-        if(!activeLaneState[zone+'|'+String(assignedLaneNum)] || String(activeLaneState[zone+'|'+String(assignedLaneNum)].judgeId||'')!==benId){
-          activeLaneState[zone+'|'+String(assignedLaneNum)] = {
-            judgeId: benId,
-            remaining: pickHeatStintLength(heatLaneNumbers.length, heatWindows, groupHeats.length - heatIdx)
-          };
-        }
-        reserveJudgeWindows(benId, heatWindows, {
-          zone: zone,
-          wodId: wid,
-          lane: assignedLaneNum
-        });
-        assignment[heat.globalNum][assignedLaneNum] = {
-          id:         String(ben.id),
-          prenom:     ben.prenom||'',
-          nom:        ben.nom||'',
-          qualif:     ben.qualif||0,
-          zoneAssign: ben.zoneAssign!=null ? String(ben.zoneAssign) : ''
-        };
-        judgeZoneHistory[String(jour)+'|'+benId] = {
-          zone: zone,
-          start: heatWin ? heatWin.start : group.firstStart,
-          end: heatWin ? heatWin.end : group.firstStart
-        };
-        chargeMapDay[jour][benId] = (chargeMapDay[jour][benId]||0) + 1;
-      });
-      // ── Fin de heat : préparer prevHeatAssign pour le HEAT SUIVANT ──
-      //   prevHeatAssign = qui vient d'être affecté et sur quelle ligne. Au heat suivant,
-      //   ces juges reprendront leur ligne (règle absolue) — SAUF ceux dont le stint expire,
-      //   qu'on retire ici pour qu'ils partent en pause (et puissent changer de ligne au retour).
-      var newPrevHeatAssign = {};
-      Object.keys(laneJudgeMap).forEach(function(laneKey){
-        var jb = laneJudgeMap[laneKey]; if(!jb) return;
-        newPrevHeatAssign[String(jb.id)] = parseInt(laneKey,10);
-      });
-      // Décrémenter le stint des juges affectés ; à expiration → pause au heat suivant.
-      //   ★ TOLÉRANCE D'ÉQUITÉ (choix chef) : on privilégie la STABILITÉ DE LIGNE. Un juge
-      //   dont le stint expire NE part PAS forcément en pause : il GARDE sa ligne tant que
-      //   son écart de charge avec le juge éligible le MOINS chargé reste ≤ TOLERANCE (4).
-      //   On ne le fait tourner (= changer de ligne) que si l'écart dépasse 4 heats.
-      //   → lignes stables la plupart du temps, équité maintenue à ~4 heats près.
-      var _TOL_CHARGE = 4;
-      // Charge mini parmi les juges du jour réellement disponibles (pour comparer l'écart)
-      var _minCharge = null;
-      (orderedJuges||[]).forEach(function(_b){
-        var _c = chargeOf(_b.id, jour);
-        if(_minCharge===null || _c < _minCharge) _minCharge = _c;
-      });
-      if(_minCharge===null) _minCharge = 0;
-      Object.keys(activeLaneState).forEach(function(zoneKey){
-        var zkParts=zoneKey.split('|'); if(zkParts.length<2) return;
-        var zkZone=zkParts[0], zkLane=zkParts[1];
-        if(String(zkZone)!==String(zone)) return;
-        if(!laneJudgeMap[zkLane]) return;
-        activeLaneState[zoneKey].remaining = Math.max(0, (activeLaneState[zoneKey].remaining||1) - 1);
-        if(activeLaneState[zoneKey].remaining === 0){
-          var _expId = String(activeLaneState[zoneKey].judgeId||'');
-          // Écart de charge de ce juge vs le moins chargé
-          var _ecart = chargeOf(_expId, jour) - _minCharge;
-          if(_ecart <= _TOL_CHARGE){
-            // Écart acceptable → on GARDE sa ligne : on prolonge son stint, il ne part pas
-            //   en pause, il reste dans newPrevHeatAssign (donc reprend sa ligne au heat suivant).
-            activeLaneState[zoneKey].remaining = pickHeatStintLength(heatLaneNumbers.length, heatWindows, groupHeats.length - heatIdx);
-          } else {
-            // Écart trop grand (>4) → on le fait tourner pour rééquilibrer : pause au heat suivant.
-            if(_expId){
-              delete newPrevHeatAssign[_expId];
-              if(groupLaneMemory[_expId]===parseInt(zkLane,10)) delete groupLaneMemory[_expId];
-            }
-            delete activeLaneState[zoneKey];
-          }
-        }
-      });
-      prevHeatAssign = newPrevHeatAssign;   // pour le prochain heat de ce WOD
-
-      if(nbJuges){
-        zoneRotation[zoneDayKey] = (offset + 1) % nbJuges;
-      }
-
-      freeEligibleJuges.forEach(function(ben){
-        var benId = String(ben.id);
-        var assignedLane = null;
+        // ── Écriture de l'affectation ──
+        if(!assignment[heat.globalNum]) assignment[heat.globalNum] = {};
         Object.keys(laneJudgeMap).forEach(function(laneKey){
-          if(assignedLane!=null) return;
-          if(String((laneJudgeMap[laneKey]||{}).id)===benId) assignedLane = parseInt(laneKey,10);
+          var ben = laneJudgeMap[laneKey];
+          if(!ben) return;
+          var benId = String(ben.id);
+          var assignedLaneNum = parseInt(laneKey,10);
+          reserveJudgeWindows(benId, heatWindows, { zone: zone, wodId: wid, lane: assignedLaneNum });
+          assignment[heat.globalNum][assignedLaneNum] = {
+            id:         String(ben.id),
+            prenom:     ben.prenom||'',
+            nom:        ben.nom||'',
+            qualif:     ben.qualif||0,
+            zoneAssign: ben.zoneAssign!=null ? String(ben.zoneAssign) : ''
+          };
+          judgeZoneHistory[String(jour)+'|'+benId] = {
+            zone: zone,
+            start: heatWin ? heatWin.start : group.firstStart,
+            end: heatWin ? heatWin.end : group.firstStart
+          };
+          chargeMapDay[jour][benId] = (chargeMapDay[jour][benId]||0) + 1;
         });
-        judgeWodEntries[benId].push({
-          jour: jour,
-          zone: zone,
-          wodNom: group.wodNom||'WOD',
-          heatLabel: 'H'+(getHeatDisplayNum(heat)||'?'),
-          label: (group.wodNom||'WOD')+' · H'+(getHeatDisplayNum(heat)||'?'),
-          start: heatWin ? heatWin.start : group.firstStart,
-          isPause: assignedLane==null,
-          ligne: assignedLane
+
+        // ── Journal par juge (affichage planning + calcul des pauses) ──
+        poolDay.forEach(function(ben){
+          var benId = String(ben.id);
+          var assignedLane = null;
+          Object.keys(laneJudgeMap).forEach(function(laneKey){
+            if(assignedLane!=null) return;
+            if(String((laneJudgeMap[laneKey]||{}).id)===benId) assignedLane = parseInt(laneKey,10);
+          });
+          judgeWodEntries[benId].push({
+            jour: jour, zone: zone, wodNom: group.wodNom||'WOD',
+            heatLabel: 'H'+(getHeatDisplayNum(heat)||'?'),
+            label: (group.wodNom||'WOD')+' · H'+(getHeatDisplayNum(heat)||'?'),
+            start: heatWin ? heatWin.start : group.firstStart,
+            isPause: assignedLane==null, ligne: assignedLane
+          });
+          var stats = zoneFairStats[zoneDayKey][benId];
+          if(!stats){ stats = zoneFairStats[zoneDayKey][benId] = {worked:0,paused:0,consecPause:0,lastWorkedSeq:-1,lastPauseSeq:-1}; }
+          if(assignedLane==null){ stats.paused++; stats.consecPause++; stats.lastPauseSeq = heatSeq; }
+          else { stats.worked++; stats.consecPause = 0; stats.lastWorkedSeq = heatSeq; }
         });
-        var stats = zoneFairStats[zoneDayKey][benId];
-        if(!stats){
-          stats = zoneFairStats[zoneDayKey][benId] = {worked:0,paused:0,consecPause:0,lastWorkedSeq:-1,lastPauseSeq:-1};
-        }
-        if(assignedLane==null){
-          stats.paused++;
-          stats.consecPause++;
-          stats.lastPauseSeq = heatSeq;
-          // En pause : effacer la mémoire de lane pour qu'au retour
-          // le juge prenne la première lane libre (pas forcément la sienne)
-          delete groupLaneMemory[benId];
-        } else {
-          stats.worked++;
-          stats.consecPause = 0;
-          stats.lastWorkedSeq = heatSeq;
-        }
+        zoneHeatSeq[zoneDayKey] = heatSeq + 1;
       });
-      zoneHeatSeq[zoneDayKey] = heatSeq + 1;
     });
-    // ★ FIN DE WOD : mémoriser la ligne de chaque juge sur ce WOD, pour que le PROCHAIN
-    //   WOD lui donne une ligne DIFFÉRENTE (rotation anti-lassitude). On lit groupLaneMemory
-    //   qui contient la dernière ligne connue de chaque juge dans ce groupe WOD.
-    Object.keys(groupLaneMemory).forEach(function(_jid){
-      var _ln = groupLaneMemory[_jid];
-      if(_ln!=null) lastWodLaneByJudge[_jid] = parseInt(_ln,10);
-    });
+
+    // Incrémenter le compteur de WOD pour ce jour (décale la rotation au WOD suivant).
+    wodCounterByDay[jour] = groupWodIdx + 1;
   });
 
   // ★★ GARDE ANTI-DOUBLE-PLACEMENT (demande direction) ★★
