@@ -11202,6 +11202,7 @@ function buildJugeAssignment(){
 
   // ★ FIX : mémoire globale cross-WOD — continuité de ligne entre WODs
   var wodCounterByDay = {};     // ★ { jour: nbWodsDéjàTraités } → sert de décalage de rotation par WOD
+  var lastWodLaneByJudge = {};  // ★ { judgeId: dernière ligne } → au WOD suivant, on évite de redonner la même ligne (rotation anti-lassitude)
 
   wodGroupsOrdered.forEach(function(group){
     var wid = String(group.wid||'');
@@ -11251,131 +11252,142 @@ function buildJugeAssignment(){
     });
 
     // ════════════════════════════════════════════════════════════════════
-    // ★★★ ALGO SIMPLE & DÉTERMINISTE (blocs de heats, rotation par WOD) ★★★
-    //   Objectif (demande chef) :
-    //     • Un juge tient un BLOC de 3-4 heats consécutifs sur la MÊME ligne.
-    //     • À chaque WOD on décale la ligne de départ → un juge change de ligne
-    //       AU CHANGEMENT DE WOD (jamais en plein WOD) = simple à gérer pour les pauses.
-    //     • Équilibrage : rotation circulaire du pool de juges dispos.
-    //   Tout est calculé d'avance et ne dépend d'aucun état résiduel : débuggable.
+    // ★★★ ALGO ÉGALITAIRE — « le juge possède sa ligne » (demande big chef) ★★★
+    //   Règles validées :
+    //     • Un juge GARDE SA LIGNE pendant TOUT le WOD (0 changement en plein WOD).
+    //     • Il ne change de ligne qu'au WOD SUIVANT (ou après une coupure).
+    //     • PAS de titulaire / volant : tout le monde est au même niveau. On répartit
+    //       équitablement qui juge et qui se repose, en tournant d'un WOD à l'autre.
+    //     • Les PAUSES = les WODs qu'un juge ne juge pas (repos réparti sur la journée).
+    //     • Toute ligne où il y a une équipe a un juge.
+    //   Principe : pour chaque WOD, on prend les N juges les MOINS chargés (N = nb de
+    //   lignes utilisées sur ce WOD), on leur attribue une ligne fixe pour tout le WOD
+    //   (en évitant leur ligne du WOD précédent), et ils la gardent jusqu'au bout.
     // ════════════════════════════════════════════════════════════════════
-    var BLOC_HEATS = 2; // nombre de heats consécutifs sur la même ligne avant rotation.
-    //   2 = le meilleur compromis (testé sur données réelles) : le juge garde sa ligne sur
-    //   2 heats d'affilée (pas de changement à chaque heat), et les PAUSES restent COURTES
-    //   (~30 min max) et bien réparties au lieu de longs trous d'1 h. Équité quasi parfaite.
-
-    // Compteur de WOD pour ce jour (0 pour le 1er WOD, 1 pour le 2e, etc.)
-    var groupWodIdx = wodCounterByDay[jour] || 0;
 
     // Pool de juges de CE jour, dans l'ordre stable défini plus haut.
     var poolDay = orderedJuges.slice();
 
-    // ── Découper les heats du WOD en BLOCS de BLOC_HEATS heats consécutifs ──
-    var blocs = [];
-    for(var bi=0; bi<groupHeats.length; bi+=BLOC_HEATS){
-      blocs.push(groupHeats.slice(bi, bi+BLOC_HEATS));
-    }
-
-    // Pour chaque bloc : choisir les juges LES MOINS CHARGÉS (équité globale) et
-    //   les affecter aux lignes ; ils gardent leur ligne sur TOUT le bloc.
-    blocs.forEach(function(blocHeats, blocIdx){
-      // Nb de lignes max sur ce bloc = combien de juges il faut mobiliser.
-      var maxLanesInBloc = 0;
-      var blocWindows = [];
-      blocHeats.forEach(function(h){
-        var hs = (h.slots||[]).filter(function(s){ return s && !s.empty && s.team; });
-        if(hs.length > maxLanesInBloc) maxLanesInBloc = hs.length;
-        var hw = getHeatWindow(h, wid);
-        if(hw) blocWindows.push({jour:jour, start:hw.start, end:hw.end});
-      });
-      if(maxLanesInBloc === 0) return;
-
-      // Juges disponibles sur la fenêtre de CE bloc (slot couvre + pas de conflit ailleurs).
-      var dispoJuges = poolDay.filter(function(ben){
-        return judgeSlotCoversWindows(ben, jour, blocWindows)
-            && judgeIsFreeForWindows(String(ben.id), blocWindows);
-      });
-      if(dispoJuges.length < maxLanesInBloc) dispoJuges = poolDay.slice();
-
-      // Trier les dispos par charge croissante (les moins chargés d'abord), puis nom
-      //   (stable). On applique aussi un petit décalage de rotation par WOD pour éviter
-      //   qu'à charge égale ce soit toujours les mêmes juges au même endroit.
-      var rankedJuges = dispoJuges.slice().sort(function(a,b){
-        var ca = chargeOf(a.id, jour), cb = chargeOf(b.id, jour);
-        if(ca!==cb) return ca-cb;
-        var fa=(a.prenom+' '+a.nom).toLowerCase(), fb=(b.prenom+' '+b.nom).toLowerCase();
-        return fa<fb?-1:fa>fb?1:0;
-      });
-      // Décalage circulaire par WOD (varie qui prend la ligne 1 d'un WOD à l'autre)
-      var shift = ((groupWodIdx % rankedJuges.length) + rankedJuges.length) % rankedJuges.length;
-      var chosenPool = rankedJuges.slice(shift).concat(rankedJuges.slice(0, shift));
-      // Les maxLanesInBloc premiers = les juges de ce bloc (dans l'ordre des lignes).
-      var chosen = chosenPool.slice(0, maxLanesInBloc);
-
-      // ── Affecter chaque heat du bloc : ligne i → chosen[i] ──
-      blocHeats.forEach(function(heat){
-        var heatSlots = (heat.slots||[]).filter(function(s){ return s && !s.empty && s.team; });
-        var heatLaneNumbers = heatSlots.map(function(s){ return parseInt(s.ligne,10); }).filter(function(n){ return !isNaN(n); }).sort(function(a,b){ return a-b; });
-        if(!heatLaneNumbers.length) return;
-
-        var heatWin = getHeatWindow(heat, wid);
-        var heatWindows = heatWin ? [{jour:jour,start:heatWin.start,end:heatWin.end}] : [];
-        var heatSeq = zoneHeatSeq[zoneDayKey] || 0;
-
-        var laneJudgeMap = {};
-        for(var li=0; li<heatLaneNumbers.length; li++){
-          if(li < chosen.length) laneJudgeMap[String(heatLaneNumbers[li])] = chosen[li];
-        }
-
-        // ── Écriture de l'affectation ──
-        if(!assignment[heat.globalNum]) assignment[heat.globalNum] = {};
-        Object.keys(laneJudgeMap).forEach(function(laneKey){
-          var ben = laneJudgeMap[laneKey];
-          if(!ben) return;
-          var benId = String(ben.id);
-          var assignedLaneNum = parseInt(laneKey,10);
-          reserveJudgeWindows(benId, heatWindows, { zone: zone, wodId: wid, lane: assignedLaneNum });
-          assignment[heat.globalNum][assignedLaneNum] = {
-            id:         String(ben.id),
-            prenom:     ben.prenom||'',
-            nom:        ben.nom||'',
-            qualif:     ben.qualif||0,
-            zoneAssign: ben.zoneAssign!=null ? String(ben.zoneAssign) : ''
-          };
-          judgeZoneHistory[String(jour)+'|'+benId] = {
-            zone: zone,
-            start: heatWin ? heatWin.start : group.firstStart,
-            end: heatWin ? heatWin.end : group.firstStart
-          };
-          chargeMapDay[jour][benId] = (chargeMapDay[jour][benId]||0) + 1;
-        });
-
-        // ── Journal par juge (affichage planning + calcul des pauses) ──
-        poolDay.forEach(function(ben){
-          var benId = String(ben.id);
-          var assignedLane = null;
-          Object.keys(laneJudgeMap).forEach(function(laneKey){
-            if(assignedLane!=null) return;
-            if(String((laneJudgeMap[laneKey]||{}).id)===benId) assignedLane = parseInt(laneKey,10);
-          });
-          judgeWodEntries[benId].push({
-            jour: jour, zone: zone, wodNom: group.wodNom||'WOD',
-            heatLabel: 'H'+(getHeatDisplayNum(heat)||'?'),
-            label: (group.wodNom||'WOD')+' · H'+(getHeatDisplayNum(heat)||'?'),
-            start: heatWin ? heatWin.start : group.firstStart,
-            isPause: assignedLane==null, ligne: assignedLane
-          });
-          var stats = zoneFairStats[zoneDayKey][benId];
-          if(!stats){ stats = zoneFairStats[zoneDayKey][benId] = {worked:0,paused:0,consecPause:0,lastWorkedSeq:-1,lastPauseSeq:-1}; }
-          if(assignedLane==null){ stats.paused++; stats.consecPause++; stats.lastPauseSeq = heatSeq; }
-          else { stats.worked++; stats.consecPause = 0; stats.lastWorkedSeq = heatSeq; }
-        });
-        zoneHeatSeq[zoneDayKey] = heatSeq + 1;
+    // Ensemble des LIGNES utilisées sur CE WOD (union de toutes les lignes occupées).
+    var wodLaneSet = {};
+    groupHeats.forEach(function(h){
+      (h.slots||[]).forEach(function(s){
+        if(s && !s.empty && s.team && s.ligne!=null){ wodLaneSet[String(parseInt(s.ligne,10))] = true; }
       });
     });
+    var wodLanes = Object.keys(wodLaneSet).map(function(x){ return parseInt(x,10); })
+                        .filter(function(n){ return !isNaN(n); })
+                        .sort(function(a,b){ return a-b; });
+    if(!wodLanes.length){ wodCounterByDay[jour] = (wodCounterByDay[jour]||0)+1; return; }
 
-    // Incrémenter le compteur de WOD pour ce jour (décale la rotation au WOD suivant).
-    wodCounterByDay[jour] = groupWodIdx + 1;
+    // Fenêtre horaire globale du WOD (pour vérifier dispo + conflits).
+    var wodWindows = [];
+    groupHeats.forEach(function(h){
+      var hw = getHeatWindow(h, wid);
+      if(hw) wodWindows.push({jour:jour, start:hw.start, end:hw.end});
+    });
+
+    // Juges disponibles sur la fenêtre de CE WOD (slot couvre + pas de conflit ailleurs).
+    var dispoWod = poolDay.filter(function(ben){
+      return judgeSlotCoversWindows(ben, jour, wodWindows)
+          && judgeIsFreeForWindows(String(ben.id), wodWindows);
+    });
+    if(dispoWod.length < wodLanes.length) dispoWod = poolDay.slice();
+
+    // Trier par CHARGE croissante (équité : les moins chargés jugent ce WOD), puis nom (stable).
+    var rankedWod = dispoWod.slice().sort(function(a,b){
+      var ca = chargeOf(a.id, jour), cb = chargeOf(b.id, jour);
+      if(ca!==cb) return ca-cb;
+      var fa=(a.prenom+' '+a.nom).toLowerCase(), fb=(b.prenom+' '+b.nom).toLowerCase();
+      return fa<fb?-1:fa>fb?1:0;
+    });
+    // Les N moins chargés tiennent ce WOD (N = nb de lignes du WOD).
+    var wodJudges = rankedWod.slice(0, wodLanes.length);
+
+    // Attribuer une LIGNE FIXE à chaque juge du WOD, en évitant sa ligne du WOD PRÉCÉDENT
+    //   (rotation anti-lassitude entre WODs).
+    var laneOwner = {};              // { ligne(str) : ben }
+    var laneAvail = wodLanes.slice();
+    wodJudges.forEach(function(ben){
+      var prev = lastWodLaneByJudge[String(ben.id)];
+      var idx = -1;
+      for(var i=0;i<laneAvail.length;i++){ if(laneAvail[i]!==prev){ idx=i; break; } }
+      if(idx<0) idx=0;
+      var lane = laneAvail.splice(idx,1)[0];
+      laneOwner[String(lane)] = ben;
+    });
+
+    // ── Dérouler les heats du WOD : chaque juge garde SA ligne ──
+    groupHeats.forEach(function(heat){
+      var heatSlots = (heat.slots||[]).filter(function(s){ return s && !s.empty && s.team; });
+      var heatLaneNumbers = heatSlots.map(function(s){ return parseInt(s.ligne,10); }).filter(function(n){ return !isNaN(n); }).sort(function(a,b){ return a-b; });
+      if(!heatLaneNumbers.length) return;
+
+      var heatWin = getHeatWindow(heat, wid);
+      var heatWindows = heatWin ? [{jour:jour,start:heatWin.start,end:heatWin.end}] : [];
+      var heatSeq = zoneHeatSeq[zoneDayKey] || 0;
+
+      // Le juge de la ligne juge SI sa ligne a une équipe sur CE heat.
+      var laneJudgeMap = {};
+      heatLaneNumbers.forEach(function(lane){
+        var owner = laneOwner[String(lane)];
+        if(owner) laneJudgeMap[String(lane)] = owner;
+      });
+
+      // ── Écriture de l'affectation ──
+      if(!assignment[heat.globalNum]) assignment[heat.globalNum] = {};
+      Object.keys(laneJudgeMap).forEach(function(laneKey){
+        var ben = laneJudgeMap[laneKey];
+        if(!ben) return;
+        var benId = String(ben.id);
+        var assignedLaneNum = parseInt(laneKey,10);
+        reserveJudgeWindows(benId, heatWindows, { zone: zone, wodId: wid, lane: assignedLaneNum });
+        assignment[heat.globalNum][assignedLaneNum] = {
+          id:         String(ben.id),
+          prenom:     ben.prenom||'',
+          nom:        ben.nom||'',
+          qualif:     ben.qualif||0,
+          zoneAssign: ben.zoneAssign!=null ? String(ben.zoneAssign) : ''
+        };
+        judgeZoneHistory[String(jour)+'|'+benId] = {
+          zone: zone,
+          start: heatWin ? heatWin.start : group.firstStart,
+          end: heatWin ? heatWin.end : group.firstStart
+        };
+        chargeMapDay[jour][benId] = (chargeMapDay[jour][benId]||0) + 1;
+      });
+
+      // ── Journal par juge (affichage planning + calcul des pauses) ──
+      poolDay.forEach(function(ben){
+        var benId = String(ben.id);
+        var assignedLane = null;
+        Object.keys(laneJudgeMap).forEach(function(laneKey){
+          if(assignedLane!=null) return;
+          if(String((laneJudgeMap[laneKey]||{}).id)===benId) assignedLane = parseInt(laneKey,10);
+        });
+        judgeWodEntries[benId].push({
+          jour: jour, zone: zone, wodNom: group.wodNom||'WOD',
+          heatLabel: 'H'+(getHeatDisplayNum(heat)||'?'),
+          label: (group.wodNom||'WOD')+' · H'+(getHeatDisplayNum(heat)||'?'),
+          start: heatWin ? heatWin.start : group.firstStart,
+          isPause: assignedLane==null, ligne: assignedLane
+        });
+        var stats = zoneFairStats[zoneDayKey][benId];
+        if(!stats){ stats = zoneFairStats[zoneDayKey][benId] = {worked:0,paused:0,consecPause:0,lastWorkedSeq:-1,lastPauseSeq:-1}; }
+        if(assignedLane==null){ stats.paused++; stats.consecPause++; stats.lastPauseSeq = heatSeq; }
+        else { stats.worked++; stats.consecPause = 0; stats.lastWorkedSeq = heatSeq; }
+      });
+      zoneHeatSeq[zoneDayKey] = heatSeq + 1;
+    });
+
+    // Mémoriser la ligne de chaque juge de ce WOD → rotation au WOD suivant.
+    Object.keys(laneOwner).forEach(function(laneKey){
+      var ben = laneOwner[laneKey];
+      if(ben) lastWodLaneByJudge[String(ben.id)] = parseInt(laneKey,10);
+    });
+
+    // Incrémenter le compteur de WOD pour ce jour.
+    wodCounterByDay[jour] = (wodCounterByDay[jour]||0) + 1;
   });
 
   // ★★ GARDE ANTI-DOUBLE-PLACEMENT (demande direction) ★★
