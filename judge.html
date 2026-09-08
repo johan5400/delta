@@ -788,7 +788,7 @@ body.brief-mode #s-judge{display:none!important}
 </div>
 
 <!-- ★ ÉCRAN BRIEFING PLEIN ÉCRAN — affiché pendant l'inter-heat pour préparer l'équipe -->
-<div class="scr" id="s-brief" style="overflow-y:auto;background:radial-gradient(ellipse at 50% 22%,rgba(255,138,0,.12) 0%,transparent 58%),var(--bg);flex-direction:column">
+<div class="scr" id="s-brief" style="overflow-y:auto !important;-webkit-overflow-scrolling:touch;background:radial-gradient(ellipse at 50% 22%,rgba(255,138,0,.12) 0%,transparent 58%),var(--bg);flex-direction:column">
   <!-- Espace réservé pour le banner inter-heat qui flotte en haut -->
   <div id="brief-ih-spacer" style="height:0;flex-shrink:0;transition:height .3s"></div>
   <div style="background:linear-gradient(135deg,var(--fire),#FF8A00);padding:18px 20px;text-align:center;flex-shrink:0">
@@ -811,7 +811,7 @@ body.brief-mode #s-judge{display:none!important}
     <div id="brief-wod-name" style="font-family:var(--ff);font-size:28px;letter-spacing:2px;color:#fff;line-height:1">—</div>
     <div id="brief-wod-fmt" style="font-family:var(--fc);font-size:13px;font-weight:800;color:#B06EFF;margin-top:4px;letter-spacing:1px">—</div>
   </div>
-  <div id="brief-moves" style="flex:1;padding:0 14px;display:flex;flex-direction:column;gap:8px;overflow-y:auto"></div>
+  <div id="brief-moves" style="padding:0 14px;display:flex;flex-direction:column;gap:8px;flex-shrink:0"></div>
   <div id="brief-note" style="display:none;margin:12px 14px 0;padding:12px;background:rgba(255,176,32,.1);border:1px solid rgba(255,176,32,.3);border-radius:12px;font-size:13px;color:var(--gold,#FFB020);font-weight:700;text-align:center;flex-shrink:0"></div>
   <div style="padding:16px 20px;flex-shrink:0;text-align:center">
     <div id="brief-cd-line" style="font-size:12px;color:rgba(255,255,255,.5);font-weight:700">Le jugement s'ouvre dans <b id="brief-cd" style="color:#fff">—</b></div>
