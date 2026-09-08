@@ -2592,8 +2592,22 @@ function renderZone(zone){
       var hFull=Object.assign({},h,{startTimestamp:h.startTimestamp||(HEATS[hid]&&HEATS[hid].startTimestamp)||0});
       var _rr=rankHeatEntries(hid,h,w);
       if(tb){ tb.innerHTML=renderRankCards(_rr,w,st,st==='live'||st==='pre',hFull,catId,catLeader); _setTeamCount(tb,_rr.length); }
+    } else {
+      // ★ FIX CLASSEMENT ABSENT PENDANT L'INTER-HEAT : le dKey ne dépend que du heat
+      //   AFFICHÉ (souvent le prochain heat, pending) + '|ih'. Pendant tout l'inter-heat
+      //   ce dKey reste STABLE, donc cet anti-rebuild sortait en `return` sans jamais
+      //   (re)lancer la séquence résultats→classement→preview. Si l'inter-heat est actif
+      //   avec un heat fini connu MAIS que la séquence (_teamIv) ne tourne pas (elle a été
+      //   nettoyée, ou n'a jamais démarré car le DOM était déjà "à jour"), on la relance
+      //   ici pour que le classement du heat fini s'affiche IMMÉDIATEMENT.
+      if(ih && ih.target>now() && doneData && !_teamIv[zone]){
+        var _dd=doneData;
+        var _ddH=_dd.h, _ddId=_dd.id, _ddW=(_ddH&&_ddH.wodInfo)||{};
+        var _ddCat=String((_ddH&&_ddH.catId)||'');
+        var _ddLeader=(getLeaders()||{})[_ddCat]||null;
+        startTeamBandIH(zone,ih.target,_ddId,_ddH,_ddW,_ddCat,_ddLeader);
+      }
     }
-    // Pendant IH : ne rien toucher, le _teamIv gère le tband
     startClock(zone,hid,h,w);
     return;
   }
@@ -2812,7 +2826,11 @@ function startTeamBandIH(zone,ihTarget,doneHid,doneH,doneW,catId,catLeader){
   if(!startTeamBandIH._sched) startTeamBandIH._sched={};
   var _sc=startTeamBandIH._sched[zone];
   var heatEnd, wodEnd, previewStart;
-  if(_sc && _sc.hid===doneHid){
+  // ★ Réutiliser le planning persistant UNIQUEMENT s'il concerne le MÊME heat fini ET le
+  //   MÊME inter-heat (même ihTarget). Sinon (nouvel inter-heat, ou heat différent), on
+  //   recalcule — sinon un vieux _sched d'un inter-heat déjà terminé ferait démarrer la
+  //   séquence directement en phase 'preview' (classement/résultats jamais montrés).
+  if(_sc && _sc.hid===doneHid && _sc.ihTarget===ihTarget){
     heatEnd=_sc.heatEnd; wodEnd=_sc.wodEnd; previewStart=_sc.previewStart;
   } else {
     heatEnd=now()+heatSec*1000;
@@ -2842,7 +2860,7 @@ function startTeamBandIH(zone,ihTarget,doneHid,doneH,doneW,catId,catLeader){
         if(heatEnd > previewStart) heatEnd = previewStart;
       }
     }
-    startTeamBandIH._sched[zone]={hid:doneHid,heatEnd:heatEnd,wodEnd:wodEnd,previewStart:previewStart,seqStart:now()};
+    startTeamBandIH._sched[zone]={hid:doneHid,ihTarget:ihTarget,heatEnd:heatEnd,wodEnd:wodEnd,previewStart:previewStart,seqStart:now()};
   }
   // ★ SYNC SPONSORS : on mémorise, par zone, la fin réelle du classement général (ou des
   //   résultats si pas de classement) pour cette coupure, afin que la page sponsors
@@ -3156,10 +3174,21 @@ function buildWodClassement(h){
 function isLastCategoryHeat(h){
   h=h||{};
   var catId=String(h.catId||'');
-  var curHeatNum=parseInt(h.catHeatNum,10)||0;
+  // ★ FIX CRITIQUE (classement général qui s'affiche à tort / résultats qui ne s'affichent
+  //   pas pendant l'inter-heat) : une même CATÉGORIE joue PLUSIEURS WODs, et chaque WOD a
+  //   ses propres heats numérotés catHeatNum=1..N. Comparer catHeatNum sur TOUTE la catégorie
+  //   (tous WODs confondus) faisait croire que le 1er heat d'un WOD était « le dernier de la
+  //   catégorie » (car tous les WODs ont un heat catHeatNum=1) → phase « classement général
+  //   de fin de WOD » déclenchée à tort dès le 1er heat, qui masquait/écrasait les résultats.
+  //   On limite donc la comparaison aux heats de la MÊME catégorie ET du MÊME WOD.
+  var wodId=String(h.wodId||'');
   if(catId){
     var sameCat=Object.keys(HEATS).map(function(hid){ return HEATS[hid]; }).filter(function(x){
-      return x && String(x.catId||'')===catId;
+      if(!x || String(x.catId||'')!==catId) return false;
+      // Même WOD uniquement (par wodId ; repli sur le nom du WOD si wodId absent).
+      if(wodId){ return String(x.wodId||'')===wodId; }
+      var wn=String((h.wodInfo&&h.wodInfo.nom)||'');
+      return String((x.wodInfo&&x.wodInfo.nom)||'')===wn;
     });
     if(sameCat.length){
       var maxCatHeat=0;
@@ -3167,6 +3196,7 @@ function isLastCategoryHeat(h){
         var n=parseInt(x.catHeatNum,10)||0;
         if(n>maxCatHeat) maxCatHeat=n;
       });
+      var curHeatNum=parseInt(h.catHeatNum,10)||0;
       if(curHeatNum>0 && maxCatHeat>0) return curHeatNum>=maxCatHeat;
       var curGlobal=parseInt(h.globalNum,10)||0;
       var maxGlobal=0;
