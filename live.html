@@ -2607,6 +2607,8 @@ function renderZone(zone){
         var _ddLeader=(getLeaders()||{})[_ddCat]||null;
         startTeamBandIH(zone,ih.target,_ddId,_ddH,_ddW,_ddCat,_ddLeader);
       }
+      // ★ DEBUG TEMP : marquer qu'on est sorti par l'anti-rebuild
+      try{ if(zone===1){ window.__ihLastPath='ANTI-REBUILD return (dKey='+dKey+', _teamIv='+(!!_teamIv[1])+')'; } }catch(_e){}
     }
     startClock(zone,hid,h,w);
     return;
@@ -2710,7 +2712,42 @@ function renderZone(zone){
   //   courant et on attend le prochain render — supprime le flash preview d'~1s.
   if(ihOn&&ih.target>now()&&doneData){
     startTeamBandIH(zone,ih.target,dhid,dh,dw,displayCatId,displayCatLeader);
+    try{ if(zone===1){ window.__ihLastPath='FULL REBUILD + startTeamBandIH (dhid='+dhid+')'; } }catch(_e){}
+  } else {
+    try{ if(zone===1){ window.__ihLastPath='FULL REBUILD SANS startTeamBandIH (ihOn='+ihOn+', doneData='+(!!doneData)+')'; } }catch(_e){}
   }
+  // ★★ DEBUG TEMPORAIRE — panneau visible pour diagnostiquer le classement inter-heat.
+  //    À RETIRER une fois le bug résolu. Affiche l'état clé en bas de l'écran pour zone 1.
+  try{
+    if(zone===1){
+      var _dbg=document.getElementById('__ihdbg');
+      if(!_dbg){
+        _dbg=document.createElement('div');
+        _dbg.id='__ihdbg';
+        _dbg.style.cssText='position:fixed;left:6px;bottom:6px;z-index:99999;background:rgba(0,0,0,.85);color:#0f0;font:11px/1.4 monospace;padding:6px 9px;border:1px solid #0f0;border-radius:6px;max-width:44vw;white-space:pre-wrap;pointer-events:none';
+        document.body.appendChild(_dbg);
+      }
+      var _sc2=(startTeamBandIH._sched&&startTeamBandIH._sched[1])||null;
+      var _phaseNow='';
+      if(_sc2){
+        var _tn=now();
+        _phaseNow=(_tn<_sc2.heatEnd)?'heat(résultats)':((_sc2.wodEnd&&_tn<_sc2.wodEnd)?'wod(classement gén)':'preview(prochain)');
+      }
+      _dbg.textContent=
+        'ihOn='+ihOn
+        +' | ih.active='+(ih&&ih.active)
+        +' | target>now='+(ih&&ih.target>now())+' ('+(ih?Math.round((ih.target-now())/1000):'-')+'s)'
+        +' | ihType='+((ih&&ih.ihType)||'-')
+        +'\ndoneData='+(doneData?('OUI h='+doneData.id+' st='+(doneData.h&&doneData.h.status)):'NON')
+        +' | data(affiché)='+(data?(data.id+' st='+(data.h&&data.h.status)):'-')
+        +'\ndisplayData='+(displayData?displayData.id:'-')
+        +' | heatRows='+((heatRows&&heatRows.length)||0)+' équipes'
+        +' | _teamIv actif='+(!!_teamIv[1])
+        +'\nsched='+(_sc2?('hid='+_sc2.hid+' phase='+_phaseNow):'ABSENT')
+        +' | startTeamBandIH appelé='+(ihOn&&ih.target>now()&&doneData?'OUI':'NON')
+        +'\nDernier chemin: '+(window.__ihLastPath||'-');
+    }
+  }catch(_e){ }
 }
 
 // ════ TEAMS BAND IH PREVIEW ════
