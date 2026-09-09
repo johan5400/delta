@@ -4053,6 +4053,16 @@ function addRep(){
     if(moveReps>=_dbTgtNow){ toast('✅ Cible '+_dbTgtNow+' atteinte — attends le prochain tour'); vib([60,40,120]); return; }
   }
 
+  // ★ FIX (bug chef « 1 milliard de snatch ») : EMOM SKI+SNATCH — borner le compteur de
+  //   snatch au quota du tour défini dans l'index (ex : 7 snatch). On ne bloque QUE si le
+  //   snatch est le DERNIER mouvement du tour (sinon il faut laisser passer au mouvement
+  //   suivant via nextMove plus bas). Une fois le quota atteint sur le dernier mouvement,
+  //   la saisie est bloquée (l'athlète a fini ses snatch du tour, il attend la minute).
+  if((fmt==='emom'||fmt==='interval') && !m.ergoFree && m.q>0 && isLastMove && moveReps>=m.q){
+    vib([40,20,40]); toast('✅ '+m.q+' '+(m.n||'reps')+' du tour atteints — attends le tour suivant','#00E5A0',1800);
+    return;
+  }
+
   totalReps++; moveReps++;
   // ★ FIX TIEBREAK AUTO — DOIT être testé AVANT nextMove() / amrapLoop() /
   //   roundsLoop() car ces fonctions remettent moveReps=0 (et nextMove
@@ -5350,9 +5360,18 @@ function applyRealData(data){
   // Afficher le bon écran directement selon le statut actuel
   // ★ FIX (demande chef) : un juge qui COMMENCE sa journée par une PAUSE (il ne juge pas
   //   le heat en cours) doit voir l'ÉCRAN PAUSE, pas l'écran de jugement du heat qu'il ne
-  //   juge pas. Idem à tout moment si le heat courant n'est pas à lui. Garde au point
-  //   d'entrée : si en pause → écran pause et on s'arrête là.
-  if(typeof judgeIsOnPauseNow==='function' && judgeIsOnPauseNow()){
+  //   juge pas. Idem à tout moment si le heat courant n'est pas à lui.
+  // ★ FIX TIMING (juge bloqué en pause au 1er heat APRÈS la coupure) : loadAndShowPlanning()
+  //   ci-dessus est ASYNCHRONE, donc _judgeScheduleEntries contient encore l'ANCIEN planning
+  //   (où le juge était en pause) au moment de cette vérification. Se fier à judgeIsOnPauseNow()
+  //   ici renverrait à tort l'écran pause pour un heat qui est en fait à lui. On se base donc
+  //   sur le STATUT du heat qu'on charge : s'il est déjà lancé (live/timecap) ou en préparation
+  //   (pre/countdown), c'est ce heat qui est d'actualité pour ce juge (on l'a chargé via SON
+  //   assignation) → on le laisse juger. On ne montre l'écran pause QUE si le heat n'a pas
+  //   encore démarré (pending) ET que le planning confirme qu'il n'est pas à lui.
+  var _stLoad = data.status||'pending';
+  var _heatIsActive = (_stLoad==='live'||_stLoad==='timecap'||_stLoad==='pre'||_stLoad==='countdown');
+  if(!_heatIsActive && typeof judgeIsOnPauseNow==='function' && judgeIsOnPauseNow()){
     if(typeof showJudgePauseScreen==='function'){ showJudgePauseScreen(); return; }
   }
   if(data.status==='pre' || data.status==='countdown'){

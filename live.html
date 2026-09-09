@@ -2348,7 +2348,24 @@ function renderRankCards(rows,w,st,showLiveChips,h,catId,catLeader){
     } else if(_subLine){
       _movHtml='<div style="font-size:.42em;opacity:.45;font-family:var(--fc);letter-spacing:.5px;margin-top:2px">'+_subLine+'</div>';
     }
-    var s=val?scoreStr(sc,w):(_isErgoLive?_ergoLiveStr:(_tot>0?String(_tot)+' REPS':'—'));
+    // ★ FIX FOR TIME (bug « 128 reps » sur le BBJ) : un For Time se score au TEMPS, pas
+    //   en reps. En live non validé, on affiche le CHRONO qui monte (temps écoulé depuis
+    //   le départ), pas le cumul de reps qui n'a aucun sens pour ce format.
+    var _fmtScore=String(w&&(w.wodFormat||w.type)||'').toLowerCase();
+    var _sfScore=(w&&(w.scoreType||w.scoreFinale)||'').toLowerCase();
+    var _isFortimeScore=(_fmtScore==='fortime'||_sfScore==='time');
+    var s;
+    if(val){
+      s=scoreStr(sc,w);
+    } else if(_isFortimeScore && !_isErgoLive){
+      // For Time en cours : afficher le temps écoulé (mm:ss)
+      var _ftEl=(h&&h.startTimestamp)?Math.floor((now()-h.startTimestamp)/1000):0; if(_ftEl<0)_ftEl=0;
+      s=fmt(_ftEl);
+    } else if(_isErgoLive){
+      s=_ergoLiveStr;
+    } else {
+      s=(_tot>0?String(_tot)+' REPS':'—');
+    }
     // ★ Death By : marquer l'athlète hors course
     if(sc&&sc.dbOut){ s='🏳️ '+((parseInt(sc.reps)||0)||_tot||0)+' REPS · HORS COURSE'; }
     // ★ SKI+SNATCH : marquer l'équipe hors course (snatch du tour non bouclés). On garde
@@ -2369,11 +2386,11 @@ function renderRankCards(rows,w,st,showLiveChips,h,catId,catLeader){
       var _bc=(sc&&sc.barresCL)||null;
       var _cumul=(sc&&(sc.clLoad!=null?sc.clLoad:(sc.load||0)))||0;
       if(sc&&sc.clOut){
-        s='🛑 '+_cumul+' kg · terminé';
+        s='🛑 '+_cumul+' KG · terminé';
       } else if(_bc && _bc.bonusOpen){
-        s='🏆 '+_cumul+' kg · bonus';
+        s='🏆 '+_cumul+' KG · bonus';
       } else if(!val && _bc){
-        s='💪 '+_cumul+' kg · St. '+(_bc.station||1)+'/'+(_bc.nbStations||'?');
+        s='💪 '+_cumul+' KG · St. '+(_bc.station||1)+'/'+(_bc.nbStations||'?');
       } else if(!val){
         s='💪 '+_cumul+' KG';
       } else {
@@ -2435,8 +2452,18 @@ function renderRankCards(rows,w,st,showLiveChips,h,catId,catLeader){
     var ci=parseInt(sc.curMoveIdx)||0,cr=parseInt(sc.moveReps)||0;
     var chipsHtml='';
     // ★ CLEAN LADDER v2 : barres visuelles (station en cours ⏳/✅/❌) + pastilles de progression.
-    if(String(w.wodFormat||'').toLowerCase()==='cleanladder' && sc && sc.barresCL){
-      chipsHtml=cl2LiveBars(sc.barresCL, sc.clOut, val);
+    if(String(w.wodFormat||'').toLowerCase()==='cleanladder'){
+      // ★ FIX VISUEL ÉCRASÉ (photo chef) : en Clean Ladder, NE JAMAIS lister les 10 tours
+      //   en chips génériques (« T1 Clean ×10, T2 Clean ×10… ») — ça déborde/chevauche.
+      //   On affiche les jolies barres/pastilles cl2LiveBars, même quand l'athlète n'a pas
+      //   encore commencé (barresCL absent) → pastilles vides, pas de débordement.
+      if(sc && sc.barresCL){
+        chipsHtml=cl2LiveBars(sc.barresCL, sc.clOut, val);
+      } else if(st==='live' && !val){
+        // Barres vierges : nb de stations = tours perso, pour un visuel propre dès le départ.
+        var _nbStCL=(Array.isArray(w.toursPerso)&&w.toursPerso.length)?w.toursPerso.length:(parseInt(w.toursCount||w.rounds||0,10)||0);
+        chipsHtml=cl2LiveBars({station:1,nbStations:_nbStCL,barres:[]}, false, false);
+      }
     } else
     if(showLiveChips&&st==='live'&&!val&&(w.mouvements||[]).length){
       chipsHtml='<div class="chips">'+(w.mouvements||[]).map(function(m,mi){
@@ -2617,6 +2644,8 @@ function renderZone(zone){
   var moves=w.mouvements||[];
   var movDefs=moves.map(function(m){
     var q=(catId&&m.qtyParCat&&m.qtyParCat[catId]!=null&&m.qtyParCat[catId]!=='')?parseInt(m.qtyParCat[catId])||0:parseInt(m.qty||m.ergoTarget||0)||0;
+    // ★ CLEAN LADDER : afficher le nb de barres (clBarres, ex ×2) au lieu du qty (×10).
+    if(String(w.wodFormat||'').toLowerCase()==='cleanladder' && parseInt(w.clBarres,10)>0) q=parseInt(w.clBarres,10);
     var pw=(catId&&m.poids&&typeof m.poids==='object'&&m.poids[catId])?m.poids[catId]:(typeof m.poids==='string'?m.poids:'');
     return{nom:m.nom||'',q:q,poids:pw,qui:m.qui||'',comment:m.comment||'',note:m.note||'',tour:parseInt(m.tour||0,10)||0,ergoFree:!!m.ergoFree,ergoUnit:m.ergoUnit||''};
   });
@@ -2667,6 +2696,7 @@ function renderZone(zone){
     // Reconstruire movsHtml pour le heat affiché (heat fini)
     var _hdrMoves=(_hdrW.mouvements||[]).map(function(m){
       var q=(displayCatId&&m.qtyParCat&&m.qtyParCat[displayCatId]!=null&&m.qtyParCat[displayCatId]!=='')?parseInt(m.qtyParCat[displayCatId])||0:parseInt(m.qty||m.ergoTarget||0)||0;
+      if(String(_hdrW.wodFormat||'').toLowerCase()==='cleanladder' && parseInt(_hdrW.clBarres,10)>0) q=parseInt(_hdrW.clBarres,10);
       var pw=(displayCatId&&m.poids&&typeof m.poids==='object'&&m.poids[displayCatId])?m.poids[displayCatId]:(typeof m.poids==='string'?m.poids:'');
       return{nom:m.nom||'',q:q,poids:pw,qui:m.qui||'',comment:m.comment||'',tour:parseInt(m.tour||0,10)||0,ergoFree:!!m.ergoFree,ergoUnit:m.ergoUnit||''};
     });
@@ -2881,9 +2911,13 @@ function startTeamBandIH(zone,ihTarget,doneHid,doneH,doneW,catId,catLeader){
   //   prochain en même temps. Le header devient le miroir de la teams-band.
   function _renderMovsFor(w, _catId){
     var moves=(w&&w.mouvements)||[];
+    // ★ CLEAN LADDER (demande chef) : afficher le nombre de BARRES (clBarres, ex ×2),
+    //   pas le qty interne (×10). Le "2" est le nombre de barres par station.
+    var _clB=String(w&&(w.wodFormat||''))==='cleanladder' ? (parseInt(w.clBarres,10)||0) : 0;
     return moves.map(function(m,_i){
       var _tb=(m.tour>0&&(_i===0||(moves[_i-1]||{}).tour!==m.tour))?'<span style="background:rgba(255,209,102,.16);color:#FFD166;border:1px solid rgba(255,209,102,.4);border-radius:4px;padding:0 5px;font-size:10px;font-weight:900;letter-spacing:.5px;display:inline-flex;align-items:center;flex-shrink:0;margin-right:4px">T'+m.tour+'</span>':'';
       var q=(_catId&&m.qtyParCat&&m.qtyParCat[_catId]!=null&&m.qtyParCat[_catId]!=='')?parseInt(m.qtyParCat[_catId])||0:parseInt(m.qty||m.ergoTarget||0)||0;
+      if(_clB>0) q=_clB;  // ★ Clean Ladder → ×barres
       var pw=(_catId&&m.poids&&typeof m.poids==='object'&&m.poids[_catId])?m.poids[_catId]:(typeof m.poids==='string'?m.poids:'');
       var qLbl=m.qui||'', cLbl=m.comment||'';
       var tags='';
