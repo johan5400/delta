@@ -2307,7 +2307,32 @@ function renderRankCards(rows,w,st,showLiveChips,h,catId,catLeader){
     var repDiff=repLead-repMe;
     var repGap='',gapCls='lead';
     if(i===0){
-      repGap='LEADER'; gapCls='lead';
+      // ★ LEADER : afficher SON SCORE en bout de ligne (demande chef) — pour TOUS les WODs
+      //   et tous les heats, pas juste le mot « LEADER ». Le score dépend du format :
+      //   - WOD en DISTANCE (ski+snatch) → sa distance (unité de l'index, défaut M)
+      //   - charge → kg ; temps → chrono ; sinon → reps.
+      var _sfL=(w.scoreType||w.scoreFinale||'').toLowerCase(), _jmL=(w.judgeMode||'').toLowerCase();
+      if(_sfL==='dist'){
+        var _ld=parseFloat((lead.sc&&(lead.sc.dist||lead.sc.distance||lead.sc.ergoVal))||0)||0;
+        var _duL='m';
+        try{
+          var _mvsL=(w.mouvements||[]);
+          var _dmL=_mvsL.filter(function(mm){return mm && !mm.ergoFree && mm.ergoUnit;})[0]
+                 || _mvsL.filter(function(mm){return mm && mm.ergoUnit && String(mm.ergoUnit).toLowerCase()!=='cal';})[0];
+          if(_dmL && _dmL.ergoUnit) _duL=_dmL.ergoUnit;
+        }catch(e){}
+        repGap=_ld>0?('🥇 '+_ld+' '+String(_duL).toUpperCase()):'LEADER';
+      } else if(_jmL==='maxload'||_sfL==='load'){
+        var _lkg=parseFloat((lead.sc&&(lead.sc.clLoad!=null?lead.sc.clLoad:lead.sc.load))||0)||0;
+        repGap=_lkg>0?('🥇 '+_lkg+' kg'):'LEADER';
+      } else if((w.wodFormat||'').toLowerCase()==='fortime'||_sfL==='time'){
+        var _lt=(lead.sc&&lead.sc.finalTime)||0;
+        repGap=_lt>0?('🥇 '+fmt(_lt)):'LEADER';
+      } else {
+        var _lr=liveReps(lead.sc)||0;
+        repGap=_lr>0?('🥇 '+_lr+' reps'):'LEADER';
+      }
+      gapCls='lead';
     } else {
       // Calculer le delta avec scoreVal (scores validés ou live)
       var leadVal = lead.ok ? scoreVal(lead.sc,w) : repLead;
@@ -2401,7 +2426,7 @@ function renderRankCards(rows,w,st,showLiveChips,h,catId,catLeader){
             var tbStr=tbs.map(function(t,i){return (tbs.length>1?'TB'+(i+1)+' ':'')+fmt(t);}).join(' · ');
             return '<div style="font-size:.55em;color:#FF8A00;font-family:var(--fm);font-weight:900;letter-spacing:.5px;margin-top:2px;line-height:1;text-shadow:0 0 8px rgba(255,138,0,.4)">🎯 '+tbStr+'</div>';
           })()
-          +(i>0&&repGap&&gapCls==='gap'?'<div style="font-size:1.18em;color:rgba(255,140,0,.98);font-family:var(--fm);text-align:right;font-weight:900;margin-top:3px;letter-spacing:.5px">'+repGap+'</div>':'')
+          +((i>0&&repGap&&gapCls==='gap')?'<div style="font-size:1.18em;color:rgba(255,140,0,.98);font-family:var(--fm);text-align:right;font-weight:900;margin-top:3px;letter-spacing:.5px">'+repGap+'</div>':(i===0&&repGap?'<div style="font-size:1.05em;color:#4ADE80;font-family:var(--fm);text-align:right;font-weight:900;margin-top:3px;letter-spacing:.5px;text-shadow:0 0 8px rgba(74,222,128,.4)">'+repGap+'</div>':''))
         +'</div>'
       +'</div>'
       +chipsHtml

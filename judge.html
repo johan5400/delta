@@ -772,6 +772,15 @@ body.brief-mode #s-judge{display:none!important}
   </div>
 </div>
 
+<!-- ★ ÉCRAN PAUSE INDIVIDUELLE — le juge ne juge pas maintenant (attend son heat) -->
+<div class="scr" id="s-pause" style="flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:28px 22px;background:radial-gradient(ellipse at 50% 30%,rgba(77,166,255,.14) 0%,transparent 62%),var(--bg)">
+  <div style="font-size:84px;line-height:1;margin-bottom:6px" id="pause-emoji">☕</div>
+  <div style="font-family:var(--ff);font-size:clamp(56px,18vw,110px);letter-spacing:8px;line-height:1;color:#4DA6FF;text-shadow:0 3px 18px rgba(0,0,0,.45)">PAUSE</div>
+  <div id="pause-reprise" style="font-family:var(--fc);font-size:clamp(18px,5vw,26px);font-weight:900;color:#fff;margin-top:14px;letter-spacing:.5px"></div>
+  <div id="pause-humor" style="font-family:var(--fc);font-size:15px;font-weight:700;color:rgba(255,255,255,.8);margin-top:10px;max-width:320px;line-height:1.5"></div>
+  <div style="font-family:var(--fc);font-size:12px;color:rgba(255,255,255,.45);margin-top:18px;max-width:300px;line-height:1.4">Tu seras prévenu automatiquement au départ de ton heat. Ne valide rien tant que ce n'est pas ton tour.</div>
+</div>
+
 <!-- ★ ÉCRAN BRIEFING PLEIN ÉCRAN — affiché pendant l'inter-heat pour préparer l'équipe -->
 <div class="scr" id="s-brief" style="overflow-y:auto;background:radial-gradient(ellipse at 50% 22%,rgba(255,138,0,.12) 0%,transparent 58%),var(--bg);flex-direction:column">
   <!-- Espace réservé pour le banner inter-heat qui flotte en haut -->
@@ -1752,6 +1761,132 @@ function judgeFindCurrentAndNextAssignments(){
   }
   return {current:current,next:next};
 }
+// ═══════════════════════════════════════════════════════════════════
+// ★ PAUSE INDIVIDUELLE — le juge ne juge pas MAINTENANT (attend son heat)
+// ═══════════════════════════════════════════════════════════════════
+// Messages humoristiques + emoji aléatoires pour l'écran pause.
+var _pauseEmojis=['☕','😎','🧘','🍕','🦥','🎮','🕶️','⚡','🏖️','🤙','🍩','😴'];
+var _pauseHumors=[
+  'Repose tes yeux, ton heat arrive bientôt.',
+  'Petite pause bien méritée ☕',
+  'Profite, tu vas bientôt reprendre du service.',
+  'Détends-toi, on t\'appelle quand c\'est ton tour.',
+  'Souffle un coup, le chrono t\'attendra pas éternellement.',
+  'Pause café ! (ou eau, faut rester hydraté 💧)',
+  'Recharge les batteries pour ton prochain heat.'
+];
+function _randPauseHumor(){ return _pauseHumors[Math.floor(Math.random()*_pauseHumors.length)]; }
+
+// Le juge est-il actuellement en PAUSE (il ne doit pas juger maintenant) ?
+//   RÈGLES :
+//   R1. Le heat en cours (FB_HEAT_ID) n'est pas du tout dans son planning → repos.
+//   R2. Son heat est déjà TERMINÉ (done/timecap) et son instruction courante = pause → repos.
+//   R3. Son heat est à lui mais PAS encore lancé, ET le heat réellement en cours sur le direct
+//       (system/zoneSync) est AVANT le sien (il juge plus tard) → il attend → PAUSE. Sauf si
+//       le direct est juste sur le heat d'avant + inter-heat actif (préparation imminente → brief).
+function judgeIsOnPauseNow(){
+  if(typeof FB_HEAT_ID==='undefined' || !FB_HEAT_ID) return false;
+  if(!_judgeScheduleEntries || !_judgeScheduleEntries.length) return false;
+  var cur=_normHeatId(FB_HEAT_ID), myEntry=null;
+  for(var i=0;i<_judgeScheduleEntries.length;i++){
+    if(_normHeatId(_judgeScheduleEntries[i].heatId)===cur){ myEntry=_judgeScheduleEntries[i]; break; }
+  }
+  // R1 : le heat en cours n'est pas à lui.
+  if(!myEntry) return true;
+  // R2 : son heat est fini + instruction pause.
+  if(myEntry.status==='done' || myEntry.status==='timecap'){
+    try{
+      var info=judgeBuildNextInstruction();
+      if(info && (info.kind==='pause' || info.kind==='wait')) return true;
+    }catch(e){}
+  }
+  // R3 : son heat est à lui mais pas encore lancé, et le direct est avant le sien.
+  if(myEntry.status!=='live' && myEntry.status!=='timecap'){
+    try{
+      var _zs=(window._zoneSyncLive)||{};
+      var _zKey='z'+(parseInt((SC&&SC.zone)||myEntry.zone||1,10)||1);
+      var _live=_zs[_zKey]||null;
+      var _myGN=parseInt(myEntry.globalNum,10)||0;
+      var _liveGN=_live?parseInt(_live.globalNum,10)||0:0;
+      if(_myGN>0 && _liveGN>0){
+        var _ecart=_myGN-_liveGN;
+        if(_ecart>=1){
+          // Direct juste sur le heat d'avant + inter-heat actif → brief imminent autorisé.
+          var _ihActive=false;
+          try{
+            var _ih=(IH_CURRENT&&(IH_CURRENT[String((SC&&SC.zone)||1)]||IH_CURRENT[(SC&&SC.zone)||1]))||null;
+            _ihActive=_ih&&_ih.active&&_ih.target&&_ih.target>(typeof serverNow==='function'?serverNow():Date.now());
+          }catch(e){}
+          if(_ecart===1 && _ihActive){ /* brief imminent OK */ }
+          else { return true; } // en attente → PAUSE
+        }
+      }
+    }catch(e){}
+  }
+  return false;
+}
+
+// Affiche le GROS ÉCRAN PAUSE individuel : "tu juges le heat X à Hh" + décompte + humour.
+function showJudgePauseScreen(){
+  // Trouver le prochain heat du juge : le 1er non terminé dont le départ est le plus proche
+  //   dans le futur (évite d'afficher un heat plus tardif).
+  var next=null;
+  if(_judgeScheduleEntries && _judgeScheduleEntries.length){
+    var sorted=_judgeScheduleEntries.slice().sort(judgeCompareHeatSequence);
+    var nowMin=(function(){ var d=new Date(); return d.getHours()*60+d.getMinutes(); })();
+    for(var i=0;i<sorted.length;i++){
+      var e=sorted[i], st=e.status;
+      if(st==='done'||st==='timecap') continue;
+      if(e.startMinute!=null && e.startMinute>=(nowMin-2)){ next=e; break; }
+    }
+    if(!next){
+      for(var j=0;j<sorted.length;j++){
+        var st2=sorted[j].status;
+        if(st2!=='done'&&st2!=='timecap'){ next=sorted[j]; break; }
+      }
+    }
+  }
+  var repEl=document.getElementById('pause-reprise');
+  if(repEl){
+    if(next && next.startMinute!=null){
+      repEl.textContent='Tu juges à '+judgeMinuteLabel(next.startMinute)
+        + (next.wodNom?(' · '+next.wodNom):'')
+        + (next.lane?(' · ligne '+next.lane):'');
+    } else {
+      repEl.textContent='Tu seras notifié au départ de ton heat.';
+    }
+  }
+  var humEl=document.getElementById('pause-humor'), emoEl=document.getElementById('pause-emoji');
+  if(!window._pauseMsgShown){
+    window._pauseMsgShown=_randPauseHumor();
+    window._pauseEmojiShown=_pauseEmojis[Math.floor(Math.random()*_pauseEmojis.length)];
+  }
+  if(humEl) humEl.textContent=window._pauseMsgShown||'';
+  if(emoEl) emoEl.textContent=window._pauseEmojiShown||'☕';
+  if(_currentScreen!=='s-pause'){ show('s-pause'); _currentScreen='s-pause'; }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// ★ COUPURE GÉNÉRALE — plus AUCUN heat sur le floor, TOUS les juges en pause
+// ═══════════════════════════════════════════════════════════════════
+// Distinct de la pause individuelle : la coupure vient du TK (system/interheat
+// ihType='coupure') et concerne tout le monde. Message + reprise = fin de coupure.
+function showCoupurePauseScreen(d){
+  var repEl=document.getElementById('pause-reprise');
+  var target=(d&&d.target)?d.target:0;
+  if(repEl){
+    if(target>0){
+      var _reprMin=(function(){ var dd=new Date(target); return dd.getHours()*60+dd.getMinutes(); })();
+      repEl.textContent='Reprise à '+judgeMinuteLabel(_reprMin);
+    } else {
+      repEl.textContent='Reprise annoncée par le Timekeeper.';
+    }
+  }
+  var humEl=document.getElementById('pause-humor'), emoEl=document.getElementById('pause-emoji');
+  if(humEl) humEl.textContent='⏸ Coupure générale — pause pour tout le monde. Profitez-en pour souffler !';
+  if(emoEl) emoEl.textContent='⏸';
+  if(_currentScreen!=='s-pause'){ show('s-pause'); _currentScreen='s-pause'; }
+}
 function judgeBuildNextInstruction(){
   // Planning pas encore chargé → ne rien afficher (évite le faux "Fin de journée")
   if(!_judgeScheduleEntries.length) return null;
@@ -1765,8 +1900,8 @@ function judgeBuildNextInstruction(){
     var _nextJour = parseInt(next.jour||1,10)||1;
     if(_nextJour > _curJour){
       return {kind:'endday', requireRescan:false,
-        title:'Journée terminée',
-        body:'🎉 Journée pliée, les juges — vous avez déchiré ! 🔥 Posez les chronos, repos de champion 😴 On remet ça demain pour le jour '+_nextJour+'. À demain ! 👋💪'};
+        title:'Journée 1 pliée !',
+        body:'🍻 Terminé pour aujourd\'hui les juges ! Posez les chronos, rangez les stylos... MAINTENANT TOUS À L\'APÉRO ! 🥂😎 Vous avez assuré comme des chefs aujourd\'hui 🔥 Repos de champion, on remet ça demain pour le jour '+_nextJour+'. Santé ! 🍺👋'};
     }
   }
   if(!next){
@@ -1789,7 +1924,16 @@ function judgeBuildNextInstruction(){
         return {kind:'next',requireRescan:false,title:'Prochain passage',body:'Prépare-toi pour le '+hLbl2+' sur la '+zLbl2+', '+lLbl2+when2+'.'};
       }
     }
-    return {kind:'end', requireRescan:false, title:'Fin de journée', body:'Plus de heat prévu pour toi. Reste disponible près du Timekeeper si besoin.'};
+    // ★ Message de fin adapté : dernier jour de la compét (apothéose) vs juge qui a fini
+    //   sa journée plus tôt que les autres (repos).
+    var _jourNow2 = current ? (parseInt(current.jour||1,10)||1) : (parseInt((typeof SC!=='undefined'&&SC&&SC.jour)||1,10)||1);
+    var _maxJourPl = 1;
+    try{ _judgeScheduleEntries.forEach(function(e){ var j=parseInt(e.jour||1,10)||1; if(j>_maxJourPl) _maxJourPl=j; }); }catch(e){}
+    if(_jourNow2>=2 || (_maxJourPl>=2 && _jourNow2===_maxJourPl)){
+      return {kind:'end', requireRescan:false, title:'C\'EST FINI ! 🏆',
+        body:'🎉 C\'EST TERMINÉ LES JUGES ! La compét est PLIÉE et c\'est grâce à vous ! 🙌 Vous avez été énormes sur ces 2 jours 🔥💪 Sans juges, pas de compét — alors MERCI ! 🍻 Maintenant on range tout et... GRANDE FÊTE ! 🥳🎊 Vous l\'avez bien mérité. À la prochaine ! 👋❤️'};
+    }
+    return {kind:'end', requireRescan:false, title:'Fini pour toi aujourd\'hui !', body:'🍻 Plus de heat prévu pour toi — ta journée de juge est terminée ! Bravo 👏 Tu peux souffler (ou filer à l\'apéro 😏). Reste dispo près du Timekeeper au cas où on ait besoin d\'un renfort. 💪'};
   }
   var when=next.startMinute!=null ? (' à '+judgeMinuteLabel(next.startMinute)) : '';
   var heatNumLbl=(next.catHeatNum&&next.nbHeatsTotal)
@@ -2006,6 +2150,11 @@ function toggleWodRecall(){
 
 // Affiche le briefing plein écran + gère le compte à rebours jusqu'à -20s
 function showBriefScreen(next, secondsUntilStartHint){
+  // ★ PAUSE : jamais de brief quand le juge est en pause (il ne juge pas encore ce heat).
+  if(typeof judgeIsOnPauseNow==='function' && judgeIsOnPauseNow()){
+    if(typeof showJudgePauseScreen==='function') showJudgePauseScreen();
+    return false;
+  }
   if(!fillBriefScreen(next)) return false;
   _briefActive=true;
   // Reset du bouton JE SUIS PRÊT (caché par défaut, réaffiché si heat=pre + 1er heat)
@@ -2105,12 +2254,14 @@ function showNextScreen(){
   var ico='✅', action='SCORE VALIDÉ', sub='', heroBg='', actionCls='next-stay', btnCls='next-stay', btnTxt='↩ Attendre sur ma ligne';
 
   if(!info || info.kind==='end'){
-    ico='🏁'; action='FIN DE JOURNÉE';
+    // Distinguer fin de COMPÉT (titre 🏆) vs juge qui a fini sa journée plus tôt.
+    var _isEndCompet = info && info.title && info.title.indexOf('FINI')>=0 && info.title.indexOf('🏆')>=0;
+    if(_isEndCompet){ ico='🏆'; action='COMPÉT TERMINÉE !'; heroBg='background:linear-gradient(180deg,rgba(180,120,20,.55),rgba(13,20,31,.98))'; }
+    else { ico='🍻'; action='FINI POUR TOI !'; heroBg='background:linear-gradient(180deg,rgba(30,58,138,.5),rgba(13,20,31,.98))'; }
     sub=info&&info.body ? info.body : 'Plus de heat prévu. Reste disponible près du Timekeeper.';
-    heroBg='background:linear-gradient(180deg,rgba(30,58,138,.5),rgba(13,20,31,.98))';
     actionCls=''; btnCls='next-end'; btnTxt='↩ Retour attente';
   } else if(info.kind==='endday'){
-    ico='👋'; action='À DEMAIN LES JUGES';
+    ico='🍻'; action='TOUS À L\'APÉRO !';
     sub=info.body||'C\'est fini pour aujourd\'hui. Repos bien mérité, à demain !';
     heroBg='background:linear-gradient(180deg,rgba(76,29,149,.55),rgba(13,20,31,.98))';
     actionCls=''; btnCls='next-end'; btnTxt='↩ Retour';
@@ -2461,6 +2612,8 @@ function maybeAutoReadyNextHeat(){
 
 function goMenu(){
   stopReadyLiveWatch();
+  // ★ Sortie de pause : réinitialiser le message humoristique pour la prochaine fois.
+  window._pauseMsgShown=null; window._pauseEmojiShown=null;
   hideJudgePrestartOverlay();
   clearJudgePostHeatWindow();
   clearJudgeDoneGuidanceLock();
@@ -2791,6 +2944,13 @@ function startJudgeLocked(targetTs){
 
 /* ── Démarrage juge ── */
 function startJudge(){
+  // ★ PAUSE : si le juge n'est pas censé juger maintenant (il commence par une pause,
+  //   attend son heat, ou le heat en cours n'est pas à lui), on affiche l'ÉCRAN PAUSE et
+  //   on n'ouvre JAMAIS le jugement. Couvre tous les chemins d'appel (watchers, filets…).
+  if(typeof judgeIsOnPauseNow==='function' && judgeIsOnPauseNow()){
+    if(typeof showJudgePauseScreen==='function') showJudgePauseScreen();
+    return;
+  }
   // ★ FIX BOUCLE REVALIDATION : ne JAMAIS rouvrir l'écran de saisie pour un
   // heat dont le score a déjà été validé. _scoreValidated n'est remis à false
   // que par applyRealData au chargement d'un NOUVEAU heat (ou par le listener
@@ -3827,6 +3987,15 @@ function addRep(){
     if(_dbSb<=0){var _dmb=(SC&&SC.moves)||[];for(var _j=0;_j<_dmb.length;_j++){var _dqb=parseInt((_dmb[_j]&&(_dmb[_j].q!=null?_dmb[_j].q:_dmb[_j].qty))||0,10)||0;if(_dqb>0){_dbSb=_dqb;break;}}if(_dbSb<=0)_dbSb=1;}
     var _dbTgtNow=_dbSb+(parseInt(SC.dbIncPerRound||0,10)||0)*(emomRound-1);
     if(moveReps>=_dbTgtNow){ toast('✅ Cible '+_dbTgtNow+' atteinte — attends le prochain tour'); vib([60,40,120]); return; }
+  }
+
+  // ★ SKI+SNATCH (EMOM) : borner le compteur de SNATCH au quota du tour (ex : 7 snatch).
+  //   Bug chef : on pouvait taper plus que le nombre voulu. On bloque QUAND le mouvement
+  //   courant est à reps (snatch), a un quota, et est le DERNIER mouvement du tour — pour
+  //   ne pas casser l'enchaînement ski (ergo) → snatch. Une fois le quota atteint, stop.
+  if((fmt==='emom'||fmt==='interval') && !m.ergoFree && m.q>0 && isLastMove && moveReps>=m.q){
+    vib([40,20,40]); toast('✅ '+m.q+' '+(m.n||'reps')+' du tour atteints — attends le tour suivant','#00E5A0',1800);
+    return;
   }
 
   totalReps++; moveReps++;
@@ -5074,6 +5243,15 @@ function applyRealData(data){
   listenHeatStatus();
 
   // Afficher le bon écran directement selon le statut actuel
+  // ★ PAUSE : si le juge ne juge pas ce heat maintenant (pas à lui, ou son heat pas encore
+  //   lancé et le direct est avant le sien), écran PAUSE. On ne se fie à judgeIsOnPauseNow()
+  //   QUE si le heat chargé n'est pas déjà actif (le planning peut être en cours de
+  //   rechargement asynchrone ; un heat live/pre est forcément d'actualité pour ce juge).
+  var _stLd = data.status||'pending';
+  var _heatActif = (_stLd==='live'||_stLd==='timecap'||_stLd==='pre'||_stLd==='countdown');
+  if(!_heatActif && typeof judgeIsOnPauseNow==='function' && judgeIsOnPauseNow()){
+    if(typeof showJudgePauseScreen==='function'){ showJudgePauseScreen(); return; }
+  }
   if(data.status==='pre' || data.status==='countdown'){
     _preShown=true; // bloquer le listener pour ne pas re-déclencher goPre
     if(!maybeAutoReadyNextHeat()) setTimeout(goPre, 400);
@@ -5206,6 +5384,14 @@ function loadAndShowPlanning(jugeId){
     updateJudgeInstructionPanels();
     // ★ Afficher TOUS les passages du juge (liste complète avec horaires) dès l'attente
     renderJudgeFullSchedule();
+    // ★ PAUSE : le planning du juge est maintenant chargé (données à jour). Si le juge est
+    //   en pause (il commence par une pause, ou attend son heat), on affiche l'ÉCRAN PAUSE
+    //   au lieu du brief / de l'écran de jugement. On ne coupe pas une saisie en cours.
+    if(typeof judgeIsOnPauseNow==='function' && judgeIsOnPauseNow()
+       && ['s-judge','s-cd'].indexOf(_currentScreen)<0){
+      window._pendingFirstHeatBrief=null;
+      if(typeof showJudgePauseScreen==='function'){ showJudgePauseScreen(); return; }
+    }
     if(window._pendingFirstHeatBrief){
       var _pfb=window._pendingFirstHeatBrief;
       window._pendingFirstHeatBrief=null;
@@ -6669,9 +6855,34 @@ function listenHeatStatus(){
     var d=all[String(z)]||all[z]||null;
     if(d&&d.active&&d.target&&d.target>Date.now()&&d.seconds>0){
       showInterheatBanner(d);
+      // ★ COUPURE GÉNÉRALE : plus aucun heat sur le floor → écran PAUSE coupure pour TOUS,
+      //   sauf si le juge est en train de finir/soumettre son heat (on ne coupe pas une saisie).
+      if((d.ihType||'')==='coupure'){
+        var _busy=(_currentScreen==='s-judge'||_currentScreen==='s-cd')
+                  && (HEAT_STATUS==='live'||HEAT_STATUS==='timecap');
+        if(!_busy && typeof showCoupurePauseScreen==='function'){ showCoupurePauseScreen(d); }
+      }
     } else {
       hideInterheatBanner();
     }
+  });
+  // ★ WATCHER zoneSync : connaître le heat RÉELLEMENT en cours sur le direct (par zone).
+  //   Sert à savoir si le juge doit juger MAINTENANT ou s'il attend son heat (plus loin).
+  //   Corrige : Deborah qui scanne en début de journée alors qu'elle juge au heat 8 → PAUSE.
+  db.ref('system/zoneSync').on('value',function(snap){
+    window._zoneSyncLive = snap.val() || {};
+    try{
+      // Priorité coupure : ne pas écraser l'écran coupure par l'écran pause "heat X".
+      var _zc=(SC&&SC.zone)?String(SC.zone):'1';
+      var _ihc=(IH_CURRENT&&(IH_CURRENT[_zc]||IH_CURRENT[parseInt(_zc,10)]))||null;
+      var _coupure=_ihc&&_ihc.active&&_ihc.target&&_ihc.target>(typeof serverNow==='function'?serverNow():Date.now());
+      if(_coupure) return;
+      if(typeof judgeIsOnPauseNow==='function' && judgeIsOnPauseNow()
+         && ['s-judge','s-cd'].indexOf(_currentScreen)<0
+         && HEAT_STATUS!=='live' && HEAT_STATUS!=='timecap'){
+        if(typeof showJudgePauseScreen==='function') showJudgePauseScreen();
+      }
+    }catch(e){}
   });
 }
 
