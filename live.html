@@ -2307,10 +2307,9 @@ function renderRankCards(rows,w,st,showLiveChips,h,catId,catLeader){
     var repDiff=repLead-repMe;
     var repGap='',gapCls='lead';
     if(i===0){
-      // ★ LEADER : afficher SON SCORE en bout de ligne (demande chef) — pour TOUS les WODs
-      //   et tous les heats, pas juste le mot « LEADER ». Le score dépend du format :
-      //   - WOD en DISTANCE (ski+snatch) → sa distance (unité de l'index, défaut M)
-      //   - charge → kg ; temps → chrono ; sinon → reps.
+      // ★ LEADER : afficher SON SCORE CHIFFRÉ en bout de ligne (demande chef) — le NOMBRE
+      //   de reps / cals / kg / distance selon le WOD, JAMAIS le mot « LEADER ». Pour tous
+      //   les WODs et tous les heats. Si score à 0, on n'affiche rien (pas de mot parasite).
       var _sfL=(w.scoreType||w.scoreFinale||'').toLowerCase(), _jmL=(w.judgeMode||'').toLowerCase();
       if(_sfL==='dist'){
         var _ld=parseFloat((lead.sc&&(lead.sc.dist||lead.sc.distance||lead.sc.ergoVal))||0)||0;
@@ -2321,16 +2320,19 @@ function renderRankCards(rows,w,st,showLiveChips,h,catId,catLeader){
                  || _mvsL.filter(function(mm){return mm && mm.ergoUnit && String(mm.ergoUnit).toLowerCase()!=='cal';})[0];
           if(_dmL && _dmL.ergoUnit) _duL=_dmL.ergoUnit;
         }catch(e){}
-        repGap=_ld>0?('🥇 '+_ld+' '+String(_duL).toUpperCase()):'LEADER';
+        repGap=_ld>0?(_ld+' '+String(_duL).toUpperCase()):'';
+      } else if(_sfL==='cal'){
+        var _lc=parseFloat((lead.sc&&(lead.sc.dist||lead.sc.ergoVal||lead.sc.distance))||0)||0;
+        repGap=_lc>0?(_lc+' CAL'):'';
       } else if(_jmL==='maxload'||_sfL==='load'){
         var _lkg=parseFloat((lead.sc&&(lead.sc.clLoad!=null?lead.sc.clLoad:lead.sc.load))||0)||0;
-        repGap=_lkg>0?('🥇 '+_lkg+' kg'):'LEADER';
+        repGap=_lkg>0?(_lkg+' KG'):'';
       } else if((w.wodFormat||'').toLowerCase()==='fortime'||_sfL==='time'){
         var _lt=(lead.sc&&lead.sc.finalTime)||0;
-        repGap=_lt>0?('🥇 '+fmt(_lt)):'LEADER';
+        repGap=_lt>0?fmt(_lt):'';
       } else {
         var _lr=liveReps(lead.sc)||0;
-        repGap=_lr>0?('🥇 '+_lr+' reps'):'LEADER';
+        repGap=_lr>0?(_lr+' REPS'):'';
       }
       gapCls='lead';
     } else {
