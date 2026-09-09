@@ -363,7 +363,7 @@ body.brief-mode #s-judge{display:none!important}
 .next-hero{flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 20px 24px;gap:10px;text-align:center}
 .next-ico{font-size:72px;line-height:1;filter:drop-shadow(0 4px 16px rgba(0,0,0,.4))}
 .next-action{font-family:var(--ff);font-size:clamp(36px,10vw,64px);letter-spacing:5px;line-height:1;text-shadow:0 2px 12px rgba(0,0,0,.4)}
-.next-sub{font-family:var(--fc);font-size:15px;font-weight:700;letter-spacing:.5px;color:rgba(255,255,255,.85);line-height:1.6;max-width:320px;margin-top:2px;white-space:pre-line}
+.next-sub{font-family:var(--fc);font-size:15px;font-weight:700;letter-spacing:.5px;color:rgba(255,255,255,.85);line-height:1.6;max-width:320px;margin-top:2px}
 .next-cards{display:flex;flex-direction:column;gap:8px;padding:0 14px 14px;width:100%}
 .next-card{border-radius:16px;padding:14px 18px;display:flex;align-items:center;gap:14px}
 .next-card-lbl{font-family:var(--fc);font-size:10px;font-weight:900;letter-spacing:2px;text-transform:uppercase;opacity:.55;margin-bottom:2px}
@@ -667,15 +667,9 @@ body.brief-mode #s-judge{display:none!important}
     </div>
     <div class="j-btns">
       <button class="btn-rep" id="btn-rep" onclick="addRep()">+ REP</button>
-      <button class="btn-tb" id="btn-rep-minus" onclick="removeRep()" style="background:rgba(255,59,92,.12);border-color:rgba(255,59,92,.45);color:#FF6B85">➖<br>REP</button>
       <button class="btn-tb" id="btn-tb" onclick="manualTB()" style="display:none">🎯<br>TB</button>
       <button class="btn-tb" id="btn-drop" onclick="deathByDrop()" style="display:none;background:rgba(255,59,92,.15);border-color:rgba(255,59,92,.5);color:#FF6B85">🏳️<br>LÂCHE</button>
       <button class="btn-tb" id="btn-clfini" onclick="cleanLadderFini()" style="display:none;background:rgba(4,120,87,.18);border-color:rgba(4,120,87,.55);color:#34D399">🏁<br>FINI</button>
-    </div>
-    <!-- ★ RUN : bouton plein largeur affiché à la place de +REP quand le mouvement courant est un run.
-         Le juge ne court pas avec l'athlète → un simple clic valide la station et passe au mouvement suivant. -->
-    <div id="j-run-zone" style="display:none;padding:8px 12px 12px">
-      <button id="btn-run" onclick="validateRun()" style="width:100%;padding:20px;border:none;border-radius:14px;background:linear-gradient(135deg,#EA580C,#FB923C);color:#fff;font-family:var(--ff);font-size:22px;letter-spacing:3px;cursor:pointer;font-weight:900;box-shadow:0 4px 18px rgba(234,88,12,.3)">🏃 VALIDER RUN</button>
     </div>
   </div>
 
@@ -778,17 +772,8 @@ body.brief-mode #s-judge{display:none!important}
   </div>
 </div>
 
-<!-- ★ GROS ÉCRAN PAUSE — affiché quand le juge ne juge PAS le heat courant (repos) -->
-<div class="scr" id="s-pause" style="flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:28px 22px;background:radial-gradient(ellipse at 50% 30%,rgba(77,166,255,.14) 0%,transparent 62%),var(--bg)">
-  <div style="font-size:84px;line-height:1;margin-bottom:6px" id="pause-emoji">☕</div>
-  <div style="font-family:var(--ff);font-size:clamp(56px,18vw,110px);letter-spacing:8px;line-height:1;color:#4DA6FF;text-shadow:0 3px 18px rgba(0,0,0,.45)">PAUSE</div>
-  <div id="pause-reprise" style="font-family:var(--fc);font-size:clamp(18px,5vw,26px);font-weight:900;color:#fff;margin-top:14px;letter-spacing:.5px"></div>
-  <div id="pause-humor" style="font-family:var(--fc);font-size:15px;font-weight:700;color:rgba(255,255,255,.8);margin-top:10px;max-width:320px;line-height:1.5"></div>
-  <div style="font-family:var(--fc);font-size:12px;color:rgba(255,255,255,.45);margin-top:18px;max-width:300px;line-height:1.4">Tu seras prévenu automatiquement au départ de ton prochain heat. Ne valide rien tant que ce n'est pas ton tour.</div>
-</div>
-
 <!-- ★ ÉCRAN BRIEFING PLEIN ÉCRAN — affiché pendant l'inter-heat pour préparer l'équipe -->
-<div class="scr" id="s-brief" style="overflow-y:auto !important;-webkit-overflow-scrolling:touch;background:radial-gradient(ellipse at 50% 22%,rgba(255,138,0,.12) 0%,transparent 58%),var(--bg);flex-direction:column">
+<div class="scr" id="s-brief" style="overflow-y:auto;background:radial-gradient(ellipse at 50% 22%,rgba(255,138,0,.12) 0%,transparent 58%),var(--bg);flex-direction:column">
   <!-- Espace réservé pour le banner inter-heat qui flotte en haut -->
   <div id="brief-ih-spacer" style="height:0;flex-shrink:0;transition:height .3s"></div>
   <div style="background:linear-gradient(135deg,var(--fire),#FF8A00);padding:18px 20px;text-align:center;flex-shrink:0">
@@ -811,7 +796,7 @@ body.brief-mode #s-judge{display:none!important}
     <div id="brief-wod-name" style="font-family:var(--ff);font-size:28px;letter-spacing:2px;color:#fff;line-height:1">—</div>
     <div id="brief-wod-fmt" style="font-family:var(--fc);font-size:13px;font-weight:800;color:#B06EFF;margin-top:4px;letter-spacing:1px">—</div>
   </div>
-  <div id="brief-moves" style="padding:0 14px;display:flex;flex-direction:column;gap:8px;flex-shrink:0"></div>
+  <div id="brief-moves" style="flex:1;padding:0 14px;display:flex;flex-direction:column;gap:8px;overflow-y:auto"></div>
   <div id="brief-note" style="display:none;margin:12px 14px 0;padding:12px;background:rgba(255,176,32,.1);border:1px solid rgba(255,176,32,.3);border-radius:12px;font-size:13px;color:var(--gold,#FFB020);font-weight:700;text-align:center;flex-shrink:0"></div>
   <div style="padding:16px 20px;flex-shrink:0;text-align:center">
     <div id="brief-cd-line" style="font-size:12px;color:rgba(255,255,255,.5);font-weight:700">Le jugement s'ouvre dans <b id="brief-cd" style="color:#fff">—</b></div>
@@ -903,23 +888,6 @@ var _restMsgs=[
   {e:'🧘',t:'Petit moment zen. Savoure-le.'}
 ];
 var emomRoundReps=0, emomRoundHistory=[], emomTotalReps=0;
-// ★ Messages humoristiques affichés sur l'écran de PAUSE ENTRE HEATS (juge au repos
-//   le temps que d'autres passent). Un message au hasard à chaque mise en pause.
-var _pauseHumor=[
-  {e:'☕',t:'Pause bien méritée. Va pas trop loin quand même.'},
-  {e:'😎',t:'Repos de star. Profites-en, ça va repartir.'},
-  {e:'🧘',t:'Respire, détends-toi… mais garde un œil ouvert.'},
-  {e:'🍕',t:'C\'est pas encore l\'heure de la pizza. Patience.'},
-  {e:'🦥',t:'Mode paresseux activé. Temporairement.'},
-  {e:'🎮',t:'Petite pause. Pas le temps pour une partie, désolé.'},
-  {e:'🕶️',t:'Repose tes yeux de juge, ils ont bossé.'},
-  {e:'⚡',t:'Recharge les batteries, on te rappelle très vite.'},
-  {e:'🏖️',t:'Mini-vacances. Très mini. Genre quelques minutes.'},
-  {e:'🤙',t:'Cool, tranquille. Le chrono t\'attend pas loin.'},
-  {e:'🍩',t:'Pause donut. Sans le donut. Mais avec le repos.'},
-  {e:'😴',t:'Petit somme autorisé. Léger, hein.'}
-];
-function _randPauseHumor(){ return _pauseHumor[Math.floor(Math.random()*_pauseHumor.length)]; }
 var _judgeAutoChainEnabled=false;
 var _judgeScheduleEntries=[];
 var _judgeInitialAssignmentKey='';
@@ -1098,15 +1066,7 @@ function showInterheatBanner(data){
   var isCoupure=(data.ihType||'')==='coupure';
   var preloadKey=String(data.zone||((SC&&SC.zone)||''))+'_'+String(data.target||'');
   box.classList.toggle('warn', isCoupure);
-  // ★ Ne pas afficher le bandeau flottant d'emblée si le juge est déjà sur un écran
-  //   « où aller » / brief / pause / jugement (il le cacherait). La boucle ci-dessous
-  //   gère ensuite l'affichage selon l'écran courant.
-  var _hideOn=['s-judge','s-cd','s-pre','s-next','s-brief','s-pause'];
-  if(_hideOn.indexOf(_currentScreen)===-1 && !window._judgeOnPause){
-    box.classList.add('show');
-  } else {
-    box.classList.remove('show');
-  }
+  box.classList.add('show');
   if(title) title.textContent=(isCoupure?'Coupure':'Inter-heat').toUpperCase();
   if(label) label.textContent=data.label||'Préparation du prochain départ';
   // Afficher dans s-wait aussi
@@ -1125,11 +1085,7 @@ function showInterheatBanner(data){
     //   startJudgeLocked réaffiche s-judge verrouillé (~-15/25s), celui-ci a déjà son
     //   propre compte à rebours ; le bandeau flottant par-dessus donnait l'écran coupé
     //   en deux. On ne montre le bandeau que sur les écrans d'attente/brief.
-    if(_currentScreen==='s-judge'||_currentScreen==='s-cd'||_currentScreen==='s-pre'||_currentScreen==='s-next'||_currentScreen==='s-brief'||_currentScreen==='s-pause' || window._judgeOnPause){
-      // Sur un écran de JUGEMENT, sur l'écran « OÙ ALLER » (s-next), sur le BRIEF, sur la
-      //   PAUSE, OU quand le juge est en pause : PAS de bandeau flottant. Il cacherait
-      //   l'instruction « reste sur ta ligne / change de ligne / va en pause » (s-next),
-      //   le brief, ou le message de pause. Ces écrans ont déjà leur propre info + chrono.
+    if(_currentScreen==='s-judge'||_currentScreen==='s-cd'||_currentScreen==='s-pre'){
       box.classList.remove('show');
     } else {
       box.classList.add('show');
@@ -1155,14 +1111,9 @@ function showInterheatBanner(data){
       //   saisie VERROUILLÉ à ~-20s. L'interface juge s'affiche grisée avec le
       //   compte à rebours ; la saisie ne se débloque qu'au GO du TK (status:live).
       var _notActive = ['s-wait','s-next','s-brief'].indexOf(_currentScreen)!==-1;
-      // ★ FIX (demande chef) : si le juge est EN PAUSE, NE PAS ouvrir l'écran de saisie
-      //   du prochain heat. Il doit rester sur le GROS ÉCRAN PAUSE. On ne bascule en
-      //   saisie verrouillée QUE si le juge juge réellement le prochain heat.
-      if(_notActive && FB_JUGE_ID && SC && SC.heat && !judgeIsOnPauseNow()){
+      if(_notActive && FB_JUGE_ID && SC && SC.heat){
         // data.target = timestamp prévu du GO du prochain heat
         startJudgeLocked(data.target||(serverNow()+rem*1000));
-      } else if(judgeIsOnPauseNow()){
-        showJudgePauseScreen();
       }
     }
     if(rem<=0){ clearInterval(_ihIv); _ihIv=null; hideInterheatBanner(); }
@@ -1180,35 +1131,28 @@ function hideInterheatBanner(){
     setTimeout(function(){
       db.ref('heats').once('value').then(function(snap){
         var best=selectBestJudgeAssignment(FB_JUGE_ID, snap.val()||{});
-        if(!best) return;
-        // ★ FIX (appli qui ne repart pas après la coupure) : on recharge le heat du juge
-        //   à la fin de l'inter-heat/coupure — Y COMPRIS si c'est le MÊME heatId. Avant,
-        //   on ne rechargeait que si le heat était DIFFÉRENT ; mais si l'appli avait
-        //   déjà préchargé le prochain heat comme heat courant pendant la pause, le heatId
-        //   était identique → aucune bascule → l'appli restait figée sur l'écran pause.
-        //   En rechargeant, applyRealData relit le STATUT à jour (live) et ré-affiche le
-        //   bon écran (jugement si le heat tourne, sinon attente).
-        db.ref('heats/'+best.heatId).once('value').then(function(hs){
-          var h=hs.val()||{};
-          var li=(h.lanes||{})[String(best.lane)]||{};
-          // Ne pas interrompre une saisie déjà démarrée entre-temps.
-          if(['s-pre','s-cd','s-judge'].indexOf(_currentScreen)!==-1) return;
-          applyRealData({
-            heatId:best.heatId, lane:String(best.lane),
-            teamName:li.teamName||best.teamName||'—',
-            catName:judgeLaneCatName(li,h)||best.catName||'—',
-            catId:judgeLaneCatId(li,h)||best.catId||'',
-            zone:parseInt(h.catZone||h.zone||best.zone||1)||1,
-            wodInfo:h.wodInfo||best.wodInfo||null,
-            wodNom:judgeHeatWodName(h, li, best.wodNom),
-            globalNum:judgeHeatGlobalNum(best.heatId, h),
-            startMinute:judgeStartMinuteFromHeat(h),
-            prenom:best.prenom||FB_JUGE_PRENOM||'Juge',
-            nom:best.nom||FB_JUGE_NOM||'',
-            status:h.status||'pending',
-            startTimestamp:h.startTimestamp||null
+        // Uniquement si c'est un heat DIFFERENT — jamais reset le heat en cours
+        if(best && String(best.heatId)!==String(FB_HEAT_ID)){
+          db.ref('heats/'+best.heatId).once('value').then(function(hs){
+            var h=hs.val()||{};
+            var li=(h.lanes||{})[String(best.lane)]||{};
+            applyRealData({
+              heatId:best.heatId, lane:String(best.lane),
+              teamName:li.teamName||best.teamName||'—',
+              catName:judgeLaneCatName(li,h)||best.catName||'—',
+              catId:judgeLaneCatId(li,h)||best.catId||'',
+              zone:parseInt(h.catZone||h.zone||best.zone||1)||1,
+              wodInfo:h.wodInfo||best.wodInfo||null,
+              wodNom:judgeHeatWodName(h, li, best.wodNom),
+              globalNum:judgeHeatGlobalNum(best.heatId, h),
+              startMinute:judgeStartMinuteFromHeat(h),
+              prenom:best.prenom||FB_JUGE_PRENOM||'Juge',
+              nom:best.nom||FB_JUGE_NOM||'',
+              status:h.status||'pending',
+              startTimestamp:h.startTimestamp||null
+            });
           });
-        });
+        }
       });
     }, 1000);
   }
@@ -1376,8 +1320,7 @@ function wodToScenario(wod){
       //   qty. Sans ça, le juge visait qty (défaut 10) au lieu des 15 cal saisis.
       //   On n'applique ça QU'aux ergos non-free avec un ergoTarget>0 : les ergoFree
       //   (skierg max/tour, ergoTarget=0) et les mouvements reps sont intacts.
-      q: (m.type==='run') ? 0
-         : ((((m.type||'reps')==='ergo') && !m.ergoFree && baseDist>0) ? baseDist : baseQty),
+      q: (((m.type||'reps')==='ergo') && !m.ergoFree && baseDist>0) ? baseDist : baseQty,
       // ★ FIX POIDS FANTÔME (bug chef) : un mouvement ergo (bike/rameur/skierg =
       //   distance ou cals) ne porte JAMAIS de poids de barre. Même si la donnée en
       //   contient un (incohérence poidsGlobal/poids[cat] ou fuite), on ne le propage
@@ -1405,16 +1348,11 @@ function wodToScenario(wod){
 
   var hasTB = !!(wod.hasTiebreak);
   var tbAuto = (wod.tiebreakMoveIdx!=null) ? parseInt(wod.tiebreakMoveIdx) : -1;
-  // ★ MULTI-TB : le nouveau format tbCfg[catId] fait AUTORITÉ.
-  //   Le fallback legacy (tiebreakMoveIdx/tiebreakReps) n'est utilisé QUE pour un WOD
-  //   qui n'a jamais touché au nouveau système (aucun tbCfg du tout). Dès qu'un WOD
-  //   possède un objet tbCfg — même vide pour cette catégorie — cela signifie
-  //   "tiebreaks gérés via l'éditeur", donc "aucun TB pour cette catégorie" = vraiment
-  //   aucun, et on n'affiche PAS l'ancien tiebreakMoveIdx résiduel (fix fantôme "5").
+  // ★ MULTI-TB : construire la liste depuis le nouveau format tbCfg[catId]
+  //   avec fallback sur l'ancien format unique (tiebreakMoveIdx/tiebreakReps)
   var catKey = String(arguments[1]||'');
-  var tbManaged = !!(wod.tbCfg && typeof wod.tbCfg==='object'); // WOD passé au nouveau système
   var tbList = [];
-  if(tbManaged && catKey && Array.isArray(wod.tbCfg[catKey]) && wod.tbCfg[catKey].length>0){
+  if(wod.tbCfg && catKey && Array.isArray(wod.tbCfg[catKey]) && wod.tbCfg[catKey].length>0){
     tbList = wod.tbCfg[catKey].map(function(tb){
       return {
         tour: tb.tour!=null ? parseInt(tb.tour,10) : null,
@@ -1424,17 +1362,14 @@ function wodToScenario(wod){
       };
     });
     hasTB = true;
-  } else if(!tbManaged && hasTB && tbAuto>=0){
-    // Fallback ancien format — uniquement si le WOD n'a jamais eu de tbCfg
+  } else if(hasTB && tbAuto>=0){
+    // Fallback : ancien format → on le met dans tbList pour uniformité
     tbList = [{
       tour: null,
       moveIdx: tbAuto,
       rep: (wod.tiebreakReps!=null && wod.tiebreakReps>0) ? parseInt(wod.tiebreakReps,10) : null,
       desc: wod.tiebreakDesc||''
     }];
-  } else {
-    // WOD géré via tbCfg mais rien pour cette catégorie → aucun tiebreak
-    hasTB = false;
   }
 
   return {
@@ -1804,129 +1739,18 @@ function judgeFindCurrentAndNextAssignments(){
     currentIdx=lastDoneIdx;
   }
   var current=currentIdx>=0?sorted[currentIdx]:null;
-  // ★ FIX DÉCALAGE / REPRISE QUI RECULE :
-  //   _judgeScheduleEntries ne contient QUE les heats de CE juge. Son "prochain heat"
-  //   est donc simplement LE PREMIER DE SA LISTE qui n'est pas encore terminé
-  //   (pending/pre/live), quel que soit ce qui se termine AILLEURS. Avant, on prenait
-  //   "le heat après le courant", et en pause le courant retombait sur le dernier heat
-  //   done GLOBAL (Matching 3) → le prochain heat du juge reculait à chaque heat fini
-  //   (reprise 9h15 → 9h45 → 10h15…). On calcule désormais next indépendamment de ça.
+  // Prochain = premier non-done APRÈS le courant (dans l'ordre trié)
   var next=null;
-  for(var _i=0;_i<sorted.length;_i++){
-    var _st=sorted[_i].status;
-    if(_st!=='done' && _st!=='timecap'){
-      // Ne pas reproposer le heat courant lui-même comme "prochain"
-      if(currentIdx>=0 && _i===currentIdx) continue;
-      next=sorted[_i];
-      break;
-    }
+  for(var i=currentIdx+1;i<sorted.length;i++){
+    if(sorted[i].status!=='done'&&sorted[i].status!=='timecap'){ next=sorted[i]; break; }
+  }
+  // Pas de suivant après → premier non-done de toute la liste (sauf le courant)
+  if(!next){
+    next=sorted.find(function(e,i){
+      return i!==currentIdx && e.status!=='done' && e.status!=='timecap';
+    })||null;
   }
   return {current:current,next:next};
-}
-// ★ Le juge est-il actuellement EN PAUSE / de repos ?
-//   Vrai si l'instruction courante est une pause OU si le heat en cours (FB_HEAT_ID)
-//   n'est pas dans son planning (il ne juge pas ce heat). Sert à bloquer l'ouverture
-//   du brief et de l'écran pré-heat pour un juge de repos (bug: brief lointain qui
-//   s'ouvre et décale la reprise).
-function judgeIsOnPauseNow(){
-  if(typeof FB_HEAT_ID!=='undefined' && FB_HEAT_ID && _judgeScheduleEntries && _judgeScheduleEntries.length){
-    var cur=_normHeatId(FB_HEAT_ID), myEntry=null, myIdx=-1;
-    for(var i=0;i<_judgeScheduleEntries.length;i++){
-      if(_normHeatId(_judgeScheduleEntries[i].heatId)===cur){ myEntry=_judgeScheduleEntries[i]; myIdx=i; break; }
-    }
-    // 1) Le heat en cours n'est pas à lui → repos.
-    if(!myEntry) return true;
-    // 2) Ce heat est à lui mais déjà TERMINÉ, et son prochain heat saute des heats
-    //    (instruction "pause") → il est en pause en attendant son prochain passage.
-    if(myEntry.status==='done' || myEntry.status==='timecap'){
-      try{
-        var info=judgeBuildNextInstruction();
-        if(info && (info.kind==='pause' || info.kind==='wait')) return true;
-      }catch(e){}
-    }
-    // 3) ★ FIX DEBORAH (scan en début de journée alors qu'elle juge au heat 8) :
-    //    le heat chargé est BIEN à elle, mais il est encore LOIN dans la séquence — le
-    //    direct en est à un heat bien antérieur. Tant que le heat réellement EN COURS sur
-    //    sa zone (system/zoneSync) est AVANT son heat (globalNum strictement inférieur),
-    //    et que son heat n'a pas encore démarré (pending), elle est EN ATTENTE → écran PAUSE.
-    //    On laisse une marge : si le direct est sur le heat juste avant le sien (écart 1)
-    //    ET qu'un inter-heat est actif, on la laisse voir son brief (préparation imminente).
-    if(myEntry.status!=='live' && myEntry.status!=='timecap'){
-      try{
-        var _zs=(window._zoneSyncLive)||{};
-        var _zKey='z'+(parseInt((SC&&SC.zone)||myEntry.zone||1,10)||1);
-        var _live=_zs[_zKey]||null;
-        var _myGN=parseInt(myEntry.globalNum,10)||0;
-        var _liveGN=_live?parseInt(_live.globalNum,10)||0:0;
-        if(_myGN>0 && _liveGN>0){
-          var _ecart=_myGN-_liveGN;
-          // Le direct est strictement avant son heat.
-          if(_ecart>=1){
-            // Cas "imminent" : direct sur le heat juste avant (écart 1) + inter-heat actif
-            //   pointant vers la reprise → on autorise le brief. Sinon → PAUSE.
-            var _ihActive=false;
-            try{
-              var _ih=(IH_CURRENT&&(IH_CURRENT[String((SC&&SC.zone)||1)]||IH_CURRENT[(SC&&SC.zone)||1]))||null;
-              _ihActive=_ih&&_ih.active&&_ih.target&&_ih.target>Date.now();
-            }catch(e){}
-            if(_ecart===1 && _ihActive){ /* brief imminent autorisé */ }
-            else { return true; } // en attente → PAUSE
-          }
-        }
-      }catch(e){}
-    }
-    // NB : on ne bloque PAS quand le heat courant est à lui, imminent (direct juste avant +
-    //   inter-heat) ou déjà lancé — il doit voir son brief / écran pré-heat / jugement.
-  }
-  return false;
-}
-// ★ GROS ÉCRAN PAUSE : gros "PAUSE" + message humoristique + heure de reprise FIXE.
-//   La reprise = heure de départ du PROCHAIN heat du juge (son 1er heat non-terminé),
-//   qui NE change PAS quand d'autres heats se terminent → plus de décalage.
-var _pauseEmojis=['☕','😎','🧘','🍕','🦥','🎮','🕶️','⚡','🏖️','🤙','🍩','😴'];
-function showJudgePauseScreen(){
-  // Trouver le prochain heat du juge : le 1er heat NON terminé, dans l'ordre
-  //   chronologique. ★ FIX heure de reprise fausse (9h34 au lieu de 9h28) : on prend
-  //   le heat non-done dont le départ est le PLUS PROCHE dans le futur — pas simplement
-  //   le 1er de la liste (qui pouvait être un heat plus tardif si l'ordre/préchargement
-  //   décalait). On se base sur startMinute vs l'heure courante.
-  var next=null;
-  if(_judgeScheduleEntries && _judgeScheduleEntries.length){
-    var sorted=_judgeScheduleEntries.slice().sort(judgeCompareHeatSequence);
-    var nowMin=(function(){ var d=new Date(); return d.getHours()*60+d.getMinutes(); })();
-    // 1) Prochain heat non-done dont le départ est encore à venir (startMinute >= maintenant - 2min de marge).
-    for(var i=0;i<sorted.length;i++){
-      var e=sorted[i], st=e.status;
-      if(st==='done' || st==='timecap') continue;
-      if(e.startMinute!=null && e.startMinute >= (nowMin-2)){ next=e; break; }
-    }
-    // 2) Repli : si aucun futur trouvé, 1er heat non-done tout court (ancien comportement).
-    if(!next){
-      for(var j=0;j<sorted.length;j++){
-        var st2=sorted[j].status;
-        if(st2!=='done' && st2!=='timecap'){ next=sorted[j]; break; }
-      }
-    }
-  }
-  var repEl=$('pause-reprise');
-  if(repEl){
-    if(next && next.startMinute!=null){
-      repEl.textContent='Reprise à '+judgeMinuteLabel(next.startMinute)
-        + (next.wodNom?(' · '+next.wodNom):'')
-        + (next.lane?(' · ligne '+next.lane):'');
-    } else {
-      repEl.textContent='Tu seras notifié au départ de ton prochain heat.';
-    }
-  }
-  // Message humoristique + emoji (tirés une fois, mémorisés tant qu'on reste en pause).
-  var humEl=$('pause-humor'), emoEl=$('pause-emoji');
-  if(!window._pauseMsgShown){
-    window._pauseMsgShown = _randPauseHumor();
-    window._pauseEmojiShown = _pauseEmojis[Math.floor(Math.random()*_pauseEmojis.length)];
-  }
-  if(humEl) humEl.textContent = window._pauseMsgShown || '';
-  if(emoEl) emoEl.textContent = window._pauseEmojiShown || '☕';
-  if(_currentScreen!=='s-pause'){ show('s-pause'); _currentScreen='s-pause'; }
 }
 function judgeBuildNextInstruction(){
   // Planning pas encore chargé → ne rien afficher (évite le faux "Fin de journée")
@@ -1941,8 +1765,8 @@ function judgeBuildNextInstruction(){
     var _nextJour = parseInt(next.jour||1,10)||1;
     if(_nextJour > _curJour){
       return {kind:'endday', requireRescan:false,
-        title:'Journée 1 pliée !',
-        body:'🍻 Terminé pour aujourd\'hui les juges ! Posez les chronos, rangez les stylos... MAINTENANT TOUS À L\'APÉRO ! 🥂😎 Vous avez assuré comme des chefs aujourd\'hui 🔥 Repos de champion, on remet ça demain pour le jour '+_nextJour+'. Santé ! 🍺👋'};
+        title:'Journée terminée',
+        body:'🎉 Journée pliée, les juges — vous avez déchiré ! 🔥 Posez les chronos, repos de champion 😴 On remet ça demain pour le jour '+_nextJour+'. À demain ! 👋💪'};
     }
   }
   if(!next){
@@ -1965,22 +1789,7 @@ function judgeBuildNextInstruction(){
         return {kind:'next',requireRescan:false,title:'Prochain passage',body:'Prépare-toi pour le '+hLbl2+' sur la '+zLbl2+', '+lLbl2+when2+'.'};
       }
     }
-    // ★ Message de fin adapté : dernier jour de la compét (apothéose) vs juge qui a fini
-    //   sa journée plus tôt que les autres (repos).
-    var _jourNow = current ? (parseInt(current.jour||1,10)||1)
-                 : (parseInt((typeof SC!=='undefined'&&SC&&SC.jour)||1,10)||1);
-    // Y a-t-il un Jour 2 dans le planning global ? (sinon on est au dernier jour)
-    var _maxJourPlanning = 1;
-    try{
-      _judgeScheduleEntries.forEach(function(e){ var j=parseInt(e.jour||1,10)||1; if(j>_maxJourPlanning) _maxJourPlanning=j; });
-    }catch(e){}
-    if(_jourNow >= 2 || _maxJourPlanning >= 2 && _jourNow===_maxJourPlanning){
-      // Fin du Jour 2 = fin de la compétition
-      return {kind:'end', requireRescan:false, title:'C\'EST FINI ! 🏆',
-        body:'🎉 C\'EST TERMINÉ LES JUGES ! La compét est PLIÉE et c\'est grâce à vous ! 🙌 Vous avez été énormes sur ces 2 jours 🔥💪 Sans juges, pas de compét — alors MERCI ! 🍻 Maintenant on range tout et... GRANDE FÊTE ! 🥳🎊 Vous l\'avez bien mérité. À la prochaine ! 👋❤️'};
-    }
-    return {kind:'end', requireRescan:false, title:'Fini pour toi aujourd\'hui !',
-      body:'🍻 Plus de heat prévu pour toi — ta journée de juge est terminée ! Bravo 👏 Tu peux souffler (ou filer à l\'apéro 😏). Reste dispo près du Timekeeper au cas où on ait besoin d\'un renfort. 💪'};
+    return {kind:'end', requireRescan:false, title:'Fin de journée', body:'Plus de heat prévu pour toi. Reste disponible près du Timekeeper si besoin.'};
   }
   var when=next.startMinute!=null ? (' à '+judgeMinuteLabel(next.startMinute)) : '';
   var heatNumLbl=(next.catHeatNum&&next.nbHeatsTotal)
@@ -1995,17 +1804,9 @@ function judgeBuildNextInstruction(){
   if(current){
     var sameZone=String(current.zone||'')===String(next.zone||'');
     var sameLane=String(current.lane||'')===String(next.lane||'');
-    // ★ FIX DÉTECTION PAUSE : un juge est EN PAUSE dès qu'il SAUTE au moins un heat,
-    //   peu importe la durée. Avant, on se basait sur un seuil de 15 min (gap>=15), ce
-    //   qui ratait les pauses courtes (1-2 heats sautés → l'appli croyait qu'il jugeait
-    //   encore et affichait "reste sur ta ligne"). On compare désormais les globalNum :
-    //   si le prochain heat du juge n'est pas juste après son heat courant, il y a des
-    //   heats intercalés qu'il ne juge pas = PAUSE.
-    var _curGN = parseInt(current.globalNum,10)||0;
-    var _nextGN = parseInt(next.globalNum,10)||0;
-    var _skipsHeats = (_curGN>0 && _nextGN>0 && _nextGN > _curGN + 1);
-    if(_skipsHeats){
-      return {kind:'pause', requireRescan:false, title:'Pause',
+    // ★ FIX : plus de requireRescan — le juge a scanné UNE fois et suit son planning automatiquement
+    if(gap!=null && gap>=15){
+      return {kind:'wait', requireRescan:false, title:'Attends sur place',
         body:'Prochain : '+heatLbl+' sur la '+zoneLbl+', '+laneLbl+when+'. Tu seras notifié au départ.'};
     }
     if(sameZone && sameLane){
@@ -2205,13 +2006,6 @@ function toggleWodRecall(){
 
 // Affiche le briefing plein écran + gère le compte à rebours jusqu'à -20s
 function showBriefScreen(next, secondsUntilStartHint){
-  // ★ FIX (demande chef) : JAMAIS de brief quand le juge est EN PAUSE. Il doit rester
-  //   sur le GROS ÉCRAN PAUSE — pas voir le prochain heat s'afficher. Garde à la source
-  //   pour couvrir TOUS les points d'appel (inter-heat, preload 1er heat, watcher…).
-  if(typeof judgeIsOnPauseNow==='function' && judgeIsOnPauseNow()){
-    if(typeof showJudgePauseScreen==='function') showJudgePauseScreen();
-    return false;
-  }
   if(!fillBriefScreen(next)) return false;
   _briefActive=true;
   // Reset du bouton JE SUIS PRÊT (caché par défaut, réaffiché si heat=pre + 1er heat)
@@ -2304,7 +2098,6 @@ function showNextScreen(){
   //   le score du heat en cours n'a pas été validé (évite de déconcentrer le juge
   //   pendant le WOD). Le flag est armé dans validate() et remis à zéro à chaque heat.
   if(!_scoreValidated) return;
-  window._judgeOnPause = false;   // ★ réinitialisé ; remis à true seulement dans le cas pause ci-dessous
   var info=judgeBuildNextInstruction();
   var pair=judgeFindCurrentAndNextAssignments();
   var next=pair.next;
@@ -2312,26 +2105,21 @@ function showNextScreen(){
   var ico='✅', action='SCORE VALIDÉ', sub='', heroBg='', actionCls='next-stay', btnCls='next-stay', btnTxt='↩ Attendre sur ma ligne';
 
   if(!info || info.kind==='end'){
-    // ★ Distinguer fin de COMPÉT (titre avec 🏆) vs juge qui a fini sa journée plus tôt.
-    var _isEndCompet = info && info.title && info.title.indexOf('FINI')>=0 && info.title.indexOf('🏆')>=0;
-    if(_isEndCompet){
-      ico='🏆'; action='COMPÉT TERMINÉE !';
-      heroBg='background:linear-gradient(180deg,rgba(180,120,20,.55),rgba(13,20,31,.98))';
-    } else {
-      ico='🍻'; action='FINI POUR TOI !';
-      heroBg='background:linear-gradient(180deg,rgba(30,58,138,.5),rgba(13,20,31,.98))';
-    }
+    ico='🏁'; action='FIN DE JOURNÉE';
     sub=info&&info.body ? info.body : 'Plus de heat prévu. Reste disponible près du Timekeeper.';
+    heroBg='background:linear-gradient(180deg,rgba(30,58,138,.5),rgba(13,20,31,.98))';
     actionCls=''; btnCls='next-end'; btnTxt='↩ Retour attente';
   } else if(info.kind==='endday'){
-    ico='🍻'; action='TOUS À L\'APÉRO !';
+    ico='👋'; action='À DEMAIN LES JUGES';
     sub=info.body||'C\'est fini pour aujourd\'hui. Repos bien mérité, à demain !';
     heroBg='background:linear-gradient(180deg,rgba(76,29,149,.55),rgba(13,20,31,.98))';
     actionCls=''; btnCls='next-end'; btnTxt='↩ Retour';
   } else if(info.kind==='pause' || info.kind==='wait'){
-    // ★ PAUSE → GROS ÉCRAN PAUSE DÉDIÉ (pas de brief, pas de heat, reprise FIXE).
-    showJudgePauseScreen();
-    return;
+    // ★ FIX : plus de rescan — juste un message d'attente
+    ico='⏳'; action='ATTENDS SUR PLACE';
+    sub=info.body||'Tu seras notifié automatiquement au départ du prochain heat.';
+    heroBg='background:linear-gradient(180deg,rgba(30,58,138,.5),rgba(13,20,31,.98))';
+    actionCls=''; btnCls='next-stay'; btnTxt='↩ Attendre';
   } else if(info.kind==='zone_change'){
     ico='➡️'; action='CHANGE DE ZONE';
     sub=info.body||'Déplace-toi rapidement vers la nouvelle zone.';
@@ -2351,11 +2139,7 @@ function showNextScreen(){
 
   // Hero
   var hero=$('next-hero');
-  if(hero){
-    var _isPause=(info.kind==='pause'||info.kind==='wait');
-    var _pad=_isPause ? 'padding:150px 20px 20px' : 'padding:28px 20px 20px';
-    hero.setAttribute('style', heroBg+';flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;'+_pad+';gap:8px;text-align:center');
-  }
+  if(hero){ hero.setAttribute('style', heroBg+';flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:28px 20px 20px;gap:8px;text-align:center'); }
   var ico_el=$('next-ico'); if(ico_el) ico_el.textContent=ico;
   var act_el=$('next-action'); if(act_el){ act_el.textContent=action; act_el.style.color=btnCls==='next-stay'?'#4ade80':btnCls==='next-rescan'?'#f87171':'#fb923c'; }
   var sub_el=$('next-sub'); if(sub_el) sub_el.textContent=sub;
@@ -2372,13 +2156,7 @@ function showNextScreen(){
       +'<div class="next-card-val" style="color:#00E5A0">'+scoreStr+'</div>'
     +'</div>';
 
-    // ★ EN PAUSE : "PAUSE et rien d'autre" → on NE montre PAS les détails du prochain
-    //   heat (poste/ligne/équipe), qui embrouillent quand le heat n'arrive que dans
-    //   plusieurs tours. Quand le juge ENCHAÎNE (kind ≠ pause/wait), les détails
-    //   s'affichent normalement comme avant.
-    var _pauseLongue=(info.kind==='pause' || info.kind==='wait');
-
-    if(next && info.kind!=='end' && info.kind!=='endday' && !_pauseLongue){
+    if(next && info.kind!=='end' && info.kind!=='endday'){
       var zoneLbl='Zone '+(next.zone||'—');
       var laneLbl='Ligne '+(next.lane||'—');
       var wodName=(next.wod||next.wodNom||'—');
@@ -2583,28 +2361,8 @@ function canFinalizeNow(){
   // fortime (validation au finish) + maxload/ergo (saisie manuelle) → OK pendant le live
   return HEAT_STATUS==='live' || HEAT_STATUS==='timecap';
 }
-// ★ Le juge est-il AFFECTÉ au heat courant (FB_HEAT_ID) selon le planning ?
-//   Sert à empêcher un juge DE REPOS (ou après une coupure) de valider des reps
-//   sur un heat qu'il ne juge pas. On vérifie dans son planning perso qu'il a
-//   bien une entrée pour ce heat exact.
-function judgeIsAssignedToCurrentHeat(){
-  if(typeof FB_HEAT_ID==='undefined' || !FB_HEAT_ID) return true; // pas de heat courant → ne pas bloquer
-  if(!_judgeScheduleEntries || !_judgeScheduleEntries.length) return true; // planning pas chargé → ne pas bloquer
-  var cur = _normHeatId(FB_HEAT_ID);
-  for(var i=0;i<_judgeScheduleEntries.length;i++){
-    var e = _judgeScheduleEntries[i];
-    if(_normHeatId(e.heatId) === cur){
-      // Si une ligne est scannée, elle doit correspondre à l'affectation.
-      if(FB_LANE && String(e.lane)!==String(FB_LANE)) continue;
-      return true;
-    }
-  }
-  return false;
-}
 function canEditScoreNow(){
   if(done) return false;
-  // ★ Juge PAS sur ce heat (repos / après coupure) → aucune saisie possible.
-  if(!judgeIsAssignedToCurrentHeat()) return false;
   // ★ FIX DEATH BY (saisie hors course) : un athlète hors course a FINI son WOD.
   //   Son score est figé — plus aucune saisie possible. done passe déjà à true sur
   //   les deux chemins (drop manuel + tour raté auto), mais on double la garde ici
@@ -2623,10 +2381,8 @@ function refreshJudgeLockUI(){
   var liveOpen=canEditScoreNow();
   var finalOpen=canFinalizeNow();
   var lock=$('judge-lock'), txt=$('judge-lock-text');
-  var notMine=!judgeIsAssignedToCurrentHeat();
   var msg='Attends le depart du timekeeper';
-  if(notMine) msg='⛔ Tu ne juges PAS ce heat — attends ton tour';
-  else if(done) msg='Score valide';
+  if(done) msg='Score valide';
   else if(judgeIsPostHeatEntryOpen()) msg='Saisie finale : '+Math.max(0,Math.ceil((_judgePostHeatEditUntilTs-serverNow())/1000))+'s';
   else if(HEAT_STATUS==='timecap') msg='Timecap atteint : validation seulement';
   else if(HEAT_STATUS==='live') msg='';
@@ -2678,9 +2434,6 @@ function updateJudgeInstructionPanels(){
 }
 function maybeAutoReadyNextHeat(){
   if(!SC || HEAT_STATUS!=='pre') return false;
-  // ★ Juge EN PAUSE (ne juge pas le heat courant) → ne PAS ouvrir le brief/pre.
-  //   On force/garde le GROS ÉCRAN PAUSE. (Corrige le brief lointain qui s'ouvrait.)
-  if(judgeIsOnPauseNow()){ showJudgePauseScreen(); return false; }
   if(judgeShouldRequireRescan()){
     _judgeAutoChainEnabled=false;
     updateJudgeInstructionPanels();
@@ -2708,8 +2461,6 @@ function maybeAutoReadyNextHeat(){
 
 function goMenu(){
   stopReadyLiveWatch();
-  // ★ Sortie de pause : réinitialiser le message humoristique pour la prochaine fois.
-  window._pauseMsgShown = null; window._pauseEmojiShown = null;
   hideJudgePrestartOverlay();
   clearJudgePostHeatWindow();
   clearJudgeDoneGuidanceLock();
@@ -2754,8 +2505,6 @@ function returnToWait(){
 
 function goPre(){
   if(!SC) return;
-  // ★ Juge EN PAUSE → jamais d'écran pré-heat ni de brief. GROS ÉCRAN PAUSE.
-  if(judgeIsOnPauseNow()){ showJudgePauseScreen(); return; }
   if(_currentScreen==='s-pre') return; // déjà sur cet écran, évite clignotement
   // ★ UNIFICATION DU BRIEF : tous les heats (1er inclus) utilisent désormais le
   //   NOUVEAU briefing plein écran (s-brief / showBriefScreen), identique partout.
@@ -3026,12 +2775,6 @@ function goCD(){
    watchers Firebase (status passe à 'live' OU countdown s'écoule). */
 function startJudgeLocked(targetTs){
   if(!SC) return;
-  // ★ FIX (demande chef) : si le juge est EN PAUSE, ne JAMAIS ouvrir l'écran de saisie
-  //   (verrouillé ou non) du prochain heat. Il reste sur le GROS ÉCRAN PAUSE.
-  if(typeof judgeIsOnPauseNow==='function' && judgeIsOnPauseNow()){
-    if(typeof showJudgePauseScreen==='function') showJudgePauseScreen();
-    return;
-  }
   var target=parseInt(targetTs,10)||0;
   // Si pour une raison quelconque le target est dans le passé, on n'arme
   // pas de verrou : startJudge() classique fera le bon choix.
@@ -3048,15 +2791,6 @@ function startJudgeLocked(targetTs){
 
 /* ── Démarrage juge ── */
 function startJudge(){
-  // ★ FIX (demande chef) : Adeline pause → coupure → heat. Pendant sa pause, l'écran de
-  //   JUGEMENT de son prochain heat s'ouvrait et se figeait alors qu'elle ne juge pas
-  //   encore. On bloque ici À LA SOURCE : si le juge est EN PAUSE (le heat en cours n'est
-  //   pas à lui), on n'ouvre JAMAIS le jugement → on garde le GROS ÉCRAN PAUSE. Couvre
-  //   tous les chemins (filets, watchers, coupure, inter-heat…).
-  if(typeof judgeIsOnPauseNow==='function' && judgeIsOnPauseNow()){
-    if(typeof showJudgePauseScreen==='function') showJudgePauseScreen();
-    return;
-  }
   // ★ FIX BOUCLE REVALIDATION : ne JAMAIS rouvrir l'écran de saisie pour un
   // heat dont le score a déjà été validé. _scoreValidated n'est remis à false
   // que par applyRealData au chargement d'un NOUVEAU heat (ou par le listener
@@ -3936,13 +3670,6 @@ function updateDisplay(){
   var _clB=$('btn-clfini');
   if(_clB){ _clB.style.display='none'; } // ★ CL v2 : plus de bouton FINI (avance auto par timing)
   var m=SC.moves[moveIdx], isAmrap=(SC.fmt==='amrap');
-  // ★ RUN : si le mouvement courant est un run, on remplace le compteur +REP par le
-  //   gros bouton « VALIDER RUN » (le juge valide d'un clic, aucune rep à compter).
-  var _curIsRun=!!(m && m.type==='run');
-  var _runZone=$('j-run-zone');
-  if(_runZone) _runZone.style.display=_curIsRun?'block':'none';
-  var _jbtns=document.querySelector('.j-btns');
-  if(_jbtns) _jbtns.style.display=_curIsRun?'none':'flex';
   // ★ ergo cumulé (valeur libre) : si le WOD a un mouvement ergo-libre, on affiche
   //   la zone de saisie cumulée À LA PLACE du compteur +REP, MAIS sans couper le WOD :
   //   le chrono et l'avancement des tours (EMOM/AMRAP) continuent normalement.
@@ -4012,8 +3739,7 @@ function updateDisplay(){
     var pct=isDone?100:(isAct&&m2.q>0?Math.min(100,Math.round(moveReps/m2.q*100)):0);
     var cls=isDone?'mv done':isAct?'mv active':'mv pending';
     var lbl=(isDone?'✓ ':isAct?'▶ ':'')+escH(m2.n);
-    if(m2.type==='run'){ var _rd=parseInt(m2.ergoTarget||0,10)||0; lbl+=_rd>0?(' 🏃 '+_rd+'m'):' 🏃'; }
-    else if(m2.ergoFree) lbl+=' MAX'; else if(m2.q>0) lbl+=' ×'+m2.q;
+    if(m2.ergoFree) lbl+=' MAX'; else if(m2.q>0) lbl+=' ×'+m2.q;
     if(m2.poids) lbl+=' · <span style="color:#C084FC;font-size:.8em">'+escH(m2.poids)+'</span>';
     if(m2.temps) lbl+=' · <span style="color:#6EE7B7;font-size:.8em">'+escH(m2.temps)+'</span>';
     var qTag='',cTag='';
@@ -4103,16 +3829,6 @@ function addRep(){
     if(moveReps>=_dbTgtNow){ toast('✅ Cible '+_dbTgtNow+' atteinte — attends le prochain tour'); vib([60,40,120]); return; }
   }
 
-  // ★ FIX (bug chef « 1 milliard de snatch ») : EMOM SKI+SNATCH — borner le compteur de
-  //   snatch au quota du tour défini dans l'index (ex : 7 snatch). On ne bloque QUE si le
-  //   snatch est le DERNIER mouvement du tour (sinon il faut laisser passer au mouvement
-  //   suivant via nextMove plus bas). Une fois le quota atteint sur le dernier mouvement,
-  //   la saisie est bloquée (l'athlète a fini ses snatch du tour, il attend la minute).
-  if((fmt==='emom'||fmt==='interval') && !m.ergoFree && m.q>0 && isLastMove && moveReps>=m.q){
-    vib([40,20,40]); toast('✅ '+m.q+' '+(m.n||'reps')+' du tour atteints — attends le tour suivant','#00E5A0',1800);
-    return;
-  }
-
   totalReps++; moveReps++;
   // ★ FIX TIEBREAK AUTO — DOIT être testé AVANT nextMove() / amrapLoop() /
   //   roundsLoop() car ces fonctions remettent moveReps=0 (et nextMove
@@ -4169,56 +3885,6 @@ function addRep(){
   var nel=$('j-num'); nel.classList.remove('pop'); void nel.offsetWidth; nel.classList.add('pop');
   updateDisplay();
   if(db) pushScoreLive();
-}
-// ★ BOUTON REP -1 (demande chef) : corrige une rep comptée en trop. Fonctionne pour
-//   TOUS les formats. Décrémente le mouvement en cours ; si on est à 0 et qu'un
-//   mouvement précédent existe, revient dessus (à son quota). Plancher global à 0.
-function removeRep(){
-  if(!guardScoreEdit('Saisie bloquée')) return;
-  if(moveReps>0){
-    moveReps--; if(totalReps>0) totalReps--;
-    var _fmtR=SC.fmt||'';
-    if(_fmtR==='emom'||_fmtR==='interval'){ if(emomRoundReps>0) emomRoundReps--; }
-  } else if(moveIdx>0){
-    // Revenir au mouvement précédent, positionné à son quota (dernière rep)
-    moveIdx--;
-    var _pm=SC.moves[moveIdx];
-    var _pq=(_pm&&_pm.q>0)?_pm.q:0;
-    moveReps=_pq>0?_pq-1:0;
-    if(totalReps>0) totalReps--;
-  } else {
-    vib([20]); toast('Rien à retirer'); return;
-  }
-  vib([25,15,25]);
-  var nel=$('j-num'); if(nel){ nel.classList.remove('pop'); void nel.offsetWidth; nel.classList.add('pop'); }
-  if(typeof updateDisplay==='function') updateDisplay();
-  if(typeof updateEmomDisplay==='function') updateEmomDisplay();
-  if(db) pushScoreLive();
-}
-/* ── RUN : valider la station course d'un clic (pas de reps à compter) ── */
-function validateRun(){
-  if(!guardScoreEdit('Saisie bloquée')) return;
-  var m=SC.moves[moveIdx]; if(!m || m.type!=='run') return;
-  var isLastMove=(moveIdx>=SC.moves.length-1);
-  var dist=parseInt(m.q||m.ergoTarget||0,10)||0;
-  playMoveChangeSound(); vib([80,40,80,40,160]);
-  if(!isLastMove){
-    // Run au milieu de la séquence → station validée, on passe au mouvement suivant
-    toast('🏃 Run validé'+(dist>0?(' ('+dist+'m)'):'')+' ▶','#EA580C',1500);
-    nextMove();
-  } else {
-    // Run = dernier mouvement → le WOD est terminé, le juge valide le score (temps For Time)
-    toast('🏃 Run validé — appuie sur VALIDER','#00E5A0',2200);
-    var _vBtn=document.querySelector('.btn-validate');
-    if(_vBtn){
-      _vBtn.style.transform='scale(1.04)';
-      _vBtn.style.boxShadow='0 0 0 4px #00E5A0, 0 8px 30px rgba(0,229,160,.55)';
-      _vBtn.style.animation='valPulse 1.2s ease-in-out infinite';
-      setTimeout(function(){ try{_vBtn.scrollIntoView({behavior:'smooth',block:'center'});}catch(e){} },300);
-    }
-    updateDisplay();
-    if(db) pushScoreLive();
-  }
 }
 function nextMove(){
   moveIdx++; moveReps=0;
@@ -5408,22 +5074,6 @@ function applyRealData(data){
   listenHeatStatus();
 
   // Afficher le bon écran directement selon le statut actuel
-  // ★ FIX (demande chef) : un juge qui COMMENCE sa journée par une PAUSE (il ne juge pas
-  //   le heat en cours) doit voir l'ÉCRAN PAUSE, pas l'écran de jugement du heat qu'il ne
-  //   juge pas. Idem à tout moment si le heat courant n'est pas à lui.
-  // ★ FIX TIMING (juge bloqué en pause au 1er heat APRÈS la coupure) : loadAndShowPlanning()
-  //   ci-dessus est ASYNCHRONE, donc _judgeScheduleEntries contient encore l'ANCIEN planning
-  //   (où le juge était en pause) au moment de cette vérification. Se fier à judgeIsOnPauseNow()
-  //   ici renverrait à tort l'écran pause pour un heat qui est en fait à lui. On se base donc
-  //   sur le STATUT du heat qu'on charge : s'il est déjà lancé (live/timecap) ou en préparation
-  //   (pre/countdown), c'est ce heat qui est d'actualité pour ce juge (on l'a chargé via SON
-  //   assignation) → on le laisse juger. On ne montre l'écran pause QUE si le heat n'a pas
-  //   encore démarré (pending) ET que le planning confirme qu'il n'est pas à lui.
-  var _stLoad = data.status||'pending';
-  var _heatIsActive = (_stLoad==='live'||_stLoad==='timecap'||_stLoad==='pre'||_stLoad==='countdown');
-  if(!_heatIsActive && typeof judgeIsOnPauseNow==='function' && judgeIsOnPauseNow()){
-    if(typeof showJudgePauseScreen==='function'){ showJudgePauseScreen(); return; }
-  }
   if(data.status==='pre' || data.status==='countdown'){
     _preShown=true; // bloquer le listener pour ne pas re-déclencher goPre
     if(!maybeAutoReadyNextHeat()) setTimeout(goPre, 400);
@@ -5556,16 +5206,6 @@ function loadAndShowPlanning(jugeId){
     updateJudgeInstructionPanels();
     // ★ Afficher TOUS les passages du juge (liste complète avec horaires) dès l'attente
     renderJudgeFullSchedule();
-    // ★ FIX (demande chef) : maintenant que le planning du juge est chargé, si le juge
-    //   est EN PAUSE (il ne juge pas le heat en cours — typiquement il COMMENCE sa journée
-    //   par une pause), on affiche le GROS ÉCRAN PAUSE au lieu du brief / de l'écran de
-    //   jugement du heat qu'il ne juge pas. On ne le fait pas s'il est déjà en train de
-    //   juger (s-judge/s-cd) pour ne pas interrompre une saisie en cours.
-    if(typeof judgeIsOnPauseNow==='function' && judgeIsOnPauseNow()
-       && ['s-judge','s-cd'].indexOf(_currentScreen)<0){
-      window._pendingFirstHeatBrief=null;   // annuler un éventuel brief 1er heat en attente
-      if(typeof showJudgePauseScreen==='function'){ showJudgePauseScreen(); return; }
-    }
     if(window._pendingFirstHeatBrief){
       var _pfb=window._pendingFirstHeatBrief;
       window._pendingFirstHeatBrief=null;
@@ -7020,36 +6660,6 @@ function listenHeatStatus(){
     _departBannerIv=setInterval(updateBanner,1000);
   });
 
-// ★ Écran PAUSE pendant une COUPURE (tous les juges off-floor). Reprise = fin de coupure.
-function showCoupurePauseScreen(d){
-  try{
-    var _hm=_randPauseHumor();
-    var ico=$('next-ico'); if(ico) ico.textContent=_hm.e;
-    var act=$('next-action'); if(act){ act.textContent='PAUSE'; act.style.color='#4DA6FF'; }
-    // Reprise = target de la coupure (timestamp du prochain départ)
-    var _reprise='';
-    if(d && d.target){
-      var _remS=Math.max(0,Math.round((d.target-serverNow())/1000));
-      var _rd=new Date(d.target);
-      var _hh=_rd.getHours(), _mm=_rd.getMinutes();
-      var _hStr=_hh+'h'+(_mm<10?'0':'')+_mm;
-      _reprise = _remS>=60
-        ? ('Reprise dans ~'+Math.round(_remS/60)+' min (à '+_hStr+')')
-        : ('Reprise dans ~'+_remS+' s (à '+_hStr+')');
-    }
-    var sub=$('next-sub');
-    if(sub) sub.textContent=(_reprise?_reprise+'\n':'')+'⏸ Coupure — plus aucun heat sur le floor.\n'+_hm.t+'\n\nLe jugement reprend automatiquement à la fin de la coupure.';
-    var hero=$('next-hero');
-    if(hero) hero.setAttribute('style','background:linear-gradient(180deg,rgba(124,45,18,.5),rgba(13,20,31,.98));flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:28px 20px 20px;gap:8px;text-align:center');
-    // Masquer les cartes "prochain heat" (pas pertinent pendant une coupure générale)
-    var cards=$('next-cards'); if(cards) cards.innerHTML='';
-    var btn=$('next-btn-action'); if(btn){ btn.textContent='↩ Coupure en cours'; btn.disabled=true; btn.style.pointerEvents='none'; }
-    var cdl=$('next-countdown-lbl'); if(cdl) cdl.textContent='';
-    window._judgeOnPause=true;  // masque le bandeau inter-heat par-dessus
-    if(typeof show==='function'){ show('s-next'); _currentScreen='s-next'; }
-  }catch(e){ if(window.logError) window.logError('showCoupurePauseScreen', e); }
-}
-
   _interheatRef=db.ref('system/interheat');
   _interheatRef.on('value',function(snap){
     var all=snap.val()||{};
@@ -7059,42 +6669,9 @@ function showCoupurePauseScreen(d){
     var d=all[String(z)]||all[z]||null;
     if(d&&d.active&&d.target&&d.target>Date.now()&&d.seconds>0){
       showInterheatBanner(d);
-      // ★ COUPURE = plus AUCUN heat sur le floor → TOUS les juges sont en pause.
-      //   On affiche l'écran PAUSE plein écran (message + reprise = fin de la coupure),
-      //   sauf si le juge est en train de finir/soumettre son heat précédent (on ne coupe
-      //   pas une saisie en cours). L'écran normal reprend à la fin de la coupure.
-      if((d.ihType||'')==='coupure'){
-        var _busy = (_currentScreen==='s-judge' || _currentScreen==='s-cd')
-                    && (HEAT_STATUS==='live' || HEAT_STATUS==='timecap'
-                        || (typeof judgeIsPostHeatEntryOpen==='function' && judgeIsPostHeatEntryOpen()));
-        if(!_busy){ showCoupurePauseScreen(d); }
-      }
     } else {
       hideInterheatBanner();
     }
-  });
-  // ★ WATCHER zoneSync : connaître le heat RÉELLEMENT en cours sur le direct (par zone).
-  //   Sert à savoir si le juge doit juger MAINTENANT ou s'il est encore en attente
-  //   (son 1er heat est plus loin dans la séquence). Corrige : Deborah qui scanne en début
-  //   de journée alors qu'elle juge au heat 8 → doit voir PAUSE, pas le jugement de h8.
-  db.ref('system/zoneSync').on('value',function(snap){
-    window._zoneSyncLive = snap.val() || {};
-    // Re-vérifier l'état de pause dès que l'info du direct arrive (gère le timing de
-    //   chargement : si zoneSync répond APRÈS le planning, on ré-applique la garde ici).
-    try{
-      // ★ PRIORITÉ COUPURE : si une coupure/inter-heat est active sur sa zone, NE PAS
-      //   écraser l'écran coupure (showCoupurePauseScreen) par l'écran pause "heat X".
-      //   La coupure gère déjà son propre affichage. On ne touche à rien dans ce cas.
-      var _zc=(SC&&SC.zone)?String(SC.zone):'1';
-      var _ihc=(IH_CURRENT&&(IH_CURRENT[_zc]||IH_CURRENT[parseInt(_zc,10)]))||null;
-      var _coupureActive=_ihc&&_ihc.active&&_ihc.target&&_ihc.target>serverNow();
-      if(_coupureActive) return;
-      if(typeof judgeIsOnPauseNow==='function' && judgeIsOnPauseNow()
-         && ['s-judge','s-cd'].indexOf(_currentScreen)<0
-         && HEAT_STATUS!=='live' && HEAT_STATUS!=='timecap'){
-        if(typeof showJudgePauseScreen==='function') showJudgePauseScreen();
-      }
-    }catch(e){}
   });
 }
 
