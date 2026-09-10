@@ -2292,12 +2292,23 @@ function renderRankCards(rows,w,st,showLiveChips,h,catId,catLeader){
     // ★ Death By (en cours) : total + reps de l'intervalle courant (roundReps se remet à 0
     //   à chaque intervalle côté juge et est poussé en direct → le live reflète le reset).
     else if(!val && w && String(w.wodFormat||'').toLowerCase()==='deathby'){
+      // ★ DEATH BY (demande chef) — en bout de ligne, UNIQUEMENT la progression du tour
+      //   courant : reps faites / objectif du tour, ex « 6/6 REP » puis « 9/9 REP ».
+      //   • Pas de cumul sur le live (le cumul ne sert qu'au RÉSULTAT / classement).
+      //   • Pas de n° de tour (déjà écrit en GROS à côté du chrono).
+      //   • roundReps repart de 0 à chaque tour (poussé par le juge) → l'affichage repart de 0.
       var _dbIntL=parseInt(w.dbRoundSec||60,10)||60; if(_dbIntL<1)_dbIntL=1;
       var _dbElL=(h&&h.startTimestamp)?Math.floor((now()-h.startTimestamp)/1000):0; if(_dbElL<0)_dbElL=0;
       var _dbCurL=Math.floor(_dbElL/_dbIntL)+1;
-      // ★ Death By (demande chef) : on retire « obj X » de la ligne équipe — l'objectif du
-      //   tour est déjà écrit en GROS à côté du chrono. Ici : juste le tour + le total reps.
-      s='☠️ TOUR '+_dbCurL+' · '+(_tot||0)+' reps';
+      var _dbStart=parseInt(w.dbStartReps,10);
+      if(!(_dbStart>0)){
+        var _dbM0=(w.mouvements&&w.mouvements[0])||(w.toursPerso&&w.toursPerso[0]&&w.toursPerso[0].mouvements&&w.toursPerso[0].mouvements[0])||null;
+        _dbStart=(_dbM0&&(parseInt(_dbM0.qty,10)||parseInt(_dbM0.q,10)))||1;
+      }
+      var _dbInc=parseInt(w.dbIncPerRound||0,10)||0;
+      var _dbObj=_dbStart+_dbInc*(_dbCurL-1); if(_dbObj<1)_dbObj=1;
+      var _dbDone=parseInt((sc&&sc.roundReps)||0,10)||0;
+      s=_dbDone+'/'+_dbObj+' REP';
     }
     // ★ CLEAN LADDER v2 : le score = cumul kg. Statut = station en cours / éliminé / bonus.
     if(w && String(w.wodFormat||'').toLowerCase()==='cleanladder'){
