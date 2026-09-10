@@ -1928,6 +1928,15 @@ function compareScores(a,b,w){
   if(!a.ok&&b.ok)return 1;
   var av=scoreVal(a.sc,w),bv=scoreVal(b.sc,w);
   if(bv!==av) return bv-av;
+  // ★ CLASSEMENT DYNAMIQUE dès la 1re rep (demande chef) : tant que PERSONNE n'a validé
+  //   (course en cours), à score ÉGAL on départage par la PROGRESSION en direct (reps faites),
+  //   pour que la ligne bouge sur TOUS les formats (for time, amrap, rounds…). Le for time
+  //   renvoie déjà les reps via scoreVal pendant la course ; ce filet couvre les égalités.
+  //   EXCLU de l'EMOM ski+snatch : là c'est la DISTANCE qui classe, jamais le nb de snatch.
+  if(!a.ok && !b.ok && String((w&&w.wodFormat)||'').toLowerCase()!=='emom'){
+    var _lrA=liveReps(a.sc), _lrB=liveReps(b.sc);
+    if(_lrB!==_lrA) return _lrB-_lrA;
+  }
   // ★ CLASSEMENT DYNAMIQUE SUR LE MOUVEMENT (demande chef) : sur un WOD scoré en
   //   distance/cals, à distance ÉGALE, l'équipe qui a fait PLUS de reps du mouvement
   //   (ex : snatch) passe devant. Ainsi pendant le round — avant que la distance du
@@ -2242,15 +2251,11 @@ function renderRankCards(rows,w,st,showLiveChips,h,catId,catLeader){
       //   score plus bas), et il tique bien tour après tour.
       var _isDeathByLive = _fmt==='deathby';
       var _isCleanLadderLive = _fmt==='cleanladder';
-      if(_isDeathByLive){
-        var _dbIntB=parseInt(w.dbRoundSec||60,10)||60; if(_dbIntB<1)_dbIntB=1;
-        var _dbElB=(h&&h.startTimestamp)?Math.floor((now()-h.startTimestamp)/1000):0; if(_dbElB<0)_dbElB=0;
-        var _dbCurB=Math.floor(_dbElB/_dbIntB)+1;
-        _roundHtml='<div style="font-size:.6em;color:#4ADE80;font-family:var(--fm);font-weight:900;letter-spacing:.5px;margin-top:3px;line-height:1;text-shadow:0 0 10px rgba(74,222,128,.4)">Tour '+_dbCurB+'</div>';
-      } else if(_isCleanLadderLive){
-        // ★ CLEAN LADDER (demande chef) : PAS de « Tour X/N » sur la ligne équipe — le
-        //   numéro de tour reste affiché à côté du CHRONO PRINCIPAL (niveau zone). Ici, en
-        //   bout de ligne, on ne veut QUE les kg (voir le score plus bas).
+      var _isAmrapStephLive = _fmt==='amrapsteph';
+      if(_isDeathByLive || _isCleanLadderLive || _isAmrapStephLive){
+        // ★ DEATH BY / CLEAN LADDER / AMRAP STEPH (demande chef) : PAS de « Tour X/N » sur la
+        //   ligne équipe. Le n° de tour reste affiché à côté du CHRONO PRINCIPAL (niveau zone).
+        //   Ici, en bout de ligne, on ne garde que le score (reps/kg/cals selon le WOD).
         _roundHtml='';
       } else {
       var _showRound = !_isEmomTeam && ((_totalRounds>1) || _isRounds || (_isAmrap && _cRound>=1));
@@ -2411,16 +2416,27 @@ function renderRankCards(rows,w,st,showLiveChips,h,catId,catLeader){
     if(String(w.wodFormat||'').toLowerCase()==='cleanladder' && sc && sc.barresCL){
       chipsHtml=cl2LiveBars(sc.barresCL, sc.clOut, val);
     } else
-    if(showLiveChips&&st==='live'&&!val&&(w.mouvements||[]).length&&String(w.wodFormat||'').toLowerCase()!=='cleanladder'){
+    if(showLiveChips&&st==='live'&&!val&&(w.mouvements||[]).length&&String(w.wodFormat||'').toLowerCase()!=='cleanladder'&&String(w.wodFormat||'').toLowerCase()!=='deathby'){
       chipsHtml='<div class="chips">'+(w.mouvements||[]).map(function(m,mi){
         var q=adaptedQtyForMove(m,catId);
+        // ★ BIKE / ERGO À CIBLE FIXE (bug chef WOD 6 : « affiche 10 au lieu de 22 ») : un
+        //   mouvement ergo non-libre a une CIBLE dans ergoTarget (ex 22 cal), pas dans qty
+        //   (qty=10 traînait). On affiche et on compte vers la cible + l'unité.
+        var _isErgoTgt=(m.type==='ergo')&&!m.ergoFree&&(parseInt(m.ergoTarget,10)||0)>0;
+        if(_isErgoTgt) q=parseInt(m.ergoTarget,10)||q;
         // ★ Mouvement à paliers (rameur) : le chip montre les MÈTRES réels, pas les clics.
         var _pasTot=movePasTotal(m,q,catId);
-        var _qLabel=_pasTot?(' '+_pasTot):(m.ergoFree?' MAX':(q?' ×'+q:''));
+        var _qLabel=_pasTot?(' '+_pasTot):(m.ergoFree?' MAX':(_isErgoTgt?(' '+q+(m.ergoUnit?' '+m.ergoUnit:'')):(q?' ×'+q:'')));
         var cl='chip',lb=esc(m.nom||'')+_qLabel;
       if(m.tour>0&&(mi===0||((w.mouvements||[])[mi-1]||{}).tour!==m.tour)) lb='T'+m.tour+'· '+lb;
         var _pasP=movePasProg(m,cr||0,q,catId);
-        if(mi<ci){cl+=' d';lb='✓ '+lb;}else if(mi===ci){cl+=' a';lb='▶ '+lb+(_pasP?' ('+_pasP+')':(q>0?' ('+(cr||0)+'/'+q+')':''));}
+        // ★ PASTILLE VERTE (demande chef) : un mouvement compté qui atteint sa cible passe au
+        //   VERT (✓), même s'il est encore le mouvement « actif ». Ex : snatch 7/7, worm fait,
+        //   bike 22/22. Les mouvements MAX (ergoFree, sans cible) restent en cours tant qu'on rame.
+        var _complet=(!m.ergoFree && q>0 && (cr||0)>=q);
+        if(mi<ci){cl+=' d';lb='✓ '+lb;}
+        else if(mi===ci && _complet){cl+=' d';lb='✓ '+lb;}
+        else if(mi===ci){cl+=' a';lb='▶ '+lb+(_pasP?' ('+_pasP+')':(q>0?' ('+(cr||0)+'/'+q+')':''));}
         return '<span class="'+cl+'">'+lb+'</span>';
       }).join('')+'</div>';
     }
