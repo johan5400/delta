@@ -2285,7 +2285,7 @@ function renderRankCards(rows,w,st,showLiveChips,h,catId,catLeader){
     }
     var s=val?scoreStr(sc,w):(_isErgoLive?_ergoLiveStr:(_tot>0?String(_tot)+' reps':'—'));
     // ★ Death By : marquer l'athlète hors course
-    if(sc&&sc.dbOut){ s='🏳️ '+((parseInt(sc.reps)||0)||_tot||0)+' reps · HORS COURSE'; }
+    if(sc&&sc.dbOut){ s='🏳️ '+((parseInt(sc.reps)||0)||_tot||0)+' REP · HORS COURSE'; }
     // ★ SKI+SNATCH : plus de statut « HORS COURSE » (demande chef) — l'équipe qui rate ses
     //   7 snatch continue, elle marque juste 0 en distance sur le tour. Rien à afficher ici.
     // ★ Death By (en cours) : total + reps de l'intervalle courant (roundReps se remet à 0
@@ -2436,7 +2436,7 @@ function renderRankCards(rows,w,st,showLiveChips,h,catId,catLeader){
         var _complet=(!m.ergoFree && q>0 && (cr||0)>=q);
         if(mi<ci){cl+=' d';lb='✓ '+lb;}
         else if(mi===ci && _complet){cl+=' d';lb='✓ '+lb;}
-        else if(mi===ci){cl+=' a';lb='▶ '+lb+(_pasP?' ('+_pasP+')':(q>0?' ('+(cr||0)+'/'+q+')':''));}
+        else if(mi===ci){cl+=' a';lb='▶ '+lb+(_pasP?' ('+_pasP+')':((!m.ergoFree&&q>0)?' ('+(cr||0)+'/'+q+')':''));}
         return '<span class="'+cl+'">'+lb+'</span>';
       }).join('')+'</div>';
     }
@@ -2831,6 +2831,12 @@ function startTeamBandIH(zone,ihTarget,doneHid,doneH,doneW,catId,catLeader){
   function renderPhase(){
     var el2=document.getElementById('tband-'+zone);
     if(!el2) return;
+    // ★ DOUBLON CHRONO (demande chef) : pendant la preview « PROCHAIN HEAT » (bloc avec le
+    //   nom + son compteur), on MASQUE le gros chrono INTER-HEAT du haut — le public suit le
+    //   bloc nommé, plus parlant. Il reste visible en phase résultats/classement. Il est
+    //   reconstruit visible dès que renderZone repasse (départ du heat suivant).
+    var _cb=document.getElementById('cb-z'+zone);
+    if(_cb) _cb.style.display=(phase==='preview')?'none':'';
     if(phase==='heat'){
       // ★ FIX SÉQUENCE RÉSULTATS (bug chef) : ne JAMAIS afficher en « résultats » un
       //   heat qui n'est pas réellement TERMINÉ. Si le heat pointé est en fait le
@@ -2869,13 +2875,14 @@ function startTeamBandIH(zone,ihTarget,doneHid,doneH,doneW,catId,catLeader){
       }
       var remP=Math.max(0,Math.ceil((ihTarget-now())/1000));
       var cdTxt=p2(Math.floor(remP/60))+':'+p2(remP%60);
-      // ★ ANTI-CLIGNOTEMENT : si le bloc preview existe déjà, on met seulement
-      //   à jour le texte du compte à rebours. On NE recrée PAS les cartes
-      //   (sinon l'animation d'entrée se relance toutes les 500ms → clignote).
+      // ★ Le compte à rebours vit DANS le bloc « PROCHAIN HEAT » (avec le nom) — c'est
+      //   l'affichage principal pour le public. Le gros chrono du haut est masqué pendant
+      //   cette phase (voir renderPhase) pour ne pas faire doublon.
+      // ★ ANTI-CLIGNOTEMENT : si le bloc existe déjà, on met seulement à jour le compteur.
       var existingCd=document.getElementById('prev-cd-'+zone);
       if(existingCd){
         existingCd.textContent=cdTxt;
-        // ★ CHEF : décompte 30 s avant départ → rouge pulsé
+        // ★ décompte 30 s avant départ → rouge pulsé
         if(remP<=30) existingCd.classList.add('imminent'); else existingCd.classList.remove('imminent');
         return;
       }
