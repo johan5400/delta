@@ -1884,14 +1884,21 @@ function compareScores(a,b,w){
   if(String((w&&w.wodFormat)||'').toLowerCase()==='deathby'){
     var _aOut=!!(a.sc&&a.sc.dbOut), _bOut=!!(b.sc&&b.sc.dbOut);
     if(_aOut!==_bOut) return _aOut?1:-1;
+    // ★ DEATH BY (demande chef) : classement UNIQUEMENT sur le NOMBRE DE REPS total.
+    //   Plus de reps = devant. À égalité, l'ordre de lane départage (stable). On tranche
+    //   ICI (return) pour ne PAS retomber sur le tri par charge (scoreType=load).
+    var _adr=parseInt((a.sc&&a.sc.reps)||0,10)||0;
+    var _bdr=parseInt((b.sc&&b.sc.reps)||0,10)||0;
+    if(_bdr!==_adr) return _bdr-_adr;
+    var _adl=parseInt(String(a.ln).replace(/\D/g,''))||0;
+    var _bdl=parseInt(String(b.ln).replace(/\D/g,''))||0;
+    return _adl-_bdl;
   }
-  // ★ SKI+SNATCH (classement dynamique) : équipes HORS COURSE (snatch non bouclés) en BAS,
-  //   prioritaire sur le statut « validé » (comme le Death By). Gate sur le flag ssOut lui-même
-  //   (le format reste 'emom', pas de wodFormat dédié).
-  {
-    var _aSS=!!(a.sc&&a.sc.ssOut), _bSS=!!(b.sc&&b.sc.ssOut);
-    if(_aSS!==_bSS) return _aSS?1:-1;
-  }
+  // ★ SKI+SNATCH : PLUS de mise « hors course ». Une équipe qui ne boucle pas ses
+  //   7 snatch n'est PAS éliminée (demande chef) — elle continue les tours, elle marque
+  //   juste 0 en distance sur CE tour (géré côté juge : distance annulée). Le classement
+  //   se fait donc uniquement sur la distance cumulée, comme n'importe quel WOD ergo.
+  //   (Le flag ssOut n'est plus posé nulle part ; ce bloc de tri est retiré.)
   // ★ CLEAN LADDER v2 (classement) : LE PLUS LOURD EN HAUT (cumul kg = load).
   //   Départage stable pour éviter que les ex æquo « sautent » pendant que ça avance :
   //   1) cumul kg décroissant · 2) à cumul égal, EN COURSE avant ÉLIMINÉ ·
@@ -1928,10 +1935,12 @@ function compareScores(a,b,w){
   //   bouge à chaque rep. 1 snatch d'avance = devant.
   var _cjm=((w&&w.judgeMode)||'').toLowerCase();
   var _csf=((w&&(w.scoreType||w.scoreFinale))||'').toLowerCase();
-  if(_cjm==='ergo'||_csf==='dist'||_csf==='cal'){
-    // ★ RÈGLE CHEF : bike (distance) d'abord, PUIS le nombre de snatch (départage) —
-    //   en DIRECT ET au FINAL. Une équipe à 0 bike reste classée par ses snatch.
-    //   Validé → snatch total (sc.reps) ; en direct → snatch du tour (roundReps).
+  var _cfmt=String((w&&w.wodFormat)||'').toLowerCase();
+  // ★ Départage par reps À DISTANCE ÉGALE : réservé aux WOD ergo CUMULÉS où les reps
+  //   s'accumulent (AMRAP Steph : shuttle/SU avant le bike) → le live bouge dès la 1re rep.
+  //   EXCLU du ski+snatch (EMOM) : là le snatch n'est qu'un « gate » par tour (7 max),
+  //   le classement se fait UNIQUEMENT à la distance (demande chef : « pas le nb de snatch »).
+  if((_cjm==='ergo'||_csf==='dist'||_csf==='cal') && _cfmt!=='emom'){
     var _ar=a.ok ? (parseInt((a.sc&&a.sc.reps)||0,10)||0) : (parseInt((a.sc&&(a.sc.roundReps!=null?a.sc.roundReps:a.sc.reps))||0,10)||0);
     var _br=b.ok ? (parseInt((b.sc&&b.sc.reps)||0,10)||0) : (parseInt((b.sc&&(b.sc.roundReps!=null?b.sc.roundReps:b.sc.reps))||0,10)||0);
     if(_br!==_ar) return _br-_ar;
@@ -2207,7 +2216,10 @@ function renderRankCards(rows,w,st,showLiveChips,h,catId,catLeader){
     var _subLine='';
     var _roundHtml='';
     if(!val&&st==='live'){
-      if(_movName){
+      // ★ CLEAN LADDER (demande chef) : PAS de « Clean X/10 » sur le live — le nombre de
+      //   reps par station n'a aucun intérêt ici, seul le POIDS compte. Les barres (station
+      //   + kg) et le cumul kg sont déjà affichés par cl2LiveBars / la ligne de score.
+      if(_movName && _fmt!=='cleanladder'){
         _subLine+=_movName;
         // ★ Progression du mouvement en cours (ex : « Snatch 4/7 ») qui tique en direct.
         //   Même sur un WOD scoré en distance, le public doit voir le mouvement compté
@@ -2261,7 +2273,9 @@ function renderRankCards(rows,w,st,showLiveChips,h,catId,catLeader){
       // ★ Générique pour tout EMOM ergo : afficher le cumul de reps du mouvement compté
       //   (snatch, thruster, wall ball…) UNIQUEMENT s'il existe un mouvement de reps.
       //   Un EMOM ergo pur (ex : max mètres vélo seul) n'affiche que la distance.
-      var _repMov=(_movs||[]).filter(function(m){return m&&m.type!=='ergo';})[0]||null;
+      // ★ Ski+snatch (EMOM) : ne PAS afficher le cumul de snatch (demande chef). Le badge
+      //   reps reste utile pour les AMRAP ergo cumulés (shuttle/SU) → il tique dès la 1re rep.
+      var _repMov=(_fmt==='emom')?null:((_movs||[]).filter(function(m){return m&&m.type!=='ergo';})[0]||null);
       if(_repMov){
         var _repNom=_repMov.nom||'reps';
         var _snCount=parseInt(sc.reps)||0;
@@ -2273,18 +2287,17 @@ function renderRankCards(rows,w,st,showLiveChips,h,catId,catLeader){
     var s=val?scoreStr(sc,w):(_isErgoLive?_ergoLiveStr:(_tot>0?String(_tot)+' reps':'—'));
     // ★ Death By : marquer l'athlète hors course
     if(sc&&sc.dbOut){ s='🏳️ '+((parseInt(sc.reps)||0)||_tot||0)+' reps · HORS COURSE'; }
-    // ★ SKI+SNATCH : marquer l'équipe hors course (snatch du tour non bouclés). On garde
-    //   la distance ski déjà validée comme score, suivie du statut.
-    else if(sc&&sc.ssOut){ s=(val?scoreStr(sc,w):(_isErgoLive?_ergoLiveStr:(_tot>0?String(_tot)+' reps':'—')))+' · 🚫 HORS COURSE'; }
+    // ★ SKI+SNATCH : plus de statut « HORS COURSE » (demande chef) — l'équipe qui rate ses
+    //   7 snatch continue, elle marque juste 0 en distance sur le tour. Rien à afficher ici.
     // ★ Death By (en cours) : total + reps de l'intervalle courant (roundReps se remet à 0
     //   à chaque intervalle côté juge et est poussé en direct → le live reflète le reset).
     else if(!val && w && String(w.wodFormat||'').toLowerCase()==='deathby'){
       var _dbIntL=parseInt(w.dbRoundSec||60,10)||60; if(_dbIntL<1)_dbIntL=1;
       var _dbElL=(h&&h.startTimestamp)?Math.floor((now()-h.startTimestamp)/1000):0; if(_dbElL<0)_dbElL=0;
       var _dbCurL=Math.floor(_dbElL/_dbIntL)+1;
-      var _dbSL=parseInt(w.dbStartReps||1,10)||1, _dbIL=parseInt(w.dbIncPerRound||0,10)||0;
-      var _dbObjL=_dbSL+_dbIL*(_dbCurL-1);
-      s='☠️ TOUR '+_dbCurL+' · obj '+_dbObjL+' · '+(_tot||0)+' reps';
+      // ★ Death By (demande chef) : on retire « obj X » de la ligne équipe — l'objectif du
+      //   tour est déjà écrit en GROS à côté du chrono. Ici : juste le tour + le total reps.
+      s='☠️ TOUR '+_dbCurL+' · '+(_tot||0)+' reps';
     }
     // ★ CLEAN LADDER v2 : le score = cumul kg. Statut = station en cours / éliminé / bonus.
     if(w && String(w.wodFormat||'').toLowerCase()==='cleanladder'){
@@ -2354,24 +2367,30 @@ function renderRankCards(rows,w,st,showLiveChips,h,catId,catLeader){
         if(lDiff<=0){ repGap=leadVal>0?'=':''; gapCls='lead'; }
         else { repGap='- '+lDiff+' kg'; gapCls='gap'; }
       } else if(isErgo){
-        // ★ Écart en DISTANCE en direct (dist/ergoVal), pas en reps — sinon pendant le
-        //   live le retard sur le 1er restait à 0 (tout le monde ~même nombre de reps).
+        // ★ Écart en DISTANCE en direct (dist/ergoVal), pas en reps.
         var _lgv=parseFloat((lead.sc&&(lead.sc.dist||lead.sc.ergoVal||lead.sc.distance))||0)||0;
         var _mgv=parseFloat((sc.dist||sc.ergoVal||sc.distance))||0;
         var eDiff=_lgv-_mgv;
         var _egu=((w.scoreType||w.scoreFinale||'').toLowerCase()==='cal')?'cal':'m';
-        // ★ REPS DE RETARD AU SNATCH (demande chef) : départage après la distance. En
-        //   direct on compare le snatch du tour (roundReps), validé le total (reps).
-        //   La ligne bouge à chaque snatch dès le début du tour, avant la saisie bike.
-        var _lsn=parseInt((lead.sc&&(lead.sc.ok?lead.sc.reps:lead.sc.roundReps))||0,10)||0;
-        var _msn=parseInt((sc.ok?sc.reps:sc.roundReps)||0,10)||0;
-        var _snDiff=_lsn-_msn;
-        var _snTxt=(_snDiff>0?'- '+_snDiff+' snatch':'');
-        if(eDiff<=0){
-          if(_snDiff>0){ repGap=_snTxt; gapCls='gap'; }
-          else { repGap=_lgv>0?'=':''; gapCls='lead'; }
+        var _fmtErg=(w.wodFormat||'').toLowerCase();
+        if(eDiff>0){
+          // ★ Retard sur le 1er = UNIQUEMENT la métrique (cal/m). Plus de « - X snatch »
+          //   (demande chef : « juste le nombre de cal/mètre de retard, pas le nb de snatch »).
+          repGap='- '+Math.round(eDiff)+' '+_egu; gapCls='gap';
         } else {
-          repGap='- '+Math.round(eDiff)+' '+_egu+(_snTxt?' · '+_snTxt:''); gapCls='gap';
+          // ★ Égalité de distance :
+          //   - AMRAP ergo cumulé (shuttle/SU avant le bike) → départage par reps EN DIRECT
+          //     pour que la ligne bouge dès la 1re rep, avant même le bike.
+          //   - Ski+snatch (EMOM) → distance SEULE, jamais de reps affichées.
+          if(_fmtErg!=='emom'){
+            var _lr=parseInt((lead.sc&&(lead.sc.ok?lead.sc.reps:lead.sc.roundReps))||0,10)||0;
+            var _mr=parseInt((sc.ok?sc.reps:sc.roundReps)||0,10)||0;
+            var _rd=_lr-_mr;
+            if(_rd>0){ repGap='- '+_rd+' rep'+(_rd>1?'s':''); gapCls='gap'; }
+            else { repGap=(_lgv>0||_lr>0)?'=':''; gapCls='lead'; }
+          } else {
+            repGap=_lgv>0?'=':''; gapCls='lead';
+          }
         }
       } else {
         // AMRAP / reps

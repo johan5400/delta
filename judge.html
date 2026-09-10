@@ -286,6 +286,10 @@ body{
 .j-btns{display:flex;gap:8px;padding:10px 12px;flex-shrink:0;border-top:1px solid var(--brd);padding-bottom:calc(var(--sab) + 10px)}
 .btn-rep{flex:1;padding:clamp(24px,7vh,52px) 8px;border:none;border-radius:clamp(12px,3vw,20px);background:linear-gradient(135deg,var(--fire),var(--ember));color:#fff;font-family:var(--ff);font-size:clamp(48px,12vw,72px);letter-spacing:3px;cursor:pointer;box-shadow:0 6px 28px rgba(255,87,34,.45);touch-action:manipulation;transition:transform .07s,box-shadow .07s}
 .btn-rep:active{transform:scale(.94);box-shadow:0 2px 8px rgba(255,87,34,.2)}
+/* ★ REP-1 (rep invalide) — compact, à côté du +REP, valable pour TOUS les WOD comptés */
+.btn-repminus{flex:0 0 clamp(64px,20vw,110px);padding:14px 6px;border:1px solid rgba(255,59,92,.5);border-radius:clamp(12px,3vw,20px);background:rgba(255,59,92,.12);color:#FF6B85;font-family:var(--ff);font-size:clamp(16px,4.5vw,26px);letter-spacing:1px;font-weight:900;cursor:pointer;touch-action:manipulation;line-height:1.05;transition:transform .07s}
+.btn-repminus:active{transform:scale(.94)}
+.btn-repminus .rm-sub{display:block;font-size:.42em;letter-spacing:.5px;opacity:.8;margin-top:3px;font-family:var(--fc);font-weight:700}
 .btn-tb{flex:1;padding:20px 6px;border:1px solid rgba(255,209,102,.22);border-radius:14px;background:rgba(255,209,102,.06);color:var(--gold);font-family:var(--ff);font-size:13px;cursor:pointer;touch-action:manipulation;line-height:1.2}
 .btn-tb:active{transform:scale(.95)}
 .btn-tb.done{background:rgba(0,229,160,.1);color:var(--ok);border-color:rgba(0,229,160,.28)}
@@ -666,6 +670,7 @@ body.brief-mode #s-judge{display:none!important}
       <div class="j-norep" id="j-norep" style="display:none">🚫 No-rep : <span id="j-nr-count">0</span></div>
     </div>
     <div class="j-btns">
+      <button class="btn-repminus" id="btn-repminus" onclick="repMinusOne()" title="Retirer la dernière rep (appui par erreur / no-rep)">− REP<span class="rm-sub">invalide</span></button>
       <button class="btn-rep" id="btn-rep" onclick="addRep()">+ REP</button>
       <button class="btn-tb" id="btn-tb" onclick="manualTB()" style="display:none">🎯<br>TB</button>
       <button class="btn-tb" id="btn-drop" onclick="deathByDrop()" style="display:none;background:rgba(255,59,92,.15);border-color:rgba(255,59,92,.5);color:#FF6B85">🏳️<br>LÂCHE</button>
@@ -3018,7 +3023,9 @@ function startJudge(){
     emomRound=1; emomIsWork=true; emomRoundReps=0; emomRoundHistory=[]; emomTotalReps=0;
     _tourValide=false; _wasResting=false; _capFinalizeScheduled=false; // ★ FIX : repartir propre à chaque heat
     $('j-emom-history').style.display='flex'; $('j-emom-history').innerHTML='';
-    $('j-emom-reset').style.display='flex'; updateEmomDisplay();
+    // ★ Ancienne rangée « Rep invalide (−1) » EMOM : masquée (le bouton REP-1 est
+    //   maintenant permanent dans la barre de boutons, à côté du +REP, pour TOUS les WOD).
+    $('j-emom-reset').style.display='none'; updateEmomDisplay();
   } else {
     $('j-emom-history').style.display='none'; $('j-emom-reset').style.display='none';
   }
@@ -3165,6 +3172,22 @@ function _isEcCondWod(){
   var hasEcFree=ms.some(function(m){return m&&m.ergoFree;});
   var hasRepMove=ms.some(function(m){return m&&!m.ergoFree&&(parseInt(m.q||0,10)||0)>0;});
   return hasEcFree && hasRepMove;
+}
+// ★ Total ergo (dist/cal) affiché et classé EN DIRECT pour un WOD à mouvement ergo-libre.
+//   Base = tours déjà validés (_ecValues). Pour le SKI+SNATCH, on ajoute la distance
+//   pré-saisie du tour courant DÈS QUE les snatch du tour sont bouclés (demande chef :
+//   « affiche la distance en bike dès que les 7 snatch sont validés »). Si les snatch ne
+//   sont pas bouclés → rien n'est ajouté → 0 en distance sur ce tour (l'équipe continue).
+function _ecLiveTotal(){
+  if(!SC || SC.deathBy) return 0;
+  if(!(SC.moves&&SC.moves.some(function(mm){return mm&&mm.ergoFree;}))) return 0;
+  var _base=(_ecValues||[]).reduce(function(a,b){return a+(parseFloat(b)||0);},0);
+  if(_isEcCondWod() && _pendingDist!=null){
+    var _tgt=(typeof _snatchTargetThisRound==='function')?_snatchTargetThisRound():0;
+    var _done=(typeof emomRoundReps!=='undefined')?(parseInt(emomRoundReps||0,10)||0):0;
+    if(_tgt>0 && _done>=_tgt) _base += (parseFloat(_pendingDist)||0);
+  }
+  return _base;
 }
 // ★ CLEAN LADDER : helpers dédiés.
 function _isCleanLadderWod(){ return !!(SC && SC.cleanLadder); }
@@ -5744,8 +5767,8 @@ function pushScoreLive(){
     //   le TK affiche les cals/mètres comme le live (avant : seul reps était poussé,
     //   le TK cherchait dist/ergoVal → 0 → désync).
     // ★ FIX DEATH BY : en Death By, ergoFree est cosmétique — dist reste 0, reps est le vrai score.
-    dist:(function(){ if(!SC||SC.deathBy) return 0; if(SC.moves&&SC.moves.some(function(mm){return mm&&mm.ergoFree;})){ return (_ecValues||[]).reduce(function(a,b){return a+(parseFloat(b)||0);},0); } return 0; })(),
-    ergoVal:(function(){ if(!SC||SC.deathBy) return 0; if(SC.moves&&SC.moves.some(function(mm){return mm&&mm.ergoFree;})){ return (_ecValues||[]).reduce(function(a,b){return a+(parseFloat(b)||0);},0); } return 0; })(),
+    dist:_ecLiveTotal(),
+    ergoVal:_ecLiveTotal(),
     ecValues:(function(){ if(!SC||SC.deathBy) return null; if(SC.moves&&SC.moves.some(function(mm){return mm&&mm.ergoFree;})){ return (_ecValues||[]).slice(); } return null; })(),
     load:(function(){
       // ★ CLEAN LADDER v2 : le score = cumul kg des barres validées.
