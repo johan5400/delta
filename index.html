@@ -18906,12 +18906,14 @@ async function renderClassementTK(){
         if(a.validated===0) return 1;
         if(b.validated===0) return -1;
         if(a.points!==b.points) return b.points-a.points; // ★ PLUS de points = meilleur (CrossFit)
+        // ★ RÈGLE CHEF : à points égaux, le TIE-BREAK départage AVANT les podiums.
+        var aTB=a.bestTiebreak!==null?a.bestTiebreak:999999;
+        var bTB=b.bestTiebreak!==null?b.bestTiebreak:999999;
+        if(aTB!==bTB) return aTB-bTB;
         if(b.podiums.p1!==a.podiums.p1) return b.podiums.p1-a.podiums.p1;
         if(b.podiums.p2!==a.podiums.p2) return b.podiums.p2-a.podiums.p2;
         if(b.podiums.p3!==a.podiums.p3) return b.podiums.p3-a.podiums.p3;
-        var aTB=a.bestTiebreak!==null?a.bestTiebreak:999999;
-        var bTB=b.bestTiebreak!==null?b.bestTiebreak:999999;
-        return aTB-bTB||String(a.name||"").localeCompare(String(b.name||""),'fr',{sensitivity:'base'});
+        return String(a.name||"").localeCompare(String(b.name||""),'fr',{sensitivity:'base'});
       });
 
       var podium=teams.filter(function(t){ return t.validated>0; }).slice(0,3).map(function(t,idx){
@@ -19733,10 +19735,12 @@ function renderClassementAdmin(heatsData, scoresData){
     if(a.validated===0&&b.validated===0) return String(a.name||"").localeCompare(String(b.name||""),'fr',{sensitivity:'base'});
     if(a.validated===0) return 1; if(b.validated===0) return -1;
     if(a.points!==b.points) return b.points-a.points; // ★ PLUS de points = meilleur
+    // ★ RÈGLE CHEF : à points égaux, le TIE-BREAK départage AVANT les podiums.
+    var at=a.bestTb!==null?a.bestTb:999999, bt=b.bestTb!==null?b.bestTb:999999;
+    if(at!==bt) return at-bt;
     if(b.podiums.p1!==a.podiums.p1) return b.podiums.p1-a.podiums.p1;
     if(b.podiums.p2!==a.podiums.p2) return b.podiums.p2-a.podiums.p2;
-    var at=a.bestTb!==null?a.bestTb:999999, bt=b.bestTb!==null?b.bestTb:999999;
-    return at-bt||String(a.name||"").localeCompare(String(b.name||""),'fr',{sensitivity:'base'});
+    return String(a.name||"").localeCompare(String(b.name||""),'fr',{sensitivity:'base'});
   });
 
   var c=cat.color;

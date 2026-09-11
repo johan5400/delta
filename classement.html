@@ -425,11 +425,11 @@ function clTieBreak(a,b){
   if(aElim!==bElim) return aElim?1:-1;
   if(!aElim && !bElim){
     var prog=function(sc){
+      // ★ DÉPARTAGE (règle chef) : à cumul kg égal → nombre TOTAL de barres validées.
       var bc=sc&&sc.barresCL; if(!bc) return 0;
-      var st=parseInt(bc.station||1,10)||1;
-      var arr=(bc[st]&&bc[st].barres)||(bc[String(st)]&&bc[String(st)].barres)||[];
-      var g=0; for(var i=0;i<arr.length;i++) if(arr[i]===1) g++;
-      return st*100+g;
+      var g=0;
+      for(var k in bc){ var o=bc[k]; var arr=o&&o.barres; if(arr){ for(var i=0;i<arr.length;i++) if(arr[i]===1) g++; } }
+      return g;
     };
     var d=prog(b.sc)-prog(a.sc);
     if(d!==0) return d;
@@ -676,18 +676,19 @@ function totalRanking(catName,zone){
     t.total=total;
   });
 
-  // Tri : PLUS de points = meilleur (CrossFit). Départages : podiums 🥇 > 🥈 > 🥉, puis TB, puis score brut
+  // Tri : PLUS de points = meilleur (CrossFit). ★ RÈGLE CHEF : à points égaux, le TIE-BREAK
+  //   départage AVANT les podiums. Ordre : points → TB → 🥇 > 🥈 > 🥉 → score brut → alpha.
   var sorted=Object.values(teams).sort(function(a,b){
     if(a.total!==b.total)return b.total-a.total;
-    // + de 1ers gagne
-    if(b.podiums.p1!==a.podiums.p1)return b.podiums.p1-a.podiums.p1;
-    if(b.podiums.p2!==a.podiums.p2)return b.podiums.p2-a.podiums.p2;
-    if(b.podiums.p3!==a.podiums.p3)return b.podiums.p3-a.podiums.p3;
-    // Meilleur tiebreak (plus petit = plus rapide)
+    // Meilleur tiebreak (plus petit = plus rapide) — AVANT les podiums
     var aTB=a.bestTiebreak!==null?a.bestTiebreak:999999;
     var bTB=b.bestTiebreak!==null?b.bestTiebreak:999999;
     if(aTB!==bTB)return aTB-bTB;
-    // Plus haut score brut
+    // puis nombre de podiums 🥇 > 🥈 > 🥉
+    if(b.podiums.p1!==a.podiums.p1)return b.podiums.p1-a.podiums.p1;
+    if(b.podiums.p2!==a.podiums.p2)return b.podiums.p2-a.podiums.p2;
+    if(b.podiums.p3!==a.podiums.p3)return b.podiums.p3-a.podiums.p3;
+    // Plus haut score brut, puis alphabétique
     if(b.rawScore!==a.rawScore)return b.rawScore-a.rawScore;
     return String(a.teamName||"").localeCompare(String(b.teamName||""));
   });
@@ -697,10 +698,12 @@ function totalRanking(catName,zone){
     if(i>0&&sorted[i-1].total===t.total){
       t.tied=true;
       var prev=sorted[i-1];
-      if(prev.podiums.p1!==t.podiums.p1)t.tieReason='🥇×'+t.podiums.p1+' vs '+prev.podiums.p1;
+      var aT=t.bestTiebreak!==null?t.bestTiebreak:999999;
+      var pT=prev.bestTiebreak!==null?prev.bestTiebreak:999999;
+      if(aT!==pT)t.tieReason='🎯 TB '+(t.bestTiebreak!==null?fmt(t.bestTiebreak):'—');
+      else if(prev.podiums.p1!==t.podiums.p1)t.tieReason='🥇×'+t.podiums.p1+' vs '+prev.podiums.p1;
       else if(prev.podiums.p2!==t.podiums.p2)t.tieReason='🥈×'+t.podiums.p2;
       else if(prev.podiums.p3!==t.podiums.p3)t.tieReason='🥉×'+t.podiums.p3;
-      else if(t.bestTiebreak!==null)t.tieReason='🎯 TB '+fmt(t.bestTiebreak);
       else if(t.rawScore!==prev.rawScore)t.tieReason='📊 '+Math.abs(t.rawScore)+' bruts';
       else t.tieReason='Alphabétique';
     }
