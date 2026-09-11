@@ -63,6 +63,31 @@ body.light #morning-cd{background:#FFFFFF!important}
 body.light .chrono-band{background:#F7F9FC!important}
 body.light .rank-card,body.light .rc{background:#F7F9FC!important;border-color:rgba(0,0,0,.08)!important}
 body.light .live-msg-banner{color:#0E1726!important}
+/* ★ MODE CONTRASTE (bouton 🔆) : lisibilité MAXIMALE au vidéoprojecteur en plein jour.
+   Noir pur (le noir le plus « profond » que le rétro puisse rendre) + texte blanc + accents
+   vifs conservés (chrono orange, validé vert = sens gardé). On TUE toutes les lueurs, ombres
+   et transparences : c'est ça qui bave et se noie sous la lumière du jour. */
+body.hicontrast{
+  --bg:#000000;--ink:#FFFFFF;--ink2:#E8EEF7;--ink3:#5B6B82;
+  --ok:#12FFA6;--err:#FF4D6A;--warn:#FFC53D;--gold:#FFE04D;
+  --blue:#4DB2FF;--purple:#C08BFF;
+}
+body.hicontrast,body.hicontrast .zone-body,body.hicontrast .zone-idle,
+body.hicontrast .chrono-band,body.hicontrast #morning-cd{background:#000!important}
+body.hicontrast .topbar{background:#000!important;border-bottom:1px solid rgba(255,255,255,.4)}
+body.hicontrast .rank-card,body.hicontrast .rc{background:#080808!important;border:2px solid rgba(255,255,255,.5)!important}
+body.hicontrast .mov{background:#000!important;border:1.5px solid rgba(255,255,255,.55)!important;color:#fff!important}
+body.hicontrast .pod-overlay{background:rgba(0,0,0,.98)!important}
+body.hicontrast .live-msg-banner{color:#fff!important}
+/* tuer lueurs/ombres qui floutent sous la lumière */
+body.hicontrast *{text-shadow:none!important;box-shadow:none!important}
+/* épaissir le texte porteur d'info */
+body.hicontrast .tnm,body.hicontrast .tsc,body.hicontrast .chrono-val,
+body.hicontrast .chrono-lbl,body.hicontrast .rank-num,body.hicontrast .np-cd,
+body.hicontrast .np-hdr-lbl{font-weight:900!important}
+/* chips nettes ; validé = vert franc (pastille verte bien visible) */
+body.hicontrast .chip{background:#000!important;border:1.5px solid rgba(255,255,255,.6)!important;color:#fff!important}
+body.hicontrast .chip.d{background:#00251a!important;border-color:#12FFA6!important;color:#12FFA6!important}
 html{height:100%;overflow:hidden}
 body{height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-family:var(--fc);display:flex;flex-direction:column}
 .topbar{
@@ -630,6 +655,7 @@ body{height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-fami
     <button id="v1" class="vbtn" onclick="setView('zone1')">Z1 →</button>
     <button id="vfs" class="vbtn fs-btn" onclick="toggleFullscreen()">⛶ Grand écran</button>
     <button id="vbg" class="vbtn" onclick="toggleLiveBg()">☀️ Fond blanc</button>
+    <button id="vhc" class="vbtn" onclick="toggleHiContrast()">🔆 Contraste</button>
   </div>
   <span id="clk">--:--:--</span>
 </div>
@@ -2974,11 +3000,26 @@ function toggleFullscreen(){
 
 // ★ OPTION FOND BLANC : bascule clair / sombre (le choix reste tant que la page est ouverte)
 function toggleLiveBg(){
+  document.body.classList.remove('hicontrast'); // exclusif avec le mode contraste
+  var hcb=document.getElementById('vhc'); if(hcb){ hcb.textContent='🔆 Contraste'; hcb.classList.remove('on'); }
   var light=document.body.classList.toggle('light');
   var btn=document.getElementById('vbg');
   if(btn){
     btn.textContent = light ? '🌙 Fond sombre' : '☀️ Fond blanc';
     btn.classList.toggle('on', light);
+  }
+}
+
+// ★ MODE CONTRASTE : haute lisibilité vidéoprojecteur en plein jour (noir pur + texte fort,
+//   lueurs/transparences supprimées). Exclusif avec le fond blanc.
+function toggleHiContrast(){
+  document.body.classList.remove('light'); // exclusif avec le fond blanc
+  var lb=document.getElementById('vbg'); if(lb){ lb.textContent='☀️ Fond blanc'; lb.classList.remove('on'); }
+  var on=document.body.classList.toggle('hicontrast');
+  var btn=document.getElementById('vhc');
+  if(btn){
+    btn.textContent = on ? '🌗 Normal' : '🔆 Contraste';
+    btn.classList.toggle('on', on);
   }
 }
 
