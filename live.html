@@ -111,6 +111,15 @@ body.hicontrast.hicontrast-max .tc.ok{border:3px solid #12FFA6!important}     /*
 body.hicontrast.hicontrast-max .mov,body.hicontrast.hicontrast-max .chip{border:2px solid #FFFFFF!important;color:#FFFFFF!important}
 body.hicontrast.hicontrast-max .chip.d{border-color:#12FFA6!important;color:#12FFA6!important} /* pastille verte conservée */
 body.hicontrast.hicontrast-max .tsc.vl{color:#12FFA6!important}              /* score validé = vert */
+/* ★ LISERÉ NOIR (demande chef) : contour noir autour des gros textes → ils restent lisibles
+   même quand une zone CLAIRE du mur passe derrière (le blanc seul s'y effacerait). On ré-active
+   le text-shadow (coupé plus haut par *{text-shadow:none}) uniquement sur ces éléments. */
+body.hicontrast.hicontrast-max .chrono-val,body.hicontrast.hicontrast-max .wod-nom{
+  text-shadow:-2px -2px 0 #000,2px -2px 0 #000,-2px 2px 0 #000,2px 2px 0 #000,0 0 6px #000!important}
+body.hicontrast.hicontrast-max .tsc,body.hicontrast.hicontrast-max .tnm,
+body.hicontrast.hicontrast-max .chrono-round,body.hicontrast.hicontrast-max .rk,
+body.hicontrast.hicontrast-max .np-cd,body.hicontrast.hicontrast-max .chrono-lbl{
+  text-shadow:-1.5px -1.5px 0 #000,1.5px -1.5px 0 #000,-1.5px 1.5px 0 #000,1.5px 1.5px 0 #000!important}
 html{height:100%;overflow:hidden}
 body{height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-family:var(--fc);display:flex;flex-direction:column}
 .topbar{
