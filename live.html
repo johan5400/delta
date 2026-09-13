@@ -134,6 +134,10 @@ body.hicontrast.hicontrast-max .np-team{background:#000!important;border-left:5p
 body.hicontrast.hicontrast-max .np-team:nth-child(odd),body.hicontrast.hicontrast-max .np-team:nth-child(even){border-left-color:#FFF!important}
 body.hicontrast.hicontrast-max .np-lane{color:#FFF!important;background:#000!important;border:1.5px solid rgba(255,255,255,.6)!important}
 body.hicontrast.hicontrast-max .np-team:nth-child(odd) .np-lane,body.hicontrast.hicontrast-max .np-team:nth-child(even) .np-lane{color:#FFF!important;border-color:rgba(255,255,255,.6)!important}
+/* ★ EXTRÊME : page SPONSORS — fond noir pur + halo décoratif coupé (les logos et le titre
+   restent, c'est du branding). Le « Reprise dans X » reste lisible (déjà renforcé). */
+body.hicontrast.hicontrast-max #sponsors-overlay{background:#000!important}
+body.hicontrast.hicontrast-max #sp-ov-glow{display:none!important}
 html{height:100%;overflow:hidden}
 body{height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-family:var(--fc);display:flex;flex-direction:column}
 .topbar{
@@ -676,7 +680,7 @@ body{height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-fami
 </head>
 <body>
 <div id="sponsors-overlay" style="position:fixed;inset:0;z-index:8000;display:none;background:#070A12;overflow:hidden">
-  <div style="position:absolute;inset:0;background:radial-gradient(1100px 620px at 50% -10%,rgba(232,66,26,.13),transparent 62%),radial-gradient(900px 520px at 50% 120%,rgba(29,109,181,.08),transparent 62%)"></div>
+  <div id="sp-ov-glow" style="position:absolute;inset:0;background:radial-gradient(1100px 620px at 50% -10%,rgba(232,66,26,.13),transparent 62%),radial-gradient(900px 520px at 50% 120%,rgba(29,109,181,.08),transparent 62%)"></div>
   <div style="position:relative;z-index:1;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:clamp(16px,4vw,48px);gap:clamp(14px,2.4vh,30px)">
     <div style="width:clamp(60px,8vw,110px);height:3px;background:linear-gradient(90deg,#E8421A,#FF8A00);border-radius:3px"></div>
     <div style="font-size:clamp(11px,1.5vw,13px);font-weight:800;letter-spacing:6px;color:#FF8A00;text-transform:uppercase">FOC 2026 · ZONE K</div>
@@ -685,7 +689,7 @@ body{height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-fami
     <div id="sp-ov-grid" style="display:grid;gap:clamp(12px,1.8vw,20px);width:100%;max-width:1000px;margin-top:10px"></div>
     <div style="font-size:clamp(11px,1.4vw,13px);color:#647A96;font-weight:600;letter-spacing:2px;text-transform:uppercase;margin-top:8px">Hybride Center · Toul</div>
   </div>
-  <div id="sp-ov-reprise" style="position:absolute;bottom:14px;right:18px;z-index:2;font-size:clamp(10px,1.2vw,12px);font-weight:700;letter-spacing:1px;color:#5E738F;opacity:.7">Reprise dans —</div>
+  <div id="sp-ov-reprise" style="position:absolute;bottom:14px;right:18px;z-index:2;font-size:clamp(12px,1.4vw,15px);font-weight:800;letter-spacing:1px;color:#E6ECF5;opacity:.95">Reprise dans —</div>
 </div>
 
 
