@@ -95,6 +95,11 @@ body.hicontrast .np-hdr-lbl,body.hicontrast .wod-nom{font-weight:900!important}
 /* chips nettes ; validé/actif = vert franc (pastille verte bien visible) */
 body.hicontrast .chip{background:#000!important;border:1.5px solid rgba(255,255,255,.6)!important;color:#fff!important}
 body.hicontrast .chip.d{background:#00251a!important;border-color:#12FFA6!important;color:#12FFA6!important}
+/* Contraste : neutraliser les FONDS dégradés du bloc PROCHAIN HEAT (les accents de TEXTE
+   restent vifs — c'est l'esprit du mode contraste ; seuls les fonds qui bavent passent noirs). */
+body.hicontrast .np-hdr{background:#0A0A0A!important}
+body.hicontrast .np-team{background:#000!important}
+body.hicontrast .np-lane{background:#000!important}
 
 /* ★ CRAN EXTRÊME (body.hicontrast.hicontrast-max) : lisibilité poussée à fond.
    Tout le texte en BLANC PUR, bordures épaissies. On conserve UNIQUEMENT le vert
@@ -120,6 +125,15 @@ body.hicontrast.hicontrast-max .tsc,body.hicontrast.hicontrast-max .tnm,
 body.hicontrast.hicontrast-max .chrono-round,body.hicontrast.hicontrast-max .rk,
 body.hicontrast.hicontrast-max .np-cd,body.hicontrast.hicontrast-max .chrono-lbl{
   text-shadow:-1.5px -1.5px 0 #000,1.5px -1.5px 0 #000,-1.5px 1.5px 0 #000,1.5px 1.5px 0 #000!important}
+/* ★ EXTRÊME : bloc PROCHAIN HEAT au même standard noir/blanc + liseré (fini le dégradé animé
+   or/orange, le bleu et les lueurs qui bavaient au rétro). */
+body.hicontrast.hicontrast-max .np-hdr{background:#000!important;border:2px solid rgba(255,255,255,.6)!important}
+body.hicontrast.hicontrast-max .np-hdr-lbl{background:none!important;-webkit-text-fill-color:#FFF!important;color:#FFF!important;-webkit-background-clip:border-box!important;background-clip:border-box!important;filter:none!important;animation:none!important;text-shadow:-1.5px -1.5px 0 #000,1.5px -1.5px 0 #000,-1.5px 1.5px 0 #000,1.5px 1.5px 0 #000!important}
+body.hicontrast.hicontrast-max .np-wod,body.hicontrast.hicontrast-max .np-nm{color:#FFF!important;text-shadow:-1.5px -1.5px 0 #000,1.5px -1.5px 0 #000,-1.5px 1.5px 0 #000,1.5px 1.5px 0 #000!important}
+body.hicontrast.hicontrast-max .np-team{background:#000!important;border-left:5px solid #FFF!important}
+body.hicontrast.hicontrast-max .np-team:nth-child(odd),body.hicontrast.hicontrast-max .np-team:nth-child(even){border-left-color:#FFF!important}
+body.hicontrast.hicontrast-max .np-lane{color:#FFF!important;background:#000!important;border:1.5px solid rgba(255,255,255,.6)!important}
+body.hicontrast.hicontrast-max .np-team:nth-child(odd) .np-lane,body.hicontrast.hicontrast-max .np-team:nth-child(even) .np-lane{color:#FFF!important;border-color:rgba(255,255,255,.6)!important}
 html{height:100%;overflow:hidden}
 body{height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-family:var(--fc);display:flex;flex-direction:column}
 .topbar{
