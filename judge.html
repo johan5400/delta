@@ -3261,6 +3261,11 @@ function cl2Init(){
   _cl2.bonus = null; _cl2.bonusOpen = false;
   _cl2.cumul = 0; _cl2.pendingBarre = null; _cl2.eliminated = false; _cl2.lastJudged = null;
   _clOut = false; _clLoad = null;
+  // ★ LADDER ROULANT (variant) : l'équipe entre au top = sa lane (lane 1 → top 1, lane 2 → top 2…).
+  //   Avant son top d'entrée, elle est EN ATTENTE. Le reste du moteur (stations 1→N, barres,
+  //   cumul, élimination) est identique — seul le DÉMARRAGE est décalé.
+  _cl2.rolling = !!(SC && SC.clRolling);
+  _cl2.entryTick = _cl2.rolling ? Math.max(1, parseInt((typeof FB_LANE!=='undefined'&&FB_LANE)?FB_LANE:1,10)||1) : 1;
 }
 
 /* ── Recalcul du cumul ──
@@ -3393,8 +3398,10 @@ function cl2CloseStation(){
   _cl2.pendingBarre = null;
   cl2Recompute();
   var greens = cl2Greens(st);
+  // ★ RÈGLE CHEF : il faut valider LES DEUX barres de la station pour AVANCER. Sinon
+  //   (une seule ou aucune validée) → FIN DE L'ÉPREUVE pour l'équipe, cumul partiel conservé.
   if(greens < _cl2.nbBarres){
-    // station ratée / hors temps → éliminé, cumul partiel conservé
+    // station non bouclée (moins de 2 barres vertes) → fin de l'épreuve, cumul partiel gardé
     cl2Eliminate();
     return;
   }
@@ -3459,6 +3466,20 @@ function cl2Render(){
   var zone = document.getElementById('j-cl2-zone');
   if(!zone) return;
   if(!_isCL2()){ zone.style.display='none'; return; }
+
+  // ★ ROULANT : équipe pas encore entrée (top courant < top d'entrée) → écran d'ATTENTE.
+  //   Elle ne juge rien tant que son top d'entrée n'est pas atteint.
+  if(_cl2.rolling && (parseInt(emomRound,10)||1) < (_cl2.entryTick||1)){
+    var _wait = (_cl2.entryTick||1) - (parseInt(emomRound,10)||1);
+    zone.style.display='';
+    zone.innerHTML = '<div style="text-align:center;padding:28px 16px">'
+      + '<div style="font-size:46px;margin-bottom:8px">⏳</div>'
+      + '<div style="font-size:19px;font-weight:900;color:#F59E0B;letter-spacing:.5px">TON ÉQUIPE ENTRE BIENTÔT</div>'
+      + '<div style="font-size:14px;color:#94A3B8;margin-top:8px">Entrée au top <b>'+(_cl2.entryTick||1)+'</b> · dans <b>'+_wait+'</b> top'+(_wait>1?'s':'')+'</div>'
+      + '<div style="font-size:12px;color:#647A96;margin-top:10px">Prépare la 1re barre : <b>'+((_cl2.poidsStation[1]||0)||'—')+' kg</b></div>'
+      + '</div>';
+    return;
+  }
 
   var st = _cl2.station;
   var poids = _cl2.poidsStation[st]||0;
@@ -4389,8 +4410,13 @@ function updateEmomPhase(e){
     // toursCount est calculé au démarrage depuis toursPerso.length (fiable) ;
     // SC.rounds peut être parasité (champ EMOM déduit de la durée) → on le met en dernier.
     var _clStations=Math.max(1, parseInt(SC.toursCount||SC.rounds||_totRounds,10)||_totRounds);
-    _totRounds=_clStations;
-    SC.cap=_clStations*cycle; // cap = exactement stations × (travail+repos), ni plus ni moins
+    // ★ ROULANT : l'équipe entre au top (entryTick) → elle finit plus tard. On étend le cap
+    //   pour CE juge : (entryTick-1) tops d'attente + nbStations stations + 1 top pour la bonus.
+    //   Sinon le cap couperait la dernière équipe avant qu'elle ait fini.
+    var _clEntry = (_cl2 && _cl2.rolling) ? Math.max(1,(_cl2.entryTick||1)) : 1;
+    var _clTotal = (_clEntry - 1) + _clStations + ((_cl2 && _cl2.rolling)?1:0);
+    _totRounds=_clTotal;
+    SC.cap=_clTotal*cycle; // cap = exactement (attente + stations [+bonus]) × (travail+repos)
   }
   var _isDeathBy=!!(SC&&SC.deathBy); // ★ Death By : tours ILLIMITÉS jusqu'au TC (SC.fmt='emom' après normalisation, donc on lit le flag)
   var _capReached=((SC.cap||0)>0 && e>=(SC.cap||0));
@@ -4434,8 +4460,14 @@ function updateEmomPhase(e){
         //   clôture la station : si < nbBarres validées → ÉLIMINÉ (cumul partiel gardé),
         //   sinon on avance à la station suivante (ou barre bonus si dernière station).
         //   cl2CloseStation gère l'élimination + validate() éventuel.
-        try{ cl2CloseStation(); }catch(_e){ console.warn('cl2CloseStation:',_e); }
-        if(_cl2 && _cl2.eliminated){ return; }
+        // ★ ROULANT : tant que l'équipe n'est pas ENTRÉE (top écoulé < top d'entrée), on ne
+        //   clôture RIEN — sinon on l'éliminerait pendant sa phase d'attente.
+        if(_cl2 && _cl2.rolling && wasRound < (_cl2.entryTick||1)){
+          /* équipe en attente d'entrée : ne rien faire */
+        } else {
+          try{ cl2CloseStation(); }catch(_e){ console.warn('cl2CloseStation:',_e); }
+          if(_cl2 && _cl2.eliminated){ return; }
+        }
       } else {
       // ★ DEATH BY échelle : au passage de tour, si le tour qui vient de se terminer n'a
       //   PAS atteint sa cible (départ + inc×(tour-1)), l'athlète est HORS COURSE (auto).

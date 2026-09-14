@@ -7789,6 +7789,7 @@ function syncWodsToFirebase(){
       toursMode: w.toursMode||'identical',
       toursCount: (w.toursMode==='custom' && Array.isArray(w.toursPerso)) ? w.toursPerso.length : (parseInt(w.toursCount||w.rounds||0,10)||0),
       clBarres: parseInt(w.clBarres!=null?w.clBarres:2,10)||2,
+      clRolling: !!w.clRolling,
       toursPerso: (Array.isArray(w.toursPerso)?w.toursPerso:[]).map(function(t){
         return { mouvements: ((t&&t.mouvements)||[]).map(function(m){
           return {
@@ -13073,7 +13074,12 @@ function renderProgWodsList() {
                  +   '</select></div>'
                  +   '<div style="font-size:10px;color:#64748B;line-height:1.5">Stations = <b>'+((w.toursMode==='custom'&&Array.isArray(w.toursPerso))?w.toursPerso.length:(parseInt(w.rounds||0,10)||0))+' tour(s) perso</b>. Le <b>poids</b> se règle par station et par catégorie dans chaque tour perso (champ Poids du mouvement).</div>'
                  + '</div>'
-                 + '<div style="font-size:10px;color:#64748B;margin-top:8px">Timing travail/off ci-dessus = durée par station. Le juge valide chaque barre ✅/❌ ; station complète (toutes vertes) = +poids×barres au cumul. Une barre ratée → éliminé (cumul des stations validées gardé). Toutes stations bouclées → barre bonus (poids libre).</div>'
+                 + '<label onclick="event.stopPropagation()" style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:11px;color:#047857;font-weight:800;cursor:pointer">'
+                 +   '<input type="checkbox" '+(w.clRolling?'checked':'')+' onchange="event.stopPropagation();updateWodProg('+w.id+',\'clRolling\',this.checked)" style="width:16px;height:16px;accent-color:#047857"> '
+                 +   '🔁 Ladder ROULANT — départ décalé par lane · EMOM global · le juge suit son équipe'
+                 + '</label>'
+                 + (w.clRolling?'<div style="font-size:10px;color:#B45309;margin-top:6px;line-height:1.5">Mode roulant : lane 1 entre au 1er top, lane 2 au 2e, etc. Chaque équipe est sur SA barre (top − (lane−1)). Timing travail/off = l\'intervalle EMOM. Nouveau format — <b>à tester avant l\'event</b>.</div>':'')
+                 + '<div style="font-size:10px;color:#64748B;margin-top:8px">Timing travail/off ci-dessus = durée par station.</div>'
                  + '</div>'
                : '')
             + '')
@@ -18336,6 +18342,7 @@ async function generateAndPublishAll(){
       toursMode:w.toursMode||'identical',
       toursCount:(w.toursMode==='custom' && Array.isArray(w.toursPerso)) ? w.toursPerso.length : (parseInt(w.toursCount||w.rounds||0,10)||0),
       clBarres:parseInt(w.clBarres!=null?w.clBarres:2,10)||2,
+      clRolling:!!w.clRolling,
       toursPerso:(Array.isArray(w.toursPerso)?w.toursPerso:[]).map(function(t){
         return { mouvements: ((t&&t.mouvements)||[]).map(function(m){
           return {
