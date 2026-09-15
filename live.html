@@ -1015,6 +1015,9 @@ function getLiveChronoFrame(zone,hid,h,w){
     if(_clStN>0) totalRounds=_clStN;
   }
   var hasPause=!!w.pauseEntreToursActive&&totalRounds>1;
+  // ★ ROULANT : pas de « TOUR X/N » global à côté du chrono (chaque équipe est sur SA barre,
+  //   il n'y a pas de tour commun). Détecté via clRolling (secours WD[id] si wodInfo figé).
+  var _clRoll=(type==='cleanladder') && !!(w.clRolling || (w.id && typeof WD!=='undefined' && WD[w.id] && WD[w.id].clRolling));
   var pauseSec=parseInt(w.pauseEntreToursSec||0,10)||0;
   // ★ FIX EMOM DÉCOUPAGE LIVE : un EMOM se découpe TOUJOURS par tour (avec le travail
   //   et le repos de chaque tour), même sans pause entre tours. Sans ça, le live
@@ -1047,7 +1050,7 @@ function getLiveChronoFrame(zone,hid,h,w){
       ended:(_emTotal>0 && elapsed>=_emTotal),
       value:fmtPrecise(remInPhase, false),
       lbl:(isInPause?'💤 REPOS':'⚙️ TRAVAIL'),
-      round:curRound+'/'+totalRounds,
+      round:_clRoll?'':(curRound+'/'+totalRounds),
       phase:isInPause?'rest':'work',
       vcls:isInPause?'ih':(remInPhase<=10?'hot':remInPhase<=30?'warn':'run'),
       bcls:isInPause?'clr-ih':(remInPhase<=10?'clr-hot':'clr-run')
@@ -2419,8 +2422,16 @@ function renderRankCards(rows,w,st,showLiveChips,h,catId,catLeader){
         var _elR=(h&&h.startTimestamp)?Math.max(0,Math.floor((now()-h.startTimestamp)/1000)):0;
         var _entR=parseInt(String(e.ln).replace(/\D/g,''),10)||1;
         var _untilR=((_entR-1)*_ivR)-_elR;             // secondes avant l'entrée de l'équipe
-        if(_untilR>30){ return ''; }                    // trop tôt → cachée (apparaît 30 s avant)
-        if(_untilR>0){ s='⏳ entre dans '+_untilR+' s'; } // fenêtre 30 s → décompte
+        if(_untilR>20){ return ''; }                    // trop tôt → cachée (apparaît 20 s avant)
+        // ★ DÉCOMPTE DE DÉPART pour le speaker — PALIERS 20/15/10/5/GO (pas seconde par
+        //   seconde → aucune saccade, lisible au rétro, cadence d'annonce parfaite).
+        //   À GO l'équipe entre sur son top et bascule sur son suivi normal (cumul kg).
+        if(_untilR>0){
+          var _pal = _untilR>15 ? 20 : _untilR>10 ? 15 : _untilR>5 ? 10 : 5;
+          s = '⏱️ ENTRE DANS '+_pal;
+        } else if(_untilR> -3){
+          s = '🟢 GO !';                                 // GO visible ~3 s au démarrage
+        }
       }
     }
     var repLead=liveReps(lead.sc),repMe=liveReps(sc);
