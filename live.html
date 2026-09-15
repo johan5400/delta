@@ -2429,8 +2429,8 @@ function renderRankCards(rows,w,st,showLiveChips,h,catId,catLeader){
         if(_untilR>0){
           var _pal = _untilR>15 ? 20 : _untilR>10 ? 15 : _untilR>5 ? 10 : 5;
           s = '⏱️ ENTRE DANS '+_pal;
-        } else if(_untilR> -3){
-          s = '🟢 GO !';                                 // GO visible ~3 s au démarrage
+        } else if(_untilR> -1){
+          s = '🟢 GO !';                                 // GO bref (~1 s) puis bascule direct sur le cumul kg
         }
       }
     }
