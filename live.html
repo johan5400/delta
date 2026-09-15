@@ -2410,6 +2410,16 @@ function renderRankCards(rows,w,st,showLiveChips,h,catId,catLeader){
       } else {
         s='🏆 '+_cumul+' kg';
       }
+      // ★ ROULANT (live) : une équipe pas encore entrée reste CACHÉE, et n'apparaît que
+      //   ~30 s avant son top d'entrée, avec un décompte. Lecture seule sur le chrono.
+      if(w.clRolling && !(sc&&sc.clOut)){
+        var _ivR=(parseInt(w.workMin||0,10)||0)+(parseInt(w.restMin||0,10)||0); if(_ivR<1)_ivR=90;
+        var _elR=(h&&h.startTimestamp)?Math.max(0,Math.floor((now()-h.startTimestamp)/1000)):0;
+        var _entR=parseInt(String(e.ln).replace(/\D/g,''),10)||1;
+        var _untilR=((_entR-1)*_ivR)-_elR;             // secondes avant l'entrée de l'équipe
+        if(_untilR>30){ return ''; }                    // trop tôt → cachée (apparaît 30 s avant)
+        if(_untilR>0){ s='⏳ entre dans '+_untilR+' s'; } // fenêtre 30 s → décompte
+      }
     }
     var repLead=liveReps(lead.sc),repMe=liveReps(sc);
     // Badge gap : LEADER pour le 1er, écart pour les autres

@@ -12303,8 +12303,10 @@ function clRollCalc(inp, stations, iv){
     var box=inp.closest ? inp.closest('.clrc-box') : inp.parentNode.parentNode;
     var out=box?box.querySelector('.clrc-out'):null; if(!out) return;
     if(t<1||iv<1||stations<1){ out.textContent='—'; return; }
-    var tot=(t-1+stations+1)*iv, m=Math.floor(tot/60), s=tot%60;
-    out.textContent=m+' min'+(s?(' '+s+' s'):'')+' · '+tot+'s';
+    var tot=(t-1+stations+1)*iv, m=Math.floor(tot/60), s=tot%60, mins=Math.ceil(tot/60);
+    // Le champ Durée est en MINUTES → on affiche les minutes à saisir (arrondi au-dessus
+    // pour ne pas couper la dernière équipe), avec le temps exact en clair.
+    out.textContent=mins+' min'+(s?(' (exact '+m+' min '+s+' s)'):'');
   }catch(_e){}
 }
 function updateWodProg(id, field, val) {
