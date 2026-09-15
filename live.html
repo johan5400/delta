@@ -2412,7 +2412,9 @@ function renderRankCards(rows,w,st,showLiveChips,h,catId,catLeader){
       }
       // ★ ROULANT (live) : une équipe pas encore entrée reste CACHÉE, et n'apparaît que
       //   ~30 s avant son top d'entrée, avec un décompte. Lecture seule sur le chrono.
-      if(w.clRolling && !(sc&&sc.clOut)){
+      //   clRolling peut manquer dans le wodInfo figé du heat → secours via WD[id].
+      var _wRoll=!!(w && (w.clRolling || (w.id && typeof WD!=='undefined' && WD[w.id] && WD[w.id].clRolling)));
+      if(_wRoll && !(sc&&sc.clOut)){
         var _ivR=(parseInt(w.workMin||0,10)||0)+(parseInt(w.restMin||0,10)||0); if(_ivR<1)_ivR=90;
         var _elR=(h&&h.startTimestamp)?Math.max(0,Math.floor((now()-h.startTimestamp)/1000)):0;
         var _entR=parseInt(String(e.ln).replace(/\D/g,''),10)||1;

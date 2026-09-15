@@ -1407,6 +1407,7 @@ function wodToScenario(wod){
     // ★ Clean Ladder : identité conservée (bornage cible tour, élimination auto, bouton FINI, charge finale kg).
     //   Utilise le timing EMOM normal (travail/repos configurés dans l'index).
     cleanLadder: _isCleanLadder,
+    clRolling: !!wod.clRolling,  // ★ LADDER ROULANT : recopié dans SC pour que le juge active l'entrée différée
     clBarres: parseInt(wod.clBarres!=null?wod.clBarres:2,10)||2, // ★ CL v2 : nb de barres par station
     dbIntervalSec: parseInt(wod.dbIntervalSec||3,10)||3, // (ancien modèle, gardé inerte pour compat)
     dbMode: (wod.dbMode||'free'),

@@ -7189,6 +7189,7 @@ if(typeof fbBuildWodInfo !== 'function'){
         };
       }),
       hasTiebreak: !!wod.hasTiebreak,
+      clRolling: !!wod.clRolling,  // ★ LADDER ROULANT : le flag DOIT être copié sur le heat (wodInfo), sinon le live ne sait pas que c'est roulant
       tiebreakMoveIdx: typeof wod.tiebreakMoveIdx!=='undefined' ? wod.tiebreakMoveIdx : -1,
       tiebreakDesc: wod.tiebreakDesc||'',
       tiebreakReps: (wod.tiebreakReps!=null)?parseInt(wod.tiebreakReps):null,
