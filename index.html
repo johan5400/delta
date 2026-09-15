@@ -12295,6 +12295,18 @@ function refreshWodScPreview(wid) {
   lsRefreshScorecardIfVisible(wid);
 }
 
+// ★ Calculette durée ladder roulant (AFFICHAGE SEUL — ne modifie aucune donnée).
+//   durée = (nb équipes − 1 + stations + 1) × intervalle. Le chef recopie le résultat.
+function clRollCalc(inp, stations, iv){
+  try{
+    var t=parseInt(inp.value,10)||0;
+    var box=inp.closest ? inp.closest('.clrc-box') : inp.parentNode.parentNode;
+    var out=box?box.querySelector('.clrc-out'):null; if(!out) return;
+    if(t<1||iv<1||stations<1){ out.textContent='—'; return; }
+    var tot=(t-1+stations+1)*iv, m=Math.floor(tot/60), s=tot%60;
+    out.textContent=m+' min'+(s?(' '+s+' s'):'')+' · '+tot+'s';
+  }catch(_e){}
+}
 function updateWodProg(id, field, val) {
   var w = WODS.find(function(x){ return x.id === id; });
   if (w) {
@@ -13078,7 +13090,18 @@ function renderProgWodsList() {
                  +   '<input type="checkbox" '+(w.clRolling?'checked':'')+' onchange="event.stopPropagation();updateWodProg('+w.id+',\'clRolling\',this.checked)" style="width:16px;height:16px;accent-color:#047857"> '
                  +   '🔁 Ladder ROULANT — départ décalé par lane · EMOM global · le juge suit son équipe'
                  + '</label>'
-                 + (w.clRolling?'<div style="font-size:10px;color:#B45309;margin-top:6px;line-height:1.5">Mode roulant : lane 1 entre au 1er top, lane 2 au 2e, etc. Chaque équipe est sur SA barre (top − (lane−1)). Timing travail/off = l\'intervalle EMOM. Nouveau format — <b>à tester avant l\'event</b>.</div>':'')
+                 + (w.clRolling?(
+                     '<div style="font-size:10px;color:#B45309;margin-top:6px;line-height:1.5">Mode roulant : lane 1 entre au 1er top, lane 2 au 2e, etc. Chaque équipe est sur SA barre (top − (lane−1)). Timing travail/off = l\'intervalle EMOM. Nouveau format — <b>à tester avant l\'event</b>.</div>'
+                   + '<div class="clrc-box" style="margin-top:8px;padding:8px 10px;border:1px dashed #B45309;border-radius:8px;background:#FFF7ED" onclick="event.stopPropagation()">'
+                   +   '<div style="font-size:11px;font-weight:800;color:#B45309;margin-bottom:5px">🧮 Calcul durée à régler</div>'
+                   +   '<div style="font-size:10px;color:#7C5010;margin-bottom:6px">Stations : <b>'+(((w.toursPerso&&w.toursPerso.length)||parseInt(w.toursCount||w.rounds||0,10)||0))+'</b> · Intervalle (Travail+Repos) : <b>'+((parseInt(w.workMin||0,10)||0)+(parseInt(w.restMin||0,10)||0))+' s</b></div>'
+                   +   '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
+                   +     '<label style="font-size:10px;color:#7C5010">Nb équipes <input type="number" min="1" max="20" value="6" style="width:56px" onclick="event.stopPropagation()" oninput="event.stopPropagation();clRollCalc(this,'+(((w.toursPerso&&w.toursPerso.length)||parseInt(w.toursCount||w.rounds||0,10)||0))+','+((parseInt(w.workMin||0,10)||0)+(parseInt(w.restMin||0,10)||0))+')"></label>'
+                   +     '<span style="font-size:11px;font-weight:800;color:#B45309">&rarr; dur&eacute;e : <span class="clrc-out">&mdash;</span></span>'
+                   +   '</div>'
+                   +   '<div style="font-size:9px;color:#A07040;margin-top:5px">(&eacute;quipes &minus; 1 + stations + 1) &times; intervalle &middot; &agrave; recopier dans le champ Dur&eacute;e</div>'
+                   + '</div>'
+                   ):'')
                  + '<div style="font-size:10px;color:#64748B;margin-top:8px">Timing travail/off ci-dessus = durée par station.</div>'
                  + '</div>'
                : '')

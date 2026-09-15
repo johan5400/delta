@@ -902,6 +902,15 @@ function wodCapSec(w){
     var _rst=parseInt(w.restMin||w.emomRest||0,10)||0;
     var _nbT;
     if(_fmtC==='cleanladder'){
+      // ★ LADDER ROULANT : la durée doit couvrir le décalage d'entrée (elle est réglée à la
+      //   main = (équipes−1+stations+1)×intervalle). On respecte donc w.duree, au lieu de
+      //   stations×cycle — sinon les équipes entrées tard seraient coupées, et TK/live
+      //   afficheraient des durées différentes. Strictement limité au mode roulant.
+      var _rollingCap=!!(w.clRolling||(wid&&WD[wid]&&WD[wid].clRolling));
+      if(_rollingCap){
+        var _durR=parseInt(w.duree||(wid&&WD[wid]?WD[wid].duree:0)||0,10)||0;
+        if(_durR>0) return _durR;
+      }
       // ★ CL : nb de stations = tours perso (fiable), pas w.rounds (parasité).
       _nbT=(Array.isArray(w.toursPerso)&&w.toursPerso.length)
         ? w.toursPerso.length

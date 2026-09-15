@@ -785,6 +785,14 @@ function wodCapSec(wod){
     var _rst=parseInt(wod.restMin||wod.emomRest||0,10)||0;
     var _nbT;
     if(_fmtC==='cleanladder'){
+      // ★ LADDER ROULANT : respecter la durée réglée (elle couvre le décalage d'entrée).
+      //   Sinon les équipes entrées tard seraient coupées et TK/live se désynchroniseraient.
+      //   Strictement limité au mode roulant (clRolling) — clean ladder normal inchangé.
+      var _rollCap=!!(wod.clRolling||(wodId && typeof WD!=='undefined' && WD[wodId] && WD[wodId].clRolling));
+      if(_rollCap){
+        var _durRoll=parseInt(wod.duree||(wodId&&typeof WD!=='undefined'&&WD[wodId]?WD[wodId].duree:0)||0,10)||0;
+        if(_durRoll>0) return _durRoll;
+      }
       _nbT=(Array.isArray(wod.toursPerso)&&wod.toursPerso.length)
         ? wod.toursPerso.length
         : (parseInt(wod.toursCount||wod.rounds||0,10)||0);

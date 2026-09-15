@@ -4410,13 +4410,17 @@ function updateEmomPhase(e){
     // toursCount est calculé au démarrage depuis toursPerso.length (fiable) ;
     // SC.rounds peut être parasité (champ EMOM déduit de la durée) → on le met en dernier.
     var _clStations=Math.max(1, parseInt(SC.toursCount||SC.rounds||_totRounds,10)||_totRounds);
-    // ★ ROULANT : l'équipe entre au top (entryTick) → elle finit plus tard. On étend le cap
-    //   pour CE juge : (entryTick-1) tops d'attente + nbStations stations + 1 top pour la bonus.
-    //   Sinon le cap couperait la dernière équipe avant qu'elle ait fini.
-    var _clEntry = (_cl2 && _cl2.rolling) ? Math.max(1,(_cl2.entryTick||1)) : 1;
-    var _clTotal = (_clEntry - 1) + _clStations + ((_cl2 && _cl2.rolling)?1:0);
-    _totRounds=_clTotal;
-    SC.cap=_clTotal*cycle; // cap = exactement (attente + stations [+bonus]) × (travail+repos)
+    if(_cl2 && _cl2.rolling){
+      // ★ ROULANT : la durée est GLOBALE (réglée par le TK via la durée du WOD). On ne
+      //   recalcule SURTOUT PAS de cap par juge — sinon TK, live et juges se désynchronisent.
+      //   Les tops ne sont pas plafonnés à nbStations : chaque équipe avance dans SA fenêtre
+      //   [entrée … entrée+stations] et finit quand sa barre bonus est validée. La durée du
+      //   WOD doit couvrir la dernière équipe : (nbÉquipes−1 + nbStations + 1) × intervalle.
+      _totRounds=Math.max(_totRounds,_clStations); // ne pas raccourcir ; le cap global gouverne
+    } else {
+      _totRounds=_clStations;
+      SC.cap=_clStations*cycle; // cap = exactement stations × (travail+repos), ni plus ni moins
+    }
   }
   var _isDeathBy=!!(SC&&SC.deathBy); // ★ Death By : tours ILLIMITÉS jusqu'au TC (SC.fmt='emom' après normalisation, donc on lit le flag)
   var _capReached=((SC.cap||0)>0 && e>=(SC.cap||0));
