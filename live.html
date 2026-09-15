@@ -1358,9 +1358,25 @@ function startZoneClocks(){
     if(!document.hidden){ _rafRunning=true; requestAnimationFrame(rafTick); }
   }
   ensureRunning();
+  // ★ ROULANT : détecte si un clean ladder ROULANT est actuellement LIVE (pour rafraîchir
+  //   la liste chaque seconde et débloquer GO→poids / les paliers, sinon figés jusqu'au
+  //   prochain score poussé). Secours clRolling via WD[id] si le wodInfo figé ne l'a pas.
+  var _rollRenderTs=0;
+  function _anyRollingLive(){
+    for(var k in HEATS){ var h=HEATS[k]; if(!h||h.status!=='live') continue;
+      var wi=h.wodInfo||{}; if(String(wi.wodFormat||'').toLowerCase()!=='cleanladder') continue;
+      if(wi.clRolling || (wi.id && typeof WD!=='undefined' && WD[wi.id] && WD[wi.id].clRolling)) return true;
+    }
+    return false;
+  }
   _scIv=setInterval(function(){
     try{ [1,2].forEach(tickZoneClock); }catch(e){}
     ensureRunning();
+    // ★ ROULANT : re-rendu de la liste ~1×/s tant qu'un heat roulant est live (fix GO figé).
+    try{
+      var _nm=now();
+      if(_nm-_rollRenderTs>=1000 && _anyRollingLive()){ _rollRenderTs=_nm; scheduleRender(); }
+    }catch(e){}
   }, 250);
   document.addEventListener('visibilitychange', ensureRunning);
 }
