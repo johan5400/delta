@@ -1836,6 +1836,27 @@ function checkPassword(){
     <div style="font-size:11px;color:var(--ink3);margin-top:3px;font-weight:600">Vue opérationnelle · toutes les affectations du jour</div>
   </div>
 </div>
+  <!-- ══ SAUVEGARDE / RESTAURATION FIREBASE (jour J) ══ -->
+  <div class="no-print" style="background:linear-gradient(135deg,#0B1220,#13233B);border:1.5px solid rgba(0,229,160,.35);border-radius:14px;padding:16px 18px;margin-bottom:18px">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+      <span style="font-size:20px">💾</span>
+      <div style="font-size:15px;font-weight:900;color:#fff">Sauvegarde de la base (jour J)</div>
+    </div>
+    <div style="font-size:11px;color:#9FB3C8;line-height:1.7;margin-bottom:14px">
+      Le samedi, clique sur <b style="color:#00E5A0">Sauvegarder</b> de temps en temps : ça télécharge un fichier
+      contenant <b>toute la base en ligne</b> (heats, scores, statuts, juges, bénévoles…). Garde ces fichiers.<br>
+      En cas de gros problème, <b style="color:#FF8A00">Import de secours</b> réécrit toute la base à partir d'un de ces fichiers.
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+      <button onclick="fullFirebaseBackup()" style="padding:11px 20px;background:linear-gradient(135deg,#00B87A,#00E5A0);border:none;border-radius:10px;color:#04231A;font-size:13px;font-weight:900;cursor:pointer;box-shadow:0 2px 12px rgba(0,229,160,.25)">💾 Sauvegarder la base</button>
+      <button onclick="document.getElementById('full-fb-restore-input').click()" style="padding:11px 20px;background:rgba(255,138,0,.12);border:1.5px solid rgba(255,138,0,.5);border-radius:10px;color:#FF8A00;font-size:13px;font-weight:900;cursor:pointer">🚨 Import de secours…</button>
+      <input type="file" id="full-fb-restore-input" accept="application/json,.json" style="display:none" onchange="fullFirebaseRestore(event)">
+    </div>
+    <div style="font-size:10px;color:#64748B;margin-top:10px;line-height:1.6">
+      ⚠️ L'import de secours <b>écrase tout ce qui est en ligne</b> — à n'utiliser que si la base est corrompue.
+      Une confirmation et le mot <code style="color:#FF8A00">RESTAURER</code> sont demandés.
+    </div>
+  </div>
   <div class="print-header"><h2 id="print-jour-title"></h2><p id="print-jour-sub"></p></div>
   <div id="jourj-notes-banner" style="display:none;background:#fff8e1;border-left:4px solid #F9A825;border-radius:7px;padding:10px 14px;margin-bottom:10px;font-size:12px;color:#555"></div>
   <div class="no-print" style="display:flex;gap:7px;margin-bottom:12px;flex-wrap:wrap;align-items:center">
@@ -8139,8 +8160,9 @@ function renderCatGrid(){
   }
   el.innerHTML=sorted.map(function(cat){
     var isActive=cat.id===_activeCatId;
-    var placed=cat.teams.filter(function(t){return t.ligne!=null&&t.heatNum!=null;}).length;
-    var total=cat.teams.length;
+    var _own=cat.teams.filter(function(t){return !t.isGuest&&!t.invitedOut;});
+    var placed=_own.filter(function(t){return t.ligne!=null&&t.heatNum!=null;}).length;
+    var total=_own.length;
     var pct=total>0?Math.round(placed/total*100):0;
     var nbH=cat.nbHeats||1;
     var nbL=cat.nbLignes||6;
@@ -8193,8 +8215,9 @@ function renderCatSidebar(){
   if(!sorted.length){ el.innerHTML='<div style="font-size:11px;color:var(--ink2);padding:8px;">Aucune catégorie</div>'; return; }
   el.innerHTML = sorted.map(function(cat){
     var isActive = cat.id === _activeCatId;
-    var placed = cat.teams.filter(function(t){return t.ligne!=null&&t.heatNum!=null;}).length;
-    var total = cat.teams.length;
+    var _own2 = cat.teams.filter(function(t){return !t.isGuest&&!t.invitedOut;});
+    var placed = _own2.filter(function(t){return t.ligne!=null&&t.heatNum!=null;}).length;
+    var total = _own2.length;
     var pct = total>0 ? Math.round(placed/total*100) : 0;
     var zColor = '#94A3B8';
     return '<div onclick="selectCat('+cat.id+')" style="'
@@ -8766,14 +8789,180 @@ function fillHeatWithGuest(catId, heatIdx, guestCatId){
   toast('✅ '+placed+' équipe(s) de '+(gcat.nom||'')+' invitée(s) — jugée(s) et classée(s) dans LEUR catégorie','#1E88E5',4500);
 }
 
+/* ══════════════════════════════════════════════════════════════════
+   INVITATION AVEC CHOIX DES ÉQUIPES + DÉPLACEMENT (pas copie)
+   Le chef choisit QUELLES équipes d'une autre catégorie inviter dans
+   un heat. Les équipes invitées QUITTENT leur heat d'origine (elles
+   sont "déplacées"), donc le heat d'origine devenu vide DISPARAÎT.
+   Le classement / juge / live restent rattachés à la catégorie
+   d'ORIGINE (déjà géré par teamCatId / guestCatId).
+   ══════════════════════════════════════════════════════════════════ */
+
+// Recalcule le nombre de heats d'une catégorie d'après ses équipes
+// RÉELLEMENT présentes (natives, non-invitées-ailleurs). Un heat qui
+// n'a plus aucune équipe propre disparaît.
+function recomputeHeatCountFromTeams(cat){
+  if(!cat) return;
+  var nbL = cat.nbLignes || 6;
+  // équipes propres à la catégorie = pas des invitées venues d'ailleurs,
+  // et pas parties en invitation dans une autre catégorie.
+  var own = (cat.teams||[]).filter(function(t){ return !t.isGuest && !t.invitedOut; });
+  // heat le plus élevé réellement occupé par une équipe propre placée
+  var maxHeat = -1;
+  own.forEach(function(t){
+    if(t.heatNum!=null && t.ligne!=null && t.heatNum>maxHeat) maxHeat=t.heatNum;
+  });
+  var byOccupancy = maxHeat + 1;                          // heats réellement utilisés
+  var byCount     = Math.ceil(own.length / nbL);          // heats nécessaires au total
+  cat.nbHeats = Math.max(1, byOccupancy, byCount);
+}
+
+// Ouvre le sélecteur d'équipes pour inviter depuis une catégorie source
+function openInvitePicker(hostCatId, heatIdx, srcCatId){
+  var host = CATEGORIES.find(function(c){return String(c.id)===String(hostCatId);});
+  var src  = CATEGORIES.find(function(c){return String(c.id)===String(srcCatId);});
+  if(!host||!src){ return; }
+  var nbL = host.nbLignes || 6;
+  var used = host.teams.filter(function(t){return t.heatNum===heatIdx;}).length;
+  var free = nbL - used;
+  if(free<=0){ toast('Heat déjà complet','#E65100'); return; }
+
+  // équipes de la source déjà invitées quelque part (anti-doublon)
+  var dejaInvitees = {};
+  CATEGORIES.forEach(function(c){
+    c.teams.forEach(function(t){ if(t.isGuest && t.guestSourceId) dejaInvitees[String(t.guestSourceId)]=true; });
+  });
+  // équipes disponibles = équipes natives de la source, pas déjà invitées
+  var teams = src.teams.filter(function(t){ return !t.isGuest && !dejaInvitees[String(t.id)]; });
+  if(!teams.length){ toast('Aucune équipe disponible dans '+(src.nom||'cette catégorie'),'#E65100'); return; }
+
+  var overlay=document.createElement('div');
+  overlay.id='invite-picker-overlay';
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(6,12,22,.72);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;';
+  var rows = teams.map(function(t){
+    return '<label style="display:flex;align-items:center;gap:10px;padding:9px 11px;border:1px solid #E2E8F0;border-radius:9px;margin-bottom:6px;cursor:pointer;background:#fff;">'
+      +'<input type="checkbox" class="invite-pick-cb" value="'+String(t.id)+'" style="width:16px;height:16px;cursor:pointer;accent-color:'+(src.couleur||'#1E88E5')+';">'
+      +'<span style="width:8px;height:8px;border-radius:50%;background:'+(src.couleur||'#888')+';flex-shrink:0;"></span>'
+      +'<span style="font-size:13px;font-weight:700;color:#0F1C2E;">'+escHtml(t.nom)+'</span>'
+      +'</label>';
+  }).join('');
+  overlay.innerHTML =
+    '<div style="background:#F6F9FF;border-radius:16px;max-width:420px;width:100%;max-height:80vh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.4);">'
+    +'<div style="background:linear-gradient(135deg,'+(src.couleur||'#1E88E5')+','+(src.couleur||'#1565C0')+'22);padding:16px 18px;">'
+    +'<div style="font-size:15px;font-weight:900;color:#0F1C2E;">Inviter des équipes de « '+escHtml(src.nom)+' »</div>'
+    +'<div style="font-size:11px;color:#3A5270;margin-top:3px;">dans le HEAT '+(heatIdx+1)+' de « '+escHtml(host.nom)+' » · '+free+' place(s) libre(s)</div>'
+    +'</div>'
+    +'<div style="padding:14px 16px;">'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">'
+    +'<button onclick="_invitePickAll(true)" style="font-size:11px;font-weight:700;color:#1E88E5;background:none;border:none;cursor:pointer;">Tout cocher</button>'
+    +'<button onclick="_invitePickAll(false)" style="font-size:11px;font-weight:700;color:#94A3B8;background:none;border:none;cursor:pointer;">Tout décocher</button>'
+    +'</div>'
+    +rows
+    +'<div style="font-size:10px;color:#94A3B8;margin-top:8px;">Les équipes cochées quittent leur heat d\'origine et sont placées ici. Leur classement reste dans « '+escHtml(src.nom)+' ».</div>'
+    +'</div>'
+    +'<div style="display:flex;gap:8px;padding:12px 16px;border-top:1px solid #E2E8F0;position:sticky;bottom:0;background:#F6F9FF;">'
+    +'<button onclick="closeInvitePicker()" style="flex:1;padding:11px;background:#EEF2F7;border:none;border-radius:9px;font-size:12px;font-weight:800;color:#475569;cursor:pointer;">Annuler</button>'
+    +'<button onclick="confirmInvitePicker(\''+String(hostCatId)+'\','+heatIdx+',\''+String(srcCatId)+'\','+free+')" style="flex:2;padding:11px;background:linear-gradient(135deg,#1565C0,#1E88E5);border:none;border-radius:9px;font-size:12px;font-weight:900;color:#fff;cursor:pointer;">✅ Inviter les équipes cochées</button>'
+    +'</div>'
+    +'</div>';
+  overlay.addEventListener('click',function(e){ if(e.target===overlay) closeInvitePicker(); });
+  document.body.appendChild(overlay);
+}
+
+function _invitePickAll(state){
+  document.querySelectorAll('.invite-pick-cb').forEach(function(cb){ cb.checked=!!state; });
+}
+
+function closeInvitePicker(){
+  var o=document.getElementById('invite-picker-overlay');
+  if(o&&o.parentNode) o.parentNode.removeChild(o);
+}
+
+function confirmInvitePicker(hostCatId, heatIdx, srcCatId, free){
+  var host = CATEGORIES.find(function(c){return String(c.id)===String(hostCatId);});
+  var src  = CATEGORIES.find(function(c){return String(c.id)===String(srcCatId);});
+  if(!host||!src){ closeInvitePicker(); return; }
+
+  var picked=[];
+  document.querySelectorAll('.invite-pick-cb:checked').forEach(function(cb){ picked.push(cb.value); });
+  if(!picked.length){ toast('Aucune équipe cochée','#E65100'); return; }
+  if(picked.length>free){
+    toast('Seulement '+free+' place(s) libre(s) — coche au maximum '+free+' équipe(s)','#E65100',4500);
+    return;
+  }
+
+  var nbL = host.nbLignes || 6;
+  var usedLanes = host.teams.filter(function(t){return t.heatNum===heatIdx;}).map(function(t){return t.ligne;});
+  var freeLanes = [];
+  for(var l=1;l<=nbL;l++){ if(usedLanes.indexOf(l)<0) freeLanes.push(l); }
+
+  var placed=0;
+  picked.forEach(function(pid){
+    if(!freeLanes.length) return;
+    var srcTeam = src.teams.find(function(t){ return String(t.id)===String(pid); });
+    if(!srcTeam) return;
+    var ln = freeLanes.shift();
+
+    // 1) L'équipe QUITTE son heat d'origine (déplacement, pas copie)
+    srcTeam.ligne = null;
+    srcTeam.heatNum = null;
+    srcTeam.invitedOut = true;   // marqueur : partie en invitation ailleurs
+
+    // 2) On crée l'entrée invitée COMPLÈTE dans le heat hôte
+    host.teams.push({
+      id: 'guest_'+srcTeam.id+'_'+host.id+'_'+heatIdx+'_'+ln,
+      guestSourceId: srcTeam.id,
+      nom: srcTeam.nom,
+      ligne: ln,
+      heatNum: heatIdx,
+      isGuest: true,
+      guestCatId:      src.id,
+      guestCatNom:     src.nom,
+      guestCatCouleur: src.couleur,
+      teamCatId:       String(src.id),
+      teamCatName:     src.nom,
+      teamCatColor:    src.couleur
+    });
+    placed++;
+  });
+
+  // 3) Le heat d'origine vidé disparaît : on recompte les heats de la source
+  recomputeHeatCountFromTeams(src);
+
+  closeInvitePicker();
+  renderCategories(); autoSave(); generateHeats();
+  toast('✅ '+placed+' équipe(s) de '+(src.nom||'')+' invitée(s) — leur heat d\'origine a été resserré','#1E88E5',4800);
+}
+
+// Un-inviter une équipe invitée : elle retourne dans sa catégorie d'origine (non placée)
+function uninviteGuest(hostCatId, heatIdx, lane){
+  var host = CATEGORIES.find(function(c){return String(c.id)===String(hostCatId);});
+  if(!host) return;
+  var guest = host.teams.find(function(t){return t.isGuest && t.heatNum===heatIdx && t.ligne===lane;});
+  if(!guest){ return; }
+  var srcId = guest.guestSourceId;
+  var srcCatId = guest.guestCatId;
+  // retirer l'invitée du heat hôte
+  host.teams = host.teams.filter(function(t){return !(t.isGuest && t.heatNum===heatIdx && t.ligne===lane);});
+  // rendre l'équipe à sa catégorie d'origine (non placée → le chef la re-place)
+  var src = CATEGORIES.find(function(c){return String(c.id)===String(srcCatId);});
+  if(src){
+    var srcTeam = src.teams.find(function(t){return String(t.id)===String(srcId);});
+    if(srcTeam){ srcTeam.invitedOut=false; srcTeam.ligne=null; srcTeam.heatNum=null; }
+    recomputeHeatCountFromTeams(src);
+  }
+  renderCategories(); autoSave(); generateHeats();
+  toast('↩ Équipe rendue à sa catégorie','#64748B',3500);
+}
+
 
 function clearAllPlacement(catId){
   var cat = CATEGORIES.find(function(c){return c.id===catId;});
   if(!cat) return;
   // Remove guest teams
   cat.teams = cat.teams.filter(function(t){return !t.isGuest;});
-  // Reset placements
-  cat.teams.forEach(function(t){t.ligne=null;t.heatNum=null;});
+  // Reset placements — les équipes invitées ailleurs reviennent aussi
+  cat.teams.forEach(function(t){t.ligne=null;t.heatNum=null;t.invitedOut=false;});
   renderCategories(); autoSave(); generateHeats();
   toast('↺ Placement effacé','#64748B');
 }
@@ -8991,7 +9180,7 @@ function renderCatDetailInline(container){
       +'<span style="font-size:9px;color:#3A5270;">'+placed+'/'+nbL+'</span>'
       +(free>0
         ?'<span style="font-size:9px;color:var(--ink2);margin-left:auto;">'+free+' libre'+(free>1?'s':'')+' — inviter une autre catégorie : '
-          +'<select onchange="if(this.value)fillHeatWithGuest('+cat.id+','+hi+',parseInt(this.value));this.selectedIndex=0;" style="background:#e1e8f6;border:none;color:var(--ink2);font-size:9px;cursor:pointer;outline:none;">'
+          +'<select onchange="if(this.value)openInvitePicker('+cat.id+','+hi+',this.value);this.selectedIndex=0;" style="background:#e1e8f6;border:none;color:var(--ink2);font-size:9px;cursor:pointer;outline:none;">'
           +'<option value="">choisir</option>'
           +CATEGORIES.filter(function(oc){return oc.id!==cat.id;}).map(function(oc){return'<option value="'+oc.id+'">'+escHtml(oc.nom)+'</option>';}).join('')
           +'</select></span>'
@@ -9009,7 +9198,7 @@ function renderCatDetailInline(container){
           +'<span style="font-size:8px;color:#3A5270;flex-shrink:0;font-weight:700;">L'+(li+1)+'</span>'
           +'<span style="font-size:11px;font-weight:700;color:#0F1C2E;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+escHtml(team2.nom)+'</span>'
           +(isGuest?'<span title="Équipe invitée de '+escHtml(team2.guestCatNom||'')+'" style="font-size:7px;font-weight:900;background:'+gColor+';color:#fff;border-radius:3px;padding:1px 4px;flex-shrink:0;white-space:nowrap;">👥 '+escHtml((team2.guestCatNom||'INVITÉ').toString().slice(0,10))+'</span>':'')
-          +'<button onclick="catUnplaceByPos('+cat.id+','+hi+','+(li+1)+')" title="Retirer du heat" style="background:none;border:none;color:#3A5270;cursor:pointer;font-size:12px;padding:0;flex-shrink:0;line-height:1;">×</button>'
+          +'<button onclick="'+(isGuest?'uninviteGuest':'catUnplaceByPos')+'('+cat.id+','+hi+','+(li+1)+')" title="'+(isGuest?'Rendre à sa catégorie':'Retirer du heat')+'" style="background:none;border:none;color:#3A5270;cursor:pointer;font-size:12px;padding:0;flex-shrink:0;line-height:1;">×</button>'
         +'</div>';
       } else {
         html+='<div ondragover="event.preventDefault()" ondrop="catDrop(event,'+cat.id+','+hi+','+(li+1)+')" '
@@ -9025,7 +9214,7 @@ function renderCatDetailInline(container){
   // ── ROW 5 : Équipes non placées ──
   var placedIds=new Set();
   cat.teams.forEach(function(t){if(t.ligne!=null&&t.heatNum!=null)placedIds.add(t.id||t.nom);});
-  var unplaced=cat.teams.filter(function(t){return !placedIds.has(t.id||t.nom)&&!t.isGuest;});
+  var unplaced=cat.teams.filter(function(t){return !placedIds.has(t.id||t.nom)&&!t.isGuest&&!t.invitedOut;});
   if(unplaced.length){
     html+='<div style="background:rgba(255,159,10,.06);border:1px solid rgba(255,159,10,.2);border-radius:9px;padding:10px 12px;">'
       +'<div style="font-size:9px;font-weight:800;color:#FF9F0A;letter-spacing:1px;text-transform:uppercase;margin-bottom:7px;">⚠ Non placées ('+unplaced.length+')</div>'
@@ -9139,7 +9328,7 @@ function renderCatDetail(){
       +'<span style="font-size:13px;font-weight:900;color:#60A5FA;font-family:sans-serif;">HEAT '+(hi+1)+'/'+nbH+'</span>'
       +'<span style="font-size:9px;color:var(--ink2);">'+placed+'/'+nbL+'</span>'
       +(free>0?'<span style="font-size:9px;color:var(--ink2);margin-left:auto;">'+free+' libre(s) — inviter: '
-        +'<select id="gs-'+hi+'" onchange="fillHeatWithGuest('+cat.id+','+hi+',parseInt(this.value));this.selectedIndex=0;" style="background:#e4eaf7;border:none;color:var(--ink2);font-size:9px;cursor:pointer;outline:none;">'
+        +'<select id="gs-'+hi+'" onchange="if(this.value)openInvitePicker('+cat.id+','+hi+',this.value);this.selectedIndex=0;" style="background:#e4eaf7;border:none;color:var(--ink2);font-size:9px;cursor:pointer;outline:none;">'
         +'<option value="">choisir</option>'
         +CATEGORIES.filter(function(oc){return oc.id!==cat.id;}).map(function(oc){return'<option value="'+oc.id+'">'+escHtml(oc.nom)+'</option>';}).join('')
         +'</select></span>':'<span style="font-size:9px;color:#16A34A;margin-left:auto;">✓ Complet</span>')
@@ -9160,14 +9349,14 @@ function renderCatDetail(){
           +'<div style="width:5px;height:5px;border-radius:50%;background:'+gColor+';flex-shrink:0;"></div>'
           +'<span style="font-size:11px;font-weight:700;color:#0F1C2E;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+escHtml(team2.nom)+'</span>'
           +(isGuest?'<span style="font-size:8px;color:'+gColor+';">▸</span>':'')
-          +'<button onclick="catUnplaceByPos('+cat.id+','+hi+','+(li+1)+')" style="background:none;border:none;color:var(--ink2);cursor:pointer;font-size:12px;padding:0;flex-shrink:0;">×</button>'
+          +'<button onclick="'+(isGuest?'uninviteGuest':'catUnplaceByPos')+'('+cat.id+','+hi+','+(li+1)+')" style="background:none;border:none;color:var(--ink2);cursor:pointer;font-size:12px;padding:0;flex-shrink:0;" title="'+(isGuest?'Rendre à sa catégorie':'Retirer')+'">×</button>'
           +'</div>';
       } else {
         html+='<div ondragover="event.preventDefault()" ondrop="catDrop(event,'+cat.id+','+hi+','+(li+1)+')" '
           +'style="display:flex;align-items:center;gap:5px;padding:5px 8px;border-radius:6px;border:1px dashed #EBF0FA;min-height:32px;">'
           +'<span style="font-size:8px;color:#3A5270;font-weight:700;">L'+(li+1)+'</span>'
           +'<span style="font-size:9px;color:#3A5270;">libre</span>'
-          +'<select onchange="if(this.value)fillHeatWithGuest('+cat.id+','+hi+',parseInt(this.value));this.selectedIndex=0;" title="Ajouter une autre catégorie sur cette ligne" style="margin-left:auto;background:#F8FAFF;border:1px solid #DBE7F5;color:#1E3A6B;font-size:9px;border-radius:6px;padding:2px 4px;cursor:pointer;outline:none;max-width:92px;">'
+          +'<select onchange="if(this.value)openInvitePicker('+cat.id+','+hi+',this.value);this.selectedIndex=0;" title="Ajouter une autre catégorie sur cette ligne" style="margin-left:auto;background:#F8FAFF;border:1px solid #DBE7F5;color:#1E3A6B;font-size:9px;border-radius:6px;padding:2px 4px;cursor:pointer;outline:none;max-width:92px;">'
           +'<option value="">+ cat</option>'
           +CATEGORIES.filter(function(oc){return oc.id!==cat.id;}).map(function(oc){return'<option value="'+oc.id+'">'+escHtml(oc.nom)+'</option>';}).join('')
           +'</select>'
@@ -9180,7 +9369,7 @@ function renderCatDetail(){
   // ── ÉQUIPES NON PLACÉES ──
   var placedSet=new Set();
   cat.teams.forEach(function(t){if(t.ligne!=null&&t.heatNum!=null)placedSet.add(t.id||t.nom);});
-  var unplaced=cat.teams.filter(function(t){return !placedSet.has(t.id||t.nom)&&!t.isGuest;});
+  var unplaced=cat.teams.filter(function(t){return !placedSet.has(t.id||t.nom)&&!t.isGuest&&!t.invitedOut;});
   if(unplaced.length){
     html+='<div style="background:rgba(255,159,10,.06);border:1px solid rgba(255,159,10,.2);border-radius:9px;padding:10px 12px;margin-top:6px;">'
       +'<div style="font-size:9px;font-weight:800;color:#FF9F0A;letter-spacing:1px;text-transform:uppercase;margin-bottom:7px;">⚠ Non placées ('+unplaced.length+')</div>'
@@ -10200,7 +10389,7 @@ function generateHeats(){
     var orderedCats = getOrderedCategoriesForWod(wod, sortedCats);
     orderedCats.forEach(function(cat, catIdxInWod){
       if(!catRunsOnWod(cat, wod)) return;
-      var teams=cat.teams.slice(); if(!teams.length)return;
+      var teams=cat.teams.slice().filter(function(t){return !t.invitedOut;}); if(!teams.length)return;
       var nbHeats=cat.nbHeats||1;
       var nbLignes=cat.nbLignes||6;
       if(!cat.wodOrdres)cat.wodOrdres={};
@@ -10311,7 +10500,7 @@ function generateHeatsSilent(){
     var orderedCats=getOrderedCategoriesForWod(wod, sortedCats);
     orderedCats.forEach(function(cat, catIdxInWod){
       if(!catRunsOnWod(cat, wod)) return;
-      var teams=cat.teams||[]; if(!teams.length)return;
+      var teams=(cat.teams||[]).filter(function(t){return !t.invitedOut;}); if(!teams.length)return;
       var nbHeats=cat.nbHeats||1;
       var nbLignes=cat.nbLignes||6;
       if(!cat.wodOrdres)cat.wodOrdres={};
@@ -15442,6 +15631,7 @@ function buildMailBody(b){
   var base   = location.href.split('/').slice(0,-1).join('/') + '/';
   var judgeUrl = base + 'entry.html?id=' + encodeURIComponent(b.id||'');
   var entryUrl = base + 'entry.html';
+  var planningUrl = base + 'planning.html';
   var judgeQr = 'https://api.qrserver.com/v1/create-qr-code/?size=260x260&color=0D1B2A&bgcolor=FFFFFF&margin=12&ecc=L&data=' + encodeURIComponent(judgeUrl);
   var entryQr = 'https://api.qrserver.com/v1/create-qr-code/?size=260x260&color=0D1B2A&bgcolor=FFFFFF&margin=12&ecc=L&data=' + encodeURIComponent(entryUrl);
 
@@ -15457,9 +15647,11 @@ function buildMailBody(b){
     + planText + '\n'
     + '────────────────────────────────────────\n\n'
     + 'ACCES JUGE DIRECT :\n' + judgeUrl + '\n'
-    + 'QR juge direct :\n' + judgeQr + '\n\n'
+    + 'QR juge direct :\n' + judgeQr + '\n'
+    + 'Planning juge :\n' + planningUrl + '\n\n'
     + 'ACCES GLOBAL JUGE :\n' + entryUrl + '\n'
-    + 'QR acces global :\n' + entryQr + '\n\n'
+    + 'QR acces global :\n' + entryQr + '\n'
+    + 'Planning juge :\n' + planningUrl + '\n\n'
     + 'Merci pour ton engagement !\n\n'
     + 'Pour toute question : ' + emailR + '\n\n'
     + 'À très bientôt,\n'
@@ -19157,6 +19349,86 @@ function exportBackupJSON(){
   a.click();
   toast('💾 JSON exporté','#4DA6FF',3000);
 }
+
+/* ══════════════════════════════════════════════════════════
+   SAUVEGARDE FIREBASE COMPLÈTE (toute la base cloud)
+   Le jour J : télécharge un instantané de TOUTE la base
+   (heats, scores, statuts, juges, bénévoles, litiges, config…)
+   dans un seul fichier JSON, identique à un export Firebase.
+   ══════════════════════════════════════════════════════════ */
+function _getFbDbForBackup(){
+  var _db=null;
+  try{ if(typeof getFirebaseDbSafe==='function') _db=getFirebaseDbSafe(); }catch(e){}
+  if(!_db) _db=(typeof LS_FB_DB!=='undefined'&&LS_FB_DB)||window.db||null;
+  return _db;
+}
+
+function fullFirebaseBackup(){
+  var _db=_getFbDbForBackup();
+  if(!_db){ toast('Firebase non connecté','#FF3B5C',4000); return; }
+  toast('⏳ Lecture de toute la base…','#4DA6FF',3000);
+  _db.ref('/').once('value').then(function(snap){
+    var data=snap.val()||{};
+    var json=JSON.stringify(data,null,2);
+    var blob=new Blob([json],{type:'application/json'});
+    var a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);
+    var d=new Date();
+    a.download='foc-2026-FULL_'+d.getFullYear()+p2(d.getMonth()+1)+p2(d.getDate())+'_'+p2(d.getHours())+p2(d.getMinutes())+'.json';
+    a.click();
+    var ko=Math.round(json.length/1024);
+    toast('✅ Sauvegarde complète téléchargée ('+ko+' Ko)','#00E5A0',5000);
+  }).catch(function(e){
+    toast('Erreur sauvegarde : '+(e&&e.message?e.message:e),'#FF3B5C',6000);
+  });
+}
+
+/* ══════════════════════════════════════════════════════════
+   IMPORT DE SECOURS (restauration complète de la base cloud)
+   À utiliser SEULEMENT si le cloud est corrompu/perdu pendant
+   l'event. Réécrit TOUTE la base Firebase avec le fichier choisi.
+   Double garde-fou : confirmation + mot "RESTAURER" à taper.
+   ══════════════════════════════════════════════════════════ */
+function fullFirebaseRestore(ev){
+  var file=ev.target.files[0];
+  ev.target.value='';
+  if(!file) return;
+  var reader=new FileReader();
+  reader.onload=function(e){
+    var data;
+    try{ data=JSON.parse(e.target.result); }
+    catch(err){ toast('❌ Fichier JSON invalide','#FF3B5C',5000); return; }
+    if(!data||typeof data!=='object'){ toast('❌ Contenu invalide','#FF3B5C',5000); return; }
+
+    var _db=_getFbDbForBackup();
+    if(!_db){ toast('Firebase non connecté','#FF3B5C',4000); return; }
+
+    var cles=Object.keys(data);
+    var apercu=cles.slice(0,12).join(', ')+(cles.length>12?'…':'');
+    var ok1=confirm('🚨 IMPORT DE SECOURS 🚨\n\n'
+      +'Cela va ÉCRASER TOUTE la base Firebase en ligne avec le fichier :\n'
+      +file.name+'\n\n'
+      +cles.length+' rubrique(s) : '+apercu+'\n\n'
+      +'⚠️ À faire uniquement si le cloud est corrompu ou perdu.\n'
+      +'Tout ce qui est actuellement en ligne sera remplacé.\n\n'
+      +'Continuer ?');
+    if(!ok1){ toast('Import annulé','#94A3B8',3000); return; }
+
+    var mot=prompt('Dernière confirmation.\n\nTape le mot RESTAURER (en majuscules) pour écraser la base en ligne :');
+    if(mot!=='RESTAURER'){ toast('Import annulé (mot incorrect)','#94A3B8',4000); return; }
+
+    window._deltaBackupLoadedOnce=true; // débloque les garde-fous anti-écrasement
+    toast('⏳ Restauration en cours…','#4DA6FF',4000);
+    _db.ref('/').set(data).then(function(){
+      toast('✅ Base Firebase restaurée depuis '+file.name,'#00E5A0',6000);
+      setTimeout(function(){ try{ location.reload(); }catch(_e){} }, 1500);
+    }).catch(function(err){
+      toast('Erreur restauration : '+(err&&err.message?err.message:err),'#FF3B5C',7000);
+    });
+  };
+  reader.readAsText(file);
+}
+
 
 /* ══ VIDER DONNÉES DE TEST (scores + statuts — pas la config) ══ */
 function clearTestData(){
