@@ -792,7 +792,7 @@ function checkPassword(){
     var dbg=document.getElementById("lock-debug");
     if(dbg)dbg.textContent='v="'+v+'" len='+v.length;
     var ok=false;
-    if(v==="Delta"){SESSION_MODE="admin";ok=true;}
+    if(v==="Mirage2000D"){SESSION_MODE="admin";ok=true;}
 
     if(ok){
       var ls=document.getElementById("lock-screen");
@@ -14392,13 +14392,13 @@ function changePassword(){
   var nw  = document.getElementById("pwd-new").value;
   var cf  = document.getElementById("pwd-confirm").value;
   var err = document.getElementById("pwd-err");
-  if(cur !== "Delta"){ err.textContent = "Mot de passe actuel incorrect."; return; }
+  if(cur !== "Mirage2000D"){ err.textContent = "Mot de passe actuel incorrect."; return; }
   if(nw.length < 3){ err.textContent = "Minimum 3 caractères."; return; }
   if(nw !== cf){ err.textContent = "Les mots de passe ne correspondent pas."; return; }
   closeModal("pwd-modal");
-  toast("⚠️ Pour changer définitivement le mot de passe, modifie 'Delta' dans le code source du fichier HTML.", "#E65100");
+  toast("⚠️ Pour changer définitivement le mot de passe, modifie 'Mirage2000D' dans le code source du fichier HTML.", "#E65100");
 }
-// Mot de passe admin : Delta (fixe dans le code)
+// Mot de passe admin : Mirage2000D (fixe dans le code)
 
 // ═══ PIÈCE JOINTE MAIL ═══
 function afficherPJ(input){
@@ -16889,7 +16889,7 @@ function printGuide(){
 
   var baseUrl = window.location.href.split('/').slice(0,-1).join('/');
   html += '<div class="urls"><h2>🔗 URLs du système</h2>';
-  html += '<div class="url-row"><span class="url-lbl">Admin</span><span class="url-val">'+baseUrl+'/index.html · mot de passe : Delta</span></div>';
+  html += '<div class="url-row"><span class="url-lbl">Admin</span><span class="url-val">'+baseUrl+'/index.html · mot de passe : Mirage2000D</span></div>';
   html += '<div class="url-row"><span class="url-lbl">Juge</span><span class="url-val">'+baseUrl+'/judge.html#juge/ID</span></div>';
   html += '<div class="url-row"><span class="url-lbl">Écran public</span><span class="url-val">'+baseUrl+'/live.html</span></div>';
   html += '<div class="url-row"><span class="url-lbl">Time Keeper</span><span class="url-val">'+baseUrl+'/tk9delta.html</span></div>';
@@ -16912,7 +16912,7 @@ function printGuide(){
   });
 
   html += '<div class="note">💾 Sauvegarde auto dans le navigateur. Bouton 💾 = export JSON · Bouton 📂 = restaurer<br>';
-  html += '🔑 Mot de passe admin : <b>Delta</b> · Code démo : <b>essai</b> (usage unique par poste)</div>';
+  html += '🔑 Mot de passe admin : <b>Mirage2000D</b> · Code démo : <b>essai</b> (usage unique par poste)</div>';
   html += '<footer>ZONE K · FIGHTS ON CONTEST 2026 · Guide g\u00e9n\u00e9r\u00e9 depuis l\'admin</footer>';
   html += '<scr'+'ipt>window.onload=function(){setTimeout(function(){window.print();},400)}</scr'+'ipt>';
   html += '';
