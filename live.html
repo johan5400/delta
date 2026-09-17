@@ -1042,6 +1042,10 @@ function getLiveChronoFrame(zone,hid,h,w){
     //   EMOM → tours×cycle (le dernier repos passe avant l'inter-heat) ;
     //   intervalles à pause classique → (tours−1)×cycle+travail (inchangé).
     var _emTotal=_isEmomLive?(totalRounds*cycleSec):((totalRounds-1)*cycleSec+workSec);
+    // ★ LADDER ROULANT : la fin n'est PAS stations×cycle (=10 min) car les équipes
+    //   entrent en décalé. Le cap (=duree réglée, couvrant le décalage) fait foi, sinon
+    //   le live passait en FIN à 10 min et coupait les équipes entrées tard.
+    if(_clRoll && cap>0) _emTotal=cap;
     return {
       ts:ts,
       cap:cap,

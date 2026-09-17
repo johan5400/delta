@@ -1281,18 +1281,28 @@ function wodToScenario(wod){
   //   Bug : si wod.duree valait 60 (1 tour) au lieu de 420, le WOD s'arrêtait après
   //   le 1er tour et passait au WOD suivant. workMin × rounds est la source de vérité.
   if(_isEmomCap){
-    var _wk=parseInt(wod.workMin||wod.emomWork||60,10)||60;
-    var _rst=parseInt(wod.restMin||wod.emomRest||0,10)||0;
-    var _nbT=parseInt(wod.rounds||wod.toursCount||wod.emomRounds||0,10)||0;
-    // ★ BELT « passe au heat au bout de 1 tour » : si des TOURS PERSO sont définis et
-    //   sont PLUS nombreux que le compte publié (ex. rounds retombé à 1 à cause d'une
-    //   durée totale mal réglée), on fait confiance aux tours perso réellement présents.
-    //   Empêche l'EMOM de finaliser au tour 1 alors que N tours sont configurés.
-    if(Array.isArray(wod.toursPerso) && wod.toursPerso.length > _nbT) _nbT=wod.toursPerso.length;
-    if(_nbT<=0) _nbT=1;
-    var _capEmom=(_wk+_rst)*_nbT;
-    // pour un EMOM, le cap calculé est TOUJOURS la référence (pas wod.duree qui peut être faux)
-    cap=_capEmom;
+    // ★ LADDER ROULANT (clRolling) : les équipes entrent en décalé, donc le cap N'EST
+    //   PAS stations×cycle (=10 min) mais la durée réglée à la main, qui couvre le
+    //   décalage d'entrée = (équipesMax−1+stations+1)×interHeat. Sans ça le juge coupait
+    //   à 10 min et arrêtait les équipes entrées tard. Priorité à duree/capSec en roulant.
+    var _rollCapJ=!!(wod.clRolling||(wod.id!=null && typeof WD!=='undefined' && WD[String(wod.id)] && WD[String(wod.id)].clRolling));
+    var _durRollJ=parseInt(wod.duree||wod.capSec||(wod.id!=null&&typeof WD!=='undefined'&&WD[String(wod.id)]?WD[String(wod.id)].duree:0)||0,10)||0;
+    if(_fmtCap==='cleanladder' && _rollCapJ && _durRollJ>0){
+      cap=_durRollJ;
+    } else {
+      var _wk=parseInt(wod.workMin||wod.emomWork||60,10)||60;
+      var _rst=parseInt(wod.restMin||wod.emomRest||0,10)||0;
+      var _nbT=parseInt(wod.rounds||wod.toursCount||wod.emomRounds||0,10)||0;
+      // ★ BELT « passe au heat au bout de 1 tour » : si des TOURS PERSO sont définis et
+      //   sont PLUS nombreux que le compte publié (ex. rounds retombé à 1 à cause d'une
+      //   durée totale mal réglée), on fait confiance aux tours perso réellement présents.
+      //   Empêche l'EMOM de finaliser au tour 1 alors que N tours sont configurés.
+      if(Array.isArray(wod.toursPerso) && wod.toursPerso.length > _nbT) _nbT=wod.toursPerso.length;
+      if(_nbT<=0) _nbT=1;
+      var _capEmom=(_wk+_rst)*_nbT;
+      // pour un EMOM, le cap calculé est TOUJOURS la référence (pas wod.duree qui peut être faux)
+      cap=_capEmom;
+    }
   } else if(!cap){
     var cm=parseInt(wod.capMinutes||wod.workMin||0,10)||0;
     cap = cm * 60;

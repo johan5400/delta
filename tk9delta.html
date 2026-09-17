@@ -3252,6 +3252,12 @@ function updateZoneTimer(zone,hid,h){
       //   Intervalles à pause classique : pas de pause après le dernier effort
       //   → (tours−1)×cycle+travail (comportement d'origine, zéro régression).
       var totalDur=_isEmomTk?(totalRounds*cycleSec):((totalRounds-1)*cycleSec+workSec);
+      // ★ LADDER ROULANT : entrées décalées → la fin n'est PAS stations×cycle (=10 min)
+      //   mais le cap (=duree réglée couvrant le décalage). Sinon le TK basculait en FIN
+      //   à 10 min et enchaînait le heat suivant en coupant les équipes entrées tard.
+      var _clWidTk=(wod.id!=null?String(wod.id):'');
+      var _clRollTk=(type==='cleanladder') && !!(wod.clRolling||(_clWidTk && typeof WD!=='undefined' && WD[_clWidTk] && WD[_clWidTk].clRolling));
+      if(_clRollTk && cap>0) totalDur=cap;
       if(elapsed>=totalDur){
         // ★ FIX FLUIDITÉ — jamais figé sur 0:00, basculer immédiatement sur FIN
         if(zoneState[zone]._lastTimerVal !== '🏁 FIN'){
