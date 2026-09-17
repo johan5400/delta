@@ -400,9 +400,9 @@ function scoreVal(sc,wod,h,hid){
   var type=wod.wodFormat||wod.type||'amrap';
   // ★ CLEAN LADDER v2 : score = cumul kg (barre bonus incluse). Éliminé = cumul partiel.
   if(type==='cleanladder') return parseFloat((sc.clLoad!=null?sc.clLoad:sc.load))||0;
-  if(wod.judgeMode==='maxload'||wod.scoreFinale==='load')return parseFloat(sc.load)||0;
-  if(wod.judgeMode==='ergo')return parseFloat(sc.ergoVal||sc.dist||sc.distance)||0;
-  if(wod.scoreFinale==='dist')return parseFloat(sc.dist||sc.distance)||0;
+  var _sf=String(wod.scoreType||wod.scoreFinale||'').toLowerCase();
+  if(wod.judgeMode==='maxload'||_sf==='load')return parseFloat(sc.load)||0;
+  if(wod.judgeMode==='ergo'||_sf==='dist'||_sf==='cal')return parseFloat(sc.ergoVal||sc.dist||sc.distance)||0;
   if(type==='fortime'||wod.scoreFinale==='time'){
     // Terminé dans le temps → trier par temps (plus petit = meilleur)
     var ft=inferFortimeSeconds(sc,wod,h,hid);
@@ -463,9 +463,9 @@ function scoreDisplay(sc,wod,h,hid){
     out=_clc+' kg'+(sc.clOut?' · 🛑 terminé':'');
     return out;
   }
-  if(wod.judgeMode==='maxload'||wod.scoreFinale==='load')out=(sc.load||0)+' kg';
-  else if(wod.judgeMode==='ergo')out=(sc.ergoVal||sc.dist||sc.distance||0)+(wod.scoreFinaleUnit||'m');
-  else if(wod.scoreFinale==='dist')out=(sc.dist||sc.distance||0)+' '+(wod.scoreFinaleUnit||'m');
+  var _sfL=String(wod.scoreType||wod.scoreFinale||'').toLowerCase();
+  if(wod.judgeMode==='maxload'||_sfL==='load')out=(sc.load||0)+' kg';
+  else if(wod.judgeMode==='ergo'||_sfL==='dist'||_sfL==='cal')out=(parseFloat(sc.ergoVal||sc.dist||sc.distance)||0)+(_sfL==='cal'?' cal':(' '+(wod.scoreFinaleUnit||'m')));
   else if(type==='fortime'||wod.scoreFinale==='time'){
     var ft=inferFortimeSeconds(sc,wod,h,hid);
     if(ft>0) out=fmt(ft);

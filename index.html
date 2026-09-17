@@ -5371,7 +5371,7 @@ function loadJudgeCountsFromFirebase(cb){
     // Head judges : heats supervisés (b.hjHeats), compté à part
     (BENEVOLES||[]).forEach(function(b){
       if(b && typeof isHeadJudge==='function' && isHeadJudge(b)){
-        res.head[String(b.id)] = Array.isArray(b.hjHeats) ? b.hjHeats.length : 0;
+        res.head[String(b.id)] = _hjRealCount(b);
       }
     });
     window._judgeCountsCache = res;
@@ -5399,7 +5399,7 @@ function computeRealJudgeCounts(){
   });
   (BENEVOLES||[]).forEach(function(b){
     if(b && typeof isHeadJudge==='function' && isHeadJudge(b)){
-      res.head[String(b.id)] = Array.isArray(b.hjHeats) ? b.hjHeats.length : 0;
+      res.head[String(b.id)] = _hjRealCount(b);
     }
   });
   return res;
@@ -5841,6 +5841,21 @@ function renderBenQRPane(){
 }
 
 // ★ HEAD JUDGE — sélecteur des heats supervisés (auto zone + override manuel)
+// ★ COMPTE HEAD JUDGE FIABLE : ids uniques d'hjHeats correspondant à des heats EXISTANTS
+//   (élimine les doublons + les heats supprimés/périmés après régénération/invitations).
+//   hjHeats vide = mode auto = toute la zone.
+function _hjRealCount(b){
+  try{
+    var arr = Array.isArray(b.hjHeats) ? b.hjHeats.map(String) : [];
+    if(!arr.length){ return (_hjHeatsOfZone(headJudgeZone(b), b.jours)||[]).length; }
+    var heats = (typeof HEATS_RESULT!=='undefined' && HEATS_RESULT) ? HEATS_RESULT : [];
+    if(!heats.length){ var u0={}; arr.forEach(function(x){u0[x]=1;}); return Object.keys(u0).length; }
+    var valid={}; heats.forEach(function(h){ if(h) valid[String(h.globalNum||h.id||'')]=1; });
+    var seen={}, n=0;
+    arr.forEach(function(id){ if(valid[id] && !seen[id]){ seen[id]=1; n++; } });
+    return n;
+  }catch(e){ return Array.isArray(b.hjHeats)?b.hjHeats.length:0; }
+}
 function _hjHeatsOfZone(zone, jours){
   // renvoie les heats de la zone (filtrés par jours du HJ si dispo), triés
   var heats = HEATS_RESULT||[];
@@ -7187,7 +7202,12 @@ if(typeof fbBuildWodInfo !== 'function'){
           type:m.type||'reps',
           tour:parseInt(m.tour||0,10)||0,
           ergoTarget:m.ergoTarget||0,
-          ergoUnit:m.ergoUnit||m.unit||'m',
+          // ★ UNITÉ ERGO SUIT LE SCORE DU WOD : scoreType 'cal' → cal, 'dist' → m.
+          //   (demande chef WOD 1 : bike affiché en cal, plus en mètres). Sinon on garde
+          //   l'unité saisie sur le mouvement. Ne touche que les mouvements de type ergo.
+          ergoUnit: ((m.type||'reps')==='ergo' && (wod.scoreType==='cal'||wod.scoreType==='dist'))
+                      ? (wod.scoreType==='cal'?'cal':'m')
+                      : (m.ergoUnit||m.unit||'m'),
           // ★ RAMEUR SBC : pas (mètres/clic) + adaptation par catégorie.
           //   Le juge tape des clics ; le public voit clics×pas en mètres.
           //   0 / absent → mouvement normal (n'affecte aucun autre ergo).
@@ -9019,6 +9039,22 @@ function catDrop(ev, destCatId, heatIdx, ligne){
   // ── CAS 2 : équipe invitée (autre catégorie) ─────────────────────
   } else {
     var srcCat = CATEGORIES.find(function(c){return _sameId(c.id,srcCatId);});
+    // ★ REPOSITIONNER UN INVITÉ DÉJÀ PRÉSENT : si cette équipe est déjà un invité de ce
+    //   heat (destCat), on la DÉPLACE vers la ligne visée au lieu d'en créer un doublon.
+    var _selfGuest = (destCat.guests||[]).find(function(g){ return _sameId(g.teamId, teamId); });
+    if(_selfGuest){
+      // libérer la ligne cible si un AUTRE invité l'occupe
+      destCat.guests = (destCat.guests||[]).filter(function(g){ return !(g.ligne===ligne && g.heatIdx===heatIdx && !_sameId(g.teamId, teamId)); });
+      _selfGuest.ligne = ligne; _selfGuest.heatIdx = heatIdx;
+      _catDragTeamId=null; _catDragSrcCatId=null;
+      renderCategories(); if(typeof autoSave==='function')autoSave();
+      if(typeof generateHeats==='function')generateHeats();
+      if(typeof syncHeatsToFirebase==='function'){
+        clearTimeout(window._dropPubT);
+        window._dropPubT=setTimeout(function(){ try{ syncHeatsToFirebase(); if(typeof toast==='function') toast('✅ Invité déplacé — juge/live à jour','#00C853',1500); }catch(e){ console.warn('drop publish',e); } }, 700);
+      }
+      return;
+    }
     if(!srcCat) return;
     var guestTeam = srcCat.teams.find(function(t){return _sameId(t.id,teamId);});
     if(!guestTeam) return;
@@ -22831,7 +22867,7 @@ function printBlankScorecards(wodId){
         return '<tr><td style="padding:6px 10px;font-size:12px;font-weight:900;background:#EEF2FF;border-bottom:2px solid #6366F1;color:#3730A3">🏁 '+escHtml(String(row).slice(4))+'</td><td style="width:70px;border-bottom:2px solid #6366F1;border-left:1px solid #E2E8F0;background:#F5F3FF;text-align:center;font-size:8px;color:#4F46E5;font-weight:800">départage</td></tr>';
       }
       if(String(row).indexOf('§HDR§')===0){
-        return '<tr><td colspan="2" style="padding:5px 10px;font-size:9px;font-weight:900;background:#B91C1C;color:#fff;text-transform:uppercase;letter-spacing:1px">'+escHtml(String(row).slice(5))+'</td></tr>';
+        return '<tr><td colspan="2" style="padding:5px 10px;font-size:9px;font-weight:900;background:#fff;color:#B91C1C;border-bottom:2px solid #B91C1C;text-transform:uppercase;letter-spacing:1px">'+escHtml(String(row).slice(5))+'</td></tr>';
       }
       if(String(row).indexOf('§TOUR§')===0){
         return '<tr><td colspan="2" style="padding:5px 10px;font-size:9px;font-weight:900;background:'+color+';color:#fff;text-transform:uppercase;letter-spacing:1.5px">🔄 TOUR '+String(row).slice(6)+'</td></tr>';
@@ -23008,7 +23044,7 @@ function printScorecardWod(wodId) {
           return '<tr><td style="padding:7px 12px;font-size:12px;font-weight:900;background:#EEF2FF;border-bottom:2px solid #6366F1;color:#3730A3">🏁 ' + escHtml(String(row).slice(4)) + ' <span style="float:right;font-size:9px;font-weight:800;color:#4F46E5">▢ départage</span></td></tr>';
         }
         if (String(row).indexOf('§HDR§')===0) {
-          return '<tr><td style="padding:6px 12px;font-size:10px;font-weight:900;background:#B91C1C;color:#fff;text-transform:uppercase;letter-spacing:1px">' + escHtml(String(row).slice(5)) + '</td></tr>';
+          return '<tr><td style="padding:6px 12px;font-size:10px;font-weight:900;background:#fff;color:#B91C1C;border-bottom:2px solid #B91C1C;text-transform:uppercase;letter-spacing:1px">' + escHtml(String(row).slice(5)) + '</td></tr>';
         }
         if (String(row).indexOf('§TOUR§')===0) {
           return '<tr><td style="padding:6px 12px;font-size:10px;font-weight:900;background:#1E3A5F;color:#fff;text-transform:uppercase;letter-spacing:1.5px">\ud83d\udd04 TOUR ' + String(row).slice(6) + '</td></tr>';
