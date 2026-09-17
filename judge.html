@@ -1309,6 +1309,7 @@ function wodToScenario(wod){
   var moves = movs.map(function(m){
     var baseQty = parseInt(m.qty||m.reps||0)||0;
     var basePoids = '';
+    var basePoidsF = '';   // ★ H/F : poids Femme (barre 2) en catégorie mixte
     var baseTime = '';
     var baseDist = parseInt(m.ergoTarget||0)||0;
 
@@ -1321,6 +1322,9 @@ function wodToScenario(wod){
         baseQty = parseInt(m.qtyParCat[catId])||baseQty;
       if(m.poids && m.poids[catId])
         basePoids = m.poids[catId];
+      // ★ H/F : poids Femme (barre 2) pour les catégories mixtes.
+      if(m.poidsF && m.poidsF[catId] != null && m.poidsF[catId] !== '')
+        basePoidsF = m.poidsF[catId];
       if(m.timeParCat && m.timeParCat[catId])
         baseTime = m.timeParCat[catId];
       if(m.distParCat && m.distParCat[catId] != null && m.distParCat[catId] !== '')
@@ -1340,6 +1344,7 @@ function wodToScenario(wod){
       //   contient un (incohérence poidsGlobal/poids[cat] ou fuite), on ne le propage
       //   pas au juge, sinon il affiche un « ⚖️ … » absurde sur le bike.
       poids: ((m.type||'reps')==='ergo') ? '' : basePoids,
+      poidsF: ((m.type||'reps')==='ergo') ? '' : basePoidsF,  // ★ H/F : poids barre 2 (Femme) en mixte
       temps: baseTime,
       type: m.type||'reps',
       ergoTarget: baseDist,
@@ -1407,6 +1412,7 @@ function wodToScenario(wod){
     // ★ Clean Ladder : identité conservée (bornage cible tour, élimination auto, bouton FINI, charge finale kg).
     //   Utilise le timing EMOM normal (travail/repos configurés dans l'index).
     cleanLadder: _isCleanLadder,
+    mixte: moves.some(function(m){ return parseFloat(String(m.poidsF||'').replace(',','.'))>0; }),  // ★ H/F : mixte si un poids F est saisi
     clRolling: !!wod.clRolling,  // ★ LADDER ROULANT : recopié dans SC pour que le juge active l'entrée différée
     clBarres: parseInt(wod.clBarres!=null?wod.clBarres:2,10)||2, // ★ CL v2 : nb de barres par station
     dbIntervalSec: parseInt(wod.dbIntervalSec||3,10)||3, // (ancien modèle, gardé inerte pour compat)
@@ -3246,27 +3252,68 @@ function _cl2PoidsStation(st){
   return p||0;
 }
 
-/* ── Init CL v2 au démarrage du heat ── */
+// ★ H/F : poids Femme (barre 2) pour la station st en catégorie mixte.
+function _cl2PoidsStationF(st){
+  var ms = (SC && SC.moves) || [];
+  var p = 0;
+  for(var i=0;i<ms.length;i++){
+    var m = ms[i]; if(!m) continue;
+    var t = parseInt(m.tour||0,10)||0;
+    if(t>0 && t!==st) continue;
+    var pv = parseFloat(String(m.poidsF!=null?m.poidsF:'').replace(',','.'));
+    if(isFinite(pv) && pv>0){ p = pv; if(t===st) break; }
+  }
+  return p||0;
+}
+
+// ★ H/F : poids de LA barre (athlète) i à la station st.
+//   Mixte : barre 0 = Homme (poidsStation) · barre 1 = Femme (poidsStationF).
+//   Non mixte (H-H / F-F) : même poids pour tous.
+function cl2BarPoids(st, i){
+  if(_cl2.mixte && i===1){
+    var pf = (_cl2.poidsStationF && _cl2.poidsStationF[st]) || 0;
+    if(pf>0) return pf;
+  }
+  return (_cl2.poidsStation && _cl2.poidsStation[st]) || 0;
+}
 function cl2Init(){
   if(!_isCL2()) return;
   _cl2.nbStations = Math.max(1, parseInt(SC.toursCount||SC.rounds||1,10)||1);
   _cl2.nbBarres   = Math.max(1, parseInt(SC.clBarres||2,10)||2);
   _cl2.station    = 1;
+  _cl2.mixte      = !!(SC && SC.mixte);   // ★ H/F : catégorie mixte (poids H barre1 / poids F barre2)
   _cl2.poidsStation = {};
+  _cl2.poidsStationF = {};
   _cl2.barres = {};
   for(var s=1;s<=_cl2.nbStations;s++){
     _cl2.poidsStation[s] = _cl2PoidsStation(s);
+    _cl2.poidsStationF[s] = _cl2.mixte ? _cl2PoidsStationF(s) : 0;
     _cl2.barres[s] = [];
     for(var b=0;b<_cl2.nbBarres;b++) _cl2.barres[s].push(0);
   }
   _cl2.bonus = null; _cl2.bonusOpen = false;
   _cl2.cumul = 0; _cl2.pendingBarre = null; _cl2.eliminated = false; _cl2.lastJudged = null;
+  // ★ NEUTRALISATION PAR ATHLÈTE : dead[i] = athlète i (= barre i) neutralisé.
+  //   Un no-rep neutralise cet athlète (barre verrouillée ensuite) ; l'autre continue.
+  //   Équipe terminée seulement quand TOUS sont neutralisés.
+  _cl2.dead = [];
+  for(var d=0;d<_cl2.nbBarres;d++) _cl2.dead.push(false);
   _clOut = false; _clLoad = null;
   // ★ LADDER ROULANT (variant) : l'équipe entre au top = sa lane (lane 1 → top 1, lane 2 → top 2…).
   //   Avant son top d'entrée, elle est EN ATTENTE. Le reste du moteur (stations 1→N, barres,
   //   cumul, élimination) est identique — seul le DÉMARRAGE est décalé.
   _cl2.rolling = !!(SC && SC.clRolling);
   _cl2.entryTick = _cl2.rolling ? Math.max(1, parseInt((typeof FB_LANE!=='undefined'&&FB_LANE)?FB_LANE:1,10)||1) : 1;
+}
+
+/* ── Neutralisation : helpers ── */
+function cl2AllDead(){
+  if(!_cl2.dead || !_cl2.dead.length) return false;
+  for(var i=0;i<_cl2.nbBarres;i++){ if(!_cl2.dead[i]) return false; }
+  return true;
+}
+function cl2AliveCount(){
+  var n=0; for(var i=0;i<_cl2.nbBarres;i++){ if(!(_cl2.dead&&_cl2.dead[i])) n++; } return n;
 }
 
 /* ── Recalcul du cumul ──
@@ -3277,19 +3324,19 @@ function cl2Recompute(){
   var tot = 0;
   for(var s=1;s<=_cl2.nbStations;s++){
     var arr = _cl2.barres[s]||[];
-    var p = _cl2.poidsStation[s]||0;
     if(arr.length===0) continue;
-    var greens=0;
+    // ★ H/F : chaque barre verte compte avec SON poids (barre 1 = H, barre 2 = F en mixte).
+    //   Non mixte → même poids pour toutes. Une ratée n'annule pas la verte de la station.
     for(var b=0;b<arr.length;b++){
-      if(arr[b]===1) greens++;
+      if(arr[b]===1) tot += cl2BarPoids(s, b);
     }
-    // ★ RÈGLE CHEF : chaque barre validée compte au cumul, individuellement.
-    //   1 barre verte = +charge×1, 2 vertes = +charge×2. Une barre ratée
-    //   n'annule PAS la barre validée de la même station (mais stoppe la
-    //   progression, géré dans cl2CloseStation).
-    tot += p * greens;
   }
-  if(_cl2.bonus && _cl2.bonus.etat===1) tot += (parseFloat(_cl2.bonus.poids)||0);
+  // ★ Barres bonus : tableau (1 par athlète vivant). Chaque bonus validé s'ajoute.
+  if(Array.isArray(_cl2.bonus)){
+    _cl2.bonus.forEach(function(b){ if(b && b.etat===1) tot += (parseFloat(b.poids)||0); });
+  } else if(_cl2.bonus && _cl2.bonus.etat===1){ // compat ancien format (objet unique)
+    tot += (parseFloat(_cl2.bonus.poids)||0);
+  }
   _cl2.cumul = tot;
   _clLoad = tot; // départage/score = cumul
   return tot;
@@ -3299,6 +3346,10 @@ function cl2Recompute(){
 function cl2TapBarre(idx){
   if(done || _cl2.eliminated) return;
   if(!_isCL2()) return;
+  // ★ REPOS : pas de saisie entre deux stations (phase off). Bonus non concerné.
+  if(!emomIsWork && !_cl2.bonusOpen){ toast('⏸ Repos — saisie bloquée','#FFB020',1500); return; }
+  // ★ NEUTRALISÉ : barre d'un athlète neutralisé = verrouillée.
+  if(_cl2.dead && _cl2.dead[idx]){ toast('🚫 Athlète neutralisé','#888',1500); return; }
   var st = _cl2.station;
   var arr = _cl2.barres[st]||[];
   // état définitif : on n'ouvre que les barres en attente (0)
@@ -3316,6 +3367,7 @@ function cl2TapBarre(idx){
 /* ── Validation de la barre tentée : ok=true ✅ / false ❌ (définitif) ── */
 function cl2JudgeBarre(ok){
   if(done || _cl2.eliminated) return;
+  if(!emomIsWork && !_cl2.bonusOpen){ toast('⏸ Repos — saisie bloquée','#FFB020',1500); return; }
   if(_cl2.pendingBarre==null){ toast('Sélectionne une barre d\'abord','#FFB020',1600); return; }
   var st = _cl2.station;
   var arr = _cl2.barres[st]||[];
@@ -3324,9 +3376,18 @@ function cl2JudgeBarre(ok){
   _cl2.pendingBarre = null;
   _cl2.lastJudged = { st: st, idx: idx }; // ★ mémorise pour Annuler
   try{ vib(ok?[60,30,60]:[120]); }catch(e){}
+  // ★ NEUTRALISATION : un no-rep neutralise CET athlète (sa barre se verrouille sur les
+  //   stations suivantes). L'autre continue seul. Équipe terminée seulement si tous morts.
+  if(!ok){
+    if(!_cl2.dead) _cl2.dead=[];
+    _cl2.dead[idx]=true;
+    cl2Recompute();
+    if(cl2AllDead()){ cl2Eliminate(); return; }
+    toast('🚫 Athlète '+(idx+1)+' neutralisé — l\'autre continue','#FF8A00',2600);
+    cl2Render(); cl2Push();
+    return;
+  }
   cl2Recompute(); cl2Render(); cl2Push();
-  // si une barre est ratée, la station ne pourra pas être complète → l'élimination
-  // sera prononcée à la bascule 'off' (fin du temps de station).
 }
 
 /* ── ANNULER la dernière barre jugée (station en cours uniquement) ──
@@ -3373,12 +3434,15 @@ function cl2Undo(){
   }
 
   arr[target] = 0;            // barre remise en attente
+  // ★ RÉACTIVATION : annuler le no-rep réactive l'athlète neutralisé (seule voie de retour).
+  var wasDead = !!(_cl2.dead && _cl2.dead[target]);
+  if(_cl2.dead) _cl2.dead[target]=false;
   _cl2.pendingBarre = null;
   _cl2.lastJudged = null;
   cl2Recompute();
   cl2Render(); cl2Push();
   try{ vib([40]); }catch(e){}
-  toast(wasEliminated ? '↩ Annulé — équipe réintégrée' : '↩ Dernière barre annulée','#00E5A0',2000);
+  toast(wasEliminated ? '↩ Annulé — équipe réintégrée' : (wasDead ? '↩ Annulé — athlète '+(target+1)+' réactivé' : '↩ Dernière barre annulée'),'#00E5A0',2200);
 }
 
 /* ── Nb de barres vertes sur la station courante ── */
@@ -3397,16 +3461,20 @@ function cl2CloseStation(){
   var arr = _cl2.barres[st]||[];
   for(var i=0;i<arr.length;i++){ if(arr[i]==='try') arr[i]=-1; }
   _cl2.pendingBarre = null;
+  // ★ NEUTRALISATION à la clôture : tout athlète VIVANT qui n'a PAS validé sa barre sur
+  //   cette station est neutralisé (barre verrouillée ensuite). Un athlète déjà mort le reste.
+  if(!_cl2.dead) _cl2.dead=[];
+  for(var a=0;a<_cl2.nbBarres;a++){
+    if(_cl2.dead[a]) continue;           // déjà neutralisé → barre non requise
+    if(arr[a]!==1){ _cl2.dead[a]=true; } // vivant mais pas de barre verte ici → neutralisé
+  }
   cl2Recompute();
-  var greens = cl2Greens(st);
-  // ★ RÈGLE CHEF : il faut valider LES DEUX barres de la station pour AVANCER. Sinon
-  //   (une seule ou aucune validée) → FIN DE L'ÉPREUVE pour l'équipe, cumul partiel conservé.
-  if(greens < _cl2.nbBarres){
-    // station non bouclée (moins de 2 barres vertes) → fin de l'épreuve, cumul partiel gardé
+  // ★ Équipe terminée UNIQUEMENT si tous les athlètes sont neutralisés (cumul partiel gardé).
+  if(cl2AllDead()){
     cl2Eliminate();
     return;
   }
-  // station complète → avancer
+  // au moins un athlète vivant → on avance (les vivants continuent, barres des morts grisées)
   if(st >= _cl2.nbStations){
     // toutes les stations bouclées → ouvrir la barre bonus
     cl2OpenBonus();
@@ -3432,41 +3500,72 @@ function cl2Eliminate(){
 /* ── Barre BONUS : ouverte quand toutes les stations sont validées ── */
 function cl2OpenBonus(){
   _cl2.bonusOpen = true;
-  _cl2.bonus = { poids: null, etat: 0 };
+  // ★ BARRES BONUS ADAPTATIVES : 1 barre par athlète VIVANT (2 si les 2 ont fini, 1 si un seul).
+  //   Chaque athlète a sa propre barre bonus avec son propre poids à saisir.
+  _cl2.bonus = [];
+  for(var a=0;a<_cl2.nbBarres;a++){
+    if(_cl2.dead && _cl2.dead[a]) continue;      // athlète neutralisé → pas de barre bonus
+    _cl2.bonus.push({ athlete:a, poids:null, etat:0 });
+  }
+  // Sécurité : si personne n'est vivant (ne devrait pas arriver, l'équipe serait terminée)
+  if(_cl2.bonus.length===0){ done=true; try{ validate(); }catch(e){} return; }
   cl2Render(); cl2Push();
-  toast('🏆 Toutes les stations validées — barre bonus !','#00E5A0',2600);
+  var n=_cl2.bonus.length;
+  toast('🏆 Stations validées — '+n+' barre'+(n>1?'s':'')+' bonus !','#00E5A0',2600);
 }
 
-/* ── Le juge saisit le poids libre de la barre bonus → 'try' (visible live) ── */
-function cl2BonusSet(){
+/* ── Le juge saisit le poids libre d'UNE barre bonus (index k) → 'try' ── */
+function cl2BonusSet(k){
   if(!_cl2.bonusOpen || done) return;
-  var inp = document.getElementById('cl2-bonus-inp');
+  if(!Array.isArray(_cl2.bonus) || !_cl2.bonus[k]) return;
+  var inp = document.getElementById('cl2-bonus-inp-'+k);
   var kg = parseFloat(String(inp&&inp.value||'').replace(',','.'));
   if(!isFinite(kg) || kg<=0){ toast('Saisis un poids valide','#FFB020',1600); if(inp) inp.focus(); return; }
-  _cl2.bonus = { poids: kg, etat: 'try' };
+  _cl2.bonus[k].poids = kg; _cl2.bonus[k].etat = 'try';
   try{ vib([40]); }catch(e){}
   cl2Render(); cl2Push();
 }
 
-/* ── Validation de la barre bonus : ok ✅ (+cumul) / ❌ ── */
-function cl2BonusJudge(ok){
+/* ── Validation d'UNE barre bonus (index k) : ok ✅ (+cumul) / ❌ ── */
+function cl2BonusJudge(k, ok){
   if(!_cl2.bonusOpen || done) return;
-  if(!_cl2.bonus || _cl2.bonus.etat!=='try'){ toast('Saisis puis affiche le poids d\'abord','#FFB020',1800); return; }
-  _cl2.bonus.etat = ok ? 1 : -1;
+  if(!Array.isArray(_cl2.bonus) || !_cl2.bonus[k] || _cl2.bonus[k].etat!=='try'){ toast('Saisis puis affiche le poids d\'abord','#FFB020',1800); return; }
+  _cl2.bonus[k].etat = ok ? 1 : -1;
   try{ vib(ok?[60,30,60]:[120]); }catch(e){}
   cl2Recompute();
-  toast(ok?('🏆 Bonus validé — +'+_cl2.bonus.poids+' kg'):'Bonus refusé','#'+(ok?'00E5A0':'FF3B5C'),2400);
+  toast(ok?('🏆 Bonus validé — +'+_cl2.bonus[k].poids+' kg'):'Bonus refusé','#'+(ok?'00E5A0':'FF3B5C'),2400);
   cl2Render(); cl2Push();
-  // fin du WOD : score final = cumul
-  done = true;
-  try{ validate(); }catch(e){ console.warn('cl2BonusJudge validate:',e); }
+  // ★ Fin du WOD quand TOUTES les barres bonus sont jugées (✅ ou ❌).
+  var allDone = _cl2.bonus.every(function(b){ return b.etat===1 || b.etat===-1; });
+  if(allDone){ done = true; try{ validate(); }catch(e){ console.warn('cl2BonusJudge validate:',e); } }
 }
 
 /* ── Rendu de la zone CL v2 ── */
+/* ── Signature de l'état CL : la zone n'est reconstruite QUE si ça change.
+   Corrige le bug de saisie (le champ du poids bonus se vidait à chaque tick du chrono). ── */
+function _cl2Sig(){
+  var p=[_cl2.station,_cl2.nbStations,_cl2.nbBarres,_cl2.cumul,
+         _cl2.bonusOpen?1:0,_cl2.eliminated?1:0,
+         (_cl2.pendingBarre==null?'x':_cl2.pendingBarre),
+         (emomIsWork?1:0)];
+  for(var s=1;s<=_cl2.nbStations;s++){ p.push((_cl2.barres[s]||[]).join(',')); }
+  p.push('d:'+((_cl2.dead||[]).join(',')));
+  if(Array.isArray(_cl2.bonus)){
+    p.push('b:'+_cl2.bonus.map(function(x){return x.athlete+'/'+x.etat+'/'+(x.poids||0);}).join(';'));
+  }
+  if(_cl2.rolling) p.push('r:'+(parseInt(emomRound,10)||1));
+  return p.join('|');
+}
+
 function cl2Render(){
   var zone = document.getElementById('j-cl2-zone');
   if(!zone) return;
   if(!_isCL2()){ zone.style.display='none'; return; }
+
+  // ★ GARDE : ne reconstruire l'écran que si l'état a changé (sinon on efface la saisie en cours,
+  //   notamment le champ du poids de la barre bonus qui se vidait à chaque seconde).
+  var _sig=_cl2Sig();
+  if(zone.dataset && zone.dataset.sig===_sig && zone.style.display!=='none') return;
 
   // ★ ROULANT : équipe pas encore entrée (top courant < top d'entrée) → écran d'ATTENTE.
   //   Elle ne juge rien tant que son top d'entrée n'est pas atteint.
@@ -3479,6 +3578,7 @@ function cl2Render(){
       + '<div style="font-size:14px;color:#94A3B8;margin-top:8px">Entrée au top <b>'+(_cl2.entryTick||1)+'</b> · dans <b>'+_wait+'</b> top'+(_wait>1?'s':'')+'</div>'
       + '<div style="font-size:12px;color:#647A96;margin-top:10px">Prépare la 1re barre : <b>'+((_cl2.poidsStation[1]||0)||'—')+' kg</b></div>'
       + '</div>';
+    try{ zone.dataset.sig=_sig; }catch(e){}
     return;
   }
 
@@ -3493,75 +3593,101 @@ function cl2Render(){
         + '</div>';
 
   if(_cl2.bonusOpen){
-    // ── Écran barre bonus ──
-    var bEtat = _cl2.bonus ? _cl2.bonus.etat : 0;
+    // ── Écran barre(s) bonus : une par athlète vivant (chacune son poids) ──
+    var _bonusArr = Array.isArray(_cl2.bonus) ? _cl2.bonus : (_cl2.bonus?[_cl2.bonus]:[]);
+    var _nb = _bonusArr.length;
     html += '<div style="text-align:center;padding:6px 14px 2px">'
-          + '<div style="font-family:var(--ff);font-size:24px;letter-spacing:2px;color:#00E5A0">🏆 BARRE BONUS</div>'
-          + '<div style="font-family:var(--fc);font-size:11px;color:var(--ink2);margin-top:4px">Saisis le poids annoncé, affiche-le, puis valide ✅ ou refuse ❌</div>'
+          + '<div style="font-family:var(--ff);font-size:24px;letter-spacing:2px;color:#00E5A0">🏆 '+(_nb>1?_nb+' BARRES BONUS':'BARRE BONUS')+'</div>'
+          + '<div style="font-family:var(--fc);font-size:11px;color:var(--ink2);margin-top:4px">Pour chaque athlète : saisis le poids, affiche-le, puis valide ✅ ou refuse ❌</div>'
           + '</div>';
-    if(bEtat==='try' || bEtat===1 || bEtat===-1){
-      var col = bEtat===1?'#00E5A0':(bEtat===-1?'#FF3B5C':'#FFB020');
-      var ico = bEtat===1?'✅':(bEtat===-1?'❌':'⏳');
-      html += '<div style="margin:12px auto;max-width:280px;padding:16px;border-radius:14px;border:2px solid '+col+';background:'+col+'22;text-align:center">'
-            + '<div style="font-family:var(--fm);font-size:40px;font-weight:900;color:'+col+'">'+ico+' '+(_cl2.bonus.poids||0)+' kg</div>'
-            + '</div>';
-    }
-    if(bEtat===0){
-      html += '<div style="display:flex;gap:8px;align-items:center;max-width:300px;margin:10px auto">'
-            + '<input id="cl2-bonus-inp" type="number" min="1" inputmode="numeric" placeholder="poids kg" onkeydown="if(event.key===\'Enter\')cl2BonusSet()" style="flex:1;padding:14px;border-radius:10px;border:1px solid rgba(0,229,160,.4);background:rgba(0,229,160,.06);color:var(--ink);font-family:var(--fm);font-size:24px;font-weight:700;text-align:center;outline:none">'
-            + '<button onclick="cl2BonusSet()" style="padding:14px 18px;border:none;border-radius:10px;background:linear-gradient(135deg,#00A876,#00E5A0);color:#04231a;font-family:var(--fc);font-size:15px;font-weight:900;cursor:pointer">AFFICHER</button>'
-            + '</div>';
-    } else if(bEtat==='try'){
-      html += '<div style="display:flex;gap:10px;max-width:320px;margin:12px auto">'
-            + '<button onclick="cl2BonusJudge(true)" style="flex:1;padding:18px;border:none;border-radius:14px;background:linear-gradient(135deg,#00A876,#00E5A0);color:#04231a;font-family:var(--ff);font-size:20px;letter-spacing:1px;font-weight:900;cursor:pointer">✅ VALIDÉ</button>'
-            + '<button onclick="cl2BonusJudge(false)" style="flex:1;padding:18px;border:1px solid rgba(255,59,92,.5);border-radius:14px;background:rgba(255,59,92,.12);color:#FF6B85;font-family:var(--ff);font-size:20px;letter-spacing:1px;font-weight:900;cursor:pointer">❌ REFUSÉ</button>'
-            + '</div>';
+    for(var bk=0;bk<_bonusArr.length;bk++){
+      var bo=_bonusArr[bk]; var bEtat=bo?bo.etat:0;
+      html += '<div style="margin:10px auto;max-width:340px;padding:10px 12px;border-radius:14px;border:1px solid rgba(0,229,160,.25);background:rgba(0,229,160,.04)">';
+      html += '<div style="font-family:var(--fc);font-size:12px;font-weight:900;letter-spacing:1px;color:#8FE9C6;text-align:center;margin-bottom:6px">ATHLÈTE '+((bo?bo.athlete:bk)+1)+'</div>';
+      if(bEtat==='try' || bEtat===1 || bEtat===-1){
+        var col = bEtat===1?'#00E5A0':(bEtat===-1?'#FF3B5C':'#FFB020');
+        var ico = bEtat===1?'✅':(bEtat===-1?'❌':'⏳');
+        html += '<div style="margin:4px auto 8px;padding:12px;border-radius:12px;border:2px solid '+col+';background:'+col+'22;text-align:center">'
+              + '<div style="font-family:var(--fm);font-size:34px;font-weight:900;color:'+col+'">'+ico+' '+(bo.poids||0)+' kg</div>'
+              + '</div>';
+      }
+      if(bEtat===0){
+        html += '<div style="display:flex;gap:8px;align-items:center">'
+              + '<input id="cl2-bonus-inp-'+bk+'" type="number" min="1" inputmode="numeric" placeholder="poids kg" onkeydown="if(event.key===\'Enter\')cl2BonusSet('+bk+')" style="flex:1;padding:12px;border-radius:10px;border:1px solid rgba(0,229,160,.4);background:rgba(0,229,160,.06);color:var(--ink);font-family:var(--fm);font-size:22px;font-weight:700;text-align:center;outline:none">'
+              + '<button onclick="cl2BonusSet('+bk+')" style="padding:12px 16px;border:none;border-radius:10px;background:linear-gradient(135deg,#00A876,#00E5A0);color:#04231a;font-family:var(--fc);font-size:14px;font-weight:900;cursor:pointer">AFFICHER</button>'
+              + '</div>';
+      } else if(bEtat==='try'){
+        html += '<div style="display:flex;gap:10px">'
+              + '<button onclick="cl2BonusJudge('+bk+',true)" style="flex:1;padding:14px;border:none;border-radius:12px;background:linear-gradient(135deg,#00A876,#00E5A0);color:#04231a;font-family:var(--ff);font-size:18px;letter-spacing:1px;font-weight:900;cursor:pointer">✅ VALIDÉ</button>'
+              + '<button onclick="cl2BonusJudge('+bk+',false)" style="flex:1;padding:14px;border:1px solid rgba(255,59,92,.5);border-radius:12px;background:rgba(255,59,92,.12);color:#FF6B85;font-family:var(--ff);font-size:18px;letter-spacing:1px;font-weight:900;cursor:pointer">❌ REFUSÉ</button>'
+              + '</div>';
+      }
+      html += '</div>';
     }
     zone.innerHTML = html;
     zone.style.display='flex';
+    try{ zone.dataset.sig=_sig; }catch(e){}
+    return;
+  }
+
+  // ── REPOS entre deux stations : saisie bloquée (la station a déjà avancé). ──
+  if(!emomIsWork){
+    var _np=_cl2.poidsStation[st]||0;
+    html += '<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center">'
+          + '<div style="font-size:50px;line-height:1">⏸️</div>'
+          + '<div style="font-family:var(--ff);font-size:26px;letter-spacing:2px;color:#FFB020;margin-top:8px">REPOS</div>'
+          + '<div style="font-family:var(--fc);font-size:13px;color:var(--ink2);margin-top:8px">Saisie bloquée pendant la transition</div>'
+          + '<div style="margin-top:18px;padding:14px 22px;border-radius:14px;border:1px solid rgba(77,166,255,.35);background:rgba(77,166,255,.08)">'
+          + '<div style="font-family:var(--fc);font-size:11px;font-weight:800;letter-spacing:1px;color:var(--mid);text-transform:uppercase">Prochaine station</div>'
+          + '<div style="font-family:var(--ff);font-size:22px;color:#fff;margin-top:3px">STATION '+st+' · <span style="color:var(--blue)">'+(_np>0?_np+' kg':'—')+'</span></div>'
+          + '</div></div>';
+    zone.innerHTML = html;
+    zone.style.display='flex';
+    try{ zone.dataset.sig=_sig; }catch(e){}
     return;
   }
 
   // ── Écran station courante ──
   var arr = _cl2.barres[st]||[];
-  // ★ Toutes les barres de la station sont-elles jugées (✅ ou ❌, plus aucune en attente/0) ?
-  var allJudged = arr.length>0 && arr.every(function(e){ return e===1 || e===-1; });
-  var greensNow = cl2Greens(st);
+  // ★ Station « jouée pour l'instant » = plus aucun athlète VIVANT en attente (0/try).
+  //   Les barres des athlètes neutralisés sont verrouillées (non requises).
+  var alivePending=false;
+  for(var ai=0;ai<_cl2.nbBarres;ai++){
+    var dead_i=!!(_cl2.dead&&_cl2.dead[ai]);
+    if(!dead_i && (arr[ai]===0 || arr[ai]==='try')) alivePending=true;
+  }
+  var allJudged = arr.length>0 && !alivePending && _cl2.pendingBarre==null;
   if(allJudged){
-    // Station entièrement jouée → on BLOQUE et on attend la station suivante (pilotée par le timing).
-    var stationOk = (greensNow >= _cl2.nbBarres);
+    // Toutes les barres des vivants sont jugées → on attend la bascule de station (timing).
+    //   Pas d'élimination ici : la neutralisation/avancement est gérée par cl2CloseStation.
     var nextPoids = (st < _cl2.nbStations) ? (_cl2.poidsStation[st+1]||0) : 0;
-    html += '<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;text-align:center">';
-    // récap des barres de la station
     var recap='';
-    for(var r=0;r<arr.length;r++){ recap += (arr[r]===1?'✅':'❌')+' '; }
-    if(stationOk){
-      html += '<div style="font-size:54px;line-height:1">🏁</div>'
-            + '<div style="font-family:var(--ff);font-size:26px;letter-spacing:2px;color:var(--ok);margin-top:8px">STATION '+st+' VALIDÉE</div>'
-            + '<div style="font-family:var(--fm);font-size:20px;color:#fff;margin-top:6px">'+recap+'</div>';
-      if(st < _cl2.nbStations){
-        html += '<div style="margin-top:22px;padding:14px 22px;border-radius:14px;border:1px solid rgba(77,166,255,.35);background:rgba(77,166,255,.08)">'
-              + '<div style="font-family:var(--fc);font-size:11px;font-weight:800;letter-spacing:1px;color:var(--mid);text-transform:uppercase">Prochaine station</div>'
-              + '<div style="font-family:var(--ff);font-size:22px;color:#fff;margin-top:3px">STATION '+(st+1)+' · <span style="color:var(--blue)">'+(nextPoids>0?nextPoids+' kg':'—')+'</span></div>'
-              + '</div>'
-              + '<div style="font-family:var(--fc);font-size:12px;color:var(--ink2);margin-top:16px">⏱ En attente du départ de la station suivante…</div>';
-      } else {
-        html += '<div style="margin-top:22px;font-family:var(--fc);font-size:13px;color:#00E5A0;font-weight:700">🏆 Dernière station bouclée — la barre bonus va s\'ouvrir</div>';
-      }
-    } else {
-      html += '<div style="font-size:54px;line-height:1">❌</div>'
-            + '<div style="font-family:var(--ff);font-size:26px;letter-spacing:2px;color:var(--err);margin-top:8px">STATION '+st+' — NO REP</div>'
-            + '<div style="font-family:var(--fm);font-size:20px;color:#fff;margin-top:6px">'+recap+'</div>'
-            + '<div style="font-family:var(--fc);font-size:13px;color:var(--err);margin-top:14px;font-weight:700">Athlète terminé — cumul conservé : '+_cl2.cumul+' kg</div>';
+    for(var r=0;r<_cl2.nbBarres;r++){
+      recap += (_cl2.dead&&_cl2.dead[r]?'🚫':(arr[r]===1?'✅':(arr[r]===-1?'❌':'·')))+' ';
     }
+    var alive=cl2AliveCount();
+    html += '<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;text-align:center">';
+    html += '<div style="font-size:54px;line-height:1">🏁</div>'
+          + '<div style="font-family:var(--ff);font-size:24px;letter-spacing:2px;color:var(--ok);margin-top:8px">STATION '+st+' JOUÉE</div>'
+          + '<div style="font-family:var(--fm);font-size:24px;color:#fff;margin-top:8px;letter-spacing:3px">'+recap+'</div>';
+    html += '<div style="font-family:var(--fc);font-size:12px;color:'+(alive>0?'#8FE9C6':'#FF6B85')+';margin-top:10px;font-weight:700">'
+          + (alive>0 ? (alive+' athlète'+(alive>1?'s':'')+' encore en course · cumul '+_cl2.cumul+' kg') : 'Équipe terminée · '+_cl2.cumul+' kg')
+          + '</div>';
+    if(st < _cl2.nbStations){
+      html += '<div style="margin-top:18px;padding:12px 20px;border-radius:14px;border:1px solid rgba(77,166,255,.35);background:rgba(77,166,255,.08)">'
+            + '<div style="font-family:var(--fc);font-size:11px;font-weight:800;letter-spacing:1px;color:var(--mid);text-transform:uppercase">Prochaine station</div>'
+            + '<div style="font-family:var(--ff);font-size:22px;color:#fff;margin-top:3px">STATION '+(st+1)+' · <span style="color:var(--blue)">'+(nextPoids>0?nextPoids+' kg':'—')+'</span></div>'
+            + '</div>'
+            + '<div style="font-family:var(--fc);font-size:12px;color:var(--ink2);margin-top:14px">⏱ En attente du départ de la station suivante…</div>';
+    } else {
+      html += '<div style="margin-top:18px;font-family:var(--fc);font-size:13px;color:#00E5A0;font-weight:700">🏆 Dernière station — la/les barre(s) bonus vont s\'ouvrir</div>';
+    }
+    // Annuler reste possible (rouvre la dernière barre / réactive l'athlète)
+    html += '<div style="margin-top:16px"><button onclick="cl2Undo()" style="padding:10px 20px;border:1.5px solid rgba(255,255,255,.35);border-radius:12px;background:rgba(255,255,255,.06);color:#CFE0F5;font-family:var(--ff);font-size:14px;letter-spacing:1px;font-weight:800;cursor:pointer">↩ ANNULER LA DERNIÈRE BARRE</button></div>';
     html += '</div>';
     zone.innerHTML = html;
     zone.style.display='flex';
-    // ★ Si une barre est ratée, la station ne peut plus être complète → élimination immédiate
-    //   (pas d'attente de la bascule du timing). Fait après le rendu pour que l'écran ❌ soit vu.
-    if(!stationOk && !done && !_cl2.eliminated){
-      setTimeout(function(){ try{ cl2Eliminate(); }catch(e){} }, 900);
-    }
+    try{ zone.dataset.sig=_sig; }catch(e){}
     return;
   }
   html += '<div style="text-align:center;padding:2px 14px 8px">'
@@ -3574,16 +3700,21 @@ function cl2Render(){
   html += '<div style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center;padding:6px 14px">';
   for(var i=0;i<arr.length;i++){
     var e = arr[i];
+    var isDead = !!(_cl2.dead && _cl2.dead[i]);
+    var bw = cl2BarPoids(st, i);                       // ★ H/F : poids de CETTE barre
+    var sexTag = _cl2.mixte ? (i===0?'H':'F') : '';    // barre1=H barre2=F en mixte
+    var sexCol = _cl2.mixte ? (i===0?'#1E88E5':'#EC4899') : null;
     var col, bg, ico, lbl;
-    if(e===1){ col='#00E5A0'; bg='rgba(0,229,160,.15)'; ico='✅'; lbl='VALIDÉE'; }
+    if(isDead){ col='rgba(255,255,255,.28)'; bg='rgba(255,255,255,.03)'; ico='🚫'; lbl='NEUTRALISÉ'; }
+    else if(e===1){ col='#00E5A0'; bg='rgba(0,229,160,.15)'; ico='✅'; lbl='VALIDÉE'; }
     else if(e===-1){ col='#FF3B5C'; bg='rgba(255,59,92,.12)'; ico='❌'; lbl='NO REP'; }
     else if(e==='try'){ col='#FFB020'; bg='rgba(255,176,32,.15)'; ico='⏳'; lbl='À JUGER'; }
-    else { col='rgba(255,255,255,.35)'; bg='rgba(255,255,255,.04)'; ico='🏋️'; lbl='BARRE '+(i+1); }
-    var clickable = (e===0);
-    html += '<div onclick="'+(clickable?'cl2TapBarre('+i+')':'')+'" style="width:120px;padding:16px 10px;border-radius:14px;border:2px solid '+col+';background:'+bg+';text-align:center;'+(clickable?'cursor:pointer':'opacity:.95')+'">'
+    else { col=(sexCol||'rgba(255,255,255,.35)'); bg=(sexCol?sexCol+'1f':'rgba(255,255,255,.04)'); ico=(_cl2.mixte?(i===0?'💙':'🌸'):'🏋️'); lbl='ATHLÈTE '+(i+1)+(sexTag?' · '+sexTag:''); }
+    var clickable = (e===0 && !isDead && emomIsWork);
+    html += '<div onclick="'+(clickable?'cl2TapBarre('+i+')':'')+'" style="width:120px;padding:16px 10px;border-radius:14px;border:2px solid '+col+';background:'+bg+';text-align:center;'+(clickable?'cursor:pointer':(isDead?'opacity:.5':'opacity:.95'))+'">'
           + '<div style="font-size:30px;line-height:1">'+ico+'</div>'
           + '<div style="font-family:var(--fc);font-size:11px;font-weight:900;letter-spacing:1px;color:'+col+';margin-top:6px">'+lbl+'</div>'
-          + '<div style="font-family:var(--fm);font-size:14px;font-weight:700;color:'+col+';margin-top:2px">'+(poids>0?poids+' kg':'')+'</div>'
+          + '<div style="font-family:var(--fm);font-size:14px;font-weight:700;color:'+(sexCol||col)+';margin-top:2px">'+(isDead?'':(bw>0?bw+' kg':''))+'</div>'
           + '</div>';
   }
   html += '</div>';
@@ -3619,6 +3750,7 @@ function cl2Render(){
 
   zone.innerHTML = html;
   zone.style.display='flex';
+  try{ zone.dataset.sig=_sig; }catch(e){}
 }
 
 /* ── Push de l'état CL v2 vers Firebase (via pushScoreLive, embarqué) ──
@@ -3627,15 +3759,22 @@ function cl2BuildBarresCL(){
   if(!_isCL2()) return null;
   var out = {};
   for(var s=1;s<=_cl2.nbStations;s++){
-    out[s] = { poids:_cl2.poidsStation[s]||0, barres:(_cl2.barres[s]||[]).slice() };
+    out[s] = { poids:_cl2.poidsStation[s]||0, poidsF:(_cl2.poidsStationF&&_cl2.poidsStationF[s])||0, barres:(_cl2.barres[s]||[]).slice() };
   }
-  if(_cl2.bonus) out.bonus = { poids:_cl2.bonus.poids||0, etat:_cl2.bonus.etat };
+  if(Array.isArray(_cl2.bonus)){
+    out.bonus = _cl2.bonus.map(function(b){ return { athlete:b.athlete, poids:b.poids||0, etat:b.etat }; });
+  } else if(_cl2.bonus){
+    out.bonus = { poids:_cl2.bonus.poids||0, etat:_cl2.bonus.etat };
+  }
   out.station = _cl2.station;
   out.nbStations = _cl2.nbStations;
   out.nbBarres = _cl2.nbBarres;
   out.cumul = _cl2.cumul;
   out.eliminated = !!_cl2.eliminated;
   out.bonusOpen = !!_cl2.bonusOpen;
+  out.dead = (_cl2.dead||[]).slice();          // ★ athlètes neutralisés (pour live/TK)
+  out.aliveCount = cl2AliveCount();
+  out.mixte = !!_cl2.mixte;                     // ★ H/F : catégorie mixte (barre1 H / barre2 F)
   return out;
 }
 function cl2Push(){

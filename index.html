@@ -9069,6 +9069,16 @@ function catDrop(ev, destCatId, heatIdx, ligne){
   _catDragTeamId=null; _catDragSrcCatId=null;
   renderCategories(); if(typeof autoSave==='function')autoSave();
   if(typeof generateHeats==='function')generateHeats();
+  // ★ JUGE/LIVE SUIVENT : republier les heats après le glisser (debounce 700 ms).
+  //   syncHeatsToFirebase préserve les heats live/terminés et ne met à jour que les pending
+  //   → sûr même pendant la compét. Les lignes définies au drag arrivent au juge et au live.
+  if(typeof syncHeatsToFirebase==='function'){
+    clearTimeout(window._dropPubT);
+    window._dropPubT=setTimeout(function(){
+      try{ syncHeatsToFirebase(); if(typeof toast==='function') toast('✅ Lignes publiées — juge/live à jour','#00C853',1500); }
+      catch(e){ console.warn('drop publish',e); }
+    }, 700);
+  }
 }
 
 function catUnplaceByPos(catId, heatIdx, lane){
@@ -10415,6 +10425,7 @@ function generateHeats(){
           t.ligneInHeat = t.ligne;
         }
       });
+      var _catHeats=[];
       for(var h=0;h<nbHeats;h++){
         var slots=[];
         for(var l=1;l<=nbLignes;l++){
@@ -10440,11 +10451,15 @@ function generateHeats(){
           if(team) team = decorateHeatTeam(team, cat);
           slots.push({ligne:lv2,team:team,empty:!team,isGuest:!!guestEntry});
         }
+        // ★ HEAT VIDE : toutes les équipes de ce heat ont été invitées ailleurs (ou aucune) →
+        //   on NE crée PAS ce heat (il ne doit pas apparaître au planning/live/juge). La
+        //   catégorie reste dispo pour remplir d'autres heats. Gain de temps sur le floor.
+        if(!slots.some(function(s){return !s.empty;})) continue;
         // catRealZone = zone PHYSIQUE réelle de la catégorie sur ce WOD.
         // Tient compte d'une éventuelle inversion de zone (cat.wodZoneOverride).
         var catRealZone = effectiveZoneForCatWod(cat, wod);
         var catZoneInverted = !!(cat.wodZoneOverride && cat.wodZoneOverride[String(wod.id)] != null);
-        allHeats.push({
+        _catHeats.push({
           globalNum:0, catHeatNum:h+1, nbHeatsTotal:nbHeats,
           catId:cat.id, catNom:cat.nom, catCouleur:cat.couleur,
           catZone:catRealZone, catZoneInverted:catZoneInverted,
@@ -10455,6 +10470,9 @@ function generateHeats(){
           slots:slots, horaires:{}
         });
       }
+      // ★ Renumérote les heats restants (1..N) et fixe nbHeatsTotal au réel (après élagage).
+      _catHeats.forEach(function(_hh,_ix){ _hh.catHeatNum=_ix+1; _hh.nbHeatsTotal=_catHeats.length; });
+      _catHeats.forEach(function(_hh){ allHeats.push(_hh); });
     });
   });
 
@@ -10523,6 +10541,7 @@ function generateHeatsSilent(){
           t.ligneInHeat=t.ligne;
         }
       });
+      var _catHeatsS=[];
       for(var h=0;h<nbHeats;h++){
         var slots=[];
         for(var l=1;l<=nbLignes;l++){
@@ -10546,9 +10565,11 @@ function generateHeatsSilent(){
           if(team) team = decorateHeatTeam(team, cat);
           slots.push({ligne:lv,team:team,teamId:team?String(team.id||''):'',empty:!team,isGuest:!!guestEntry});
         }
+        // ★ HEAT VIDE (toutes les équipes invitées ailleurs) → on ne le crée pas.
+        if(!slots.some(function(s){return !s.empty;})) continue;
         var catRealZone = effectiveZoneForCatWod(cat, wod);
         var catZoneInverted = !!(cat.wodZoneOverride && cat.wodZoneOverride[String(wod.id)] != null);
-        allHeats.push({
+        _catHeatsS.push({
           globalNum:0, catHeatNum:h+1, nbHeatsTotal:nbHeats,
           catId:cat.id, catNom:cat.nom, catCouleur:cat.couleur||'',
           catZone:catRealZone, catZoneInverted:catZoneInverted,
@@ -10558,6 +10579,8 @@ function generateHeatsSilent(){
           wodOrdres:cat.wodOrdres, slots:slots, horaires:{}
         });
       }
+      _catHeatsS.forEach(function(_hh,_ix){ _hh.catHeatNum=_ix+1; _hh.nbHeatsTotal=_catHeatsS.length; });
+      _catHeatsS.forEach(function(_hh){ allHeats.push(_hh); });
     });
   });
   allHeats.sort(function(a,b){
@@ -13425,24 +13448,32 @@ function renderAdaptPopup(){
     body = '<div style="font-size:11px;color:var(--mid);text-align:center;padding:14px">Aucun mouvement dans la liste \u2014 ajoute des mouvements (ou des tours) d\u2019abord.</div>';
   } else {
     var k = _adaptCatKey;
+    // ★ H/F : catégorie mixte (nom contient « H-F » ou « mixte ») → poids Homme + poids Femme.
+    //   Barre 1 = H (bleu) = champ Poids H · Barre 2 = F (rose) = champ Poids F.
+    var _catObjA = cats.find(function(c){ return String(c.id||c.nom)===String(k); });
+    var _catNomA = _catObjA ? (_catObjA.nom||'') : String(k);
+    var _isMixte = /h\s*-\s*f/i.test(_catNomA) || /mixte/i.test(_catNomA);
+    var _GRID = _isMixte ? '1fr 50px 58px 58px 56px' : '1fr 64px 72px 64px';
     // ★ RAMEUR SBC : proposer aussi le « pas » (mètres/clic) par catégorie.
     var isRameurSBC = String(w.wodFormat||'').toLowerCase()==='rameursbc';
-    body = '<div style="display:grid;grid-template-columns:1fr 64px 72px 64px;gap:6px;font-size:8px;font-weight:900;color:var(--ink2);text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px"><span>Mouvement</span><span style="text-align:center">Reps/Dist</span><span style="text-align:center">Poids</span><span style="text-align:center">Temps</span></div>'
+    body = '<div style="display:grid;grid-template-columns:'+_GRID+';gap:6px;font-size:8px;font-weight:900;color:var(--ink2);text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px"><span>Mouvement</span><span style="text-align:center">Reps/Dist</span><span style="text-align:center'+(_isMixte?';color:#1E88E5':'')+'">'+(_isMixte?'Poids H':'Poids')+'</span>'+(_isMixte?'<span style="text-align:center;color:#EC4899">Poids F</span>':'')+'<span style="text-align:center">Temps</span></div>'
     + movs.map(function(m, mi){
       var isErgo = m.type==='ergo';
       var catQty   = (m.qtyParCat  && m.qtyParCat[k]  != null) ? m.qtyParCat[k]  : '';
       var catDist  = (m.distParCat && m.distParCat[k] != null) ? m.distParCat[k] : '';
       var catPoids = (m.poids && typeof m.poids==='object' && m.poids[k]) || '';
+      var catPoidsF = (m.poidsF && typeof m.poidsF==='object' && m.poidsF[k]) || '';
       var catTime  = (m.timeParCat && m.timeParCat[k]) || '';
       var catNom   = (m.nomParCat && m.nomParCat[k]) || '';
       var global   = isErgo ? (m.ergoTarget||'') : (m.qty||0);
       var q1 = isErgo
         ? '<input type="number" min="0" placeholder="'+escHtml(String(global))+'" value="'+escHtml(String(catDist))+'" onchange="updateMouvementCatField('+w.id+','+mi+',\''+k.replace(/'/g,"\\'")+'\',\'distParCat\',parseInt(this.value)||0);renderAdaptPopup()" style="'+INP+'color:#E65100">'
         : '<input type="number" min="0" placeholder="'+escHtml(String(global))+'" value="'+escHtml(String(catQty))+'" onchange="updateMouvementCatField('+w.id+','+mi+',\''+k.replace(/'/g,"\\'")+'\',\'qtyParCat\',parseInt(this.value)||0);renderAdaptPopup()" style="'+INP+'color:var(--blue)'+(catQty!==''?';border-color:#86EFAC;background:#F0FDF4':'')+'">';
-      return '<div style="display:grid;grid-template-columns:1fr 64px 72px 64px;gap:6px;align-items:center;margin-bottom:6px">'
+      return '<div style="display:grid;grid-template-columns:'+_GRID+';gap:6px;align-items:center;margin-bottom:6px">'
         + '<input type="text" placeholder="'+escHtml(((_entries[mi]&&_entries[mi].tourLbl)?_entries[mi].tourLbl+' \u00b7 ':'')+(m.nom||('Mouv '+(mi+1))))+' ('+global+(isErgo?(m.ergoUnit||'m'):'')+')" value="'+escHtml(catNom)+'" title="Nom pour cette cat\u00e9gorie (vide = nom global)" onchange="updateMouvementCatField('+w.id+','+mi+',\''+k.replace(/'/g,"\\'")+'\',\'nomParCat\',this.value);renderAdaptPopup()" style="'+INP+'text-align:left;font-weight:800'+(catNom?';border-color:#86EFAC;background:#F0FDF4':'')+'">'
         + q1
-        + '<input type="text" placeholder="\u2014" value="'+escHtml(catPoids)+'" onchange="updateMouvementCatField('+w.id+','+mi+',\''+k.replace(/'/g,"\\'")+'\',\'poids\',this.value);renderAdaptPopup()" style="'+INP+'color:var(--purple)'+(catPoids?';border-color:#86EFAC;background:#F0FDF4':'')+'">'
+        + '<input type="text" placeholder="\u2014" value="'+escHtml(catPoids)+'" title="'+(_isMixte?'Poids Homme (barre 1)':'Poids')+'" onchange="updateMouvementCatField('+w.id+','+mi+',\''+k.replace(/'/g,"\\'")+'\',\'poids\',this.value);renderAdaptPopup()" style="'+INP+'color:'+(_isMixte?'#1E88E5':'var(--purple)')+(catPoids?';border-color:#86EFAC;background:#F0FDF4':'')+'">'
+        + (_isMixte ? '<input type="text" placeholder="\u2014" value="'+escHtml(catPoidsF)+'" title="Poids Femme (barre 2)" onchange="updateMouvementCatField('+w.id+','+mi+',\''+k.replace(/'/g,"\\'")+'\',\'poidsF\',this.value);renderAdaptPopup()" style="'+INP+'color:#EC4899'+(catPoidsF?';border-color:#F9A8D4;background:#FDF2F8':'')+'">' : '')
         + '<input type="text" placeholder="\u2014" value="'+escHtml(catTime)+'" onchange="updateMouvementCatField('+w.id+','+mi+',\''+k.replace(/'/g,"\\'")+'\',\'timeParCat\',this.value);renderAdaptPopup()" style="'+INP+'color:#059669'+(catTime?';border-color:#86EFAC;background:#F0FDF4':'')+'">'
         + '</div>'
         // ★ RAMEUR SBC : ligne « pas » (mètres/clic) pour cette catégorie, sous l'ergo.

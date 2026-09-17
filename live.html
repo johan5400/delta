@@ -2145,25 +2145,29 @@ function cl2LiveBars(bc, elim, val){
   var nbB=parseInt(bc.nbBarres||2,10)||2;
   var curSt=parseInt(bc.station||1,10)||1;
   function stationState(s){
-    // retourne 'ok' (toutes vertes), 'ko' (au moins une rouge), 'todo' (incomplète/à venir)
-    var o=bc[s]||bc[String(s)]; if(!o||!o.barres) return 'todo';
-    var g=0,miss=false;
-    for(var i=0;i<o.barres.length;i++){ if(o.barres[i]===1)g++; else if(o.barres[i]===-1)miss=true; }
-    if(!miss && g>=nbB) return 'ok';
-    if(miss) return 'ko';
+    // ok = station passée (au moins un athlète a validé) · ko = passée sans aucune validée
+    //   (c'est là que l'équipe s'est terminée) · todo = à venir / en cours.
+    if(s>curSt) return 'todo';
+    var o=bc[s]||bc[String(s)]; if(!o||!o.barres) return (s<curSt?'ok':'todo');
+    var g=0; for(var i=0;i<o.barres.length;i++){ if(o.barres[i]===1)g++; }
+    if(g>=1) return 'ok';            // ≥1 barre validée → station franchie (neutralisation OK)
+    if(s<curSt) return 'ko';         // franchie sans aucune validée → terminaison
     return 'todo';
   }
   var html='<div class="cl2wrap" style="display:flex;flex-direction:column;gap:6px;margin-top:6px">';
 
-  // ── Barre bonus ouverte : on met la bonus en avant ──
+  // ── Barre(s) bonus ouverte(s) : on les met en avant (1 par athlète vivant) ──
   if(bc.bonusOpen && bc.bonus){
-    var be=bc.bonus.etat, bp=bc.bonus.poids||0;
-    var bcol=be===1?'#00E5A0':(be===-1?'#FF3B5C':'#FFB020');
-    var bico=be===1?'✅':(be===-1?'❌':'⏳');
+    var _barr = Array.isArray(bc.bonus) ? bc.bonus : [bc.bonus];
     html+='<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
-        + '<span style="font-family:var(--fm);font-weight:900;font-size:clamp(11px,1.5vw,20px);color:#00E5A0;letter-spacing:.5px">🏆 BONUS</span>'
-        + '<span style="display:inline-flex;align-items:center;gap:5px;padding:4px 12px;border-radius:20px;border:2px solid '+bcol+';background:'+bcol+'22;color:'+bcol+';font-family:var(--fm);font-weight:900;font-size:clamp(12px,1.7vw,22px)">'+bico+' '+bp+' kg</span>'
-        + '</div>';
+        + '<span style="font-family:var(--fm);font-weight:900;font-size:clamp(11px,1.5vw,20px);color:#00E5A0;letter-spacing:.5px">🏆 BONUS</span>';
+    for(var bi=0;bi<_barr.length;bi++){
+      var _b=_barr[bi]||{}; var be=_b.etat, bp=_b.poids||0;
+      var bcol=be===1?'#00E5A0':(be===-1?'#FF3B5C':'#FFB020');
+      var bico=be===1?'✅':(be===-1?'❌':'⏳');
+      html+='<span style="display:inline-flex;align-items:center;gap:5px;padding:4px 12px;border-radius:20px;border:2px solid '+bcol+';background:'+bcol+'22;color:'+bcol+';font-family:var(--fm);font-weight:900;font-size:clamp(12px,1.7vw,22px)">'+bico+' '+bp+' kg</span>';
+    }
+    html+='</div>';
   } else if(!elim && !val) {
     // ── Station EN COURS : ses barres en grand ──
     var o=bc[curSt]||bc[String(curSt)]||{barres:[],poids:0};
@@ -2172,9 +2176,11 @@ function cl2LiveBars(bc, elim, val){
         + '<span style="font-family:var(--fm);font-weight:900;font-size:clamp(11px,1.5vw,20px);color:#4DA6FF;letter-spacing:.5px">St.'+curSt+' · '+(poids>0?poids+'kg':'')+'</span>';
     for(var i=0;i<nbB;i++){
       var e2=arr[i]; var col,ico;
-      if(e2===1){col='#00E5A0';ico='✅';}
+      if(bc.dead && bc.dead[i]){ col='rgba(255,255,255,.3)'; ico='🚫'; }   // athlète neutralisé
+      else if(e2===1){col='#00E5A0';ico='✅';}
       else if(e2===-1){col='#FF3B5C';ico='❌';}
       else if(e2==='try'){col='#FFB020';ico='⏳';}
+      else if(bc.mixte){ col=(i===0?'#1E88E5':'#EC4899'); ico=(i===0?'💙':'🌸'); }  // ★ H/F : barre1 H bleu / barre2 F rose
       else {col='rgba(255,255,255,.4)';ico='⬜';}
       html+='<span style="display:inline-flex;align-items:center;justify-content:center;width:clamp(26px,3vw,40px);height:clamp(26px,3vw,40px);border-radius:8px;border:2px solid '+col+';background:'+col+'1a;font-size:clamp(13px,1.8vw,22px)">'+ico+'</span>';
     }
