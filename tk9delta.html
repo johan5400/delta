@@ -163,6 +163,11 @@ body::before{
 .small{border:none;border-radius:14px;padding:12px 14px;font-weight:900;cursor:pointer}
 .small.j{background:#1354a3;color:#fff}.small.l{background:#b13f00;color:#fff}.small.a{background:#1d6a39;color:#fff}
 .lane-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+/* ★ Séparateur de catégorie (heats multi-catégories) : occupe toute la largeur de la grille */
+.tkcat-sep{grid-column:1/-1;display:flex;align-items:center;gap:10px;margin:6px 0 2px}
+.tkcat-lbl{font-family:var(--ff);font-size:15px;letter-spacing:1.5px;text-transform:uppercase;font-weight:800;display:flex;align-items:center;gap:7px;white-space:nowrap}
+.tkcat-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;display:inline-block}
+.tkcat-line{flex:1;height:2px;border-radius:2px}
 .lane{background:var(--panel3);border:1px solid var(--line);border-radius:16px;padding:12px;display:grid;grid-template-columns:32px minmax(0,1fr) auto;gap:10px;align-items:flex-start}
 .lane.ok{border-color:rgba(6,214,160,.25);background:rgba(6,214,160,.05)}
 .lane.alert{border-color:rgba(255,71,87,.25);background:rgba(255,71,87,.06)}
@@ -3219,6 +3224,32 @@ function updateZoneTimer(zone,hid,h){
     var elapsed=startTs?Math.max(0,Math.floor((nowT-startTs)/1000)):0;
     var cap=wodCapSec(wod);
 
+    // ★ CLEAN LADDER ROULANT : les équipes entrent en décalé, donc à un instant donné elles
+    //   sont TOUTES à une station différente. Le compteur global « X/10 TRAVAIL » n'a aucun
+    //   sens (il se figeait à 10/10 pendant que le chrono continuait). On masque donc la round
+    //   box et on affiche le décompte global du cap, comme un AMRAP. Le chrono (cap réglé
+    //   couvrant le décalage) reste la référence, chaque équipe fait bien ses 10 stations.
+    var _clWidRoll=(wod.id!=null?String(wod.id):'');
+    var _isClRollTick=(type==='cleanladder') && !!(wod.clRolling||(_clWidRoll && typeof WD!=='undefined' && WD[_clWidRoll] && WD[_clWidRoll].clRolling));
+    if(_isClRollTick){
+      if(roundBox) roundBox.style.display='none';
+      if(cap>0 && elapsed>=cap){
+        if(zoneState[zone]._lastTimerVal !== '🏁 FIN'){
+          el.textContent='🏁 FIN'; el.className='timer'; zoneState[zone]._lastTimerVal='🏁 FIN';
+        }
+        if(AUTO&&heatStatus(hh)==='live'){
+          zoneState[zone].tickFn=null; zoneState[zone].timerIv=null;
+          _seamlessEndOfHeat(zone, hid);
+        }
+      } else {
+        var _remRoll=cap>0?Math.max(0,cap-elapsed):elapsed;
+        el.textContent=fmtS(_remRoll);
+        zoneState[zone]._lastTimerVal=fmtS(_remRoll);
+        el.className='timer'+(_remRoll<=10?' hot':_remRoll<=30?' warn':'');
+      }
+      return;
+    }
+
     // ── Gestion tours avec pause ──
     // ★ FIX CHRONO FOR TIME : ce découpage divise le cap total par le nombre
     //   de tours (cap/totalRounds). Correct pour un WOD à intervalles (tours
@@ -3896,6 +3927,30 @@ function renderLanes(zone,hid,h){
     return String(a.team||"").localeCompare(String(b.team||""));
   });
 
+  // ★ REGROUPEMENT PAR CATÉGORIE (heats multi-catégories) : un heat « mère » accueille des
+  //   équipes invitées de plusieurs catégories (ex. Rx F-F + Rx H-F). On les affiche en
+  //   GROUPES séparés (titre + trait), chaque groupe trié par score. Un heat mono-catégorie
+  //   reste strictement inchangé (aucun séparateur).
+  var _tkHostCat=(h&&(h.catName||h.catNom))||'';
+  function _tkGrpKey(r){ return (r.isGuest && r.guestCatName) ? r.guestCatName : _tkHostCat; }
+  var _tkGroups={}, _tkOrder=[];
+  rows.forEach(function(r){ var k=_tkGrpKey(r); if(!_tkGroups[k]){_tkGroups[k]=[];_tkOrder.push(k);} _tkGroups[k].push(r); });
+  _tkOrder.sort(function(a,b){ if(a===_tkHostCat)return -1; if(b===_tkHostCat)return 1; return 0; });
+  var _tkMultiCat=_tkOrder.length>1;
+  if(_tkMultiCat){
+    // Réordonner rows par groupe (le tri interne par score est déjà fait), marquer le 1er de chaque groupe
+    var _reordered=[];
+    _tkOrder.forEach(function(k){
+      _tkGroups[k].forEach(function(r,gi){
+        r._grpCat=k; r._grpFirst=(gi===0);
+        r._grpColor=(k!==_tkHostCat && r.guestCatColor)?r.guestCatColor:'#4DA6FF';
+        r._grpLeaderReps=_tkGroups[k][0].reps; // leader DANS la catégorie
+        _reordered.push(r);
+      });
+    });
+    rows=_reordered;
+  }
+
   // ── Leader ──
   var leaderVal=rows.length?rows[0].sortVal:0;
 
@@ -3903,11 +3958,29 @@ function renderLanes(zone,hid,h){
   var leaderReps2 = rows.length ? rows[0].reps : 0;
 
   root.innerHTML=rows.map(function(r,i){
-    var isFirst=i===0;
-    // Gap vs leader
+    // ★ En multi-catégorie, le rang et le leader sont calculés DANS la catégorie
+    //   (indice de la ligne au sein de son groupe), pas sur l'index global i.
+    var _rk = (_tkMultiCat && r._catRank!=null) ? r._catRank : i;
+    if(_tkMultiCat){
+      // (re)calcul de l'indice intra-catégorie à la volée
+      var _seen=0;
+      for(var _j=0;_j<i;_j++){ if(rows[_j]._grpCat===r._grpCat) _seen++; }
+      _rk=_seen;
+    }
+    var isFirst=_rk===0;
+    var _leaderReps=(_tkMultiCat && r._grpLeaderReps!=null)?r._grpLeaderReps:(rows[0]?rows[0].reps:0);
+    // ★ Séparateur de catégorie avant le 1er de chaque groupe (heats multi-catégories)
+    var _sep='';
+    if(_tkMultiCat && r._grpFirst){
+      _sep='<div class="tkcat-sep"'+(i>0?' style="margin-top:12px"':'')+'>'
+        +'<span class="tkcat-lbl" style="color:'+(r._grpColor||'#4DA6FF')+'"><span class="tkcat-dot" style="background:'+(r._grpColor||'#4DA6FF')+'"></span>'+esc(r._grpCat||'')+'</span>'
+        +'<span class="tkcat-line" style="background:linear-gradient(90deg,'+(r._grpColor||'#4DA6FF')+',transparent)"></span>'
+        +'</div>';
+    }
+    // Gap vs leader (de la catégorie en multi-cat, global sinon)
     var gapHtml='';
-    if(!isFirst&&r.isLive&&!r.ok&&rows[0].reps>0){
-      var diff=rows[0].reps-r.reps;
+    if(!isFirst&&r.isLive&&!r.ok&&_leaderReps>0){
+      var diff=_leaderReps-r.reps;
       if(diff>0) gapHtml='<span class="metric err">-'+diff+' reps</span>';
     }
     // Progression globale WOD (pour fortime seulement — nb reps / total)
@@ -3917,14 +3990,14 @@ function renderLanes(zone,hid,h){
     // Score colonne droite
     var sbigTxt=r.ok?r.scoreLabel:r.reps;
     var sbigLbl=r.ok?'✓ validé':'live';
-    var sbigColor=r.ok?'var(--ok)':i===0?'var(--gold)':'var(--fire2)';
+    var sbigColor=r.ok?'var(--ok)':_rk===0?'var(--gold)':'var(--fire2)';
 
     // Couleur bordure lane selon position
-    var laneBorder=r.ok?'rgba(6,214,160,.25)':i===0?'rgba(255,213,0,.2)':r.judge?'var(--line)':'rgba(255,71,87,.25)';
-    var laneBg=r.ok?'rgba(6,214,160,.04)':i===0&&r.isLive?'rgba(255,213,0,.03)':r.judge?'':'rgba(255,71,87,.04)';
+    var laneBorder=r.ok?'rgba(6,214,160,.25)':_rk===0?'rgba(255,213,0,.2)':r.judge?'var(--line)':'rgba(255,71,87,.25)';
+    var laneBg=r.ok?'rgba(6,214,160,.04)':_rk===0&&r.isLive?'rgba(255,213,0,.03)':r.judge?'':'rgba(255,71,87,.04)';
 
-    return '<div class="lane not-clickable" style="border-color:'+laneBorder+';background:'+laneBg+'">'      // Rang + lane
-      +'<div style="display:flex;flex-direction:column;align-items:center;gap:4px;min-width:32px">'        +(i===0?'<div style="font-size:18px">🥇</div>':i===1?'<div style="font-size:18px">🥈</div>':i===2?'<div style="font-size:18px">🥉</div>':'<div style="font-family:var(--ff);font-size:20px;color:var(--muted)">'+(i+1)+'</div>')        +'<div class="lnum" style="font-size:18px">'+r.ln+'</div>'      +'</div>'      // Bloc central
+    return _sep+'<div class="lane not-clickable" style="border-color:'+laneBorder+';background:'+laneBg+'">'      // Rang + lane
+      +'<div style="display:flex;flex-direction:column;align-items:center;gap:4px;min-width:32px">'        +(_rk===0?'<div style="font-size:18px">🥇</div>':_rk===1?'<div style="font-size:18px">🥈</div>':_rk===2?'<div style="font-size:18px">🥉</div>':'<div style="font-family:var(--ff);font-size:20px;color:var(--muted)">'+(_rk+1)+'</div>')        +'<div class="lnum" style="font-size:18px">'+r.ln+'</div>'      +'</div>'      // Bloc central
       +'<div style="min-width:0;flex:1">'        // Nom + statut
         +'<div class="ltop">'          +'<div class="lteam">'+esc(r.team)+(r.isGuest?'<span style="font-size:9px;color:'+(r.guestCatColor||'#888')+';font-weight:800;background:'+(r.guestCatColor||'#888')+'18;border:1px solid '+(r.guestCatColor||'#888')+'33;border-radius:999px;padding:2px 7px;white-space:nowrap;margin-left:6px;vertical-align:middle">Invitée · '+esc(r.guestCatName||'')+'</span>':'')+'</div>'          +'<div class="lstatus '+(r.ok?'ok':r.judge?'live':'alert')+'">'+(r.ok?'✓ validé':r.judge?'⏱ live':'⚠ sans juge')+'</div>'        +'</div>'        // Juge
         +(r.judge?'<div class="lmeta">⚖ '+esc(r.judge)+_battBadge(r)+'</div>':'<div class="lmeta" style="color:var(--err)">Juge non connecté</div>')        // Mouvement actif

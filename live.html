@@ -2899,7 +2899,19 @@ function startTeamBandIH(zone,ihTarget,doneHid,doneH,doneW,catId,catLeader){
     //   (aligné sur la fenêtre sponsors → handoff propre vers le prochain heat).
     if((ih.ihType||'')==='coupure'){
       previewStart=ihTarget-Math.max(8000,Math.round(totalSec*1000*0.15));
-      heatEnd=previewStart; wodEnd=null;
+      // ★ FIX #4 (classement général sauté avant une COUPURE) : sur le DERNIER heat de la
+      //   catégorie, on affiche quand même le classement général (résultats → classement
+      //   général → sponsors pendant le reste de la coupure). Une coupure dure assez
+      //   longtemps (souvent 10 min) pour le montrer avant la page « Merci ».
+      //   Heat non-dernier : pas de classement général (scores intermédiaires trompeurs).
+      if(isLast){
+        heatEnd=now()+heatSec*1000;
+        wodEnd=heatEnd+wodSec*1000;
+        if(wodEnd>previewStart) wodEnd=previewStart; // borne : jamais après le handoff sponsors
+        if(heatEnd>wodEnd) heatEnd=wodEnd;
+      } else {
+        heatEnd=previewStart; wodEnd=null;
+      }
     }
     startTeamBandIH._sched[zone]={hid:doneHid,heatEnd:heatEnd,wodEnd:wodEnd,previewStart:previewStart};
   }
