@@ -3156,15 +3156,45 @@ function getPodEl(zone){
   return{ov:ov,ct:document.getElementById('pod-content-z'+zone),ti:document.getElementById('pod-timer-z'+zone)};
 }
 
-function buildWodClassement(h){
-  var catId=String(h.catId||''),catName=h.catName||'';
+// ★ ÉQUIPES INVITÉES (mur live) : catégorie effective d'une lane. Une invitée est
+//   rattachée à SA catégorie d'origine (teamCatName), pas à la catégorie du heat hôte.
+//   Sert à séparer, dans le CLASSEMENT GÉNÉRAL, un heat « mère » (ex. Rx F-F + Rx H-F)
+//   en un classement par catégorie — sinon les équipes et leurs points sont mélangés.
+function _liveLaneEffCat(lane, h){
+  if(lane && lane.isGuest && lane.teamCatName) return lane.teamCatName;
+  return (h && (h.catName||h.catNom)) || '';
+}
+// Liste des catégories effectives présentes dans un heat (dédupliquées, ordre hôte d'abord).
+function _liveHeatEffCats(h){
+  var hostCat=(h&&(h.catName||h.catNom))||'';
+  var out={}, order=[];
+  var lanes=(h&&(h.slots||h.lanes))||{};
+  Object.keys(lanes).forEach(function(ln){
+    var l=lanes[ln]; if(!l||!l.teamName) return;
+    var k=_liveLaneEffCat(l,h);
+    if(!out[k]){ out[k]=true; order.push(k); }
+  });
+  order.sort(function(a,b){ if(a===hostCat)return -1; if(b===hostCat)return 1; return 0; });
+  return order.length?order:[hostCat];
+}
+
+function buildWodClassement(h, catFilter){
+  var catId=String(h.catId||'');
+  // ★ Si un filtre de catégorie effective est fourni (heat mère), le classement porte
+  //   ce nom-là ; sinon la catégorie du heat. Les lanes d'une AUTRE catégorie effective
+  //   sont ignorées → chaque catégorie invitée obtient son propre classement/points.
+  var catName=catFilter||h.catName||'';
+  function _laneKeep(l,hh){ return catFilter ? (_liveLaneEffCat(l,hh)===catFilter) : true; }
   var allTeams={};
   Object.keys(HEATS).forEach(function(k){
     var hh=HEATS[k]; if(!hh||String(hh.catId)!==catId)return;
     var lanes=hh.slots||hh.lanes||{};
-    Object.keys(lanes).forEach(function(ln){var l=lanes[ln];if(l&&l.teamName)allTeams[l.teamName]=true;});
+    Object.keys(lanes).forEach(function(ln){var l=lanes[ln];if(l&&l.teamName&&_laneKeep(l,hh))allTeams[l.teamName]=true;});
   });
-  if(CLASSEMENT&&Object.keys(CLASSEMENT).length){
+  // ★ HEAT MÈRE (catFilter actif) : on IGNORE le classement Firebase publié — celui-ci
+  //   est construit sous le nom du heat hôte (« Rx F-F/Rx H-F ») et mélangerait les
+  //   catégories. On force le recalcul local ci-dessous, filtré par catégorie effective.
+  if(!catFilter && CLASSEMENT&&Object.keys(CLASSEMENT).length){
     var zoneNum=parseInt(h.catZone!=null?h.catZone:h.zone,10)||1;
     var catKey=(catName+'__z'+zoneNum).replace(/[^a-zA-Z0-9_-]/g,'_');
     var fbCat=CLASSEMENT[catKey];
@@ -3193,7 +3223,7 @@ function buildWodClassement(h){
     var wkey=String(ww.nom||ww.id||k);
     if(!byWod[wkey]) byWod[wkey]={ww:ww, teams:[]};
     Object.keys(hh.slots||hh.lanes||{}).forEach(function(ln){
-      var l=(hh.slots||hh.lanes)[ln]; if(!l||!l.teamName)return;
+      var l=(hh.slots||hh.lanes)[ln]; if(!l||!l.teamName||!_laneKeep(l,hh))return;
       var sc=getSc(k,hh,ln); if(!(sc.judgeOk===true||sc.judgeOk===1))return;
       var sf2=(ww.scoreType||ww.scoreFinale||'').toLowerCase();
       var v;
@@ -3278,7 +3308,7 @@ function renderHeatHtml(hid,h){
   return html;
 }
 // ── Classement cumulé (rangs) à partir d'une liste de heats — base des flèches de progression ──
-function _genCumulativeRanks(heatKeys){
+function _genCumulativeRanks(heatKeys, catFilter){
   var tpts={},tp1={};
   var _cfg=[100,95,90,85,80,75,70,65,60,55,50,45,40,35,30,25,20,15,10,0];
   var byWod={};
@@ -3288,6 +3318,7 @@ function _genCumulativeRanks(heatKeys){
     if(!byWod[wkey]) byWod[wkey]={teams:[]};
     Object.keys(hh.slots||hh.lanes||{}).forEach(function(ln){
       var l=(hh.slots||hh.lanes)[ln]; if(!l||!l.teamName)return;
+      if(catFilter && _liveLaneEffCat(l,hh)!==catFilter)return;
       var sc=getSc(k,hh,ln); if(!(sc.judgeOk===true||sc.judgeOk===1))return;
       var sf2=(ww.scoreType||ww.scoreFinale||'').toLowerCase();
       var v;
@@ -3314,7 +3345,7 @@ function _genCumulativeRanks(heatKeys){
   return rank;
 }
 // ── Flèche par équipe : compare le classement ACTUEL à celui d'AVANT le dernier WOD fait ──
-function _genArrowFn(h, gen){
+function _genArrowFn(h, gen, catFilter){
   var catId=String(h.catId||'');
   var catH=Object.keys(HEATS).filter(function(k){var hh=HEATS[k];return hh&&String(hh.catId)===catId&&(hh.status==='done'||hh.status==='timecap');});
   var byWodHeats={}, wodRecency={};
@@ -3331,7 +3362,7 @@ function _genArrowFn(h, gen){
   var lastWod=wodKeys[0];
   wodKeys.forEach(function(wk){ if(wodRecency[wk]>wodRecency[lastWod]) lastWod=wk; });
   var prevHeats=catH.filter(function(k){var ww=(HEATS[k].wodInfo||{});var wkey=String(ww.nom||ww.id||k);return wkey!==lastWod;});
-  var prevRank=_genCumulativeRanks(prevHeats);
+  var prevRank=_genCumulativeRanks(prevHeats, catFilter);
   var curRank={}; gen.forEach(function(t,i){curRank[t.t]=i+1;});
   return function(team){
     var c=curRank[team], p=prevRank[team];
@@ -3342,21 +3373,28 @@ function _genArrowFn(h, gen){
   };
 }
 function renderWodHtml(h){
-  var gen=buildWodClassement(h);
-  var arrowFn=null; try{ arrowFn=_genArrowFn(h,gen); }catch(e){}
-  var html='<div class="gen-classement">'
-    +'<div class="p-title gen-title">🏆 CLASSEMENT GÉNÉRAL</div>'
-    +'<div class="p-sub gen-sub">'+esc(h.catName||'')+'</div>';
-  gen.forEach(function(t,i){
-    var isNR=t.nr||t.p===0;
-    var rowCls='p-row gen-row'+(i<3&&!isNR?' r'+(i+1):'');
-    var op=isNR?' style="opacity:.5"':'';
-    var ptsHtml=isNR?'<div class="p-pts" style="color:var(--ink3)">—</div>':'<div class="p-pts">'+t.p+' pt'+(t.p>1?'s':'')+'</div>';
-    var arr=''; if(arrowFn && !isNR){ var _d=arrowFn(t.t);
-      if(_d==='up')        arr=' <span style="color:#22c55e;font-weight:800">▲</span>';
-      else if(_d==='down') arr=' <span style="color:#ef4444;font-weight:800">▼</span>';
-      else if(_d==='same') arr=' <span style="color:var(--ink3);font-weight:700">=</span>'; }
-    html+='<div class="'+rowCls+'"'+op+'><div class="p-rk">'+(i+1)+'</div><div class="p-nm">'+esc(t.t)+arr+'</div>'+ptsHtml+'</div>';
+  // ★ HEAT MÈRE : s'il accueille des équipes invitées de plusieurs catégories
+  //   (ex. Rx F-F + Rx H-F), on affiche UN classement général PAR catégorie effective,
+  //   chacun avec ses propres points (1er=100…). Un heat mono-catégorie est inchangé.
+  var _cats=_liveHeatEffCats(h);
+  var html='<div class="gen-classement">';
+  _cats.forEach(function(_catName, _ci){
+    var _filter=(_cats.length>1)?_catName:null;
+    var gen=buildWodClassement(h, _filter);
+    var arrowFn=null; try{ arrowFn=_genArrowFn(h,gen,_filter); }catch(e){}
+    html+='<div class="p-title gen-title"'+(_ci>0?' style="margin-top:18px"':'')+'>🏆 CLASSEMENT GÉNÉRAL</div>'
+      +'<div class="p-sub gen-sub">'+esc(_catName||h.catName||'')+'</div>';
+    gen.forEach(function(t,i){
+      var isNR=t.nr||t.p===0;
+      var rowCls='p-row gen-row'+(i<3&&!isNR?' r'+(i+1):'');
+      var op=isNR?' style="opacity:.5"':'';
+      var ptsHtml=isNR?'<div class="p-pts" style="color:var(--ink3)">—</div>':'<div class="p-pts">'+t.p+' pt'+(t.p>1?'s':'')+'</div>';
+      var arr=''; if(arrowFn && !isNR){ var _d=arrowFn(t.t);
+        if(_d==='up')        arr=' <span style="color:#22c55e;font-weight:800">▲</span>';
+        else if(_d==='down') arr=' <span style="color:#ef4444;font-weight:800">▼</span>';
+        else if(_d==='same') arr=' <span style="color:var(--ink3);font-weight:700">=</span>'; }
+      html+='<div class="'+rowCls+'"'+op+'><div class="p-rk">'+(i+1)+'</div><div class="p-nm">'+esc(t.t)+arr+'</div>'+ptsHtml+'</div>';
+    });
   });
   html+='</div>';
   return html;
