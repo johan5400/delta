@@ -7220,6 +7220,7 @@ if(typeof fbBuildWodInfo !== 'function'){
           ergoFree:!!m.ergoFree, teamSum:!!m.teamSum, teamCount:parseInt(m.teamCount||2)||2,
           // Adaptation par catégorie — inclus complets
           poids: m.poids||{},
+          poidsF: m.poidsF||{},
           qtyParCat: m.qtyParCat||{},
           timeParCat: m.timeParCat||{},
           distParCat: m.distParCat||{},
@@ -7839,7 +7840,7 @@ function syncWodsToFirebase(){
             type: m.type||'reps', ergoTarget: m.ergoTarget||0, ergoUnit: m.ergoUnit||'m',
             pas:parseFloat(m.pas)||0, pasParCat:m.pasParCat||{}, pasUnit:m.pasUnit||m.ergoUnit||'m',
             ergoFree:!!m.ergoFree, teamSum:!!m.teamSum, teamCount:parseInt(m.teamCount||2)||2,
-            poids: m.poids||{}, qtyParCat: m.qtyParCat||{},
+            poids: m.poids||{}, poidsF: m.poidsF||{}, qtyParCat: m.qtyParCat||{},
             timeParCat: m.timeParCat||{}, distParCat: m.distParCat||{}, nomParCat: m.nomParCat||{},
             qui: m.qui||'', comment: m.comment||'', note: m.note||''
           };
@@ -7851,6 +7852,7 @@ function syncWodsToFirebase(){
           type: m.type||'reps', ergoTarget: m.ergoTarget||0, ergoFree:!!m.ergoFree, teamSum:!!m.teamSum, teamCount:parseInt(m.teamCount||2)||2,
           ergoUnit: m.ergoUnit||'m',
           pas:parseFloat(m.pas)||0, pasParCat:m.pasParCat||{}, pasUnit:m.pasUnit||m.ergoUnit||'m',
+          poids: m.poids||{}, poidsF: m.poidsF||{},
           qtyParCat: m.qtyParCat||{},
           timeParCat: m.timeParCat||{},
           distParCat: m.distParCat||{},
@@ -18667,7 +18669,7 @@ async function generateAndPublishAll(){
             nom:m.nom||'', qty:parseInt(m.qty||0,10)||0,
             type:m.type||'reps', ergoTarget:m.ergoTarget||0, ergoUnit:m.ergoUnit||'m',
             ergoFree:!!m.ergoFree, teamSum:!!m.teamSum, teamCount:parseInt(m.teamCount||2)||2,
-            poids:m.poids||{}, qtyParCat:m.qtyParCat||{},
+            poids:m.poids||{}, poidsF:m.poidsF||{}, qtyParCat:m.qtyParCat||{},
             timeParCat:m.timeParCat||{}, distParCat:m.distParCat||{}, nomParCat:m.nomParCat||{},
             qui:m.qui||'', comment:m.comment||'', note:m.note||''
           };
@@ -18689,7 +18691,7 @@ async function generateAndPublishAll(){
           nom:m.nom||m.name||'—', qty:parseInt(m.qty||m.reps||0,10)||0,
           type:m.type||'reps', ergoTarget:m.ergoTarget||0, ergoFree:!!m.ergoFree, teamSum:!!m.teamSum, teamCount:parseInt(m.teamCount||2)||2,
           ergoUnit:m.ergoUnit||m.unit||'m',
-          poids:m.poids||{}, qtyParCat:m.qtyParCat||{},
+          poids:m.poids||{}, poidsF:m.poidsF||{}, qtyParCat:m.qtyParCat||{},
           timeParCat:m.timeParCat||{}, distParCat:m.distParCat||{},
           qui:m.qui||'', comment:m.comment||'', note:m.note||''
         };
