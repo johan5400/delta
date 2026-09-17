@@ -11236,6 +11236,16 @@ function buildJugeAssignment(){
     return 'absent';
   }
 
+  // ★ TWEAK ROMAIN : rang de créneau — une DEMI-JOURNÉE (matin/aprem) passe AVANT une
+  //   journée complète, pour packer d'abord les juges à présence courte (ex. Romain
+  //   dimanche matin) et ne pas les gâcher. Les juges "journée" absorbent le reste.
+  function judgeWindowRank(ben, jour){
+    var s = String(judgeSlotForDay(ben, jour)||'').toLowerCase();
+    if(s==='absent') return 9;
+    if(s.indexOf('matin')>=0 || s.indexOf('aprem')>=0 || s.indexOf('apr\u00e8s')>=0 || s.indexOf('midi')>=0) return 0; // demi-journée = prioritaire
+    return 1; // journée / complet
+  }
+
   function getHeatWindow(heat, wid){
     var horaires = (heat && heat.horaires) || {};
     var hor = horaires[wid] || horaires[String(wid)] || null;
@@ -11430,6 +11440,9 @@ function buildJugeAssignment(){
       zoneJugeOrder[zoneDayKey] = availPool.slice().sort(function(a,b){
         var za = judgeZonePriority(a, zone), zb = judgeZonePriority(b, zone);
         if(za!==zb) return za-zb;
+        // ★ TWEAK ROMAIN : créneau court (demi-journée) servi AVANT la journée complète.
+        var wa=judgeWindowRank(a, jour), wb=judgeWindowRank(b, jour);
+        if(wa!==wb) return wa-wb;
         var fa=(a.prenom+' '+a.nom).toLowerCase();
         var fb=(b.prenom+' '+b.nom).toLowerCase();
         return fa<fb?-1:fa>fb?1:0;
@@ -15782,6 +15795,19 @@ function sendMailAll(){
   // For grouped send, use a generic body (individual plannings differ)
   var body = 'Bonjour,\n\n'
     + 'Tu trouveras en pièce jointe ton planning de bénévolat pour ' + nomEv + '.\n\n'
+    + 'Merci pour ton engagement !\n\n'
+    + 'L\'équipe ' + nomEv;
+
+  // ★ MAIL À TOUS : mailto NE PEUT PAS joindre de fichier (limite navigateur). On envoie
+  //   donc le LIEN du planning en ligne (toujours à jour) au lieu d'une pièce jointe fantôme.
+  var _base = location.href.split('/').slice(0,-1).join('/') + '/';
+  var _planLink = _base + 'planning.html';
+  var body = 'Bonjour,\n\n'
+    + 'Voici le planning de ' + nomEv + '.\n'
+    + '👉 Ton planning (départ / fin par heat) est en ligne ici :\n'
+    + _planLink + '\n\n'
+    + 'Ouvre le lien, cherche ton équipe, et présente-toi à ta zone 10 min avant ton départ.\n'
+    + 'Horaires prévisionnels — recharge la page pour la dernière version.\n\n'
     + 'Merci pour ton engagement !\n\n'
     + 'L\'équipe ' + nomEv;
 
