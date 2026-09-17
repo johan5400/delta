@@ -205,6 +205,92 @@ var _off=0;
 if(db) db.ref('.info/serverTimeOffset').on('value',function(s){_off=s.val()||0;});
 function now(){return Date.now()+_off;}
 var HEATS={},SCORES={},SEL_ZONE='all',SEL_CAT=null,SEL_WOD='__total__',SEL_VIEW='teams',LAST_UPDATE='--:--:--';
+
+/* ===== DÉTAIL PAR ÉQUIPE (litige) — lecture seule ===== */
+function _sdEsc(x){return String(x==null?'':x).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+function scoreDetailHTML(sc, wod, teamName){
+  sc=sc||{}; wod=wod||{};
+  var fmt=String(wod.wodFormat||wod.type||'').toLowerCase();
+  var sf=String(wod.scoreType||wod.scoreFinale||'').toLowerCase();
+  var rows=[];
+  function add(lbl,val,col){ rows.push('<div style="display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.06)"><span style="color:#94A3B8;font-size:12px">'+lbl+'</span><span style="font-weight:800;color:'+(col||'#E7EEF7')+';font-size:13px;text-align:right">'+val+'</span></div>'); }
+  // en-tête méta
+  var juge=sc.judgeName||sc.judgePrenom||'—';
+  var heure=sc.ts?new Date(sc.ts).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit',second:'2-digit'}):'—';
+  add('Jugé par', _sdEsc(juge), '#60A5FA');
+  add('Heure saisie', heure);
+  add('Validé', sc.judgeOk?'✅ oui':'⏳ non', sc.judgeOk?'#22C55E':'#FBBF24');
+  // score principal
+  if(typeof scoreLabel==='function'){ try{ add('Score final', _sdEsc(scoreLabel(sc,wod)), '#22C55E'); }catch(e){} }
+  // reps / no-reps
+  if(sc.reps!=null) add('Reps totales', parseInt(sc.reps)||0);
+  if(sc.noReps) add('No-reps', parseInt(sc.noReps)||0, '#FF6B85');
+  if(sc.emomTotalReps) add('Reps cumulées (EMOM)', parseInt(sc.emomTotalReps)||0);
+  // distance / cal
+  var dist=parseFloat(sc.dist||sc.ergoVal||sc.distance)||0;
+  if(dist>0) add('Ergo total', dist+' '+(sf==='cal'?'cal':(sc.ergoUnit||'m')), '#F59E0B');
+  // détail par mouvement (ergo)
+  if(Array.isArray(sc.ecValues) && sc.ecValues.length){
+    var movs=wod.mouvements||[];
+    var perMv=sc.ecValues.map(function(v,i){ var nm=(movs[i]&&movs[i].nom)||('Mvt '+(i+1)); return '<div style="display:flex;justify-content:space-between;padding:3px 0"><span style="color:#B8C6D9;font-size:11px">'+_sdEsc(nm)+'</span><span style="font-weight:700;font-size:12px;color:#F59E0B">'+(parseFloat(v)||0)+' '+(sf==='cal'?'cal':(sc.ergoUnit||'m'))+'</span></div>'; }).join('');
+    rows.push('<div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,.06)"><div style="color:#94A3B8;font-size:12px;margin-bottom:4px">Détail par mouvement</div>'+perMv+'</div>');
+  }
+  // temps (for time)
+  if(sc.finalTime>0){ var t=parseInt(sc.finalTime); add('Temps', Math.floor(t/60)+':'+(t%60<10?'0':'')+(t%60), '#22C55E'); }
+  // charge (maxload) : tentatives
+  if(Array.isArray(sc.attempts) && sc.attempts.length){
+    var att=sc.attempts.map(function(a){ return '<span style="display:inline-block;margin:2px;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700;background:'+(a.ok?'rgba(34,197,94,.15)':'rgba(255,59,92,.15)')+';color:'+(a.ok?'#22C55E':'#FF6B85')+'">'+(a.ok?'✅':'❌')+' '+(a.kg||0)+' kg</span>'; }).join('');
+    rows.push('<div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,.06)"><div style="color:#94A3B8;font-size:12px;margin-bottom:4px">Tentatives charge</div>'+att+'</div>');
+  }
+  // CLEAN LADDER : détail stations
+  var bc=sc.barresCL;
+  if(bc){
+    var nbS=parseInt(bc.nbStations||0,10)||0, nbB=parseInt(bc.nbBarres||2,10)||2;
+    var mixte=!!bc.mixte, dead=bc.dead||[];
+    var stHtml='';
+    for(var s=1;s<=nbS;s++){
+      var o=bc[s]||bc[String(s)]||{}; var arr=o.barres||[]; var pH=o.poids||0, pF=o.poidsF||0;
+      var cells='';
+      for(var i=0;i<nbB;i++){
+        var e=arr[i], ic=(dead[i]?'🚫':(e===1?'✅':(e===-1?'❌':(e==='try'?'⏳':'⬜'))));
+        var pw=(mixte&&i===1&&pF>0)?pF:pH;
+        cells+='<span style="display:inline-flex;flex-direction:column;align-items:center;margin:0 4px"><span style="font-size:15px">'+ic+'</span><span style="font-size:9px;color:'+(mixte?(i===0?'#60A5FA':'#F472B6'):'#94A3B8')+'">'+(pw||'')+'</span></span>';
+      }
+      stHtml+='<div style="display:flex;align-items:center;gap:8px;padding:3px 0"><span style="color:#B8C6D9;font-size:11px;width:70px">Station '+s+'</span>'+cells+'</div>';
+    }
+    if(bc.bonusOpen && bc.bonus){
+      var barr=Array.isArray(bc.bonus)?bc.bonus:[bc.bonus];
+      stHtml+='<div style="display:flex;align-items:center;gap:8px;padding:5px 0;margin-top:3px;border-top:1px dashed rgba(255,255,255,.1)"><span style="color:#00E5A0;font-size:11px;width:70px">🏆 Bonus</span>'+barr.map(function(b){var be=b.etat;return '<span style="font-size:12px;color:'+(be===1?'#22C55E':be===-1?'#FF6B85':'#FBBF24')+'">'+(be===1?'✅':be===-1?'❌':'⏳')+' '+(b.poids||0)+'kg</span>';}).join(' ')+'</div>';
+    }
+    rows.push('<div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,.06)"><div style="color:#94A3B8;font-size:12px;margin-bottom:4px">Clean Ladder — stations'+(mixte?' · 💙 H / 🌸 F':'')+'</div>'+stHtml+'</div>');
+    add('Cumul', (bc.cumul!=null?bc.cumul:(sc.clLoad||0))+' kg', '#00E5A0');
+    if(bc.eliminated) add('Statut','🛑 terminé','#FF6B85');
+  }
+  if(sc.tiebreak>0){ var tb=parseInt(sc.tiebreak); add('Tie-break', Math.floor(tb/60)+':'+(tb%60<10?'0':'')+(tb%60), '#A78BFA'); }
+  return '<div style="max-height:70vh;overflow:auto">'
+    + '<div style="font-size:18px;font-weight:900;color:#fff;margin-bottom:2px">'+_sdEsc(teamName||sc.teamName||'')+'</div>'
+    + '<div style="font-size:12px;color:#8FA6C2;margin-bottom:12px">'+_sdEsc(wod.nom||wod.name||'')+'</div>'
+    + rows.join('') + '</div>';
+}
+function showScoreDetail(hid, ln){
+  try{
+    var h=HEATS[hid]||{}; var hidNum=String(hid).replace(/\D/g,'');
+    var sc=SCORES[hid+'_'+ln]||SCORES[hidNum+'_'+ln]||((h.scores||{})[ln])||{};
+    var wod=h.wodInfo||{};
+    var lane=(h.lanes||h.slots||{})[ln]||{};
+    var team=lane.teamName||sc.teamName||'Équipe';
+    var m=document.getElementById('score-detail-modal');
+    if(!m){
+      m=document.createElement('div'); m.id='score-detail-modal';
+      m.style.cssText='position:fixed;inset:0;background:rgba(6,10,18,.82);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px';
+      m.onclick=function(e){ if(e.target===m) m.remove(); };
+      document.body.appendChild(m);
+    }
+    m.innerHTML='<div style="background:#0F1626;border:1px solid rgba(96,165,250,.35);border-radius:16px;padding:18px 20px;max-width:460px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.6)">'
+      + scoreDetailHTML(sc, wod, team)
+      + '<button onclick="document.getElementById(\'score-detail-modal\').remove()" style="margin-top:14px;width:100%;padding:11px;border:none;border-radius:10px;background:rgba(96,165,250,.2);color:#93C5FD;font-weight:800;font-size:14px;cursor:pointer">Fermer</button></div>';
+  }catch(e){ if(typeof toast==='function') toast('Détail indisponible','#E65100'); }
+}
 var MEDALS=['🥇','🥈','🥉'];
 
 db.ref('.info/connected').on('value',function(snap){
@@ -1112,6 +1198,7 @@ function renderHeatBreakdown(catName,wodNames){
               +'<div style="display:flex;flex-wrap:wrap;gap:4px">'+badgeHtml+'</div>'
             +'</div>'
             +'<div style="font-family:var(--fm);font-size:19px;font-weight:900;color:'+scoreColor+';text-align:right;white-space:nowrap;padding-top:2px">'+escH(mainScore)+'</div>'
+            +'<button onclick="showScoreDetail(\''+hid+'\',\''+r.ln+'\')" style="font-size:11px;font-weight:800;padding:7px 10px;border-radius:8px;background:rgba(59,130,246,.18);border:1.5px solid rgba(59,130,246,.4);color:#60A5FA;cursor:pointer" title="Détail de ce qui a été fait (litige)">🔍 Détail</button>'
             +(CHEF_MODE?'<button onclick="editScore(\''+hid+'\',\''+r.ln+'\',\''+escQ(r.teamName)+'\',HEATS[\''+hid+'\'].wodInfo||{})" style="font-size:11px;font-weight:800;padding:7px 10px;border-radius:8px;background:rgba(255,59,92,.2);border:1.5px solid rgba(255,59,92,.4);color:#FF3B5C;cursor:pointer">✏️</button>':'')
             +'</div>';
         }).join('');
