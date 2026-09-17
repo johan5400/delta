@@ -8180,8 +8180,13 @@ function renderCatGrid(){
   }
   el.innerHTML=sorted.map(function(cat){
     var isActive=cat.id===_activeCatId;
-    var _own=cat.teams.filter(function(t){return !t.isGuest&&!t.invitedOut;});
-    var placed=_own.filter(function(t){return t.ligne!=null&&t.heatNum!=null;}).length;
+    // ★ ÉQUIPES INVITÉES : une équipe partie en invitation dans le heat d'une autre
+    //   catégorie (invitedOut) EST placée — son placement réel vit sur la copie invitée
+    //   du heat hôte (ligne/heatNum remis à null sur la source). On la compte donc dans
+    //   le total ET comme placée, sinon la catégorie affichait « 0 placés » alors que
+    //   ses équipes sont bien sur le terrain.
+    var _own=cat.teams.filter(function(t){return !t.isGuest;});
+    var placed=_own.filter(function(t){return t.invitedOut || (t.ligne!=null&&t.heatNum!=null);}).length;
     var total=_own.length;
     var pct=total>0?Math.round(placed/total*100):0;
     var nbH=cat.nbHeats||1;
@@ -8235,8 +8240,9 @@ function renderCatSidebar(){
   if(!sorted.length){ el.innerHTML='<div style="font-size:11px;color:var(--ink2);padding:8px;">Aucune catégorie</div>'; return; }
   el.innerHTML = sorted.map(function(cat){
     var isActive = cat.id === _activeCatId;
-    var _own2 = cat.teams.filter(function(t){return !t.isGuest&&!t.invitedOut;});
-    var placed = _own2.filter(function(t){return t.ligne!=null&&t.heatNum!=null;}).length;
+    // ★ ÉQUIPES INVITÉES : cf. renderCatGrid — invitedOut compte comme placée.
+    var _own2 = cat.teams.filter(function(t){return !t.isGuest;});
+    var placed = _own2.filter(function(t){return t.invitedOut || (t.ligne!=null&&t.heatNum!=null);}).length;
     var total = _own2.length;
     var pct = total>0 ? Math.round(placed/total*100) : 0;
     var zColor = '#94A3B8';
