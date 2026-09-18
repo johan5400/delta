@@ -4768,7 +4768,17 @@ function computePlanningForDay(day){
           if(dl!==0)return dl;
           // Sous-qualifiés : trier par qualif desc (le plus proche du requis en premier)
           if(a.qualif<sta.diff||b.qualif<sta.diff)return b.qualif-a.qualif;
-          return assignCount[a.id]-assignCount[b.id];
+          // ★ ÉQUILIBRAGE PAR DISPO (bug chef « Romain 1 seul heat ») : un juge à créneau
+          //   COURT (ex. Matin seul) a peu d'occasions d'être affecté et se retrouve noyé
+          //   parmi les juges « Journée », bien plus nombreux → il n'obtient presque aucun
+          //   heat. À charge égale (assignCount), on PRIORISE donc le juge dont le créneau
+          //   restant est le plus court : il ne pourra pas « se rattraper » plus tard, alors
+          //   qu'un « Journée » a encore tout l'après-midi. Le « Matin » passe ainsi devant.
+          if(assignCount[a.id]!==assignCount[b.id]) return assignCount[a.id]-assignCount[b.id];
+          var aShift=(a.inShiftSlots&&a.inShiftSlots.length)||1;
+          var bShift=(b.inShiftSlots&&b.inShiftSlots.length)||1;
+          if(aShift!==bShift) return aShift-bShift; // créneau + court d'abord (plus contraint)
+          return 0;
         });
       }
       function addToPool(pool,opts){
