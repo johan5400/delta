@@ -18973,7 +18973,7 @@ function _anFmtTime(s){s=parseInt(s||0,10)||0;return Math.floor(s/60)+':'+String
 function _anBool(v){return v===true||v===1||v==='true'||v==='1';}
 function _anCfPts(r){var g=[100,95,90,85,80,75,70,65,60,55,50,45,40,35,30,25,20,15,10,0];return (r>=1&&r<=g.length)?g[r-1]:0;}
 function _anScoreVal(sc,w){sc=sc||{};w=w||{};var sf=(w.scoreFinale||w.scoreType||'').toLowerCase();var jm=(w.judgeMode||'').toLowerCase();var isT=(w.wodFormat||'').toLowerCase()==='fortime'||sf==='time';if((w.wodFormat||'').toLowerCase()==='amrapsteph'&&w.stephAddReps)return parseInt(sc.reps||0,10)||0;if(jm==='maxload'||sf==='load')return parseFloat(sc.load)||0;if(jm==='ergo'||sf==='dist'||sf==='cal')return parseFloat(sc.dist||sc.ergoVal||sc.distance)||0;if(isT)return parseInt(sc.finalTime||0,10)>0 ? -parseInt(sc.finalTime,10) : (parseInt(sc.reps||0,10)>0 ? -1000000+parseInt(sc.reps,10) : -2000000);return parseInt(sc.reps||0,10)||0;}
-function _anFmtSc(sc,w){sc=sc||{};w=w||{};var sf=(w.scoreFinale||w.scoreType||'').toLowerCase();var jm=(w.judgeMode||'').toLowerCase();var isT=(w.wodFormat||'').toLowerCase()==='fortime'||sf==='time';if((w.wodFormat||'').toLowerCase()==='amrapsteph'&&w.stephAddReps){var _tot=parseInt(sc.reps||0,10)||0;if(sc.stephReps!=null&&sc.stephCals!=null)return (parseInt(sc.stephReps,10)||0)+' rep + '+(parseInt(sc.stephCals,10)||0)+' cal = '+_tot;return _tot+' pts';}if(jm==='maxload'||sf==='load')return (parseFloat(sc.load)||0)+' kg';if(jm==='ergo'||sf==='dist'||sf==='cal')return (parseFloat(sc.dist||sc.ergoVal||sc.distance)||0)+(sf==='cal'?' cal':(' '+(sc.ergoUnit||'m')));if(isT&&parseInt(sc.finalTime||0,10)>0)return _anFmtTime(sc.finalTime);if(parseInt(sc.reps||0,10)>0)return parseInt(sc.reps,10)+' reps';return '—';}
+function _anFmtSc(sc,w){sc=sc||{};w=w||{};var sf=(w.scoreFinale||w.scoreType||'').toLowerCase();var jm=(w.judgeMode||'').toLowerCase();var isT=(w.wodFormat||'').toLowerCase()==='fortime'||sf==='time';if((w.wodFormat||'').toLowerCase()==='amrapsteph'&&w.stephAddReps){var _tot=parseInt(sc.reps||0,10)||0;var _cal=(sc.stephCals!=null)?(parseInt(sc.stephCals,10)||0):(parseFloat(sc.dist||sc.ergoVal||sc.distance)||0);var _rep=(sc.stephReps!=null)?(parseInt(sc.stephReps,10)||0):(_tot-_cal);if(_tot>0&&_cal>0)return _rep+' rep + '+_cal+' cal = '+_tot;return _tot+' pts';}if(jm==='maxload'||sf==='load')return (parseFloat(sc.load)||0)+' kg';if(jm==='ergo'||sf==='dist'||sf==='cal')return (parseFloat(sc.dist||sc.ergoVal||sc.distance)||0)+(sf==='cal'?' cal':(' '+(sc.ergoUnit||'m')));if(isT&&parseInt(sc.finalTime||0,10)>0)return _anFmtTime(sc.finalTime);if(parseInt(sc.reps||0,10)>0)return parseInt(sc.reps,10)+' reps';return '—';}
 function _anHasRaw(sc){sc=sc||{};return parseInt(sc.reps||0,10)>0||parseInt(sc.finalTime||0,10)>0||parseFloat(sc.load||0)>0||parseFloat(sc.dist||sc.distance||0)>0;}
 function _anEsc(s){return (typeof escHtml==='function')?escHtml(s):String(s==null?'':s);}
 
@@ -19245,6 +19245,7 @@ async function renderClassementTK(){
       var sf=String(wInfo.scoreFinale||wInfo.scoreType||'').toLowerCase();
       var jm=String(wInfo.judgeMode||'').toLowerCase();
       var isT=String(wInfo.wodFormat||'').toLowerCase()==='fortime'||sf==='time';
+      if(String(wInfo.wodFormat||'').toLowerCase()==='amrapsteph'&&wInfo.stephAddReps){var _tot=parseInt(sc.reps||0,10)||0;var _cal=(sc.stephCals!=null)?(parseInt(sc.stephCals,10)||0):(parseFloat(sc.dist||sc.ergoVal||sc.distance)||0);var _rep=(sc.stephReps!=null)?(parseInt(sc.stephReps,10)||0):(_tot-_cal);if(_tot>0&&_cal>0)return _rep+' rep + '+_cal+' cal = '+_tot;return _tot+' pts';}
       if(jm==='maxload'||sf==='load') return ((parseFloat(sc.load)||0)+' kg');
       if(jm==='ergo'||sf==='dist'||sf==='cal') return ((parseFloat(sc.dist||sc.ergoVal||sc.distance)||0)+(sf==='cal'?' cal':(' '+(sc.ergoUnit||'m'))));
       if(isT&&parseInt(sc.finalTime||0,10)>0) return fmtTime(sc.finalTime);
@@ -19256,6 +19257,7 @@ async function renderClassementTK(){
       var sf=String(wInfo.scoreFinale||wInfo.scoreType||'').toLowerCase();
       var jm=String(wInfo.judgeMode||'').toLowerCase();
       var isT=String(wInfo.wodFormat||'').toLowerCase()==='fortime'||sf==='time';
+      if(String(wInfo.wodFormat||'').toLowerCase()==='amrapsteph'&&wInfo.stephAddReps) return parseInt(sc.reps||0,10)||0;
       if(jm==='maxload'||sf==='load') return parseFloat(sc.load)||0;
       if(jm==='ergo'||sf==='dist'||sf==='cal') return parseFloat(sc.dist||sc.ergoVal||sc.distance)||0;
       if(isT) return parseInt(sc.finalTime||0,10)>0 ? -parseInt(sc.finalTime,10) : (parseInt(sc.reps||0,10)>0 ? -1000000+parseInt(sc.reps,10) : -2000000);
@@ -19928,6 +19930,15 @@ function loadClassement(){
 function fmtScoreDisplay(sc, wodFormat){
   if(!sc) return '—';
   var fmt = (wodFormat||'').toLowerCase();
+  // ★ AMRAP STEPH : si le score porte le détail reps+cal (ou le format l'indique), afficher
+  //   le TOTAL « X rep + Y cal = Total », jamais les cals seules. Prioritaire sur l'ergo.
+  if(fmt==='amrapsteph' || sc.stephReps!=null || sc.stephCals!=null){
+    var _tot=parseInt(sc.reps||0,10)||0;
+    var _cal=(sc.stephCals!=null)?(parseInt(sc.stephCals,10)||0):(parseFloat(sc.dist||sc.ergoVal||sc.distance)||0);
+    var _rep=(sc.stephReps!=null)?(parseInt(sc.stephReps,10)||0):(_tot-_cal);
+    if(_tot>0&&_cal>0) return _rep+' rep + '+_cal+' cal = '+_tot;
+    if(_tot>0) return _tot+' pts';
+  }
   // ★ AJOUT : MaxLoad (poids) — prioritaire si défini
   if(sc.load != null && sc.load !== '' && !isNaN(parseFloat(sc.load)) && parseFloat(sc.load) > 0){
     return parseFloat(sc.load) + ' kg';
@@ -20204,6 +20215,7 @@ function renderClassementAdmin(heatsData, scoresData){
     var fmt=String(wodInfo.wodFormat||wodInfo.format||'').toLowerCase();
     var sf=String(wodInfo.scoreFinale||wodInfo.scoreType||'').toLowerCase();
     var jm=String(wodInfo.judgeMode||'').toLowerCase();
+    if(fmt==='amrapsteph'&&wodInfo.stephAddReps){var _tot=parseInt(sc.reps||0,10)||0;var _cal=(sc.stephCals!=null)?(parseInt(sc.stephCals,10)||0):(parseFloat(sc.dist||sc.ergoVal||sc.distance)||0);var _rep=(sc.stephReps!=null)?(parseInt(sc.stephReps,10)||0):(_tot-_cal);if(_tot>0&&_cal>0)return _rep+' rep + '+_cal+' cal = '+_tot;return _tot+' pts';}
     if(jm==='maxload'||sf==='load') return (parseFloat(sc.load)||0)+' kg';
     if(jm==='ergo'||sf==='dist'||sf==='cal') return (parseFloat(sc.dist||sc.ergoVal||sc.distance)||0)+(sf==='cal'?' cal':(' '+(sc.ergoUnit||'m')));
     if(fmt==='fortime'||sf==='time'){
@@ -20220,6 +20232,7 @@ function renderClassementAdmin(heatsData, scoresData){
     var fmt=String(wodInfo.wodFormat||wodInfo.format||'').toLowerCase();
     var sf=String(wodInfo.scoreFinale||wodInfo.scoreType||'').toLowerCase();
     var jm=String(wodInfo.judgeMode||'').toLowerCase();
+    if(fmt==='amrapsteph'&&wodInfo.stephAddReps) return parseInt(sc.reps||0,10)||0;
     if(jm==='maxload'||sf==='load') return parseFloat(sc.load)||0;
     if(jm==='ergo'||sf==='dist'||sf==='cal') return parseFloat(sc.dist||sc.ergoVal||sc.distance)||0;
     if(fmt==='fortime'||sf==='time') return parseInt(sc.finalTime||0,10)>0 ? -parseInt(sc.finalTime,10) : (parseInt(sc.reps||0,10)>0 ? -1000000+parseInt(sc.reps,10) : -2000000);
@@ -24304,6 +24317,7 @@ async function renderClassementModal(){
       var sf=String(wInfo.scoreFinale||wInfo.scoreType||'').toLowerCase();
       var jm=String(wInfo.judgeMode||'').toLowerCase();
       var isT=String(wInfo.wodFormat||'').toLowerCase()==='fortime'||sf==='time';
+      if(String(wInfo.wodFormat||'').toLowerCase()==='amrapsteph'&&wInfo.stephAddReps){var _tot=parseInt(sc.reps||0,10)||0;var _cal=(sc.stephCals!=null)?(parseInt(sc.stephCals,10)||0):(parseFloat(sc.dist||sc.ergoVal||sc.distance)||0);var _rep=(sc.stephReps!=null)?(parseInt(sc.stephReps,10)||0):(_tot-_cal);if(_tot>0&&_cal>0)return _rep+' rep + '+_cal+' cal = '+_tot;return _tot+' pts';}
       if(jm==='maxload'||sf==='load') return (parseFloat(sc.load)||0)+' kg';
       if(jm==='ergo'||sf==='dist'||sf==='cal') return (parseFloat(sc.dist||sc.ergoVal||sc.distance)||0)+(sf==='cal'?' cal':(' '+(sc.ergoUnit||'m')));
       if(isT&&parseInt(sc.finalTime||0,10)>0) return fmtTime(sc.finalTime);
@@ -24315,6 +24329,7 @@ async function renderClassementModal(){
       var sf=String(wInfo.scoreFinale||wInfo.scoreType||'').toLowerCase();
       var jm=String(wInfo.judgeMode||'').toLowerCase();
       var isT=String(wInfo.wodFormat||'').toLowerCase()==='fortime'||sf==='time';
+      if(String(wInfo.wodFormat||'').toLowerCase()==='amrapsteph'&&wInfo.stephAddReps) return parseInt(sc.reps||0,10)||0;
       if(jm==='maxload'||sf==='load') return parseFloat(sc.load)||0;
       if(jm==='ergo'||sf==='dist'||sf==='cal') return parseFloat(sc.dist||sc.ergoVal||sc.distance)||0;
       if(isT) return parseInt(sc.finalTime||0,10)>0 ? -parseInt(sc.finalTime,10) : (parseInt(sc.reps||0,10)>0 ? -1000000+parseInt(sc.reps,10) : -2000000);
