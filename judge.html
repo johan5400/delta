@@ -473,7 +473,17 @@ body.brief-mode #s-judge{display:none!important}
 </head>
 <body>
 
-<!-- ★ Calendrier « Mes passages » retiré (demande chef) -->
+<!-- ★ Bouton flottant "Mes passages" + popup (accessible depuis tous les écrans) -->
+<button id="schedule-fab" onclick="openSchedulePopup()" style="position:fixed;bottom:16px;right:16px;z-index:9000;width:54px;height:54px;border-radius:50%;border:none;background:linear-gradient(135deg,#1e344e,#4DA6FF);color:#fff;font-size:24px;box-shadow:0 6px 20px rgba(0,0,0,.4);cursor:pointer;touch-action:manipulation">📅</button>
+<div id="schedule-popup" onclick="if(event.target===this)closeSchedulePopup()" style="display:none;position:fixed;inset:0;z-index:9001;background:rgba(0,0,0,.72);backdrop-filter:blur(3px);align-items:flex-end;justify-content:center">
+  <div style="width:100%;max-width:480px;max-height:80vh;background:var(--bg,#0a0e14);border-radius:20px 20px 0 0;border:1px solid var(--brd2,rgba(255,255,255,.12));display:flex;flex-direction:column;overflow:hidden">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--brd,rgba(255,255,255,.08))">
+      <div style="font-family:var(--ff,sans-serif);font-size:22px;letter-spacing:1px;color:#fff">📅 MES PASSAGES</div>
+      <button onclick="closeSchedulePopup()" style="background:none;border:none;color:var(--mid,#8899b4);font-size:28px;cursor:pointer;line-height:1">×</button>
+    </div>
+    <div id="schedule-popup-rows" style="flex:1;overflow-y:auto;padding:14px 16px"></div>
+  </div>
+</div>
 
 <div id="tb-banner">
   <div class="tb-bar"><div class="tb-bar-fill" id="tb-fill"></div></div>
@@ -753,6 +763,21 @@ body.brief-mode #s-judge{display:none!important}
   <button id="done-return-btn" onclick="returnToWait()" style="margin-top:16px;padding:14px 32px;background:linear-gradient(135deg,var(--fire),var(--ember));border:none;color:#fff;border-radius:12px;font-size:15px;font-weight:800;cursor:pointer;letter-spacing:1px;box-shadow:0 4px 18px rgba(255,87,34,.35)">↩ Retour attente</button>
 </div>
 
+<!-- ★ AMRAP STEPH — saisie UNIQUE des calories de l'echobike en fin de WOD.
+     Le juge a compté shuttle+SU en reps tout le heat ; au buzzer / VALIDER, cette
+     modale s'ouvre pour saisir le total de calories (une seule valeur, qui devient le
+     score). Pas de cumul par tour. -->
+<div class="scr" id="s-amrapsteph-cal" style="align-items:center;justify-content:center;gap:16px;background:radial-gradient(ellipse at 50% 35%,rgba(159,107,255,.12) 0%,var(--bg) 65%);padding:24px 20px">
+  <div style="font-size:60px;line-height:1">🚴</div>
+  <div style="font-family:var(--ff);font-size:26px;font-weight:900;letter-spacing:2px;color:#fff;text-align:center">CALORIES ECHO BIKE</div>
+  <div style="font-family:var(--fc);font-size:13px;color:var(--ink2);text-align:center;max-width:320px;line-height:1.6">Saisis le <b>total de calories</b> affiché sur l'echobike en fin de WOD, puis valide. Une seule valeur — c'est le score de l'équipe.</div>
+  <input id="amrapsteph-cal-inp" type="number" min="0" inputmode="numeric" placeholder="ex : 84"
+    onkeydown="if(event.key==='Enter') amrapStephSubmitCal()"
+    style="width:100%;max-width:340px;padding:18px;border-radius:14px;border:1px solid rgba(159,107,255,.4);background:rgba(159,107,255,.08);color:var(--ink);font-family:var(--fm);font-size:38px;font-weight:800;outline:none;text-align:center">
+  <div style="font-family:var(--fc);font-size:12px;font-weight:800;letter-spacing:2px;color:var(--mid)">CALORIES</div>
+  <button onclick="amrapStephSubmitCal()" style="width:100%;max-width:340px;margin-top:6px;padding:20px;border-radius:14px;border:none;background:linear-gradient(135deg,#00A876,#00E5A0);color:#fff;font-family:var(--fc);font-size:22px;font-weight:900;cursor:pointer;letter-spacing:1px;box-shadow:0 4px 18px rgba(0,200,140,.4)">✅ VALIDER LE SCORE</button>
+</div>
+
 <!-- NEXT — consigne après heat -->
 <div class="scr" id="s-next" style="overflow-y:auto">
   <div class="next-hero" id="next-hero">
@@ -829,6 +854,10 @@ function escH(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;'
 
 /* ── État global ── */
 var SC=null, moveIdx=0, moveReps=0, totalReps=0, noReps=0, currentRound=1;
+// ★ AMRAP STEPH : passe à true une fois que le juge a saisi les calories finales de
+//   l'echobike (via la modale de fin), pour que le validate() rappelé finalise le score
+//   au lieu de rouvrir la modale. Remis à false à chaque nouveau heat.
+var _amrapStephCalDone=false;
 var _preShown=false; // guard anti-double "je suis prêt"
 var _scoreValidated=false; // ★ le récap "prochain passage" ne s'affiche qu'une fois ce flag armé (à la validation du score)
 var tbTs=null, tbPhase=0, tbCapTs=null, tbIv=null;
@@ -2638,6 +2667,7 @@ function goMenu(){
   _dbOut=false; // ★ Death By : repartir non hors-course
   moveIdx=0; moveReps=0; totalReps=0; noReps=0;
   currentRound=1; // ★ FIX : repartir à 1 pour chaque nouveau heat
+  _amrapStephCalDone=false; // ★ AMRAP STEPH : repartir sans cals saisies à chaque heat
   tbTs=0; tbPhase=0; tbCapTs=null; elapsed=0; _tbCaptured=[];
   mlAttempts=[];
   _currentScreen='s-wait';
@@ -3276,27 +3306,12 @@ function cl2BarPoids(st, i){
   }
   return (_cl2.poidsStation && _cl2.poidsStation[st]) || 0;
 }
-function _cl2Sexes(){
-  // ★ H/F : sexe de chaque barre déduit du NOM de catégorie (ex "Rx H-F", "Scaled F-F", "Rx H-H").
-  //   Rend un tableau ['H','F'] / ['F','F'] / ['H','H'] etc. — null si indéterminable.
-  var nm=String((SC&&(SC.cat||SC.catName))||'');
-  var nb=Math.max(1,parseInt((SC&&SC.clBarres)||2,10)||2);
-  var m=nm.match(/([HFhf])\s*[-\/]\s*([HFhf])/);
-  if(m){
-    var a=[m[1].toUpperCase(),m[2].toUpperCase()];
-    while(a.length<nb) a.push(a[a.length-1]);
-    return a.slice(0,nb);
-  }
-  if(SC&&SC.mixte) return ['H','F'].slice(0,nb); // fallback historique
-  return null;
-}
 function cl2Init(){
   if(!_isCL2()) return;
   _cl2.nbStations = Math.max(1, parseInt(SC.toursCount||SC.rounds||1,10)||1);
   _cl2.nbBarres   = Math.max(1, parseInt(SC.clBarres||2,10)||2);
   _cl2.station    = 1;
   _cl2.mixte      = !!(SC && SC.mixte);   // ★ H/F : catégorie mixte (poids H barre1 / poids F barre2)
-  _cl2.sexes      = _cl2Sexes();          // ★ H/F : sexe par barre déduit de la catégorie
   _cl2.poidsStation = {};
   _cl2.poidsStationF = {};
   _cl2.barres = {};
@@ -3717,15 +3732,14 @@ function cl2Render(){
     var e = arr[i];
     var isDead = !!(_cl2.dead && _cl2.dead[i]);
     var bw = cl2BarPoids(st, i);                       // ★ H/F : poids de CETTE barre
-    var _sx = (_cl2.sexes && _cl2.sexes[i]) || '';      // ★ H/F : sexe de CETTE barre (catégorie)
-    var sexTag = _sx;                                    // H ou F selon la catégorie (H-F / H-H / F-F)
-    var sexCol = _sx==='H' ? '#1E88E5' : (_sx==='F' ? '#EC4899' : null);
+    var sexTag = _cl2.mixte ? (i===0?'H':'F') : '';    // barre1=H barre2=F en mixte
+    var sexCol = _cl2.mixte ? (i===0?'#1E88E5':'#EC4899') : null;
     var col, bg, ico, lbl;
     if(isDead){ col='rgba(255,255,255,.28)'; bg='rgba(255,255,255,.03)'; ico='🚫'; lbl='NEUTRALISÉ'; }
     else if(e===1){ col='#00E5A0'; bg='rgba(0,229,160,.15)'; ico='✅'; lbl='VALIDÉE'; }
     else if(e===-1){ col='#FF3B5C'; bg='rgba(255,59,92,.12)'; ico='❌'; lbl='NO REP'; }
     else if(e==='try'){ col='#FFB020'; bg='rgba(255,176,32,.15)'; ico='⏳'; lbl='À JUGER'; }
-    else { col=(sexCol||'rgba(255,255,255,.35)'); bg=(sexCol?sexCol+'1f':'rgba(255,255,255,.04)'); ico=(_sx==='H'?'💙':(_sx==='F'?'🌸':'🏋️')); lbl='ATHLÈTE '+(i+1)+(sexTag?' · '+sexTag:''); }
+    else { col=(sexCol||'rgba(255,255,255,.35)'); bg=(sexCol?sexCol+'1f':'rgba(255,255,255,.04)'); ico=(_cl2.mixte?(i===0?'💙':'🌸'):'🏋️'); lbl='ATHLÈTE '+(i+1)+(sexTag?' · '+sexTag:''); }
     var clickable = (e===0 && !isDead && emomIsWork);
     html += '<div onclick="'+(clickable?'cl2TapBarre('+i+')':'')+'" style="width:120px;padding:16px 10px;border-radius:14px;border:2px solid '+col+';background:'+bg+';text-align:center;'+(clickable?'cursor:pointer':(isDead?'opacity:.5':'opacity:.95'))+'">'
           + '<div style="font-size:30px;line-height:1">'+ico+'</div>'
@@ -3791,7 +3805,6 @@ function cl2BuildBarresCL(){
   out.dead = (_cl2.dead||[]).slice();          // ★ athlètes neutralisés (pour live/TK)
   out.aliveCount = cl2AliveCount();
   out.mixte = !!_cl2.mixte;                     // ★ H/F : catégorie mixte (barre1 H / barre2 F)
-  out.sexes = (_cl2.sexes && _cl2.sexes.slice) ? _cl2.sexes.slice() : (_cl2.sexes||null); // ★ H/F : sexe par barre (cohérence live)
   return out;
 }
 function cl2Push(){
@@ -3836,6 +3849,11 @@ function _curMoveIsEcFree(){
   //   pas une valeur libre. Activer la zone ergocum ici masquerait le compteur
   //   +REP et provoquerait un écran noir. On court-circuite pour Death By.
   if(SC && SC.deathBy) return false;
+  // ★ AMRAP STEPH (« Bike N Run ») : le juge compte shuttle+SU en reps tout le heat,
+  //   et les CALORIES de l'echobike se saisissent UNE SEULE FOIS en fin de WOD (écran de
+  //   validation), pas par tour. Donc pendant le heat, le bike (ergoFree) NE doit PAS ouvrir
+  //   la zone de saisie cumulée — le tour reboucle tout seul au shuttle (voir addRep).
+  if(SC && String(SC.fmt||'').toLowerCase()==='amrapsteph') return false;
   var m=SC&&SC.moves&&SC.moves[moveIdx]; return !!(m && m.ergoFree);
 }
 function ecRefresh(){
@@ -4259,6 +4277,21 @@ function addRep(){
 function nextMove(){
   moveIdx++; moveReps=0;
   var m=SC.moves[moveIdx];
+  // ★ AMRAP STEPH : pendant le heat, le juge ne saisit PAS l'echobike (cals saisies 1 fois
+  //   en fin de WOD). Dès qu'on arriverait sur le bike (dernier mouvement, ergoFree), on
+  //   reboucle directement au mouvement 1 (shuttle) et on compte un tour de plus. Le juge
+  //   enchaîne ainsi shuttle → SU → shuttle… sans jamais rester bloqué sur le vélo.
+  if(m && m.ergoFree && String(SC.fmt||'').toLowerCase()==='amrapsteph'){
+    currentRound++;
+    moveIdx=0; moveReps=0;
+    var _m1s=SC.moves[0];
+    try{ playMoveChangeSound(); }catch(e){}
+    vib([80,40,80,40,160]);
+    if(_m1s && typeof toast==='function') toast('🔁 Tour '+currentRound+' · ▶ '+(_m1s.n||'Mouvement 1'),'#FFB74D',1800);
+    updateDisplay();
+    if(db) pushScoreLive();
+    return;
+  }
   if(m){
     toast('▶ '+m.n);
     // Son + vibration au changement de mouvement
@@ -4343,6 +4376,24 @@ function validate(ergoVal){
       else { toast('Saisis une distance avant de valider'); return; }
     }
     toast('➕ Valeur ajoutée — le WOD continue', '#9F6BFF');
+    return;
+  }
+  // ★ AMRAP STEPH — au buzzer / VALIDER, on n'a pas encore les calories (le juge ne les a
+  //   pas saisies pendant le heat). On ouvre la modale de saisie UNIQUE des cals ; la
+  //   finalisation réelle du score se fera dans amrapStephSubmitCal() → validate() rappelé
+  //   avec _amrapStephCalDone armé. Garde-fou : uniquement si pas déjà validé/saisi.
+  if(String((SC&&SC.fmt)||'').toLowerCase()==='amrapsteph' && !_scoreValidated && !_amrapStephCalDone){
+    // Ne s'ouvre que quand le heat est réellement fini (buzzer/timecap) ou fenêtre post-heat.
+    if(HEAT_STATUS==='live' && !done && !judgeIsPostHeatEntryOpen()){
+      toast('⏱ Attends la fin du temps pour saisir les calories');
+      try{ vib([60,40,60]); }catch(e){}
+      return;
+    }
+    try{
+      var _ci=$('amrapsteph-cal-inp'); if(_ci){ _ci.value=''; }
+      show('s-amrapsteph-cal');
+      setTimeout(function(){ try{ _ci&&_ci.focus(); }catch(e){} }, 120);
+    }catch(e){ console.warn('amrapsteph cal modal:',e); }
     return;
   }
   // ★ FIX (remarque du chef) : UNE seule validation par heat. Les pressions
@@ -4519,6 +4570,21 @@ function validate(ergoVal){
   window._vuAutoTm=setTimeout(function(){
     if(_currentScreen==='s-done'){ showNextScreen(); }
   }, 45000);
+}
+
+/* ★ AMRAP STEPH — validation de la saisie UNIQUE des calories de l'echobike.
+   La valeur saisie REMPLACE tout (pas de cumul par tour) : on écrase _ecValues avec
+   cette seule valeur, on arme le flag, puis on rappelle validate() qui finalise le
+   score normalement (chemin _ecFreeWod : dist/ergoVal/reps = total des cals). */
+function amrapStephSubmitCal(){
+  var _raw=$('amrapsteph-cal-inp'); var v=parseFloat(String((_raw&&_raw.value)||'').replace(',','.'));
+  if(!isFinite(v)||v<0){ if(_raw){ _raw.focus(); } toast('Saisis les calories de l\'echobike'); return; }
+  _ecValues=[v];                 // valeur UNIQUE (remplace, pas de cumul par tour)
+  _amrapStephCalDone=true;
+  try{ vib([60,40,120]); }catch(e){}
+  // done doit être vrai pour que validate() finalise sans re-bloquer sur le garde-fou temps.
+  done=true;
+  try{ validate(); }catch(e){ console.warn('amrapsteph submit → validate:',e); }
 }
 
 /* ★ Bandeau du haut de l'écran récap : prochain passage DU JUGE, libellé
@@ -5411,6 +5477,7 @@ function applyRealData(data){
   // Réinitialiser compteurs
   moveIdx=0; moveReps=0; totalReps=0; noReps=0;
   currentRound=1; // ★ FIX : repartir à 1 pour chaque nouveau heat
+  _amrapStephCalDone=false; // ★ AMRAP STEPH : repartir sans cals saisies à chaque heat
   tbTs=0; tbPhase=0; tbCapTs=null; elapsed=0; _tbCaptured=[]; done=false;
   // ★ FIX HEAT 2+ (Death By / EMOM) : ces variables n'étaient remises à zéro
   //   que dans le bloc if(isEmom) de startJudge — pas sur le chemin d'enchaînement

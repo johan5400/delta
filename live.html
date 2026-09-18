@@ -2344,13 +2344,13 @@ function renderRankCards(rows,w,st,showLiveChips,h,catId,catLeader){
     //   afficher la PROGRESSION du mouvement en cours (reps) au lieu de « — ». Dès qu'elle
     //   pédale, on bascule sur les cals cumulées.
     var _ergoButNoValYet = _isErgoLive && _ergoLiveVal<=0;
-    // ★ AMRAP STEPH (WOD « Bike N Run ») : le juge saisit les CALORIES de l'echobike
-    //   UNIQUEMENT en fin de WOD (pas de valeur qui monte en direct). Donc tant que le
-    //   score n'est pas validé ET qu'aucune cal n'est encore saisie, on n'affiche NI le
-    //   nombre de cal, NI un écart : juste un SABLIER ⏳ en bout de ligne. Dès que le juge
-    //   saisit les cals (dist/ergoVal > 0) ou valide, on repasse à l'affichage normal.
+    // ★ AMRAP STEPH (WOD « Bike N Run ») : le juge compte shuttle+SU en reps pendant tout
+    //   le heat, et saisit les CALORIES de l'echobike UNE SEULE FOIS en fin de WOD. Donc en
+    //   direct, la ligne montre la PROGRESSION dynamique (reps qui montent, comme un AMRAP) —
+    //   c'est déjà le comportement ergo natif ci-dessous via _ergoButNoValYet (tant que
+    //   dist=0, on affiche _cr/_q ou _tot reps). Dès que le juge saisit les cals en fin,
+    //   dist>0 et la ligne bascule automatiquement sur le nombre de cal. Rien à forcer ici.
     var _isAmrapStephFmt = (_fmt==='amrapsteph');
-    var _amrapStephNoCalYet = _isAmrapStephFmt && !val && _ergoLiveVal<=0;
     var _liveScore=!val&&st==='live'
       ?(_pasScore?_pasScore
          :(_isErgoLive
@@ -2405,7 +2405,7 @@ function renderRankCards(rows,w,st,showLiveChips,h,catId,catLeader){
       }
     }
     var _movHtml='';
-    if(_isErgoLive && st==='live' && !_amrapStephNoCalYet){
+    if(_isErgoLive && st==='live'){
       // ★ Générique pour tout EMOM ergo : afficher le cumul de reps du mouvement compté
       //   (snatch, thruster, wall ball…) UNIQUEMENT s'il existe un mouvement de reps.
       //   Un EMOM ergo pur (ex : max mètres vélo seul) n'affiche que la distance.
@@ -2565,13 +2565,6 @@ function renderRankCards(rows,w,st,showLiveChips,h,catId,catLeader){
         if(rDiff<=0){ repGap=leadVal>0?'=':''; gapCls='lead'; }
         else { repGap='- '+rDiff+' rep'+(rDiff>1?'s':''); gapCls='gap'; }
       }
-    }
-    // ★ AMRAP STEPH — surcharge finale : tant que les cals ne sont pas saisies, on écrase
-    //   le score par un SABLIER et on retire tout écart (leader comme poursuivants), pour
-    //   ne pas laisser paraître de cals/reps que le chef ne veut pas montrer en direct.
-    if(_amrapStephNoCalYet){
-      s='⏳';
-      repGap='';
     }
     var eta=etaInfoForRow(e,w,h,catId);
     var ci=parseInt(sc.curMoveIdx)||0,cr=parseInt(sc.moveReps)||0;
