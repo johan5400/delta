@@ -3644,6 +3644,46 @@ function _neededPostes(){
   if(!keys.length){ var z=(typeof ZONES!=='undefined'&&ZONES&&ZONES.length)?ZONES.length:2; return z*6; }
   return keys.reduce(function(s,k){return s+zoneMax[k];},0);
 }
+// ★ CLEAN LADDER ROULANT — nombre d'équipes du PLUS GRAND heat de la zone du WOD.
+//   = max des lignes (nbLignes = lanes = équipes/heat) parmi les catégories de la même
+//   zone. Global pour être partagé par fbBuildWodInfo ET syncWodsToFirebase (le TK/live
+//   lisent la durée depuis le nœud wods/, publié par syncWodsToFirebase). 0 si aucune cat.
+function _clMaxTeamsForZone(zone){
+  var z=String(zone||'1'); var mx=0;
+  if(typeof CATEGORIES!=='undefined' && CATEGORIES && CATEGORIES.length){
+    CATEGORIES.forEach(function(c){
+      if(!c) return;
+      if(String(c.zone||'1')!==z) return;
+      var n=parseInt(c.nbLignes||c.lignes||0,10)||0;
+      if(n>mx) mx=n;
+    });
+  }
+  return mx;
+}
+// ★ CLEAN LADDER ROULANT — durée du bloc (secondes), calculée automatiquement (Option A).
+//   Relais décalé : 1 équipe entre par intervalle. Le bloc doit couvrir :
+//     (équipes − 1)  décalage d'entrée de la dernière équipe
+//     + stations     temps pour la dernière équipe de boucler ses stations
+//     + 1            l'intervalle de la barre BONUS (après la dernière station)
+//   × intervalle (workMin + restMin d'une station). Calé sur le plus grand heat de la zone.
+//   Renvoie 0 si le WOD n'est pas un clean ladder roulant ou si on ne peut pas dimensionner
+//   (l'appelant retombe alors sur la durée saisie à la main). Sans ce +1, la barre bonus de
+//   la dernière équipe d'un heat de 6 tombait dans l'inter-heat (bloc calibré pour 5).
+function _clRollingDureeSec(wod){
+  if(!wod) return 0;
+  if(String(wod.wodFormat||'').toLowerCase()!=='cleanladder') return 0;
+  if(!wod.clRolling) return 0;
+  var _tcustom = !!(wod.toursMode==='custom' && Array.isArray(wod.toursPerso) && wod.toursPerso.length>0);
+  var workSec = parseInt(wod.workMin,10)||0; if(workSec<=0) workSec=60;  // défaut : tours d'1 min
+  var restSec = parseInt(wod.restMin,10)||0;
+  var interval = workSec + restSec;
+  var stations = _tcustom ? wod.toursPerso.length
+                          : (parseInt(wod.toursCount||wod.rounds||0,10)||0);
+  if(stations<=0) stations = 1;
+  var teams = _clMaxTeamsForZone(wod.zone);
+  if(teams<=0 || interval<=0) return 0;  // pas dimensionnable → repli sur la saisie manuelle
+  return (teams - 1 + stations + 1) * interval;
+}
 var BENEVOLES=[];
 var DEFAULT_BENEVOLES_SEED=JSON.parse(JSON.stringify(BENEVOLES));
 var DEFAULT_BENEVOLES_BY_ID={};
@@ -7151,6 +7191,8 @@ if(typeof fbBuildWodInfo !== 'function'){
     }
     return (w && (w.mouvements||w.movements)) || [];
   }
+  // ★ CLEAN LADDER ROULANT : durée du bloc calculée via le helper global partagé
+  //   (_clRollingDureeSec), pour rester cohérent avec syncWodsToFirebase (nœud wods/).
   function fbBuildWodInfo(wod){
     if(!wod) return {};
     var _tcustom = !!(wod.toursMode==='custom' && Array.isArray(wod.toursPerso) && wod.toursPerso.length>0);
@@ -7187,6 +7229,14 @@ if(typeof fbBuildWodInfo !== 'function'){
       }
     }
 
+    // ★ CLEAN LADDER ROULANT — durée du bloc calculée automatiquement (Option A) via le
+    //   helper global partagé. Prime sur la saisie manuelle quand elle a pu être calculée ;
+    //   sinon repli sûr sur la valeur saisie. Ne touche QUE le clean ladder roulant.
+    var _clRollDuree = _clRollingDureeSec(wod);
+    var _dureeSaisie = parseInt(wod.duree||wod.capSec||wod.capSeconds||0,10)||0;
+    var _dureeEff = _clRollDuree>0 ? _clRollDuree : _dureeSaisie;
+    var _capMinEff = _clRollDuree>0 ? Math.round(_clRollDuree/60) : capMinutes;
+
     return {
       id: wod.id||'',
       zone: String(wod.zone||'1'),
@@ -7195,11 +7245,11 @@ if(typeof fbBuildWodInfo !== 'function'){
       descComplete: wod.descComplete||'',
       conditions: wod.conditions||'',
       scParCat: wod.scParCat||{},
-      duree: parseInt(wod.duree||wod.capSec||wod.capSeconds||0,10)||0,
+      duree: _dureeEff,
       wodFormat: wod.wodFormat||wod.type||'amrap',
       type: wod.type || (String(wod.wodFormat||'').toLowerCase()==='fortime' || wod.scoreType==='time' || wod.scoreType==='load' ? 'fortime' : 'amrap'),
-      capMinutes: capMinutes,
-      capSec: parseInt(wod.duree||wod.capSec||wod.capSeconds||0,10)||0,
+      capMinutes: _capMinEff,
+      capSec: _dureeEff,
       capSeconds: parseInt(wod.capSeconds||0,10)||0,
       scoreType: wod.scoreType||'reps',
       scoreFields: wod.scoreFields||['reps'],
