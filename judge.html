@@ -870,6 +870,7 @@ function _tbPushArr(){
   return a;
 }
 var startTs=null, elapsed=0, timerIv=null, done=false, endWarned=false;
+var _postHeatImmediateFired=false; // ★ FIX FLASH AMRAP STEPH : anti rebond de startJudgePostHeatWindow()
 var _dbOut=false; // ★ Death By : athlète hors course (a lâché)
 var _clOut=false; // ★ Clean Ladder : athlète éliminé (tour raté) ou a appuyé sur FINI
 var _clLoad=null; // ★ Clean Ladder : charge finale (kg) saisie si tous les tours bouclés
@@ -1561,6 +1562,13 @@ function startJudgePostHeatWindow(){
 
   if(!needsManualEntry){
     // AMRAP / ForTime / Rounds : validation immédiate avec le score en cours, interface bloquée
+    // ★ FIX FLASH AMRAP STEPH : ne déclencher qu'UNE seule fois par heat. Avant, comme
+    //   `done` ne passe à true qu'après la saisie cals/distance dans la modale (AMRAP
+    //   STEPH), le timerIv (tick 100ms) rappelait cette fonction en boucle tant que la
+    //   modale était ouverte → spam de toast + refreshJudgeLockUI 10x/s pendant que le
+    //   juge tapait sa valeur, d'où l'écran qui « flash » et la saisie impossible.
+    if(_postHeatImmediateFired) return true;
+    _postHeatImmediateFired=true;
     clearInterval(_judgePostHeatIv);
     _judgePostHeatEditUntilTs=0;
     toast('⏱ Timecap — score enregistré');
@@ -2671,6 +2679,7 @@ function goMenu(){
   moveIdx=0; moveReps=0; totalReps=0; noReps=0;
   currentRound=1; // ★ FIX : repartir à 1 pour chaque nouveau heat
   _amrapStephCalDone=false; // ★ AMRAP STEPH : repartir sans cals saisies à chaque heat
+  _postHeatImmediateFired=false; // ★ FIX FLASH AMRAP STEPH : réarmer pour le prochain heat
   tbTs=0; tbPhase=0; tbCapTs=null; elapsed=0; _tbCaptured=[];
   mlAttempts=[];
   _currentScreen='s-wait';
@@ -3025,7 +3034,7 @@ function startJudge(){
   if(_prestartLockUntilTs<=serverNow()){
     _prestartLockUntilTs = startTs + 0; // déjà démarré = pas de prestart rétroactif
   }
-  done=false; endWarned=false; mlAttempts=[];
+  done=false; endWarned=false; mlAttempts=[]; _postHeatImmediateFired=false;
   var _ov=document.getElementById('j-end-overlay'); if(_ov) _ov.style.display='none';
   _currentScreen='s-judge';
   show('s-judge');
@@ -5523,6 +5532,7 @@ function applyRealData(data){
   moveIdx=0; moveReps=0; totalReps=0; noReps=0;
   currentRound=1; // ★ FIX : repartir à 1 pour chaque nouveau heat
   _amrapStephCalDone=false; // ★ AMRAP STEPH : repartir sans cals saisies à chaque heat
+  _postHeatImmediateFired=false; // ★ FIX FLASH AMRAP STEPH : réarmer pour le prochain heat
   tbTs=0; tbPhase=0; tbCapTs=null; elapsed=0; _tbCaptured=[]; done=false;
   // ★ FIX HEAT 2+ (Death By / EMOM) : ces variables n'étaient remises à zéro
   //   que dans le bloc if(isEmom) de startJudge — pas sur le chemin d'enchaînement
