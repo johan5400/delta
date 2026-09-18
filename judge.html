@@ -769,12 +769,12 @@ body.brief-mode #s-judge{display:none!important}
      score). Pas de cumul par tour. -->
 <div class="scr" id="s-amrapsteph-cal" style="align-items:center;justify-content:center;gap:16px;background:radial-gradient(ellipse at 50% 35%,rgba(159,107,255,.12) 0%,var(--bg) 65%);padding:24px 20px">
   <div style="font-size:60px;line-height:1">🚴</div>
-  <div style="font-family:var(--ff);font-size:26px;font-weight:900;letter-spacing:2px;color:#fff;text-align:center">CALORIES ECHO BIKE</div>
-  <div style="font-family:var(--fc);font-size:13px;color:var(--ink2);text-align:center;max-width:320px;line-height:1.6">Saisis le <b>total de calories</b> affiché sur l'echobike en fin de WOD, puis valide. Une seule valeur — c'est le score de l'équipe.</div>
+  <div id="amrapsteph-cal-title" style="font-family:var(--ff);font-size:26px;font-weight:900;letter-spacing:2px;color:#fff;text-align:center">CALORIES ECHO BIKE</div>
+  <div id="amrapsteph-cal-desc" style="font-family:var(--fc);font-size:13px;color:var(--ink2);text-align:center;max-width:320px;line-height:1.6">Saisis le <b>total de calories</b> affiché sur l'echobike en fin de WOD, puis valide. Une seule valeur — c'est le score de l'équipe.</div>
   <input id="amrapsteph-cal-inp" type="number" min="0" inputmode="numeric" placeholder="ex : 84"
     onkeydown="if(event.key==='Enter') amrapStephSubmitCal()"
     style="width:100%;max-width:340px;padding:18px;border-radius:14px;border:1px solid rgba(159,107,255,.4);background:rgba(159,107,255,.08);color:var(--ink);font-family:var(--fm);font-size:38px;font-weight:800;outline:none;text-align:center">
-  <div style="font-family:var(--fc);font-size:12px;font-weight:800;letter-spacing:2px;color:var(--mid)">CALORIES</div>
+  <div id="amrapsteph-cal-unit" style="font-family:var(--fc);font-size:12px;font-weight:800;letter-spacing:2px;color:var(--mid)">CALORIES</div>
   <button onclick="amrapStephSubmitCal()" style="width:100%;max-width:340px;margin-top:6px;padding:20px;border-radius:14px;border:none;background:linear-gradient(135deg,#00A876,#00E5A0);color:#fff;font-family:var(--fc);font-size:22px;font-weight:900;cursor:pointer;letter-spacing:1px;box-shadow:0 4px 18px rgba(0,200,140,.4)">✅ VALIDER LE SCORE</button>
 </div>
 
@@ -4392,8 +4392,36 @@ function validate(ergoVal){
       try{ vib([60,40,60]); }catch(e){}
       return;
     }
+    // ★ FIX SAISIE IMPOSSIBLE : la modale déjà ouverte ne doit PAS être réaffichée
+    //   (sinon l'input est vidé/le focus perdu à chaque re-appel → « écran se rafraîchit trop vite »).
+    if(_currentScreen==='s-amrapsteph-cal'){ return; }
+    // ★ FIX : couper les boucles de rafraîchissement (chrono 100ms, tiebreak, push live) pendant
+    //   la saisie — le heat est fini, elles ne servent plus qu'à voler le focus de l'input.
+    try{ clearInterval(timerIv); }catch(e){}
+    try{ clearInterval(tbIv); }catch(e){}
+    try{ clearInterval(_scoreIv); }catch(e){}
+    try{ if(typeof dismissTB==='function') dismissTB(); }catch(e){}
+    try{ var _ovEnd=document.getElementById('j-end-overlay'); if(_ovEnd) _ovEnd.style.display='none'; }catch(e){}
     try{
       var _ci=$('amrapsteph-cal-inp'); if(_ci){ _ci.value=''; }
+      // ★ Libellé dynamique : distance (m) ou calories selon l'unité du mouvement ergo du WOD.
+      (function(){
+        var _bk=(SC&&SC.moves)?SC.moves.filter(function(mm){return mm&&mm.ergoFree;})[0]:null;
+        var _u=String((_bk&&_bk.ergoUnit)||(SC&&(SC.scoreFinale||SC.judgeMode))||'').toLowerCase();
+        var _isCal=(_u==='cal');
+        var _t=$('amrapsteph-cal-title'), _d=$('amrapsteph-cal-desc'), _uL=$('amrapsteph-cal-unit');
+        if(_isCal){
+          if(_t) _t.textContent='CALORIES ECHO BIKE';
+          if(_d) _d.innerHTML='Saisis le <b>total de calories</b> affiché sur l\'echobike en fin de WOD, puis valide. Une seule valeur.';
+          if(_uL) _uL.textContent='CALORIES';
+          if(_ci) _ci.placeholder='ex : 84';
+        } else {
+          if(_t) _t.textContent='DISTANCE ECHO BIKE';
+          if(_d) _d.innerHTML='Saisis la <b>distance en mètres</b> affichée sur l\'echobike en fin de WOD, puis valide. Une seule valeur.';
+          if(_uL) _uL.textContent='MÈTRES';
+          if(_ci) _ci.placeholder='ex : 520';
+        }
+      })();
       show('s-amrapsteph-cal');
       setTimeout(function(){ try{ _ci&&_ci.focus(); }catch(e){} }, 120);
     }catch(e){ console.warn('amrapsteph cal modal:',e); }
