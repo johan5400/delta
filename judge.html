@@ -3096,6 +3096,11 @@ function startJudge(){
   clearInterval(timerIv);
   timerIv=setInterval(function(){
     if(done) return;
+    // ★ FIX FLASH AMRAP STEPH (saisie cals impossible) : dès que la modale de saisie des
+    //   calories/distance de fin est ouverte, le heat est terminé côté juge. Le tick 100ms
+    //   ne sert plus qu'à rafraîchir l'UI et vole le focus de l'input à chaque passage
+    //   (écran qui « flashe », saisie impossible). On coupe donc le chrono net ici.
+    if(_currentScreen==='s-amrapsteph-cal'){ try{ clearInterval(timerIv); }catch(_e){} timerIv=null; return; }
     // ★ FIX SAISIE BLOQUÉE : filet de sécurité. Si le heat tourne (live/timecap)
     // mais qu'un prestart lock reste actif (par exemple suite à un countdown
     // fantôme ou à un raccrochage du watcher), on le libère ici et on
