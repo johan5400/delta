@@ -1512,10 +1512,14 @@ function checkPassword(){
     </div>
     <div class="card" style="display:flex;flex-direction:column">
       <div class="sh-card-title">📄 Scorecards vierges par catégorie</div>
-      <div style="font-size:11px;color:var(--ink2);margin-bottom:12px;flex:1">Une feuille par catégorie pour le WOD choisi (mouvements + reps, sans équipe ni score). Feuilles de secours à remplir à la main.</div>
+      <div style="font-size:11px;color:var(--ink2);margin-bottom:12px;flex:1">Feuille(s) de secours à remplir à la main (mouvements + reps, sans équipe ni score). Choisis <strong>une catégorie</strong> pour n'imprimer qu'une seule feuille, ou <strong>Toutes</strong> pour une feuille par catégorie.</div>
       <div style="margin-bottom:10px">
         <div style="font-size:10px;font-weight:800;color:var(--ink2);margin-bottom:6px">WOD</div>
         <select id="blank-sc-wod-select" onfocus="fillBlankScWodSelect()" style="width:100%;background:#FFF7ED;border:1px solid var(--brd2);border-radius:8px;color:var(--ink);padding:9px 10px;font-size:12px;outline:none;font-family:inherit"></select>
+      </div>
+      <div style="margin-bottom:10px">
+        <div style="font-size:10px;font-weight:800;color:var(--ink2);margin-bottom:6px">Catégorie</div>
+        <select id="blank-sc-cat-select" onfocus="fillBlankScCatSelect()" style="width:100%;background:#FFF7ED;border:1px solid var(--brd2);border-radius:8px;color:var(--ink);padding:9px 10px;font-size:12px;outline:none;font-family:inherit"></select>
       </div>
       <button class="btn btn-orange" onclick="printBlankScFromCenter()" style="width:100%;justify-content:center;font-size:12px">🖨️ Imprimer les scorecards vierges</button>
     </div>
@@ -7348,8 +7352,9 @@ function renderPrintCenter(){
     });
     if(!(WODS||[]).length) wsel.innerHTML = '<option value="">Aucun WOD créé</option>';
   }
-  // ★ Remplir aussi le menu des scorecards VIERGES
+  // ★ Remplir aussi le menu des scorecards VIERGES (WOD + catégorie)
   if(typeof fillBlankScWodSelect==='function') fillBlankScWodSelect();
+  if(typeof fillBlankScCatSelect==='function') fillBlankScCatSelect();
 }
 
 // ★ Imprimer les scorecards du WOD choisi dans le centre d'impression
@@ -22953,10 +22958,15 @@ function lsSyncScorecards() {
 //   mouvements et reps adaptés à chaque catégorie, mais SANS équipe ni score
 //   pré-remplis (cases à remplir à la main). N'ouvre qu'une fenêtre d'impression :
 //   ne touche ni à Firebase, ni aux heats, ni aux scores.
-function printBlankScorecards(wodId){
+function printBlankScorecards(wodId, catId){
   var wod = (WODS||[]).find(function(w){ return String(w.id)===String(wodId); });
   if(!wod){ toast('Choisis un WOD','#E65100'); return; }
   var cats = (CATEGORIES||[]).filter(function(c){ return c && c.nom; });
+  // ★ Filtre catégorie : si une catégorie précise est choisie (≠ "Toutes"), on n'imprime
+  //   qu'UNE seule scorecard vierge (demande chef). Sinon, toutes les catégories.
+  if(catId && catId!=='__ALL__'){
+    cats = cats.filter(function(c){ return String(c.id)===String(catId); });
+  }
   if(!cats.length){ toast('Aucune catégorie','#E65100'); return; }
 
   var nomEv = (document.getElementById('ev-nom')||{}).value || 'FOC 2026';
@@ -23104,10 +23114,22 @@ function fillBlankScWodSelect(){
   if(!sel) return;
   sel.innerHTML = (WODS||[]).map(function(w){ return '<option value="'+escHtml(String(w.id))+'">'+escHtml(w.nom||'WOD')+'</option>'; }).join('');
 }
+// ★ Remplit le menu Catégorie du bloc "scorecards vierges" : option "Toutes" + une par catégorie.
+function fillBlankScCatSelect(){
+  var sel = document.getElementById('blank-sc-cat-select');
+  if(!sel) return;
+  var opts = '<option value="__ALL__">Toutes les catégories</option>';
+  opts += (CATEGORIES||[]).filter(function(c){ return c && c.nom; }).map(function(c){
+    return '<option value="'+escHtml(String(c.id))+'">'+escHtml(c.nom)+'</option>';
+  }).join('');
+  sel.innerHTML = opts;
+}
 function printBlankScFromCenter(){
   var sel = document.getElementById('blank-sc-wod-select');
   if(!sel || !sel.value){ toast('Choisis un WOD','#E65100'); return; }
-  printBlankScorecards(sel.value);
+  var catSel = document.getElementById('blank-sc-cat-select');
+  var catId = (catSel && catSel.value) ? catSel.value : '__ALL__';
+  printBlankScorecards(sel.value, catId);
 }
 
 function printScorecardWod(wodId) {
