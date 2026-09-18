@@ -790,7 +790,14 @@ function scoreStr(sc,w){
   // ★ AMRAP STEPH + additionner : le SCORE affiché = total (reps comptées + cals du bike),
   //   déjà cumulé dans sc.reps par le juge. Doit passer AVANT la branche cal/dist, sinon
   //   scoreStr n'affiche que les cals (sc.dist) et ignore les reps → écart avec le tri.
-  if((w.wodFormat||'').toLowerCase()==='amrapsteph' && w.stephAddReps) return (parseInt(sc.reps)||0)+' pts';
+  if((w.wodFormat||'').toLowerCase()==='amrapsteph' && w.stephAddReps){
+    var _tot=parseInt(sc.reps)||0;
+    // ★ Détail « X rep + Y cal = Total » quand le juge a saisi les deux (repli sur « Total pts »).
+    if(sc.stephReps!=null && sc.stephCals!=null){
+      return (parseInt(sc.stephReps,10)||0)+' rep + '+(parseInt(sc.stephCals,10)||0)+' cal = '+_tot;
+    }
+    return _tot+' pts';
+  }
   if(jm==='maxload'||sf==='load') return (sc.load||0)+' kg';
   if(jm==='ergo'||sf==='dist'||sf==='cal') return (parseFloat(sc.dist||sc.ergoVal||sc.distance)||0)+(sf==='cal'?' cal':(' '+(sc.ergoUnit||'m')));
   if(isT){                                     // ★ CAP + reps : le public voit le travail accompli
