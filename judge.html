@@ -2515,6 +2515,7 @@ setInterval(function(){
     if(_scoreValidated) return;
     if(_currentScreen==='s-judge' || _currentScreen==='s-cd') return;
     if(_currentScreen==='s-next' || _currentScreen==='s-done') return;
+    if(_currentScreen==='s-amrapsteph-cal') return; // ★ FIX FLASH : ne pas rouvrir s-judge pendant la saisie des cals de fin
     if(HEAT_STATUS!=='live' && HEAT_STATUS!=='timecap') return;
     // À ce stade : heat actuel est live, juge pas en train de saisir, pas validé.
     // Vérifier en plus côté Firebase pour éviter une fausse alerte sur un cache stale.
@@ -2526,6 +2527,7 @@ setInterval(function(){
       if(_scoreValidated) return;
       if(_currentScreen==='s-judge' || _currentScreen==='s-cd') return;
       if(_currentScreen==='s-next' || _currentScreen==='s-done') return;
+      if(_currentScreen==='s-amrapsteph-cal') return; // ★ FIX FLASH : idem après vérif Firebase
       HEAT_STATUS=st;
       _prestartLockUntilTs=0;
       clearInterval(timerIv); timerIv=null;
