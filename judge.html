@@ -5596,6 +5596,10 @@ function applyRealData(data){
     if(typeof showJudgePauseScreen==='function'){ showJudgePauseScreen(); return; }
   }
   if(data.status==='pre' || data.status==='countdown'){
+    // ★ FIX AMRAP STEPH : ne pas écraser la saisie des cals en cours (voir listenHeatStatus).
+    if(_currentScreen==='s-amrapsteph-cal' && !_amrapStephCalDone){
+      return;
+    }
     _preShown=true; // bloquer le listener pour ne pas re-déclencher goPre
     if(!maybeAutoReadyNextHeat()) setTimeout(goPre, 400);
   } else if(data.status==='live'||data.status==='timecap'){
@@ -6131,7 +6135,14 @@ function pushScoreLive(){
 /* Pousser score final validé — priorité maximale + blocage navigation 1.2s */
 function pushScoreFinal(scorePayload){
   if(!db||!FB_HEAT_ID||!FB_LANE) return;
-  if(HEAT_STATUS!=='live' && HEAT_STATUS!=='timecap' && !judgeIsPostHeatEntryOpen()){
+  // ★ FIX AMRAP STEPH (score qui ne remonte pas) : le juge saisit les cals PENDANT
+  //   l'interheat. À ce moment le heat courant est fini et le TK a souvent déjà passé le
+  //   heat suivant en 'pre' → HEAT_STATUS n'est plus 'live'/'timecap', et done=true ferme
+  //   judgeIsPostHeatEntryOpen(). Sans cette exception, le score validé était REJETÉ
+  //   (« Attends le départ du Timekeeper ») et ne remontait jamais. La saisie unique des
+  //   cals amrapsteph (_amrapStephCalDone) est une finalisation légitime → on l'autorise.
+  var _amrapStephFinal=!!_amrapStephCalDone;
+  if(!_amrapStephFinal && HEAT_STATUS!=='live' && HEAT_STATUS!=='timecap' && !judgeIsPostHeatEntryOpen()){
     toast('Attends le départ du Timekeeper');
     return;
   }
@@ -6892,6 +6903,15 @@ function listenHeatStatus(){
     }
     refreshJudgeLockUI();
     if(st==='pre'&&!done&&!_preShown){
+      // ★ FIX AMRAP STEPH (score qui ne remonte pas) : si le juge est en train de saisir
+      //   les calories de fin (modale ouverte, score pas encore validé), NE PAS basculer
+      //   vers le briefing du heat suivant quand le TK lance l'interheat. Sinon l'écran de
+      //   saisie est écrasé et la valeur est perdue. On laisse le juge finir : la bascule
+      //   se fera après amrapStephSubmitCal() (done=true → validate() → showNextScreen).
+      if(_currentScreen==='s-amrapsteph-cal' && !_amrapStephCalDone){
+        toast('⏱ Termine la saisie des calories avant le heat suivant','#FFB020',2600);
+        return;
+      }
       _preShown=true;
       // ★ FIX FORTIME v2 : si LE MÊME heat repasse en 'pre' (faux départ relancé
       //   par le TK), on ré-autorise la saisie.
