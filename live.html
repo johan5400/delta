@@ -2175,9 +2175,9 @@ function cl2LiveBars(bc, elim, val){
   } else if(!elim && !val) {
     // ── Station EN COURS : ses barres en grand ──
     var o=bc[curSt]||bc[String(curSt)]||{barres:[],poids:0};
-    var poids=o.poids||0; var arr=o.barres||[];
+    var poids=o.poids||0; var poidsF=o.poidsF||0; var arr=o.barres||[];
     html+='<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
-        + '<span style="font-family:var(--fm);font-weight:900;font-size:clamp(11px,1.5vw,20px);color:#4DA6FF;letter-spacing:.5px">St.'+curSt+' · '+(poids>0?poids+'kg':'')+'</span>';
+        + '<span style="font-family:var(--fm);font-weight:900;font-size:clamp(11px,1.5vw,20px);color:#4DA6FF;letter-spacing:.5px">St.'+curSt+(poids>0?' · '+(bc.mixte?'💙 ':'')+poids+'kg':'')+'</span>';
     for(var i=0;i<nbB;i++){
       var e2=arr[i]; var col,ico;
       if(bc.dead && bc.dead[i]){ col='rgba(255,255,255,.3)'; ico='🚫'; }   // athlète neutralisé
@@ -2187,6 +2187,10 @@ function cl2LiveBars(bc, elim, val){
       else if(bc.mixte){ col=(i===0?'#1E88E5':'#EC4899'); ico=(i===0?'💙':'🌸'); }  // ★ H/F : barre1 H bleu / barre2 F rose
       else {col='rgba(255,255,255,.4)';ico='⬜';}
       html+='<span style="display:inline-flex;align-items:center;justify-content:center;width:clamp(26px,3vw,40px);height:clamp(26px,3vw,40px);border-radius:8px;border:2px solid '+col+';background:'+col+'1a;font-size:clamp(13px,1.8vw,22px)">'+ico+'</span>';
+      // ★ H/F : charge Femme (barre 2) affichée à droite de la fleur 🌸
+      if(bc.mixte && i===1 && poidsF>0){
+        html+='<span style="font-family:var(--fm);font-weight:900;font-size:clamp(11px,1.5vw,20px);color:#EC4899;letter-spacing:.5px;margin-left:2px">'+poidsF+'kg</span>';
+      }
     }
     html+='</div>';
   }
