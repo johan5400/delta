@@ -11293,7 +11293,19 @@ function buildJugeAssignment(){
    * 4. Au retour d'une pause, on réutilise sa ligne précédente si possible
    * 5. La priorité se fait sur la zone d'affectation, pas sur la qualification
    * 6. Si pas assez de juges → lignes sans juge (mode secours QR)
+   * 7. ★ RX : une ligne qui passe par un heat RX ne peut être tenue QUE par un juge
+   *    de qualif >= RX_MIN_QUALIF. Aucun juge qualifié dispo → ligne sans juge (secours QR).
    */
+  var RX_MIN_QUALIF = 8; // ★ seuil de qualif requis pour juger une catégorie RX
+  function _catNomIsRx(nom){ return String(nom||'').toLowerCase().indexOf('rx')>=0; }
+  function _heatIsRx(heat){
+    if(!heat) return false;
+    if(_catNomIsRx(heat.catNom) || _catNomIsRx(heat.catName)) return true;
+    // fallback : résoudre via CATEGORIES si le nom n'est pas porté par le heat
+    var c=(CATEGORIES||[]).find(function(cc){ return String(cc.id)===String(heat.catId); });
+    return c ? _catNomIsRx(c.nom) : false;
+  }
+  function _judgeOkForRx(ben){ return (parseInt((ben&&ben.qualif)||0,10)||0) >= RX_MIN_QUALIF; }
   var pool = getJudgingBenevoles();
   var assignment = {}; // { globalNum: { ligne: {id, prenom, nom} } }
   if(!HEATS_RESULT || !pool.length) return assignment;
@@ -11617,6 +11629,17 @@ function buildJugeAssignment(){
                         .sort(function(a,b){ return a-b; });
     if(!wodLanes.length){ wodCounterByDay[jour] = (wodCounterByDay[jour]||0)+1; return; }
 
+    // ★ RX : lignes de CE WOD qui passent par au moins un heat RX (équipe présente).
+    //   Une telle ligne exige un juge qualif >= RX_MIN_QUALIF sur tout le WOD.
+    var wodRxLaneSet = {};
+    groupHeats.forEach(function(h){
+      if(!_heatIsRx(h)) return;
+      (h.slots||[]).forEach(function(s){
+        if(s && !s.empty && s.team && s.ligne!=null){ wodRxLaneSet[String(parseInt(s.ligne,10))] = true; }
+      });
+    });
+    function _laneIsRx(lane){ return !!wodRxLaneSet[String(parseInt(lane,10))]; }
+
     // Fenêtre horaire globale du WOD (pour vérifier dispo + conflits).
     var wodWindows = [];
     groupHeats.forEach(function(h){
@@ -11639,19 +11662,66 @@ function buildJugeAssignment(){
       return fa<fb?-1:fa>fb?1:0;
     });
     // Les N moins chargés tiennent ce WOD (N = nb de lignes du WOD).
+    // ★ RX : on doit garantir un juge qualif>=8 sur chaque ligne RX. On élargit donc la
+    //   sélection si nécessaire pour inclure assez de juges qualifiés RX, sans casser
+    //   l'équité pour les lignes non-RX (toujours les moins chargés d'abord).
+    var nbRxLanes = wodLanes.filter(_laneIsRx).length;
     var wodJudges = rankedWod.slice(0, wodLanes.length);
+    if(nbRxLanes>0){
+      var qualifiedInSel = wodJudges.filter(_judgeOkForRx).length;
+      if(qualifiedInSel < nbRxLanes){
+        // compléter avec les juges qualifiés RX les moins chargés pas encore sélectionnés
+        var extraQualified = rankedWod.filter(function(b){
+          return _judgeOkForRx(b) && wodJudges.indexOf(b)<0;
+        }).slice(0, nbRxLanes - qualifiedInSel);
+        wodJudges = wodJudges.concat(extraQualified);
+      }
+    }
 
     // Attribuer une LIGNE FIXE à chaque juge du WOD, en évitant sa ligne du WOD PRÉCÉDENT
     //   (rotation anti-lassitude entre WODs).
+    // ★ RX : les lignes RX sont servies EN PREMIER et réservées aux juges qualif>=8.
+    //   Si aucun juge qualifié n'est dispo pour une ligne RX → elle reste sans juge
+    //   (mode secours QR), plutôt que d'y placer un juge sous-qualifié.
     var laneOwner = {};              // { ligne(str) : ben }
     var laneAvail = wodLanes.slice();
-    wodJudges.forEach(function(ben){
-      var prev = lastWodLaneByJudge[String(ben.id)];
-      var idx = -1;
-      for(var i=0;i<laneAvail.length;i++){ if(laneAvail[i]!==prev){ idx=i; break; } }
-      if(idx<0) idx=0;
-      var lane = laneAvail.splice(idx,1)[0];
+    var judgesAvail = wodJudges.slice();
+
+    // 1) Lignes RX d'abord, uniquement juges qualifiés.
+    var rxLanesToFill = laneAvail.filter(_laneIsRx).sort(function(a,b){ return a-b; });
+    rxLanesToFill.forEach(function(lane){
+      var prev, idx=-1;
+      // choisir un juge qualifié RX, en évitant sa ligne du WOD précédent si possible
+      for(var i=0;i<judgesAvail.length;i++){
+        if(!_judgeOkForRx(judgesAvail[i])) continue;
+        prev = lastWodLaneByJudge[String(judgesAvail[i].id)];
+        if(prev!==lane){ idx=i; break; }
+        if(idx<0) idx=i; // fallback : ce juge même si c'est sa ligne précédente
+      }
+      if(idx<0){
+        // dernier recours : le premier juge qualifié restant, quelle que soit sa ligne préc.
+        for(var k=0;k<judgesAvail.length;k++){ if(_judgeOkForRx(judgesAvail[k])){ idx=k; break; } }
+      }
+      if(idx<0) return; // aucun juge qualifié → ligne RX laissée sans juge (secours QR)
+      var ben = judgesAvail.splice(idx,1)[0];
       laneOwner[String(lane)] = ben;
+      // retirer la ligne de la liste des lignes à pourvoir
+      var li = laneAvail.indexOf(lane); if(li>=0) laneAvail.splice(li,1);
+    });
+
+    // 2) Lignes non-RX ensuite, avec les juges restants (qualif indifférente).
+    var remainingLanes = laneAvail.slice();
+    remainingLanes.forEach(function(lane){
+      if(!judgesAvail.length) return;
+      var prev = null, idx=-1;
+      for(var i=0;i<judgesAvail.length;i++){
+        prev = lastWodLaneByJudge[String(judgesAvail[i].id)];
+        if(prev!==lane){ idx=i; break; }
+      }
+      if(idx<0) idx=0;
+      var ben = judgesAvail.splice(idx,1)[0];
+      laneOwner[String(lane)] = ben;
+      var li = laneAvail.indexOf(lane); if(li>=0) laneAvail.splice(li,1);
     });
 
     // ── Dérouler les heats du WOD : chaque juge garde SA ligne ──
@@ -18897,8 +18967,8 @@ var _ANALYSE={cats:null};
 function _anFmtTime(s){s=parseInt(s||0,10)||0;return Math.floor(s/60)+':'+String(s%60).padStart(2,'0');}
 function _anBool(v){return v===true||v===1||v==='true'||v==='1';}
 function _anCfPts(r){var g=[100,95,90,85,80,75,70,65,60,55,50,45,40,35,30,25,20,15,10,0];return (r>=1&&r<=g.length)?g[r-1]:0;}
-function _anScoreVal(sc,w){sc=sc||{};w=w||{};var sf=(w.scoreFinale||w.scoreType||'').toLowerCase();var jm=(w.judgeMode||'').toLowerCase();var isT=(w.wodFormat||'').toLowerCase()==='fortime'||sf==='time';if(jm==='maxload'||sf==='load')return parseFloat(sc.load)||0;if(jm==='ergo'||sf==='dist'||sf==='cal')return parseFloat(sc.dist||sc.ergoVal||sc.distance)||0;if(isT)return parseInt(sc.finalTime||0,10)>0 ? -parseInt(sc.finalTime,10) : (parseInt(sc.reps||0,10)>0 ? -1000000+parseInt(sc.reps,10) : -2000000);return parseInt(sc.reps||0,10)||0;}
-function _anFmtSc(sc,w){sc=sc||{};w=w||{};var sf=(w.scoreFinale||w.scoreType||'').toLowerCase();var jm=(w.judgeMode||'').toLowerCase();var isT=(w.wodFormat||'').toLowerCase()==='fortime'||sf==='time';if(jm==='maxload'||sf==='load')return (parseFloat(sc.load)||0)+' kg';if(jm==='ergo'||sf==='dist'||sf==='cal')return (parseFloat(sc.dist||sc.ergoVal||sc.distance)||0)+(sf==='cal'?' cal':(' '+(sc.ergoUnit||'m')));if(isT&&parseInt(sc.finalTime||0,10)>0)return _anFmtTime(sc.finalTime);if(parseInt(sc.reps||0,10)>0)return parseInt(sc.reps,10)+' reps';return '—';}
+function _anScoreVal(sc,w){sc=sc||{};w=w||{};var sf=(w.scoreFinale||w.scoreType||'').toLowerCase();var jm=(w.judgeMode||'').toLowerCase();var isT=(w.wodFormat||'').toLowerCase()==='fortime'||sf==='time';if((w.wodFormat||'').toLowerCase()==='amrapsteph'&&w.stephAddReps)return parseInt(sc.reps||0,10)||0;if(jm==='maxload'||sf==='load')return parseFloat(sc.load)||0;if(jm==='ergo'||sf==='dist'||sf==='cal')return parseFloat(sc.dist||sc.ergoVal||sc.distance)||0;if(isT)return parseInt(sc.finalTime||0,10)>0 ? -parseInt(sc.finalTime,10) : (parseInt(sc.reps||0,10)>0 ? -1000000+parseInt(sc.reps,10) : -2000000);return parseInt(sc.reps||0,10)||0;}
+function _anFmtSc(sc,w){sc=sc||{};w=w||{};var sf=(w.scoreFinale||w.scoreType||'').toLowerCase();var jm=(w.judgeMode||'').toLowerCase();var isT=(w.wodFormat||'').toLowerCase()==='fortime'||sf==='time';if((w.wodFormat||'').toLowerCase()==='amrapsteph'&&w.stephAddReps){var _dc=(sc.stephReps!=null&&sc.stephCals!=null)?(' ('+(parseInt(sc.stephReps,10)||0)+'r+'+(parseInt(sc.stephCals,10)||0)+'c)'):'';return (parseInt(sc.reps||0,10)||0)+' pts'+_dc;}if(jm==='maxload'||sf==='load')return (parseFloat(sc.load)||0)+' kg';if(jm==='ergo'||sf==='dist'||sf==='cal')return (parseFloat(sc.dist||sc.ergoVal||sc.distance)||0)+(sf==='cal'?' cal':(' '+(sc.ergoUnit||'m')));if(isT&&parseInt(sc.finalTime||0,10)>0)return _anFmtTime(sc.finalTime);if(parseInt(sc.reps||0,10)>0)return parseInt(sc.reps,10)+' reps';return '—';}
 function _anHasRaw(sc){sc=sc||{};return parseInt(sc.reps||0,10)>0||parseInt(sc.finalTime||0,10)>0||parseFloat(sc.load||0)>0||parseFloat(sc.dist||sc.distance||0)>0;}
 function _anEsc(s){return (typeof escHtml==='function')?escHtml(s):String(s==null?'':s);}
 

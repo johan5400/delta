@@ -2339,7 +2339,12 @@ function renderRankCards(rows,w,st,showLiveChips,h,catId,catLeader){
     //   WOD n'est pas typé 'ergo' (ex : Max Bike en type reps + valeur libre). Sinon la
     //   distance cumulée du bike ne s'affichait pas sur le live.
     var _freeMov=(_movs||[]).filter(function(m){return m&&m.ergoFree;})[0]||null;
-    var _isErgoLive=(_jmLive==='ergo'||_sfLive==='dist'||_sfLive==='cal'||!!_freeMov);
+    // ★ AMRAP STEPH + additionner (« Bike N Run ») : le score classé = reps (shuttle+SU)
+    //   + cals du bike, déjà cumulé dans sc.reps par le juge. On NE traite PAS ce WOD comme
+    //   un ergo pur en direct, sinon la ligne n'affiche que les cals (sc.dist) et retombe
+    //   à « 0 » tant que le bike n'est pas saisi (les reps comptées étaient ignorées).
+    var _isStephAdd=((w.wodFormat||'').toLowerCase()==='amrapsteph' && w.stephAddReps);
+    var _isErgoLive=(!_isStephAdd)&&(_jmLive==='ergo'||_sfLive==='dist'||_sfLive==='cal'||!!_freeMov);
     var _ergoLiveVal=parseFloat(sc.dist||sc.ergoVal||sc.distance)||0;
     var _ergoLiveUnit=(_freeMov&&_freeMov.ergoUnit)?_freeMov.ergoUnit:(_sfLive==='cal'?'cal':(sc.ergoUnit||'m'));
     var _ergoLiveStr=(_ergoLiveVal>0?String(_ergoLiveVal)+' '+_ergoLiveUnit:'—');
