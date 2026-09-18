@@ -473,17 +473,7 @@ body.brief-mode #s-judge{display:none!important}
 </head>
 <body>
 
-<!-- ★ Bouton flottant "Mes passages" + popup (accessible depuis tous les écrans) -->
-<button id="schedule-fab" onclick="openSchedulePopup()" style="position:fixed;bottom:16px;right:16px;z-index:9000;width:54px;height:54px;border-radius:50%;border:none;background:linear-gradient(135deg,#1e344e,#4DA6FF);color:#fff;font-size:24px;box-shadow:0 6px 20px rgba(0,0,0,.4);cursor:pointer;touch-action:manipulation">📅</button>
-<div id="schedule-popup" onclick="if(event.target===this)closeSchedulePopup()" style="display:none;position:fixed;inset:0;z-index:9001;background:rgba(0,0,0,.72);backdrop-filter:blur(3px);align-items:flex-end;justify-content:center">
-  <div style="width:100%;max-width:480px;max-height:80vh;background:var(--bg,#0a0e14);border-radius:20px 20px 0 0;border:1px solid var(--brd2,rgba(255,255,255,.12));display:flex;flex-direction:column;overflow:hidden">
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--brd,rgba(255,255,255,.08))">
-      <div style="font-family:var(--ff,sans-serif);font-size:22px;letter-spacing:1px;color:#fff">📅 MES PASSAGES</div>
-      <button onclick="closeSchedulePopup()" style="background:none;border:none;color:var(--mid,#8899b4);font-size:28px;cursor:pointer;line-height:1">×</button>
-    </div>
-    <div id="schedule-popup-rows" style="flex:1;overflow-y:auto;padding:14px 16px"></div>
-  </div>
-</div>
+<!-- ★ Calendrier « Mes passages » retiré (demande chef) -->
 
 <div id="tb-banner">
   <div class="tb-bar"><div class="tb-bar-fill" id="tb-fill"></div></div>
@@ -3286,12 +3276,27 @@ function cl2BarPoids(st, i){
   }
   return (_cl2.poidsStation && _cl2.poidsStation[st]) || 0;
 }
+function _cl2Sexes(){
+  // ★ H/F : sexe de chaque barre déduit du NOM de catégorie (ex "Rx H-F", "Scaled F-F", "Rx H-H").
+  //   Rend un tableau ['H','F'] / ['F','F'] / ['H','H'] etc. — null si indéterminable.
+  var nm=String((SC&&(SC.cat||SC.catName))||'');
+  var nb=Math.max(1,parseInt((SC&&SC.clBarres)||2,10)||2);
+  var m=nm.match(/([HFhf])\s*[-\/]\s*([HFhf])/);
+  if(m){
+    var a=[m[1].toUpperCase(),m[2].toUpperCase()];
+    while(a.length<nb) a.push(a[a.length-1]);
+    return a.slice(0,nb);
+  }
+  if(SC&&SC.mixte) return ['H','F'].slice(0,nb); // fallback historique
+  return null;
+}
 function cl2Init(){
   if(!_isCL2()) return;
   _cl2.nbStations = Math.max(1, parseInt(SC.toursCount||SC.rounds||1,10)||1);
   _cl2.nbBarres   = Math.max(1, parseInt(SC.clBarres||2,10)||2);
   _cl2.station    = 1;
   _cl2.mixte      = !!(SC && SC.mixte);   // ★ H/F : catégorie mixte (poids H barre1 / poids F barre2)
+  _cl2.sexes      = _cl2Sexes();          // ★ H/F : sexe par barre déduit de la catégorie
   _cl2.poidsStation = {};
   _cl2.poidsStationF = {};
   _cl2.barres = {};
@@ -3712,14 +3717,15 @@ function cl2Render(){
     var e = arr[i];
     var isDead = !!(_cl2.dead && _cl2.dead[i]);
     var bw = cl2BarPoids(st, i);                       // ★ H/F : poids de CETTE barre
-    var sexTag = _cl2.mixte ? (i===0?'H':'F') : '';    // barre1=H barre2=F en mixte
-    var sexCol = _cl2.mixte ? (i===0?'#1E88E5':'#EC4899') : null;
+    var _sx = (_cl2.sexes && _cl2.sexes[i]) || '';      // ★ H/F : sexe de CETTE barre (catégorie)
+    var sexTag = _sx;                                    // H ou F selon la catégorie (H-F / H-H / F-F)
+    var sexCol = _sx==='H' ? '#1E88E5' : (_sx==='F' ? '#EC4899' : null);
     var col, bg, ico, lbl;
     if(isDead){ col='rgba(255,255,255,.28)'; bg='rgba(255,255,255,.03)'; ico='🚫'; lbl='NEUTRALISÉ'; }
     else if(e===1){ col='#00E5A0'; bg='rgba(0,229,160,.15)'; ico='✅'; lbl='VALIDÉE'; }
     else if(e===-1){ col='#FF3B5C'; bg='rgba(255,59,92,.12)'; ico='❌'; lbl='NO REP'; }
     else if(e==='try'){ col='#FFB020'; bg='rgba(255,176,32,.15)'; ico='⏳'; lbl='À JUGER'; }
-    else { col=(sexCol||'rgba(255,255,255,.35)'); bg=(sexCol?sexCol+'1f':'rgba(255,255,255,.04)'); ico=(_cl2.mixte?(i===0?'💙':'🌸'):'🏋️'); lbl='ATHLÈTE '+(i+1)+(sexTag?' · '+sexTag:''); }
+    else { col=(sexCol||'rgba(255,255,255,.35)'); bg=(sexCol?sexCol+'1f':'rgba(255,255,255,.04)'); ico=(_sx==='H'?'💙':(_sx==='F'?'🌸':'🏋️')); lbl='ATHLÈTE '+(i+1)+(sexTag?' · '+sexTag:''); }
     var clickable = (e===0 && !isDead && emomIsWork);
     html += '<div onclick="'+(clickable?'cl2TapBarre('+i+')':'')+'" style="width:120px;padding:16px 10px;border-radius:14px;border:2px solid '+col+';background:'+bg+';text-align:center;'+(clickable?'cursor:pointer':(isDead?'opacity:.5':'opacity:.95'))+'">'
           + '<div style="font-size:30px;line-height:1">'+ico+'</div>'
@@ -3785,6 +3791,7 @@ function cl2BuildBarresCL(){
   out.dead = (_cl2.dead||[]).slice();          // ★ athlètes neutralisés (pour live/TK)
   out.aliveCount = cl2AliveCount();
   out.mixte = !!_cl2.mixte;                     // ★ H/F : catégorie mixte (barre1 H / barre2 F)
+  out.sexes = (_cl2.sexes && _cl2.sexes.slice) ? _cl2.sexes.slice() : (_cl2.sexes||null); // ★ H/F : sexe par barre (cohérence live)
   return out;
 }
 function cl2Push(){

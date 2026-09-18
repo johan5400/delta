@@ -2013,6 +2013,11 @@ function compareScores(a,b,w){
   //   1) en course avant éliminé · 2) cumul kg décroissant ·
   //   3) entre deux en course à cumul égal, le PLUS AVANCÉ (station puis barres vertes).
   if(String((w&&w.wodFormat)||'').toLowerCase()==='cleanladder'){
+    // ★ 0 SCORE (demande chef) : une équipe qui n'a soulevé AUCUNE barre (cumul 0) passe
+    //   SOUS toute équipe ayant soulevé au moins une barre — même éliminée.
+    var _aHas=(parseFloat((a.sc&&(a.sc.clLoad!=null?a.sc.clLoad:a.sc.load))||0)||0)>0;
+    var _bHas=(parseFloat((b.sc&&(b.sc.clLoad!=null?b.sc.clLoad:b.sc.load))||0)||0)>0;
+    if(_aHas!==_bHas) return _aHas?-1:1;
     var _aElim=!!(a.sc&&a.sc.clOut), _bElim=!!(b.sc&&b.sc.clOut);
     if(_aElim!==_bElim) return _aElim?1:-1; // 1) en course avant éliminé (éliminé tout en bas)
     var _akg2=parseFloat((a.sc&&(a.sc.clLoad!=null?a.sc.clLoad:a.sc.load))||0)||0;
@@ -2143,11 +2148,23 @@ function liveReps(sc){return parseInt((sc&&sc.reps)||0,10)||0;}
    Affiche la station EN COURS en grand (barres ⏳/✅/❌) + une rangée de pastilles
    de progression (station validée = verte, ratée = rouge, à venir = grise).
    Lisible à distance : on suit l'athlète station par station, pas d'empilement. */
-function cl2LiveBars(bc, elim, val){
+function clSexesFromName(name, nb){
+  // ★ H/F : déduit le sexe de chaque barre du nom de catégorie (ex "Rx H-F", "Scaled F-F").
+  nb=Math.max(1,parseInt(nb||2,10)||2);
+  var m=String(name||'').match(/([HFhf])\s*[-\/]\s*([HFhf])/);
+  if(!m) return null;
+  var a=[m[1].toUpperCase(),m[2].toUpperCase()];
+  while(a.length<nb) a.push(a[a.length-1]);
+  return a.slice(0,nb);
+}
+function cl2LiveBars(bc, elim, val, catName){
   if(!bc) return '';
   var nbS=parseInt(bc.nbStations||1,10)||1;
   var nbB=parseInt(bc.nbBarres||2,10)||2;
   var curSt=parseInt(bc.station||1,10)||1;
+  // ★ H/F : sexe par barre — priorité au tableau poussé par le juge (bc.sexes),
+  //   sinon déduit du nom de catégorie. Corrige les anciens scores sans bc.sexes.
+  var _sexes=(bc.sexes&&bc.sexes.length)?bc.sexes:clSexesFromName(catName,nbB);
   function stationState(s){
     // ok = station passée (au moins un athlète a validé) · ko = passée sans aucune validée
     //   (c'est là que l'équipe s'est terminée) · todo = à venir / en cours.
@@ -2176,19 +2193,23 @@ function cl2LiveBars(bc, elim, val){
     // ── Station EN COURS : ses barres en grand ──
     var o=bc[curSt]||bc[String(curSt)]||{barres:[],poids:0};
     var poids=o.poids||0; var poidsF=o.poidsF||0; var arr=o.barres||[];
+    var _h0=(_sexes&&_sexes[0])||''; var _hemo=_h0==='H'?'💙 ':(_h0==='F'?'🌸 ':(bc.mixte?'💙 ':''));
     html+='<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
-        + '<span style="font-family:var(--fm);font-weight:900;font-size:clamp(11px,1.5vw,20px);color:#4DA6FF;letter-spacing:.5px">St.'+curSt+(poids>0?' · '+(bc.mixte?'💙 ':'')+poids+'kg':'')+'</span>';
+        + '<span style="font-family:var(--fm);font-weight:900;font-size:clamp(11px,1.5vw,20px);color:#4DA6FF;letter-spacing:.5px">St.'+curSt+(poids>0?' · '+_hemo+poids+'kg':'')+'</span>';
     for(var i=0;i<nbB;i++){
-      var e2=arr[i]; var col,ico;
+      var e2=arr[i]; var col,ico; var _sx=(_sexes&&_sexes[i])||'';
       if(bc.dead && bc.dead[i]){ col='rgba(255,255,255,.3)'; ico='🚫'; }   // athlète neutralisé
       else if(e2===1){col='#00E5A0';ico='✅';}
       else if(e2===-1){col='#FF3B5C';ico='❌';}
       else if(e2==='try'){col='#FFB020';ico='⏳';}
-      else if(bc.mixte){ col=(i===0?'#1E88E5':'#EC4899'); ico=(i===0?'💙':'🌸'); }  // ★ H/F : barre1 H bleu / barre2 F rose
+      else if(_sx==='H'){ col='#1E88E5'; ico='💙'; }  // ★ H/F : barre Homme (bleu)
+      else if(_sx==='F'){ col='#EC4899'; ico='🌸'; }  // ★ H/F : barre Femme (rose)
+      else if(bc.mixte){ col=(i===0?'#1E88E5':'#EC4899'); ico=(i===0?'💙':'🌸'); }  // fallback ancien score sans sexes
       else {col='rgba(255,255,255,.4)';ico='⬜';}
       html+='<span style="display:inline-flex;align-items:center;justify-content:center;width:clamp(26px,3vw,40px);height:clamp(26px,3vw,40px);border-radius:8px;border:2px solid '+col+';background:'+col+'1a;font-size:clamp(13px,1.8vw,22px)">'+ico+'</span>';
       // ★ H/F : charge Femme (barre 2) affichée à droite de la fleur 🌸
-      if(bc.mixte && i===1 && poidsF>0){
+      var _barF=(_sx==='F')||(!(_sexes&&_sexes.length)&&bc.mixte&&i===1);
+      if(_barF && poidsF>0 && poidsF!==poids){
         html+='<span style="font-family:var(--fm);font-weight:900;font-size:clamp(11px,1.5vw,20px);color:#EC4899;letter-spacing:.5px;margin-left:2px">'+poidsF+'kg</span>';
       }
     }
@@ -2553,7 +2574,7 @@ function renderRankCards(rows,w,st,showLiveChips,h,catId,catLeader){
     var chipsHtml='';
     // ★ CLEAN LADDER v2 : barres visuelles (station en cours ⏳/✅/❌) + pastilles de progression.
     if(String(w.wodFormat||'').toLowerCase()==='cleanladder' && sc && sc.barresCL){
-      chipsHtml=cl2LiveBars(sc.barresCL, sc.clOut, val);
+      chipsHtml=cl2LiveBars(sc.barresCL, sc.clOut, val, (e&&e._catGroup)||(h&&(h.catName||h.catNom))||'');
     } else
     if(showLiveChips&&st==='live'&&!val&&(w.mouvements||[]).length&&String(w.wodFormat||'').toLowerCase()!=='cleanladder'&&String(w.wodFormat||'').toLowerCase()!=='deathby'){
       chipsHtml='<div class="chips">'+(w.mouvements||[]).map(function(m,mi){
