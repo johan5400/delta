@@ -4445,7 +4445,14 @@ function validate(ergoVal){
   //   suivantes sont ignorées — le score validé ne peut plus être réécrit
   //   depuis l'appli juge (correction = rôle du TK).
   if(_scoreValidated){ toast('✅ Score déjà validé', '#00E5A0'); return; }
-  if(HEAT_STATUS!=='live' && HEAT_STATUS!=='timecap' && !judgeIsPostHeatEntryOpen()){
+  // ★ FIX AMRAP STEPH (score bike qui ne remonte pas à l'interheat) : quand le juge saisit
+  //   les cals pendant l'interheat, amrapStephSubmitCal() rappelle validate() avec
+  //   _amrapStephCalDone=true et done=true. Mais le TK a souvent déjà passé le heat suivant
+  //   en 'pre' → HEAT_STATUS n'est plus live/timecap et done=true ferme la fenêtre post-heat.
+  //   Cette garde rejetait alors la validation AVANT d'atteindre pushScoreFinal (« Attends le
+  //   départ du Timekeeper »), donc le score n'était jamais poussé. La saisie unique des cals
+  //   est une finalisation légitime → on ne la bloque pas.
+  if(!_amrapStephCalDone && HEAT_STATUS!=='live' && HEAT_STATUS!=='timecap' && !judgeIsPostHeatEntryOpen()){
     toast('Attends le départ du Timekeeper');
     return;
   }
