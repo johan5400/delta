@@ -7252,6 +7252,7 @@ if(typeof fbBuildWodInfo !== 'function'){
       capSec: _dureeEff,
       capSeconds: parseInt(wod.capSeconds||0,10)||0,
       scoreType: wod.scoreType||'reps',
+      stephAddReps: !!wod.stephAddReps, // ★ AMRAP STEPH : score = cals + reps additionnées
       scoreFields: wod.scoreFields||['reps'],
       scorecardRows: wod.scorecardRows||'',
       judgeMode: (wod.scoreType==='load'?'maxload':(wod.scoreType==='dist'||wod.scoreType==='cal')?'ergo':(wod.judgeMode||(movs.length?'movements':'reps'))),  // ★ FIX CHARGE/LIVE : dériver de scoreType
@@ -7872,6 +7873,7 @@ function syncWodsToFirebase(){
       capMinutes: Math.round(parseInt(w.duree||0,10)/60)||0,
       wodFormat: w.wodFormat||'amrap',
       scoreType: w.scoreType||'reps',
+      stephAddReps: !!w.stephAddReps, // ★ AMRAP STEPH : score = cals + reps additionnées
       scoreFinale: w.scoreFinale||'',
       interHeat: parseInt(w.interHeat||0,10)||0,
       coupureApres: parseInt(w.coupureApres||0,10)||0,
@@ -13294,6 +13296,15 @@ function renderProgWodsList() {
               : '<input type="number" min="1" max="20" value="'+(w.rounds||1)+'" onchange="updateWodProg('+w.id+',\'rounds\',parseInt(this.value)||1);renderProgWodsList()" onclick="event.stopPropagation()" style="'+IS+';border:1.5px solid #BFDBFE;background:#fff;padding:7px 8px;font-size:12px;text-align:center;font-weight:900">'))
         +   '</div>'
         + '</div>'
+
+        // ★ AMRAP STEPH — option « score = cals + reps » (WOD 1 FOC : bike saisi 1× en fin,
+        //   reps comptées pendant le heat, les DEUX additionnées au classement).
+        + (String(w.wodFormat||'').toLowerCase()==='amrapsteph'
+            ? '<div style="padding:8px 14px;background:#FFF7ED;border-top:1px solid #FED7AA;display:flex;align-items:center;gap:8px">'
+              + '<input type="checkbox" id="stephadd'+w.id+'" '+(w.stephAddReps?'checked':'')+' onchange="updateWodProg('+w.id+',\'stephAddReps\',this.checked);renderProgWodsList();event.stopPropagation()" onclick="event.stopPropagation()" style="width:18px;height:18px;flex:0 0 auto">'
+              + '<label for="stephadd'+w.id+'" style="font-size:12px;font-weight:800;color:#C2410C;cursor:pointer;line-height:1.35" onclick="event.stopPropagation()">➕ Score = cals + reps (additionner les reps comptées au total du bike)</label>'
+              + '</div>'
+            : '')
 
         + '<div style="padding:12px 14px;background:#F5F8FF;border-top:1px solid var(--brd)">'
 
@@ -18719,6 +18730,7 @@ async function generateAndPublishAll(){
       coupureApres:parseInt(w.coupureApres||0,10)||0,
       wodFormat:w.wodFormat||w.type||'amrap',
       scoreType:w.scoreType||'reps',
+      stephAddReps:!!w.stephAddReps, // ★ AMRAP STEPH : score = cals + reps additionnées
       scoreFields:w.scoreFields||['reps'],
       scoreFinale:w.scoreFinale||'',
       scoreFinaleUnit:w.scoreFinaleUnit||'',

@@ -1253,6 +1253,7 @@ function wodToScenario(wod){
   else if(fmt==='ergo') fmt='ergo';
   else if(fmt==='deathby') fmt='emom'; // ★ Death By : routé par la machinerie EMOM (cycle = dbIntervalSec). SC.deathBy garde l'identité (bouton LÂCHE, tours illimités).
   else if(fmt==='cleanladder') fmt='emom'; // ★ Clean Ladder : routé par la machinerie EMOM (tours à la minute). SC.cleanLadder garde l'identité.
+  else if(fmt==='amrapsteph') fmt='amrapsteph'; // ★ FIX AMRAP STEPH : NE PAS écraser en 'amrap'. Sans ça, SC.fmt devenait 'amrap', tout le flux dédié (bike saisi 1× en fin, reboucle auto au bike, score = cals seules) était mort → le juge redemandait les cals à chaque tour et le classement comptait les reps.
   else fmt='amrap';
   // ★ FIX SAISIE CHARGE/ERGO : 'maxload' et 'ergo' ne sont PAS des wodFormat
   //   (absents de la liste des 6 formats). Ils sont définis par le sélecteur
@@ -1275,7 +1276,7 @@ function wodToScenario(wod){
   //   Box Jump affiché "20m à valider" au lieu de compter les reps sur 5 tours). On ne bascule
   //   en ergo/maxload QUE pour un vrai WOD ergo pur : pas de structure de tours ET aucun
   //   mouvement à reps.
-  var _hasRoundStruct=(fmt==='rounds'||fmt==='fortime'||fmt==='amrap');
+  var _hasRoundStruct=(fmt==='rounds'||fmt==='fortime'||fmt==='amrap'||fmt==='amrapsteph');
   var _hasRepMove=!!(SC && SC.moves && SC.moves.some(function(mm){return mm && (mm.type||'reps')==='reps' && !mm.ergoFree;}));
   // NB : SC n'est pas encore construit ici ; on relit les mouvements bruts du wod.
   var _rawMoves=(function(){
@@ -1453,14 +1454,15 @@ function wodToScenario(wod){
     dbRoundSec: parseInt(wod.dbRoundSec||60,10)||60,
     scoreFinale: wod.scoreFinale||'',
     judgeMode: wod.judgeMode||'reps',
-    deathBy: _isDeathBy
+    deathBy: _isDeathBy,
+    stephAddReps: !!wod.stephAddReps // ★ AMRAP STEPH : score final = reps comptées + cals du bike
   };
 }
 function canFinalizeNow(){
   if(done) return false;
   if(judgeIsPostHeatEntryOpen()) return true;
   var fmt=(SC&&SC.fmt)||'amrap';
-  var timeCapped=(fmt==='amrap'||fmt==='tabata');
+  var timeCapped=(fmt==='amrap'||fmt==='amrapsteph'||fmt==='tabata');
   if(timeCapped) return HEAT_STATUS==='timecap' || HEAT_STATUS==='done';
   return HEAT_STATUS==='live' || HEAT_STATUS==='timecap';
 }
@@ -2053,6 +2055,7 @@ function fillBriefScreen(next){
     var catName=(next.cat||next.catName||h.catName||'');
     var fmtLine='';
     if(fmt==='amrap')        fmtLine='AMRAP '+fmtT(scen.cap||0);
+    else if(fmt==='amrapsteph') fmtLine='AMRAP '+fmtT(scen.cap||0);
     else if(fmt==='fortime') fmtLine='FOR TIME · CAP '+fmtT(scen.cap||0);
     else if(fmt==='rounds')  fmtLine=(scen.toursCount||scen.rounds||1)+' TOURS · CAP '+fmtT(scen.cap||0);
     else if(fmt==='emom')    fmtLine='EMOM '+fmtT(scen.cap||0);
@@ -2548,7 +2551,7 @@ function canFinalizeNow(){
   // ★ GARDE-FOU : formats à temps fixe (score = max de travail dans le temps imparti)
   //   → on NE valide PAS pendant le live, seulement quand le chrono est écoulé (timecap).
   //   Empêche de valider un AMRAP/Tabata avant la fin du temps (formats où le score monte jusqu'au bout).
-  var timeCapped=(fmt==='amrap'||fmt==='tabata');
+  var timeCapped=(fmt==='amrap'||fmt==='amrapsteph'||fmt==='tabata');
   if(timeCapped) return HEAT_STATUS==='timecap' || HEAT_STATUS==='done';
   // fortime (validation au finish) + maxload/ergo (saisie manuelle) → OK pendant le live
   return HEAT_STATUS==='live' || HEAT_STATUS==='timecap';
@@ -3037,7 +3040,7 @@ function startJudge(){
   //   des reps, la liste des mouvements et l'enchaînement des tours ne s'affichaient pas.
   //   Le juge restait bloqué sur le 1er mouvement. 'rounds' se compte comme 'fortime' côté
   //   juge (reps + tours), la logique d'avance de tour existe déjà plus bas (currentRound).
-  var isReps=(fmt==='fortime'||fmt==='amrap'||fmt==='rounds');
+  var isReps=(fmt==='fortime'||fmt==='amrap'||fmt==='amrapsteph'||fmt==='rounds');
   var isEmom=(fmt==='emom'||fmt==='interval');
   var isML=(fmt==='maxload'), isErgo=(fmt==='ergo');
 
@@ -3099,7 +3102,7 @@ function startJudge(){
     // et on met juste à jour le bandeau "Départ dans Xs".
     if(_prestartLockUntilTs>serverNow() && HEAT_STATUS!=='live' && HEAT_STATUS!=='timecap'){
       var fmtPre=(SC&&SC.fmt)||'amrap';
-      var isAmrapPre=(fmtPre==='amrap'), isEmomPre=(fmtPre==='emom'||fmtPre==='interval');
+      var isAmrapPre=(fmtPre==='amrap'||fmtPre==='amrapsteph'), isEmomPre=(fmtPre==='emom'||fmtPre==='interval');
       var remPre=(isAmrapPre||isEmomPre)?(SC.cap||0):0;
       var telPre=$('j-timer'); if(telPre){ telPre.textContent=fmtT(remPre); telPre.className='j-timer ok'; }
       refreshJudgeLockUI();
@@ -3111,7 +3114,7 @@ function startJudge(){
       startTs=HEAT_START_TS;
     }
     elapsed=Math.max(0,Math.floor((serverNow()-startTs)/1000));
-    var isAmrap=(fmt==='amrap'), isEmomT=(fmt==='emom'||fmt==='interval');
+    var isAmrap=(fmt==='amrap'||fmt==='amrapsteph'), isEmomT=(fmt==='emom'||fmt==='interval');
     if(isEmomT){
       updateEmomPhase(elapsed);
       // ★ FIX REPOS 1er heat : forcer updateEmomDisplay à chaque tick
@@ -4133,7 +4136,7 @@ function updateDisplay(){
   var repBtn=$('btn-rep');
   if(repBtn){
     var curM=SC.moves[moveIdx];
-    var isAmrapFmt=(SC.fmt==='amrap');
+    var isAmrapFmt=(SC.fmt==='amrap'||SC.fmt==='amrapsteph');
     // ForTime uniquement : bloquer quand dernier mouvement et quota atteint
     var ftDone=isJudgeFortimeCompleted();
     // AMRAP : jamais allDone (le chrono gère la fin via timecap)
@@ -4464,7 +4467,13 @@ function validate(ergoVal){
     try{ var _z=$('j-cl2-zone'); if(_z) _z.style.display='none'; }catch(e){}
   } else {
   var _ecFreeDisp=!!(SC.moves&&SC.moves.some(function(mm){return mm&&mm.ergoFree;})) && !(SC&&SC.deathBy);
-  if(_ecFreeDisp){
+  if(SC && SC.stephAddReps){
+    // ★ AMRAP STEPH + additionner : score = reps comptées pendant le heat + cals du bike (1 cal = 1 rep).
+    var _cals0=(_ecValues||[]).reduce(function(a,b){return a+(parseFloat(b)||0);},0);
+    var _combined0=(parseInt(totalReps||0,10)||0)+_cals0;
+    score=_combined0+' reps';
+    meta=SC.heat+' · Lane '+SC.lane+' · '+SC.wod+' · '+(parseInt(totalReps||0,10)||0)+' reps + '+_cals0+' cal'+(noReps?' · '+noReps+' NR':'');
+  } else if(_ecFreeDisp){
     // ★ EMOM/ergo cumulé : le score affiché = total des distances/cals des tours + unité.
     var _ecDm=(SC.moves.filter(function(mm){return mm&&mm.ergoFree;})[0]||{});
     var _ecDu=_ecDm.ergoUnit||'m';
@@ -4516,7 +4525,15 @@ function validate(ergoVal){
     // ★ FIX DEATH BY : même garde que _ecFreeDisp — en Death By, ergoFree est cosmétique.
     //   Le score Firebase = totalReps (chemin else ci-dessous), pas _ecValues (vide).
     var _ecFreeWod=!!(SC.moves&&SC.moves.some(function(mm){return mm&&mm.ergoFree;})) && !(SC&&SC.deathBy);
-    if(_ecFreeWod){
+    if(SC && SC.stephAddReps){
+      // ★ AMRAP STEPH + additionner : le TOTAL classé = reps + cals. On le met dans reps
+      //   (champ lu par le classement en mode reps) ET on conserve le détail pour transparence.
+      var _calsP=(_ecValues||[]).reduce(function(a,b){return a+(parseFloat(b)||0);},0);
+      var _combinedP=(parseInt(totalReps||0,10)||0)+_calsP;
+      payload.reps=_combinedP; payload.dist=_calsP; payload.ergoVal=_calsP;
+      payload.ecValues=(_ecValues||[]).slice();
+      payload.stephReps=(parseInt(totalReps||0,10)||0); payload.stephCals=_calsP;
+    } else if(_ecFreeWod){
       var _ecTot=(_ecValues||[]).reduce(function(a,b){return a+(parseFloat(b)||0);},0);
       payload.dist=_ecTot; payload.ergoVal=_ecTot; payload.reps=_ecTot;
       payload.ecValues=(_ecValues||[]).slice();

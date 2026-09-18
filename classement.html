@@ -486,6 +486,8 @@ function scoreVal(sc,wod,h,hid){
   var type=wod.wodFormat||wod.type||'amrap';
   // ★ CLEAN LADDER v2 : score = cumul kg (barre bonus incluse). Éliminé = cumul partiel.
   if(type==='cleanladder') return parseFloat((sc.clLoad!=null?sc.clLoad:sc.load))||0;
+  // ★ AMRAP STEPH + additionner : le total (reps + cals) est déjà dans sc.reps → on classe dessus.
+  if(String(type).toLowerCase()==='amrapsteph' && wod.stephAddReps) return parseInt(sc.reps||0,10)||0;
   var _sf=String(wod.scoreType||wod.scoreFinale||'').toLowerCase();
   if(wod.judgeMode==='maxload'||_sf==='load')return parseFloat(sc.load)||0;
   if(wod.judgeMode==='ergo'||_sf==='dist'||_sf==='cal')return parseFloat(sc.ergoVal||sc.dist||sc.distance)||0;
@@ -548,6 +550,12 @@ function scoreDisplay(sc,wod,h,hid){
     var _clc=(sc.clLoad!=null?sc.clLoad:(sc.load||0))||0;
     out=_clc+' kg'+(sc.clOut?' · 🛑 terminé':'');
     return out;
+  }
+  // ★ AMRAP STEPH + additionner : afficher le total combiné (reps + cals) + détail.
+  if(String(type).toLowerCase()==='amrapsteph' && wod.stephAddReps){
+    var _tot=parseInt(sc.reps||0,10)||0;
+    var _dc=(sc.stephReps!=null&&sc.stephCals!=null)?(' ('+(parseInt(sc.stephReps,10)||0)+'r+'+(parseInt(sc.stephCals,10)||0)+'c)'):'';
+    return _tot+' reps'+_dc;
   }
   var _sfL=String(wod.scoreType||wod.scoreFinale||'').toLowerCase();
   if(wod.judgeMode==='maxload'||_sfL==='load')out=(sc.load||0)+' kg';

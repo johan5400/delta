@@ -309,6 +309,8 @@ function inferFortimeSeconds(sc,wod,h,hid){
 function scoreVal(sc,wod,h,hid){
   if(!sc||!sc.judgeOk)return null;
   var type=wod.wodFormat||wod.type||'amrap';
+  // ★ AMRAP STEPH + additionner : total (reps + cals) déjà dans sc.reps.
+  if(String(type).toLowerCase()==='amrapsteph' && wod.stephAddReps) return parseInt(sc.reps||0,10)||0;
   if(wod.judgeMode==='maxload'||wod.scoreFinale==='load')return parseFloat(sc.load)||0;
   if(wod.judgeMode==='ergo')return parseFloat(sc.ergoVal||sc.dist||sc.distance)||0;
   if(wod.scoreFinale==='dist')return parseFloat(sc.dist||sc.distance)||0;
@@ -345,6 +347,11 @@ function scoreDisplay(sc,wod,h,hid){
   if(!sc||!sc.judgeOk)return '—';
   var type=wod.wodFormat||wod.type||'amrap';
   var out='—';
+  if(String(type).toLowerCase()==='amrapsteph' && wod.stephAddReps){
+    var _tot=parseInt(sc.reps||0,10)||0;
+    var _dc=(sc.stephReps!=null&&sc.stephCals!=null)?(' ('+(parseInt(sc.stephReps,10)||0)+'r+'+(parseInt(sc.stephCals,10)||0)+'c)'):'';
+    return _tot+' reps'+_dc;
+  }
   if(wod.judgeMode==='maxload'||wod.scoreFinale==='load')out=(sc.load||0)+' kg';
   else if(wod.judgeMode==='ergo')out=(sc.ergoVal||sc.dist||sc.distance||0)+(wod.scoreFinaleUnit||'m');
   else if(wod.scoreFinale==='dist')out=(sc.dist||sc.distance||0)+' '+(wod.scoreFinaleUnit||'m');

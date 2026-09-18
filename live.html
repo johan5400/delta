@@ -802,6 +802,8 @@ function scoreVal(sc,w){
   var isT=(w.wodFormat||'').toLowerCase()==='fortime'||sf==='time';
   // ★ CLEAN LADDER v2 : le score EST le cumul kg (barresCL/load), pas des reps.
   if((w.wodFormat||'').toLowerCase()==='cleanladder') return parseFloat((sc.clLoad!=null?sc.clLoad:sc.load))||0;
+  // ★ AMRAP STEPH + additionner : total (reps + cals) déjà dans sc.reps.
+  if((w.wodFormat||'').toLowerCase()==='amrapsteph' && w.stephAddReps) return parseInt(sc.reps)||0;
   if(jm==='maxload'||sf==='load') return parseFloat(sc.load)||0;
   if(jm==='ergo'||sf==='dist'||sf==='cal') return parseFloat(sc.dist||sc.ergoVal||sc.distance)||0;
   if(isT) return sc.finalTime>0?(1000000-sc.finalTime):(parseInt(sc.reps)||0);
