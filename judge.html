@@ -5921,8 +5921,19 @@ function _flushQueue(){
   var q=_offlineQueue.slice(); _offlineQueue=[];
   localStorage.removeItem(_LS_KEY);
   q.forEach(function(item){
-    db.ref('scores/'+item.path).set(item.sc).catch(function(){ _offlineQueue.push(item); _saveOfflineQueue(); });
-    if(item.hpath) db.ref('heats/'+item.hpath).set(item.sc).catch(function(){});
+    // ★ FIX #3 (coupure FOC 2026) : au rejeu de la file, ne jamais rétrograder.
+    //   Une validation (90/100) peut avoir été écrite par un autre appareil
+    //   pendant qu'on était hors ligne ; un live (80) rejoué ne doit pas l'écraser.
+    //   On n'écrit item.sc que si sa priorité >= celle déjà en place.
+    var _pr=parseInt(item.sc&&item.sc._priority,10)||0;
+    var _guardedReplay=function(ref){
+      return ref.transaction(function(cur){
+        if(cur && (parseInt(cur._priority,10)||0) > _pr) return undefined; // garder la valeur en place
+        return item.sc;
+      });
+    };
+    _guardedReplay(db.ref('scores/'+item.path)).catch(function(){ _offlineQueue.push(item); _saveOfflineQueue(); });
+    if(item.hpath) _guardedReplay(db.ref('heats/'+item.hpath)).catch(function(){});
   });
   if(q.length) toast('📶 '+q.length+' rep(s) synchronisé(s) ✓','#00E5A0');
 }
@@ -6135,8 +6146,20 @@ function pushScoreLive(){
     toast('\uD83D\uDCF4 Hors ligne \u2014 score en attente');
     return;
   }
-  var p1=db.ref('scores/'+path).set(sc);
-  var p2=db.ref('heats/'+hpath).set(sc);
+  // ★ FIX B2 (coupure FOC 2026) : un tick live (priorité 80) ne doit JAMAIS
+  //   écraser une validation (juge 90 / TK 100). Avant : .set() brut → une
+  //   validation pouvait être annulée par un push live qui arrive après.
+  //   Désormais on passe par une transaction qui abandonne si la valeur en
+  //   place est de priorité supérieure. (Le système de priorité existe déjà
+  //   en lecture dans mergeScoreRecord ; on le fait juste respecter à l'écriture.)
+  var _liveGuardedSet=function(ref){
+    return ref.transaction(function(cur){
+      if(cur && (parseInt(cur._priority,10)||0) > 80) return undefined; // garder la validation en place
+      return sc;
+    });
+  };
+  var p1=_liveGuardedSet(db.ref('scores/'+path));
+  var p2=_liveGuardedSet(db.ref('heats/'+hpath));
   if(p1&&p1.catch) p1.catch(function(){ _enqueueScore(path,hpath,sc); });
   if(p2&&p2.catch) p2.catch(function(){});
 }
