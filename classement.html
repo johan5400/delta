@@ -1513,15 +1513,31 @@ function debouncedRender(ms){
     debouncedRender(300); // léger debounce heats seulement
   }
 
-  ref.once('value',function(snap){
-    HEATS=snap.val()||{};
+  // ★ FIX CLASSEMENT VIDE SUR APPAREIL NEUF : ne PAS attendre le nœud 'heats' entier
+  //   (~260 Ko) via un seul once('value') — sur un appareil sans cache et sous charge,
+  //   cette lecture peut ne jamais résoudre → bloqué sur « Connexion Firebase… ».
+  //   On streame les heats un par un (child_added/changed/removed) : chacun s'affiche
+  //   dès son arrivée, et un rendu de secours garantit qu'on sort de l'écran d'attente.
+  var _firstPaint=false;
+  function _ensurePaint(){ if(!_firstPaint){ _firstPaint=true; checkHeatDone(HEATS); updateStamp(); render(); } }
+
+  ref.on('child_added', function(snap){
+    var hid=snap.key, h=snap.val();
+    if(h) HEATS[hid]=h;
     checkHeatDone(HEATS);
     updateStamp();
-    render();
-    ref.on('child_changed',onHeatChange);
-    ref.on('child_added',function(snap){if(!HEATS[snap.key])onHeatChange(snap);});
-    ref.on('child_removed',onHeatChange);
+    debouncedRender(300);
   });
+  ref.on('child_changed', onHeatChange);
+  ref.on('child_removed', onHeatChange);
+
+  // Rendu initial rapide dès que les premières données arrivent (value se déclenche
+  // aussi après la première salve child_added), + filet de sécurité à 2,5 s.
+  ref.once('value', function(snap){
+    if(snap.exists() && !Object.keys(HEATS).length){ HEATS=snap.val()||{}; }
+    _ensurePaint();
+  });
+  setTimeout(_ensurePaint, 2500);
 })();
 
 /* ── Listeners scores ── */
@@ -1543,16 +1559,18 @@ function debouncedRender(ms){
     debouncedRender(150); // évite N renders/seconde pendant un heat live
   }
 
-  ref.once('value',function(snap){
-    var raw=snap.val()||{};
-    SCORES={};
-    Object.keys(raw).forEach(function(k){ indexScore(k, raw[k]); });
+  // ★ FIX (même principe que heats) : streaming des scores, pas d'attente du nœud entier.
+  ref.on('child_added', function(snap){
+    indexScore(snap.key, snap.val());
     updateStamp();
-    render();
-    ref.on('child_changed',onScoreChange);
-    ref.on('child_added',function(snap){
-      if(!SCORES[snap.key]) onScoreChange(snap);
-    });
+    debouncedRender(150);
+  });
+  ref.on('child_changed', onScoreChange);
+  ref.once('value', function(snap){
+    var raw=snap.val()||{};
+    Object.keys(raw).forEach(function(k){ if(!SCORES[k]) indexScore(k, raw[k]); });
+    updateStamp();
+    debouncedRender(150);
   });
 })();
 
