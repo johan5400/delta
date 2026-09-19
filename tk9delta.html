@@ -1172,7 +1172,30 @@ if(db){
       if(ACTIVE_DAY!==d.day){ ACTIVE_DAY=d.day; g('dayState').textContent='Jour actif, J'+d.day+' · AUTO · zones séparées (reprise)'; }
     }
   });;
-  dbRef('heats').on('value',function(s){HD=s.val()||{}; refreshAll();});
+  // ★ FIX BANDE PASSANTE (facture / réseau FOC 2026) : avant, .on('value') sur
+  //   TOUT le nœud heats re-téléchargeait les ~260 KB entiers à CHAQUE écriture
+  //   (chaque tick juge écrit dans heats/HID/scores/LN). Sur une journée =
+  //   ~1,2 GB de download inutile, qui coûte (Blaze) et sature le réseau du site.
+  //   Désormais on ne télécharge que l'enfant modifié via child_* (même patron
+  //   éprouvé que live.html / speaker.html). ~100× moins de téléchargement.
+  dbRef('heats').once('value',function(s){
+    HD=s.val()||{};
+    refreshAll();
+    dbRef('heats').on('child_added',function(snap){ HD[snap.key]=snap.val(); refreshAll(); });
+    dbRef('heats').on('child_changed',function(snap){
+      var hid=snap.key, h=snap.val();
+      if(!h){ delete HD[hid]; }
+      else {
+        var prev=HD[hid]||{};
+        HD[hid]=Object.assign({},prev,h);
+        // Firebase omet les null dans un update : préserver lanes/scores si l'update ne les renvoie pas
+        if(!h.lanes && prev.lanes) HD[hid].lanes=prev.lanes;
+        if(!h.scores && prev.scores) HD[hid].scores=prev.scores;
+      }
+      refreshAll();
+    });
+    dbRef('heats').on('child_removed',function(snap){ delete HD[snap.key]; refreshAll(); });
+  });
   // Listener wods/ — maintient WD à jour pour que le chrono ait toujours duree/capSec corrects
   dbRef('wods').on('value',function(s){
     WD=s.val()||{};
@@ -1211,23 +1234,35 @@ if(db){
     });
     refreshAll();
   });
-  dbRef('scores').on('value',function(s){
-    var prev=SC||{};
+  // ★ FIX BANDE PASSANTE (facture / réseau FOC 2026) : idem heats — avant,
+  //   .on('value') re-téléchargeait TOUS les scores à chaque tick. Désormais
+  //   child_* : seul le score modifié est téléchargé. Détection tiebreak conservée.
+  dbRef('scores').once('value',function(s){
     SC=s.val()||{};
-    // Détecter nouveaux tiebreaks validés
-    Object.keys(SC).forEach(function(key){
-      var sc=SC[key], psc=prev[key]||{};
-      if(sc&&sc.tiebreak>0&&(!psc.tiebreak||psc.tiebreak<=0)){
-        var parts=key.split('_');
-        var hid=parts[0], ln=parts[1]||'?';
-        var h=HD[hid]||{};
-        var lane=(h.lanes&&h.lanes[ln])||{};
-        var team=lane.teamName||sc.teamName||('Lane '+ln);
-        var wodName=(h.wodInfo&&h.wodInfo.nom)||'WOD';
-        showTbAlert(team, ln, wodName, sc.tiebreak);
-      }
-    });
     refreshAll();
+    var _onScChange=function(snap){
+      var key=snap.key, sc=snap.val();
+      var psc=SC[key]||{};
+      if(sc){
+        SC[key]=sc;
+        // Détecter un nouveau tiebreak validé (même logique qu'avant, par enfant)
+        if(sc.tiebreak>0 && (!psc.tiebreak || psc.tiebreak<=0)){
+          var parts=key.split('_');
+          var hid=parts[0], ln=parts[1]||'?';
+          var h=HD[hid]||{};
+          var lane=(h.lanes&&h.lanes[ln])||{};
+          var team=lane.teamName||sc.teamName||('Lane '+ln);
+          var wodName=(h.wodInfo&&h.wodInfo.nom)||'WOD';
+          showTbAlert(team, ln, wodName, sc.tiebreak);
+        }
+      } else {
+        delete SC[key];
+      }
+      refreshAll();
+    };
+    dbRef('scores').on('child_added',_onScChange);
+    dbRef('scores').on('child_changed',_onScChange);
+    dbRef('scores').on('child_removed',function(snap){ delete SC[snap.key]; refreshAll(); });
   });
 
   dbRef('system/urgence').on('value',function(s){var u=s.val()||{}; urgence.active=!!u.active; urgence.ts=u.ts||null; urgence.delay=parseInt(u.delay||10,10)||10; urgence.mode=u.resumeMode||'resume_exact'; g('urgenceBanner').classList.toggle('show',urgence.active); var _bf=g('btn-urg-freeze'), _br=g('btn-urg-resume'); if(_bf)_bf.style.display=urgence.active?'none':''; if(_br)_br.style.display=urgence.active?'':'none'; if(urgence.active)startUrgenceTicker(); else {clearInterval(urgence.iv); urgence.iv=null;}});
