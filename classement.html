@@ -483,6 +483,16 @@ function inferFortimeSeconds(sc,wod,h,hid){
 }
 function scoreVal(sc,wod,h,hid){
   if(!sc||!sc.judgeOk)return null;
+  // ★ FIX « TOUT LE MONDE À 100 PTS » (WOD non joué / validé à vide) : un score peut être
+  //   validé (judgeOk=true) mais SANS aucune valeur réelle (0 rep, 0 cal/m, 0 temps, 0 kg).
+  //   Avant : scoreVal renvoyait 0 (≠ null) → toutes ces équipes ex-æquo à 0 → même rang →
+  //   rang 1 → crossfitPts(1) = 100 chacune. On traite un score vide comme "pas de score"
+  //   (null) → 0 point pour ce WOD. Toute équipe ayant une VRAIE valeur (>0) n'est pas touchée.
+  var _hasReps =(parseInt(sc.reps,10)||0)>0 || (parseInt(sc.emomTotalReps,10)||0)>0;
+  var _hasErgo =(parseFloat(sc.ergoVal||sc.dist||sc.distance)||0)>0;
+  var _hasTime =(parseInt(sc.finalTime,10)||0)>0;
+  var _hasLoad =(parseFloat(sc.load)||0)>0 || (parseFloat(sc.clLoad)||0)>0;
+  if(!_hasReps && !_hasErgo && !_hasTime && !_hasLoad) return null;
   var type=wod.wodFormat||wod.type||'amrap';
   // ★ CLEAN LADDER v2 : score = cumul kg (barre bonus incluse). Éliminé = cumul partiel.
   if(type==='cleanladder') return parseFloat((sc.clLoad!=null?sc.clLoad:sc.load))||0;
