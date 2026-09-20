@@ -7246,8 +7246,10 @@ if(typeof fbBuildWodInfo !== 'function'){
       zone: String(wod.zone||'1'),
       nom: wod.nom||wod.name||'WOD',
       description: wod.desc||wod.description||'',
-      descComplete: wod.descComplete||'',
-      conditions: wod.conditions||'',
+      // ★ FIX #3 (coupure FOC 2026) : descComplete + conditions retirés de la copie
+      //   wodInfo PAR-HEAT — poids mort jamais lu par aucun consommateur (TK/live/judge/
+      //   classement/speaker). La copie maître dans `wods` les garde pour l'admin.
+      //   ⚠️ Ne s'applique qu'aux heats (re)publiés après ce déploiement.
       scParCat: wod.scParCat||{},
       duree: _dureeEff,
       wodFormat: wod.wodFormat||wod.type||'amrap',

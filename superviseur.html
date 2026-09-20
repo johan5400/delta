@@ -116,8 +116,26 @@ db.ref('.info/connected').on('value',function(s){
   el.className='live-dot '+(on?'on':'off');
   document.getElementById('connTxt').textContent=on?'Live':'Hors-ligne';
 });
-db.ref('heats').on('value',function(s){HEATS=s.val()||{};scheduleRender();detectFeed();});
-db.ref('scores').on('value',function(s){SCORES=s.val()||{};scheduleRender();detectFeed();});
+// ★ FIX #1 (coupure FOC 2026) : ne plus retélécharger TOUTE la base heats/scores
+//   à chaque tick d'un juge. On écoute les enfants (child_*) et on ne met à jour
+//   que l'enfant modifié. ~100× moins de téléchargement. (Même correctif que TK/live.)
+db.ref('heats').on('child_added',function(s){HEATS[s.key]=s.val();scheduleRender();detectFeed();});
+db.ref('heats').on('child_changed',function(s){
+  var hid=s.key,h=s.val();
+  if(!h){delete HEATS[hid];}
+  else{
+    var prev=HEATS[hid]||{};
+    HEATS[hid]=Object.assign({},prev,h);
+    // Firebase omet les null dans un update : préserver lanes/scores si l'update ne les renvoie pas
+    if(!h.lanes&&prev.lanes)HEATS[hid].lanes=prev.lanes;
+    if(!h.scores&&prev.scores)HEATS[hid].scores=prev.scores;
+  }
+  scheduleRender();detectFeed();
+});
+db.ref('heats').on('child_removed',function(s){delete HEATS[s.key];scheduleRender();detectFeed();});
+db.ref('scores').on('child_added',function(s){SCORES[s.key]=s.val();scheduleRender();detectFeed();});
+db.ref('scores').on('child_changed',function(s){SCORES[s.key]=s.val();scheduleRender();detectFeed();});
+db.ref('scores').on('child_removed',function(s){delete SCORES[s.key];scheduleRender();detectFeed();});
 db.ref('categories').on('value',function(s){CATS=s.val()||{};scheduleRender();});
 db.ref('wods').on('value',function(s){WODS=s.val()||{};scheduleRender();});
 db.ref('system/morningCountdown').on('value',function(s){MCD=s.val()||null;});
