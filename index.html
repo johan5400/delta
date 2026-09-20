@@ -792,8 +792,7 @@ function checkPassword(){
     var dbg=document.getElementById("lock-debug");
     if(dbg)dbg.textContent='v="'+v+'" len='+v.length;
     var ok=false;
-    // ★ Mot de passe admin RETIRÉ (jugé inutile) : l'accès est toujours accordé.
-    SESSION_MODE="admin"; ok=true; v=v; // (v conservé pour ne pas casser le debug ci-dessus)
+    if(v==="Mirage2000D"){SESSION_MODE="admin";ok=true;}
 
     if(ok){
       var ls=document.getElementById("lock-screen");
@@ -814,7 +813,7 @@ function checkPassword(){
 </script>
 
 <!-- LOCK -->
-<div id="lock-screen" style="display:none">
+<div id="lock-screen">
   <div class="lock-wrap" style="max-width:760px">
     <!-- Logo YO-TIMER en haut -->
     <div style="text-align:center;margin-bottom:24px">
@@ -834,7 +833,7 @@ function checkPassword(){
 </div>
 
 <!-- APP -->
-<div id="app" style="display:block">
+<div id="app" style="display:none">
 <div class="header">
   <div class="header-top">
     <div class="logo-block">
@@ -14982,18 +14981,6 @@ function toggleDarkMode(){
   }
 })();;
 
-// ★ Mot de passe admin RETIRÉ : ouvrir directement l'interface au chargement,
-//   sans jamais afficher l'écran de verrouillage. (Réversible : supprimer ce bloc
-//   et le SESSION_MODE forcé dans checkPassword restaure la demande de mot de passe.)
-window.addEventListener('load', function(){
-  try{
-    if(typeof SESSION_MODE!=='undefined' && SESSION_MODE==='admin') return; // déjà ouvert
-    SESSION_MODE='admin';
-    var ls=document.getElementById('lock-screen'); if(ls) ls.style.display='none';
-    var app=document.getElementById('app'); if(app){ app.style.display='block'; app.style.visibility='visible'; }
-    if(typeof init==='function'){ try{ init(); }catch(e){ console.error('auto-open init:',e); } }
-  }catch(e){ console.error('auto-open:',e); }
-});
 // ═══════════════════════════════════════════════════════════════════
 var _synDay = 0; // 0 = tous
 
