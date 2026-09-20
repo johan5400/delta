@@ -3413,8 +3413,12 @@ function startSharedTimerLoop(){
   }
   // Lance immédiatement
   tickAll();
-  // Tick à 100ms (assez fluide) sur un setInterval unique
-  _sharedTimerIv = setInterval(tickAll, 100);
+  // ★ FIX DÉSYNC 1 MIN (chrono TK ↔ appli juge) : cette boucle globale des chronos tournait
+  //   sur un setInterval NATIF, que le navigateur ralentit (~1×/min) dès que l'onglet TK
+  //   passe en arrière-plan → chrono et déclenchement du GO en retard → décalage avec
+  //   l'appli juge. On la route par le Web Worker (_wkTimer, NON ralenti en arrière-plan),
+  //   exactement comme les timers de zone. Repli natif auto si le worker échoue (voir _wkTimer.set).
+  _sharedTimerIv = _wkTimer.set(tickAll, 100);
 }
 
 function getZoneCurrentMovementIndex(hid,h){
