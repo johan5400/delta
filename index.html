@@ -4215,7 +4215,7 @@ function show(id,btn){
   if(id==="config"){ setTimeout(function(){ if(typeof loadCountdownDuration==='function') loadCountdownDuration(); }, 100); }
   if(id==="categories"){setTimeout(function(){renderCategories();},80);}
   if(id==="planning"){generateHeatsSilent();computeHorairesOnly();syncHeatsToFirebase();setPlanDay(activePlanDay);setTimeout(function(){if(typeof syncJudgeAssignmentsNow==='function')syncJudgeAssignmentsNow();},2000);setTimeout(renderPlanningCF,50);}
-  if(id==="planning-juge"){generateHeatsSilent();computeHorairesOnly();setTimeout(function(){if(typeof syncJudgeAssignmentsNow==='function')syncJudgeAssignmentsNow();},1200);setTimeout(renderJudgePlanningTab,60);}
+  if(id==="planning-juge"){generateHeatsSilent();computeHorairesOnly();setTimeout(function(){if(typeof syncJudgeAssignmentsNow==='function')syncJudgeAssignmentsNow();},1200);setTimeout(renderJudgePlanningTab,60);setTimeout(function(){try{if(typeof renderJudgeReassignGrid==='function')renderJudgeReassignGrid();}catch(e){}},140);}
   if(id==="planning-hj"){try{generateHeatsSilent();computeHorairesOnly();}catch(e){}setTimeout(function(){if(typeof renderHeadJudgePlanningTab==='function')renderHeadJudgePlanningTab();},60);}
   if(id==="programme"){setTimeout(function(){renderProgWodsList();computeProgramme();},50);}
   if(id==="recap") setTimeout(function(){if(typeof renderRecapView==='function')renderRecapView();},50);
@@ -11922,7 +11922,213 @@ function buildJugeAssignment(){
 
   window._jugeChargeMap = chargeMapDay;
   window._jugePauseInfo = buildJugePauseInfo(pool, judgeWodEntries);
+  // ★ OVERRIDES MANUELS (verrou glisser-déposer) : après le calcul AUTO, on force les
+  //   réaffectations manuelles de l'organisateur. Elles écrasent l'auto sur la ligne visée,
+  //   pour TOUS les heats du WOD×zone concerné. Un juge forcé sur une ligne est retiré de
+  //   toute autre ligne du MÊME heat (règle « 1 juge = 1 ligne »). Stockées à part
+  //   (nœud Firebase judgeOverrides) → effaçables → retour à l'auto sans rien casser.
+  try{
+    var _ov = window._JUDGE_OVERRIDES || {};
+    if(_ov && Object.keys(_ov).length && Array.isArray(HEATS_RESULT)){
+      HEATS_RESULT.forEach(function(heat){
+        var gn = heat.globalNum; if(gn==null) return;
+        var wid = String(heat.wodId||'');
+        var zone = heat.catZone||heat.zone||1;
+        Object.keys(_ov).forEach(function(k){
+          var parts = String(k).split('__'); // <wid>__z<zone>__L<ligne>
+          if(parts.length!==3) return;
+          if(parts[0]!==wid || parts[1]!==('z'+zone)) return;
+          var ligne = parseInt(String(parts[2]).replace(/^L/,''),10);
+          var j = _ov[k];
+          if(!(ligne>0) || !j || !j.id) return;
+          assignment[gn] = assignment[gn] || {};
+          Object.keys(assignment[gn]).forEach(function(L){
+            var cur = assignment[gn][L];
+            if(cur && String(cur.id)===String(j.id) && parseInt(L,10)!==ligne) assignment[gn][L]=null;
+          });
+          assignment[gn][ligne] = {id:String(j.id), prenom:j.prenom||'', nom:j.nom||'', _locked:true};
+        });
+      });
+    }
+  }catch(_ovErr){ try{ console.warn('overrides juge:', _ovErr); }catch(e){} }
   return assignment;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// ★ RÉAFFECTATION MANUELLE DES JUGES — glisser-déposer + verrou
+//   Overrides stockés à part (Firebase judgeOverrides), appliqués par-dessus
+//   l'auto dans buildJugeAssignment. Toute la chaîne (vues + appli juge) passe
+//   par cette fonction → la réaffectation se propage partout automatiquement.
+// ═══════════════════════════════════════════════════════════════════
+window._JUDGE_OVERRIDES = window._JUDGE_OVERRIDES || {};
+var _judgeOvListening=false, _judgeReassignOpen=true;
+function _ovDb(){ try{ return window.db||(typeof getDb==='function'?getDb():null); }catch(e){ return null; } }
+function _ovKey(w,z,l){ return String(w)+'__z'+z+'__L'+l; }
+function _ovEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function loadJudgeOverrides(){
+  var db=_ovDb(); if(!db||_judgeOvListening) return; _judgeOvListening=true;
+  db.ref('judgeOverrides').on('value',function(s){
+    window._JUDGE_OVERRIDES=s.val()||{};
+    try{ if(document.getElementById('judge-reassign-panel')) renderJudgeReassignGrid(); }catch(e){}
+  });
+}
+function setJudgeOverride(w,z,l,j){
+  var db=_ovDb(); if(!db){ toast('Firebase indisponible','#EF5350'); return; }
+  var k=_ovKey(w,z,l), v={id:String(j.id),prenom:j.prenom||'',nom:j.nom||''};
+  window._JUDGE_OVERRIDES[k]=v;
+  db.ref('judgeOverrides/'+k).set(v).then(_afterJudgeOverrideChange).catch(function(){ toast('Échec écriture Firebase','#EF5350'); });
+  toast('🔒 '+(j.prenom||'Juge')+' → ligne '+l,'#22C55E',2200);
+}
+function clearJudgeOverride(w,z,l){
+  var db=_ovDb(); if(!db) return; var k=_ovKey(w,z,l);
+  delete window._JUDGE_OVERRIDES[k];
+  db.ref('judgeOverrides/'+k).remove().then(_afterJudgeOverrideChange).catch(function(){});
+  toast('🔓 Ligne '+l+' remise en auto','#2D9CFF',1800);
+}
+function clearAllJudgeOverrides(){
+  if(!confirm('Retirer TOUS les verrous manuels et revenir à l\'affectation automatique ?')) return;
+  var db=_ovDb(); if(!db) return; window._JUDGE_OVERRIDES={};
+  db.ref('judgeOverrides').remove().then(_afterJudgeOverrideChange).catch(function(){});
+  toast('🔓 Tous les verrous retirés — retour à l\'auto','#2D9CFF',2500);
+}
+function _afterJudgeOverrideChange(){
+  try{ renderJudgeReassignGrid(); }catch(e){}
+  try{ if(typeof renderJudgePlanningTab==='function') renderJudgePlanningTab(); }catch(e){}
+  try{ if(typeof syncJudgeAssignmentsNow==='function') syncJudgeAssignmentsNow(); }catch(e){}
+}
+function toggleJudgeReassign(){ _judgeReassignOpen=!_judgeReassignOpen; renderJudgeReassignGrid(); }
+
+function _buildReassignModel(){
+  var jugeMap=(typeof buildJugeAssignment==='function')?buildJugeAssignment():{};
+  var heats=HEATS_RESULT||[]; var day=(typeof activePlanDay!=='undefined')?activePlanDay:1;
+  var groups={};
+  heats.forEach(function(h){
+    var hj=parseInt(h.catJour||h.jour||h.day||1,10)||1; if(hj!==day) return;
+    var wid=String(h.wodId||''), zone=h.catZone||h.zone||1, gk=wid+'__z'+zone;
+    if(!groups[gk]) groups[gk]={wid:wid,zone:zone,nom:h.wodNom||(h.wodInfo&&h.wodInfo.nom)||'WOD',lignes:{},gns:[]};
+    if(h.globalNum!=null) groups[gk].gns.push(h.globalNum);
+    (h.slots||[]).forEach(function(sl){
+      if(!sl||sl.empty) return; var L=parseInt(sl.ligne,10); if(!(L>0)) return;
+      if(!groups[gk].lignes[L]) groups[gk].lignes[L]={ligne:L,teams:{},juge:null,locked:false};
+      if(sl.team) groups[gk].lignes[L].teams[String(sl.team)]=1;
+    });
+  });
+  Object.keys(groups).forEach(function(gk){
+    var g=groups[gk];
+    Object.keys(g.lignes).forEach(function(L){
+      var found=null;
+      for(var i=0;i<g.gns.length && !found;i++){ var m=jugeMap[g.gns[i]]||{}; found=m[L]||m[String(L)]||m[parseInt(L,10)]||null; }
+      if(found){ g.lignes[L].juge=found; g.lignes[L].locked=!!found._locked; }
+    });
+  });
+  return groups;
+}
+function _jrgChip(j, locked, ctx){
+  if(!j) return '<span class="jrg-empty">— sans juge —</span>';
+  return '<span class="jrg-chip'+(locked?' locked':'')+'" data-jid="'+String(j.id)+'" data-prenom="'+_ovEsc(j.prenom||'')+'" data-nom="'+_ovEsc(j.nom||'')+'">'
+    +(locked?'🔒 ':'')+_ovEsc(j.prenom||'Juge')+(j.nom?' '+_ovEsc(String(j.nom).charAt(0))+'.':'')
+    +(locked&&ctx?'<button class="jrg-x" data-clear="'+_ovEsc(ctx)+'" title="Remettre en auto">✕</button>':'')
+    +'</span>';
+}
+function renderJudgeReassignGrid(){
+  var hostC=document.getElementById('judge-planning-content'); if(!hostC) return;
+  loadJudgeOverrides();
+  var panel=document.getElementById('judge-reassign-panel');
+  if(!panel){ panel=document.createElement('div'); panel.id='judge-reassign-panel'; panel.style.marginBottom='16px'; hostC.parentNode.insertBefore(panel,hostC); }
+  var groups=_buildReassignModel(); var gks=Object.keys(groups);
+  var pool=(typeof getJudgingBenevoles==='function')?getJudgingBenevoles().slice():[];
+  pool.sort(function(a,b){ return (''+(a.prenom||'')).localeCompare(''+(b.prenom||'')); });
+  var nOv=Object.keys(window._JUDGE_OVERRIDES||{}).length;
+  var css='<style>'
+    +'#judge-reassign-panel .jrg-wrap{background:#fff;border:1.5px solid #E2E8F0;border-radius:14px;overflow:hidden}'
+    +'#judge-reassign-panel .jrg-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 16px;background:linear-gradient(135deg,#1E3A5F,#2C5282);color:#fff;cursor:pointer}'
+    +'#judge-reassign-panel .jrg-head h3{margin:0;font-size:14px;font-weight:900}'
+    +'#judge-reassign-panel .jrg-head .sub{font-size:11px;opacity:.85;font-weight:600;margin-top:2px}'
+    +'#judge-reassign-panel .jrg-body{padding:14px 16px;display:'+(_judgeReassignOpen?'block':'none')+'}'
+    +'#judge-reassign-panel .jrg-grp{margin-bottom:16px}'
+    +'#judge-reassign-panel .jrg-grp-h{font-size:12px;font-weight:900;color:#1E3A5F;margin:0 0 7px;display:flex;align-items:center;gap:8px}'
+    +'#judge-reassign-panel .jrg-grp-h .z{font-size:9px;font-weight:800;background:#EEF2F7;color:#475569;border-radius:6px;padding:2px 7px}'
+    +'#judge-reassign-panel .jrg-lanes{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}'
+    +'#judge-reassign-panel .jrg-lane{border:1px solid #E2E8F0;border-radius:10px;padding:8px;background:#F8FAFC;min-height:74px;display:flex;flex-direction:column;gap:5px}'
+    +'#judge-reassign-panel .jrg-lane.drop-ok{outline:2px dashed #22C55E;outline-offset:-3px;background:#F0FDF4}'
+    +'#judge-reassign-panel .jrg-lane .ll{font-size:10px;font-weight:900;color:#64748B;letter-spacing:.5px}'
+    +'#judge-reassign-panel .jrg-lane .team{font-size:11px;color:#334155;font-weight:600;line-height:1.25}'
+    +'#judge-reassign-panel .jrg-chip{display:inline-flex;align-items:center;gap:5px;background:linear-gradient(135deg,#1e344e,#2a4a6e);color:#fff;border-radius:8px;padding:5px 8px;font-size:12px;font-weight:700;cursor:grab;touch-action:none;user-select:none;width:fit-content;max-width:100%}'
+    +'#judge-reassign-panel .jrg-chip.locked{background:linear-gradient(135deg,#7C2D12,#B45309)}'
+    +'#judge-reassign-panel .jrg-chip.dragging{opacity:.35}'
+    +'#judge-reassign-panel .jrg-chip.ghost{position:fixed;z-index:99999;pointer-events:none;box-shadow:0 12px 30px rgba(0,0,0,.4)}'
+    +'#judge-reassign-panel .jrg-x{background:rgba(255,255,255,.25);border:none;color:#fff;border-radius:5px;cursor:pointer;font-size:11px;line-height:1;padding:1px 5px;margin-left:3px}'
+    +'#judge-reassign-panel .jrg-empty{font-size:11px;color:#94A3B8;font-style:italic}'
+    +'#judge-reassign-panel .jrg-pool{margin-top:4px;border-top:1px dashed #E2E8F0;padding-top:10px}'
+    +'#judge-reassign-panel .jrg-pool .pl{font-size:11px;font-weight:900;color:#64748B;margin-bottom:6px;letter-spacing:.5px}'
+    +'#judge-reassign-panel .jrg-pool .chips{display:flex;flex-wrap:wrap;gap:6px}'
+    +'#judge-reassign-panel .jrg-clear-all{background:#fff;border:1px solid #FCA5A5;color:#DC2626;border-radius:8px;padding:5px 10px;font-size:11px;font-weight:800;cursor:pointer}'
+    +'</style>';
+  var body='';
+  if(!gks.length){
+    body='<div style="color:#64748B;font-size:12px;padding:6px 2px">Génère tes heats pour pouvoir réaffecter les juges.</div>';
+  } else {
+    gks.forEach(function(gk){
+      var g=groups[gk];
+      var lanes=Object.keys(g.lignes).map(function(x){return parseInt(x,10);}).sort(function(a,b){return a-b;});
+      body+='<div class="jrg-grp"><div class="jrg-grp-h">'+_ovEsc(g.nom)+' <span class="z">ZONE '+g.zone+'</span></div><div class="jrg-lanes">';
+      lanes.forEach(function(L){
+        var ln=g.lignes[L]; var teams=Object.keys(ln.teams); var ctx=g.wid+'|'+g.zone+'|'+L;
+        body+='<div class="jrg-lane" data-wid="'+_ovEsc(g.wid)+'" data-zone="'+g.zone+'" data-ligne="'+L+'">'
+          +'<div class="ll">LIGNE '+L+'</div>'
+          +'<div class="team">'+(teams.length?teams.map(_ovEsc).join(' · '):'<span class="jrg-empty">libre</span>')+'</div>'
+          +_jrgChip(ln.juge, ln.locked, ctx)+'</div>';
+      });
+      body+='</div></div>';
+    });
+    body+='<div class="jrg-pool"><div class="pl">JUGES DISPONIBLES — glisse-en un sur une ligne</div><div class="chips">';
+    pool.forEach(function(b){ body+=_jrgChip({id:b.id,prenom:b.prenom,nom:b.nom}, false, ''); });
+    body+='</div></div>';
+  }
+  panel.innerHTML=css
+    +'<div class="jrg-wrap">'
+    +'<div class="jrg-head" onclick="toggleJudgeReassign()"><div><h3>🔀 Réaffectation manuelle des juges</h3>'
+    +'<div class="sub">Glisse un juge d\'une ligne à l\'autre — l\'équipe reste, le changement part sur l\'appli juge.'+(nOv?' · '+nOv+' verrou'+(nOv>1?'s':''):'')+'</div></div>'
+    +'<div style="display:flex;align-items:center;gap:8px">'+(nOv?'<button class="jrg-clear-all" onclick="event.stopPropagation();clearAllJudgeOverrides()">Tout en auto</button>':'')+'<span style="font-size:18px">'+(_judgeReassignOpen?'▾':'▸')+'</span></div>'
+    +'</div><div class="jrg-body">'+body+'</div></div>';
+  _attachJudgeReassignDrag(panel);
+}
+function _attachJudgeReassignDrag(panel){
+  var drag=null;
+  function laneUnder(x,y){ var els=document.elementsFromPoint(x,y); for(var i=0;i<els.length;i++){ var l=els[i].closest&&els[i].closest('.jrg-lane'); if(l) return l; } return null; }
+  function onMove(e){
+    if(!drag) return;
+    if(!drag.moved){ drag.moved=true; var g=drag.chip.cloneNode(true); g.className=drag.chip.className.replace('dragging','')+' ghost'; g.style.width=drag.w+'px'; document.body.appendChild(g); drag.ghost=g; drag.chip.classList.add('dragging'); }
+    drag.ghost.style.left=(e.clientX-drag.dx)+'px'; drag.ghost.style.top=(e.clientY-drag.dy)+'px';
+    var lane=laneUnder(e.clientX,e.clientY);
+    panel.querySelectorAll('.jrg-lane.drop-ok').forEach(function(el){ el.classList.remove('drop-ok'); });
+    if(lane) lane.classList.add('drop-ok');
+  }
+  function onUp(e){
+    if(!drag) return;
+    var lane=laneUnder(e.clientX,e.clientY);
+    if(drag.ghost) drag.ghost.remove();
+    drag.chip.classList.remove('dragging');
+    panel.querySelectorAll('.jrg-lane.drop-ok').forEach(function(el){ el.classList.remove('drop-ok'); });
+    try{ drag.chip.releasePointerCapture(e.pointerId); }catch(_){}
+    drag.chip.removeEventListener('pointermove',onMove); drag.chip.removeEventListener('pointerup',onUp); drag.chip.removeEventListener('pointercancel',onUp);
+    var d=drag; drag=null;
+    if(d.moved && lane){ setJudgeOverride(lane.dataset.wid, parseInt(lane.dataset.zone,10), parseInt(lane.dataset.ligne,10), {id:d.jid, prenom:d.prenom, nom:d.nom}); }
+  }
+  panel.querySelectorAll('.jrg-chip').forEach(function(chip){
+    chip.addEventListener('pointerdown', function(e){
+      if(e.target && e.target.classList && e.target.classList.contains('jrg-x')) return;
+      if(e.button!=null && e.button!==0) return;
+      e.preventDefault();
+      var r=chip.getBoundingClientRect();
+      drag={chip:chip, jid:chip.dataset.jid, prenom:chip.dataset.prenom, nom:chip.dataset.nom, dx:e.clientX-r.left, dy:e.clientY-r.top, ghost:null, moved:false, w:r.width};
+      chip.setPointerCapture(e.pointerId);
+      chip.addEventListener('pointermove', onMove); chip.addEventListener('pointerup', onUp); chip.addEventListener('pointercancel', onUp);
+    });
+  });
+  panel.querySelectorAll('.jrg-x').forEach(function(x){
+    x.addEventListener('click', function(e){ e.stopPropagation(); var p=String(x.dataset.clear||'').split('|'); if(p.length===3) clearJudgeOverride(p[0], parseInt(p[1],10), parseInt(p[2],10)); });
+  });
 }
 
 // ── Calcule les infos de pause par juge pour l'affichage planning ──
