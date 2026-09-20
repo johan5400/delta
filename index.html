@@ -12111,7 +12111,7 @@ function _attachJudgeReassignDrag(panel){
     drag.chip.classList.remove('dragging');
     panel.querySelectorAll('.jrg-lane.drop-ok').forEach(function(el){ el.classList.remove('drop-ok'); });
     try{ drag.chip.releasePointerCapture(e.pointerId); }catch(_){}
-    drag.chip.removeEventListener('pointermove',onMove); drag.chip.removeEventListener('pointerup',onUp); drag.chip.removeEventListener('pointercancel',onUp);
+    document.removeEventListener('pointermove',onMove); document.removeEventListener('pointerup',onUp); document.removeEventListener('pointercancel',onUp);
     var d=drag; drag=null;
     if(d.moved && lane){ setJudgeOverride(lane.dataset.wid, parseInt(lane.dataset.zone,10), parseInt(lane.dataset.ligne,10), {id:d.jid, prenom:d.prenom, nom:d.nom}); }
   }
@@ -12122,8 +12122,8 @@ function _attachJudgeReassignDrag(panel){
       e.preventDefault();
       var r=chip.getBoundingClientRect();
       drag={chip:chip, jid:chip.dataset.jid, prenom:chip.dataset.prenom, nom:chip.dataset.nom, dx:e.clientX-r.left, dy:e.clientY-r.top, ghost:null, moved:false, w:r.width};
-      chip.setPointerCapture(e.pointerId);
-      chip.addEventListener('pointermove', onMove); chip.addEventListener('pointerup', onUp); chip.addEventListener('pointercancel', onUp);
+      try{ chip.setPointerCapture(e.pointerId); }catch(_){}
+      document.addEventListener('pointermove', onMove); document.addEventListener('pointerup', onUp); document.addEventListener('pointercancel', onUp);
     });
   });
   panel.querySelectorAll('.jrg-x').forEach(function(x){
@@ -14982,23 +14982,36 @@ function toggleDarkMode(){
   }
 })();;
 
-// ★ OUVERTURE AUTO (mot de passe transparent) — méthode SÛRE : on remplit et on valide
-//   le formulaire de déverrouillage EXISTANT après un court délai. C'est exactement comme
-//   si tu cliquais « ACCÉDER » toi-même → l'ordre lock→app→init de checkPassword est
-//   respecté (contrairement à ma 1re version qui affichait l'app avant l'init et bloquait
-//   le chargement). Ne change RIEN au démarrage : juste un clic simulé.
+// ★ OUVERTURE AUTO (mot de passe transparent) — version robuste : on réessaie le clic
+//   simulé jusqu'à ce que ça marche (au cas où 'load' se déclenche trop tôt/tard ou que
+//   checkPassword ne soit pas encore prêt). Flux identique au clic manuel (ordre lock→app→init).
 //   (Pour remettre le mot de passe : supprimer ce seul bloc.)
-window.addEventListener('load', function(){
-  setTimeout(function(){
+(function(){
+  var tries=0;
+  function done(){ return typeof SESSION_MODE!=='undefined' && SESSION_MODE==='admin'; }
+  function tryUnlock(){
+    if(done()) return;
+    tries++;
     try{
-      if(typeof SESSION_MODE!=='undefined' && SESSION_MODE==='admin') return; // déjà déverrouillé
       var inp=document.getElementById('lock-input');
-      if(inp){ inp.value='Mirage2000D'; }
+      if(inp) inp.value='Mirage2000D';
       window._lockVal='Mirage2000D';
-      if(typeof checkPassword==='function') checkPassword();
-    }catch(e){ try{ console.warn('auto-unlock:', e); }catch(_){} }
-  }, 1200);
-});
+      if(typeof checkPassword==='function' && inp) checkPassword();
+    }catch(e){}
+    if(!done() && tries<20){ setTimeout(tryUnlock, 500); return; }
+    if(!done()){
+      // Dernier recours : ouvrir à la main, dans le bon ordre (lock caché → app affichée → init)
+      try{
+        SESSION_MODE='admin';
+        var ls=document.getElementById('lock-screen'); if(ls) ls.style.display='none';
+        var app=document.getElementById('app'); if(app){ app.style.display='block'; app.style.visibility='visible'; }
+        if(typeof init==='function') init();
+      }catch(e){}
+    }
+  }
+  function boot(){ setTimeout(tryUnlock, 700); }
+  if(document.readyState==='loading') window.addEventListener('DOMContentLoaded', boot); else boot();
+})();
 
 // ═══════════════════════════════════════════════════════════════════
 var _synDay = 0; // 0 = tous
