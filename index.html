@@ -20246,7 +20246,12 @@ function renderClassementAdmin(heatsData, scoresData){
     var jm=String(wodInfo.judgeMode||'').toLowerCase();
     if(fmt==='amrapsteph'&&wodInfo.stephAddReps) return parseInt(sc.reps||0,10)||0;
     if(jm==='maxload'||sf==='load') return parseFloat(sc.load)||0;
-    if(jm==='ergo'||sf==='dist'||sf==='cal') return parseFloat(sc.dist||sc.ergoVal||sc.distance)||0;
+    if(jm==='ergo'||sf==='dist'||sf==='cal'){
+      var _dv=parseFloat(sc.dist||sc.ergoVal||sc.distance)||0;
+      // ★ FIX : l'éditeur de score admin n'a pas de champ "cal/m" dédié → la valeur a pu être
+      //   saisie dans "reps". Si le champ ergo est vide mais reps>0, on classe sur reps.
+      return _dv>0 ? _dv : (parseInt(sc.reps||0,10)||0);
+    }
     if(fmt==='fortime'||sf==='time') return parseInt(sc.finalTime||0,10)>0 ? -parseInt(sc.finalTime,10) : (parseInt(sc.reps||0,10)>0 ? -1000000+parseInt(sc.reps,10) : -2000000);
     return parseInt(sc.reps||0,10)||0;
   }
@@ -20267,7 +20272,13 @@ function renderClassementAdmin(heatsData, scoresData){
       cat.teams[tname].entries.filter(function(e){
         return e.wod===wid && e.hasRawScore && (e.judgeOk||e.heatClosed||e.heatStatus==='live'||e.heatStatus==='timecap');
       }).forEach(function(e){
-        grp.push({team:tname, val:scoreVal(e.sc,e.wodInfo), tb:tbArrAdmin(e.sc), sc:e.sc, wInfo:e.wodInfo, live:e.heatStatus==='live'});
+        var _v=scoreVal(e.sc,e.wodInfo);
+        // ★ FIX « TOUT LE MONDE À 100 » : ne PAS classer un score nul / absent (0 rep, 0 cal/m,
+        //   0 kg, ou temps vide). Sans ça, toutes les équipes se retrouvent ex-æquo à 0 →
+        //   même rang → rang 1 → crossfitPts(1) = 100 chacune. Un vrai score (>0, ou un vrai
+        //   temps) passe normalement ; une équipe sans résultat réel affiche « — ».
+        if(_v===0 || _v<=-2000000) return;
+        grp.push({team:tname, val:_v, tb:tbArrAdmin(e.sc), sc:e.sc, wInfo:e.wodInfo, live:e.heatStatus==='live'});
       });
     });
     grp.sort(function(a,b){
