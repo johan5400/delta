@@ -12034,7 +12034,8 @@ function renderJudgeReassignGrid(){
   loadJudgeOverrides();
   var panel=document.getElementById('judge-reassign-panel');
   if(!panel){ panel=document.createElement('div'); panel.id='judge-reassign-panel'; panel.style.marginBottom='16px'; hostC.parentNode.insertBefore(panel,hostC); }
-  var groups=_buildReassignModel(); var gks=Object.keys(groups);
+  var groups={}; try{ groups=_buildReassignModel(); }catch(_mErr){ try{ console.warn('reassign model:', _mErr); }catch(e){} }
+  var gks=Object.keys(groups);
   var pool=(typeof getJudgingBenevoles==='function')?getJudgingBenevoles().slice():[];
   pool.sort(function(a,b){ return (''+(a.prenom||'')).localeCompare(''+(b.prenom||'')); });
   var nOv=Object.keys(window._JUDGE_OVERRIDES||{}).length;
@@ -14980,6 +14981,24 @@ function toggleDarkMode(){
     });
   }
 })();;
+
+// ★ OUVERTURE AUTO (mot de passe transparent) — méthode SÛRE : on remplit et on valide
+//   le formulaire de déverrouillage EXISTANT après un court délai. C'est exactement comme
+//   si tu cliquais « ACCÉDER » toi-même → l'ordre lock→app→init de checkPassword est
+//   respecté (contrairement à ma 1re version qui affichait l'app avant l'init et bloquait
+//   le chargement). Ne change RIEN au démarrage : juste un clic simulé.
+//   (Pour remettre le mot de passe : supprimer ce seul bloc.)
+window.addEventListener('load', function(){
+  setTimeout(function(){
+    try{
+      if(typeof SESSION_MODE!=='undefined' && SESSION_MODE==='admin') return; // déjà déverrouillé
+      var inp=document.getElementById('lock-input');
+      if(inp){ inp.value='Mirage2000D'; }
+      window._lockVal='Mirage2000D';
+      if(typeof checkPassword==='function') checkPassword();
+    }catch(e){ try{ console.warn('auto-unlock:', e); }catch(_){} }
+  }, 1200);
+});
 
 // ═══════════════════════════════════════════════════════════════════
 var _synDay = 0; // 0 = tous
