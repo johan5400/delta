@@ -11933,13 +11933,12 @@ function buildJugeAssignment(){
     if(_ov && Object.keys(_ov).length && Array.isArray(HEATS_RESULT)){
       HEATS_RESULT.forEach(function(heat){
         var gn = heat.globalNum; if(gn==null) return;
-        var wid = String(heat.wodId||'');
-        var zone = heat.catZone||heat.zone||1;
         Object.keys(_ov).forEach(function(k){
-          var parts = String(k).split('__'); // <wid>__z<zone>__L<ligne>
-          if(parts.length!==3) return;
-          if(parts[0]!==wid || parts[1]!==('z'+zone)) return;
-          var ligne = parseInt(String(parts[2]).replace(/^L/,''),10);
+          var parts = String(k).split('__'); // H<globalNum>__L<ligne>
+          if(parts.length!==2) return;
+          var kgn = parseInt(String(parts[0]).replace(/^H/,''),10);
+          if(kgn!==gn) return;
+          var ligne = parseInt(String(parts[1]).replace(/^L/,''),10);
           var j = _ov[k];
           if(!(ligne>0) || !j || !j.id) return;
           assignment[gn] = assignment[gn] || {};
@@ -11964,7 +11963,7 @@ function buildJugeAssignment(){
 window._JUDGE_OVERRIDES = window._JUDGE_OVERRIDES || {};
 var _judgeOvListening=false, _judgeReassignOpen=true;
 function _ovDb(){ try{ return window.db||(typeof getDb==='function'?getDb():null); }catch(e){ return null; } }
-function _ovKey(w,z,l){ return String(w)+'__z'+z+'__L'+l; }
+function _ovKey(gn,l){ return 'H'+gn+'__L'+l; }
 function _ovEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function loadJudgeOverrides(){
   var db=_ovDb(); if(!db||_judgeOvListening) return; _judgeOvListening=true;
@@ -11973,15 +11972,15 @@ function loadJudgeOverrides(){
     try{ if(document.getElementById('judge-planning-content') && typeof renderJudgePlanningTab==='function') renderJudgePlanningTab(); }catch(e){}
   });
 }
-function setJudgeOverride(w,z,l,j){
+function setJudgeOverride(gn,l,j){
   var db=_ovDb(); if(!db){ toast('Firebase indisponible','#EF5350'); return; }
-  var k=_ovKey(w,z,l), v={id:String(j.id),prenom:j.prenom||'',nom:j.nom||''};
+  var k=_ovKey(gn,l), v={id:String(j.id),prenom:j.prenom||'',nom:j.nom||''};
   window._JUDGE_OVERRIDES[k]=v;
   db.ref('judgeOverrides/'+k).set(v).then(_afterJudgeOverrideChange).catch(function(){ toast('Échec écriture Firebase','#EF5350'); });
-  toast('🔒 '+(j.prenom||'Juge')+' → ligne '+l,'#22C55E',2200);
+  toast('🔒 '+(j.prenom||'Juge')+' → ligne '+l,'#22C55E',2000);
 }
-function clearJudgeOverride(w,z,l){
-  var db=_ovDb(); if(!db) return; var k=_ovKey(w,z,l);
+function clearJudgeOverride(gn,l){
+  var db=_ovDb(); if(!db) return; var k=_ovKey(gn,l);
   delete window._JUDGE_OVERRIDES[k];
   db.ref('judgeOverrides/'+k).remove().then(_afterJudgeOverrideChange).catch(function(){});
   toast('🔓 Ligne '+l+' remise en auto','#2D9CFF',1800);
@@ -12017,10 +12016,10 @@ function _jpWodIdForGN(gn){
   document.addEventListener('dragstart', function(e){
     var cell=e.target.closest && e.target.closest('.jp-drag'); if(!cell) return;
     var td=cell.closest('td'); if(!td) return;
-    jpDrag={ wid:_jpWodIdForGN(td.dataset.gn), zone:parseInt(td.dataset.zone,10)||1, ligne:parseInt(cell.dataset.ligne,10)||0 };
+    jpDrag={ gn:parseInt(td.dataset.gn,10)||0, ligne:parseInt(cell.dataset.ligne,10)||0 };
     try{ e.dataTransfer.setData('text/plain','jp'); e.dataTransfer.effectAllowed='move'; }catch(_){}
     cell.classList.add('jp-dragging');
-    console.log('[jp-drag] START gn='+td.dataset.gn+' → wid='+jpDrag.wid+' zone='+jpDrag.zone+' ligne='+jpDrag.ligne);
+    console.log('[jp-drag] START heat='+jpDrag.gn+' ligne='+jpDrag.ligne);
   });
   document.addEventListener('dragend', function(e){
     var c=e.target.closest && e.target.closest('.jp-drag'); if(c) c.classList.remove('jp-dragging');
@@ -12039,9 +12038,9 @@ function _jpWodIdForGN(gn){
     var td=e.target.closest && e.target.closest('td.jp-cell'); if(!td||!jpDrag||td.dataset.ctype!=='heat') return;
     e.preventDefault(); td.classList.remove('jp-over');
     var tj={ id:td.dataset.jid, prenom:td.dataset.jprenom||'', nom:td.dataset.jnom||'' };
-    console.log('[jp-drag] DROP sur juge='+tj.prenom+'('+tj.id+') → wid='+jpDrag.wid+' zone='+jpDrag.zone+' ligne='+jpDrag.ligne);
-    if(tj.id && jpDrag.wid && jpDrag.ligne>0){ setJudgeOverride(jpDrag.wid, jpDrag.zone, jpDrag.ligne, tj); }
-    else { console.warn('[jp-drag] dépôt ignoré : donnée manquante (jid='+tj.id+' wid='+jpDrag.wid+' ligne='+jpDrag.ligne+')'); }
+    console.log('[jp-drag] DROP sur juge='+tj.prenom+'('+tj.id+') → heat='+jpDrag.gn+' ligne='+jpDrag.ligne);
+    if(tj.id && jpDrag.gn>0 && jpDrag.ligne>0){ setJudgeOverride(jpDrag.gn, jpDrag.ligne, tj); }
+    else { console.warn('[jp-drag] dépôt ignoré : donnée manquante (jid='+tj.id+' heat='+jpDrag.gn+' ligne='+jpDrag.ligne+')'); }
     jpDrag=null;
   });
 })();
@@ -15025,7 +15024,7 @@ function toggleDarkMode(){
   }
 })();;
 
-// ★ BADGE DE VERSION (diagnostic cache) : si tu vois "build v7" en bas à gauche,
+// ★ BADGE DE VERSION (diagnostic cache) : si tu vois "build v8" en bas à gauche,
 //   tu es bien sur le nouveau fichier. Sinon, c'est que ton navigateur/site sert l'ancien.
 (function(){
   try{
@@ -15033,12 +15032,12 @@ function toggleDarkMode(){
       if(!document.body){ setTimeout(add,150); return; }
       if(document.getElementById('__delta_build_tag')) return;
       var b=document.createElement('div'); b.id='__delta_build_tag';
-      b.textContent='build v7';
+      b.textContent='build v8';
       b.style.cssText='position:fixed;bottom:4px;left:4px;z-index:2147483647;background:rgba(220,38,38,.92);color:#fff;font:700 10px/1 system-ui,-apple-system,sans-serif;padding:3px 7px;border-radius:6px;pointer-events:none;letter-spacing:.5px;box-shadow:0 2px 8px rgba(0,0,0,.3)';
       document.body.appendChild(b);
     }
     add();
-    try{ console.log('%cDELTA — build v7 chargé ('+new Date().toISOString()+')','background:#DC2626;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold'); }catch(e){}
+    try{ console.log('%cDELTA — build v8 chargé ('+new Date().toISOString()+')','background:#DC2626;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold'); }catch(e){}
   }catch(e){}
 })();
 
