@@ -14982,7 +14982,7 @@ function toggleDarkMode(){
   }
 })();;
 
-// ★ BADGE DE VERSION (diagnostic cache) : si tu vois "build juges-v3" en bas à gauche,
+// ★ BADGE DE VERSION (diagnostic cache) : si tu vois "build v4" en bas à gauche,
 //   tu es bien sur le nouveau fichier. Sinon, c'est que ton navigateur/site sert l'ancien.
 (function(){
   try{
@@ -14990,43 +14990,43 @@ function toggleDarkMode(){
       if(!document.body){ setTimeout(add,150); return; }
       if(document.getElementById('__delta_build_tag')) return;
       var b=document.createElement('div'); b.id='__delta_build_tag';
-      b.textContent='build juges-v3';
+      b.textContent='build v4';
       b.style.cssText='position:fixed;bottom:4px;left:4px;z-index:2147483647;background:rgba(220,38,38,.92);color:#fff;font:700 10px/1 system-ui,-apple-system,sans-serif;padding:3px 7px;border-radius:6px;pointer-events:none;letter-spacing:.5px;box-shadow:0 2px 8px rgba(0,0,0,.3)';
       document.body.appendChild(b);
     }
     add();
-    try{ console.log('%cDELTA — build juges-v3 chargé ('+new Date().toISOString()+')','background:#DC2626;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold'); }catch(e){}
+    try{ console.log('%cDELTA — build v4 chargé ('+new Date().toISOString()+')','background:#DC2626;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold'); }catch(e){}
   }catch(e){}
 })();
 
-// ★ OUVERTURE AUTO (mot de passe transparent) — version robuste : on réessaie le clic
-//   simulé jusqu'à ce que ça marche (au cas où 'load' se déclenche trop tôt/tard ou que
-//   checkPassword ne soit pas encore prêt). Flux identique au clic manuel (ordre lock→app→init).
+// ★ OUVERTURE AUTO (mot de passe transparent) — v4 : on tente le flux normal, PUIS si
+//   l'écran est encore là après ~1s, on force l'ouverture directement (masque l'écran +
+//   affiche l'app + init, dans le même ordre que checkPassword). Garanti en ~1s.
 //   (Pour remettre le mot de passe : supprimer ce seul bloc.)
 (function(){
-  var tries=0;
-  function done(){ return typeof SESSION_MODE!=='undefined' && SESSION_MODE==='admin'; }
-  function tryUnlock(){
-    if(done()) return;
-    tries++;
+  function isLocked(){ var ls=document.getElementById('lock-screen'); return !!(ls && ls.style.display!=='none'); }
+  function forceOpen(){
+    try{
+      if(typeof SESSION_MODE!=='undefined') SESSION_MODE='admin';
+      var ls=document.getElementById('lock-screen'); if(ls) ls.style.display='none';
+      var app=document.getElementById('app'); if(app){ app.style.display='block'; app.style.visibility='visible'; }
+      if(typeof init==='function' && !window.__deltaInited){ window.__deltaInited=true; try{ init(); }catch(e){ console.error('[auto-open] init:',e); } }
+      console.log('[auto-open] forcé — écran masqué =', !isLocked());
+    }catch(e){ console.error('[auto-open] forceOpen:',e); }
+  }
+  function go(){
     try{
       var inp=document.getElementById('lock-input');
-      if(inp) inp.value='Mirage2000D';
+      if(inp){ inp.value='Mirage2000D'; try{ inp.dispatchEvent(new Event('input',{bubbles:true})); }catch(e){} }
       window._lockVal='Mirage2000D';
-      if(typeof checkPassword==='function' && inp) checkPassword();
-    }catch(e){}
-    if(!done() && tries<20){ setTimeout(tryUnlock, 500); return; }
-    if(!done()){
-      // Dernier recours : ouvrir à la main, dans le bon ordre (lock caché → app affichée → init)
-      try{
-        SESSION_MODE='admin';
-        var ls=document.getElementById('lock-screen'); if(ls) ls.style.display='none';
-        var app=document.getElementById('app'); if(app){ app.style.display='block'; app.style.visibility='visible'; }
-        if(typeof init==='function') init();
-      }catch(e){}
-    }
+      if(typeof checkPassword==='function' && inp){ checkPassword(); }
+      console.log('[auto-open] flux normal tenté — verrouillé =', isLocked());
+    }catch(e){ console.error('[auto-open] go:',e); }
+    // filet rapide : si toujours verrouillé après 900ms, on force
+    setTimeout(function(){ if(isLocked()) forceOpen(); }, 900);
+    setTimeout(function(){ if(isLocked()) forceOpen(); }, 2200); // 2e filet au cas où
   }
-  function boot(){ setTimeout(tryUnlock, 700); }
+  function boot(){ setTimeout(go, 300); }
   if(document.readyState==='loading') window.addEventListener('DOMContentLoaded', boot); else boot();
 })();
 
