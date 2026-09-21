@@ -299,6 +299,9 @@ body{
 .btn-repminus{flex:0 0 clamp(64px,20vw,110px);padding:14px 6px;border:1px solid rgba(255,59,92,.5);border-radius:clamp(12px,3vw,20px);background:rgba(255,59,92,.12);color:#FF6B85;font-family:var(--ff);font-size:clamp(16px,4.5vw,26px);letter-spacing:1px;font-weight:900;cursor:pointer;touch-action:manipulation;line-height:1.05;transition:transform .07s}
 .btn-repminus:active{transform:scale(.94)}
 .btn-repminus .rm-sub{display:block;font-size:.42em;letter-spacing:.5px;opacity:.8;margin-top:3px;font-family:var(--fc);font-weight:700}
+.btn-kp{flex:0 0 clamp(56px,17vw,96px);padding:14px 6px;border:1px solid rgba(255,176,32,.5);border-radius:clamp(12px,3vw,20px);background:rgba(255,176,32,.12);color:#FFB020;font-family:var(--ff);font-size:clamp(20px,5vw,30px);cursor:pointer;touch-action:manipulation;line-height:1.05;transition:transform .07s}
+.btn-kp:active{transform:scale(.94)}
+.btn-kp .rm-sub{display:block;font-size:.4em;letter-spacing:.5px;opacity:.85;margin-top:3px;font-family:var(--fc);font-weight:700}
 .btn-tb{flex:1;padding:20px 6px;border:1px solid rgba(255,209,102,.22);border-radius:14px;background:rgba(255,209,102,.06);color:var(--gold);font-family:var(--ff);font-size:13px;cursor:pointer;touch-action:manipulation;line-height:1.2}
 .btn-tb:active{transform:scale(.95)}
 .btn-tb.done{background:rgba(0,229,160,.1);color:var(--ok);border-color:rgba(0,229,160,.28)}
@@ -690,10 +693,24 @@ setTimeout(h,6000);/* filet anti-blocage : le splash ne reste jamais coincé */}
     </div>
     <div class="j-btns">
       <button class="btn-repminus" id="btn-repminus" onclick="repMinusOne()" title="Retirer la dernière rep (appui par erreur / no-rep)">− REP<span class="rm-sub">invalide</span></button>
+      <button class="btn-kp" id="btn-kp" onclick="openRepKeypad()" title="Saisir le total exact (WOD long)">⌨<span class="rm-sub">total</span></button>
       <button class="btn-rep" id="btn-rep" onclick="addRep()">+ REP</button>
       <button class="btn-tb" id="btn-tb" onclick="manualTB()" style="display:none">🎯<br>TB</button>
       <button class="btn-tb" id="btn-drop" onclick="deathByDrop()" style="display:none;background:rgba(255,59,92,.15);border-color:rgba(255,59,92,.5);color:#FF6B85">🏳️<br>LÂCHE</button>
       <button class="btn-tb" id="btn-clfini" onclick="cleanLadderFini()" style="display:none;background:rgba(4,120,87,.18);border-color:rgba(4,120,87,.55);color:#34D399">🏁<br>FINI</button>
+    </div>
+  </div>
+
+  <!-- ★ Pavé de saisie directe du total (WOD long : taper 72 d'un coup) -->
+  <div id="rep-keypad" style="display:none;position:fixed;inset:0;z-index:9000;background:rgba(4,6,8,.93);align-items:center;justify-content:center;padding:20px" onclick="if(event.target===this)closeRepKeypad()">
+    <div style="background:#0d1219;border:1px solid #1e2a38;border-radius:18px;padding:20px;width:100%;max-width:340px;text-align:center;box-shadow:0 18px 50px rgba(0,0,0,.55)">
+      <div style="font-family:var(--fc);font-size:13px;font-weight:800;color:var(--mid);letter-spacing:1px;margin-bottom:4px">TOTAL DE REPS EXACT</div>
+      <div style="font-family:var(--fc);font-size:10px;color:var(--ink2);margin-bottom:12px">Remplace le compteur par le chiffre saisi</div>
+      <input id="rep-kp-inp" type="number" min="0" inputmode="numeric" placeholder="Ex: 72" style="width:100%;padding:16px;border-radius:14px;border:1px solid rgba(255,138,0,.4);background:rgba(255,138,0,.06);color:#fff;font-family:var(--fm);font-size:42px;font-weight:800;outline:none;text-align:center" onkeydown="if(event.key==='Enter')setRepTotal()">
+      <div style="display:flex;gap:10px;margin-top:14px">
+        <button onclick="closeRepKeypad()" style="flex:1;padding:16px;border:1px solid rgba(255,255,255,.15);border-radius:12px;background:transparent;color:#8CA3BF;font-family:var(--ff);font-size:16px;letter-spacing:1px;cursor:pointer">ANNULER</button>
+        <button onclick="setRepTotal()" style="flex:2;padding:16px;border:none;border-radius:12px;background:linear-gradient(135deg,var(--fire),var(--ember));color:#fff;font-family:var(--ff);font-size:16px;letter-spacing:2px;cursor:pointer;font-weight:900">✅ OK</button>
+      </div>
     </div>
   </div>
 
@@ -1580,18 +1597,35 @@ function startJudgePostHeatWindow(){
   refreshJudgeLockUI();
 
   if(!needsManualEntry){
-    // AMRAP / ForTime / Rounds : validation immédiate avec le score en cours, interface bloquée
-    // ★ FIX FLASH AMRAP STEPH : ne déclencher qu'UNE seule fois par heat. Avant, comme
-    //   `done` ne passe à true qu'après la saisie cals/distance dans la modale (AMRAP
-    //   STEPH), le timerIv (tick 100ms) rappelait cette fonction en boucle tant que la
-    //   modale était ouverte → spam de toast + refreshJudgeLockUI 10x/s pendant que le
-    //   juge tapait sa valeur, d'où l'écran qui « flash » et la saisie impossible.
+    // AMRAP / ForTime / Rounds : au timecap, on laisse une FENÊTRE DE GRÂCE où le juge
+    // peut encore taper les derniers reps faits au buzzer, puis validation auto.
+    // ★ FIX FLASH AMRAP STEPH : ne déclencher qu'UNE seule fois par heat (le tick 100ms
+    //   rappelait cette fonction en boucle → spam). Le guard _postHeatImmediateFired reste.
     if(_postHeatImmediateFired) return true;
     _postHeatImmediateFired=true;
     clearInterval(_judgePostHeatIv);
-    _judgePostHeatEditUntilTs=0;
-    toast('⏱ Timecap — score enregistré');
-    setTimeout(function(){ if(!done) validate(); }, 800);
+    // ★ FIX « DERNIERS REPS PERDUS » (WOD 1) : avant, on faisait _judgePostHeatEditUntilTs=0
+    //   + validation auto en 800ms → le compteur se verrouillait au timecap et les derniers
+    //   reps du buzzer étaient perdus. Maintenant : 20s de grâce pendant lesquelles le
+    //   compteur reste ACTIF (canEditScoreNow inclut judgeIsPostHeatEntryOpen()), le juge
+    //   rattrape les derniers reps, puis validation auto. Il peut aussi valider avant.
+    var POSTHEAT_REPS_MS = 20000; // 20s pour rattraper les derniers reps
+    _judgePostHeatEditUntilTs = Date.now() + POSTHEAT_REPS_MS;
+    refreshJudgeLockUI();
+    toast('⏱ 20s pour rattraper les derniers reps — puis validation auto', '#FFB020');
+    vib([100,60,100]);
+    _judgePostHeatIv = setInterval(function(){
+      var remMs = _judgePostHeatEditUntilTs - Date.now();
+      if(done){ clearInterval(_judgePostHeatIv); return; }
+      if(remMs <= 0){
+        clearInterval(_judgePostHeatIv);
+        _judgePostHeatEditUntilTs = 0;
+        refreshJudgeLockUI();
+        if(!done) validate();
+      } else {
+        refreshJudgeLockUI(); // met à jour le décompte « Saisie finale : Xs »
+      }
+    }, 1000);
     return true;
   }
 
@@ -4959,6 +4993,37 @@ function repMinusOne(){
   updateDisplay(); if(typeof updateEmomDisplay==='function') updateEmomDisplay();
   if(db) pushScoreLive();
   vib(40); toast('➖ Rep retirée');
+}
+
+// ★ SAISIE DIRECTE DU TOTAL (WOD long : taper « 72 » d'un coup au lieu de +1 × 72).
+//   Règle le compteur du mouvement en cours sur le chiffre saisi, ajuste le total,
+//   rafraîchit et pousse UNE fois. Ne touche pas au comptage normal.
+function openRepKeypad(){
+  if(!guardScoreEdit('Saisie bloquée')) return;
+  var ov=$('rep-keypad'), inp=$('rep-kp-inp'); if(!ov||!inp) return;
+  inp.value = (typeof moveReps!=='undefined' && moveReps>0) ? moveReps : '';
+  ov.style.display='flex';
+  setTimeout(function(){ try{ inp.focus(); inp.select(); }catch(e){} }, 60);
+}
+function closeRepKeypad(){ var ov=$('rep-keypad'); if(ov) ov.style.display='none'; }
+function setRepTotal(){
+  var inp=$('rep-kp-inp'); if(!inp) return;
+  var n=parseInt(inp.value,10);
+  if(isNaN(n)||n<0){ toast('Nombre invalide'); vib(30); return; }
+  if(!guardScoreEdit('Saisie bloquée')){ closeRepKeypad(); return; }
+  var cur=(typeof moveReps!=='undefined'?moveReps:0)||0;
+  var delta=n-cur;
+  moveReps=n;
+  totalReps=Math.max(0,(totalReps||0)+delta);
+  var _f=(SC&&SC.fmt||'').toLowerCase();
+  if((_f==='emom'||_f==='interval'||(SC&&SC.deathBy)) && typeof emomRoundReps!=='undefined'){
+    emomRoundReps=Math.max(0,(emomRoundReps||0)+delta);
+  }
+  var nel=$('j-num'); if(nel){ nel.classList.remove('pop'); void nel.offsetWidth; nel.classList.add('pop'); }
+  updateDisplay(); if(typeof updateEmomDisplay==='function') updateEmomDisplay();
+  if(db) pushScoreLive();
+  vib([60,30,60]); toast('✅ Total réglé : '+n+' reps','#00E5A0',1500);
+  closeRepKeypad();
 }
 
 /* ── Tiebreak AUTOMATIQUE (capture instantanée du chrono) ── */
