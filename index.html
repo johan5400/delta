@@ -4214,7 +4214,7 @@ function show(id,btn){
   if(id==="config"){ setTimeout(function(){ if(typeof loadCountdownDuration==='function') loadCountdownDuration(); }, 100); }
   if(id==="categories"){setTimeout(function(){renderCategories();},80);}
   if(id==="planning"){generateHeatsSilent();computeHorairesOnly();syncHeatsToFirebase();setPlanDay(activePlanDay);setTimeout(function(){if(typeof syncJudgeAssignmentsNow==='function')syncJudgeAssignmentsNow();},2000);setTimeout(renderPlanningCF,50);}
-  if(id==="planning-juge"){generateHeatsSilent();computeHorairesOnly();setTimeout(function(){if(typeof syncJudgeAssignmentsNow==='function')syncJudgeAssignmentsNow();},1200);setTimeout(renderJudgePlanningTab,60);setTimeout(function(){try{if(typeof renderJudgeReassignGrid==='function')renderJudgeReassignGrid();}catch(e){}},140);}
+  if(id==="planning-juge"){generateHeatsSilent();computeHorairesOnly();setTimeout(function(){if(typeof syncJudgeAssignmentsNow==='function')syncJudgeAssignmentsNow();},1200);setTimeout(renderJudgePlanningTab,60);setTimeout(function(){try{if(typeof loadJudgeOverrides==='function')loadJudgeOverrides();}catch(e){}},140);}
   if(id==="planning-hj"){try{generateHeatsSilent();computeHorairesOnly();}catch(e){}setTimeout(function(){if(typeof renderHeadJudgePlanningTab==='function')renderHeadJudgePlanningTab();},60);}
   if(id==="programme"){setTimeout(function(){renderProgWodsList();computeProgramme();},50);}
   if(id==="recap") setTimeout(function(){if(typeof renderRecapView==='function')renderRecapView();},50);
@@ -8010,9 +8010,11 @@ function autoSave(){
     syncWodsToFirebase();
     syncCategoriesToFirebase();
     scheduleJudgeAssignmentsSync();
-    // Cloud backup Firebase — toutes les 5 min max
+    // Cloud backup Firebase — ~toutes les 5s (avant : 5 min) pour que le chef voie les
+    //   modifs de données (équipes, WODs, catégories) en quasi temps réel. admin_backup est
+    //   petit (pas les scores) → sans impact sur la stabilité en compèt.
     var now=Date.now();
-    if(!window._lastFbBackup||now-window._lastFbBackup>300000){
+    if(!window._lastFbBackup||now-window._lastFbBackup>4000){
       window._lastFbBackup=now;
       var _db2=(typeof LS_FB_DB!=='undefined'&&LS_FB_DB)||window.db||null;
       if(_db2&&typeof _db2.ref==='function'){
@@ -11968,7 +11970,7 @@ function loadJudgeOverrides(){
   var db=_ovDb(); if(!db||_judgeOvListening) return; _judgeOvListening=true;
   db.ref('judgeOverrides').on('value',function(s){
     window._JUDGE_OVERRIDES=s.val()||{};
-    try{ if(document.getElementById('judge-reassign-panel')) renderJudgeReassignGrid(); }catch(e){}
+    try{ if(document.getElementById('judge-planning-content') && typeof renderJudgePlanningTab==='function') renderJudgePlanningTab(); }catch(e){}
   });
 }
 function setJudgeOverride(w,z,l,j){
@@ -11991,10 +11993,58 @@ function clearAllJudgeOverrides(){
   toast('🔓 Tous les verrous retirés — retour à l\'auto','#2D9CFF',2500);
 }
 function _afterJudgeOverrideChange(){
-  try{ renderJudgeReassignGrid(); }catch(e){}
-  try{ if(typeof renderJudgePlanningTab==='function') renderJudgePlanningTab(); }catch(e){}
+  try{ if(document.getElementById('judge-planning-content') && typeof renderJudgePlanningTab==='function') renderJudgePlanningTab(); }catch(e){}
   try{ if(typeof syncJudgeAssignmentsNow==='function') syncJudgeAssignmentsNow(); }catch(e){}
 }
+
+// ★ GLISSER-DÉPOSER DIRECT SUR LE PLANNING JUGE (cases du tableau juges×heats).
+//   Tu prends une case (équipe + ligne) et tu la déposes sur un autre juge → réaffectation.
+//   Le wodId de la case vient de son globalNum ; le juge cible vient de la colonne visée.
+function _jpWodIdForGN(gn){
+  gn=parseInt(gn,10); if(!(gn>0)) return '';
+  var heats=window.HEATS_RESULT||[];
+  for(var i=0;i<heats.length;i++){ if(heats[i] && heats[i].globalNum===gn) return String(heats[i].wodId||''); }
+  return '';
+}
+(function _bindJpDrag(){
+  if(window._jpDragBound) return; window._jpDragBound=true;
+  try{
+    var st=document.createElement('style');
+    st.textContent='.jp-drag.jp-dragging{opacity:.35}.jp-cell.jp-over{outline:2px dashed #22C55E;outline-offset:-2px;background:#F0FDF4!important}.jp-drag:active{cursor:grabbing}';
+    document.head.appendChild(st);
+  }catch(e){}
+  var jpDrag=null;
+  document.addEventListener('dragstart', function(e){
+    var cell=e.target.closest && e.target.closest('.jp-drag'); if(!cell) return;
+    var td=cell.closest('td'); if(!td) return;
+    jpDrag={ wid:_jpWodIdForGN(td.dataset.gn), zone:parseInt(td.dataset.zone,10)||1, ligne:parseInt(cell.dataset.ligne,10)||0 };
+    try{ e.dataTransfer.setData('text/plain','jp'); e.dataTransfer.effectAllowed='move'; }catch(_){}
+    cell.classList.add('jp-dragging');
+    console.log('[jp-drag] START gn='+td.dataset.gn+' → wid='+jpDrag.wid+' zone='+jpDrag.zone+' ligne='+jpDrag.ligne);
+  });
+  document.addEventListener('dragend', function(e){
+    var c=e.target.closest && e.target.closest('.jp-drag'); if(c) c.classList.remove('jp-dragging');
+    document.querySelectorAll('.jp-cell.jp-over').forEach(function(x){ x.classList.remove('jp-over'); });
+    jpDrag=null;
+  });
+  document.addEventListener('dragover', function(e){
+    var td=e.target.closest && e.target.closest('td.jp-cell'); if(!td||!jpDrag||td.dataset.ctype!=='heat') return;
+    e.preventDefault(); try{ e.dataTransfer.dropEffect='move'; }catch(_){}
+    td.classList.add('jp-over');
+  });
+  document.addEventListener('dragleave', function(e){
+    var td=e.target.closest && e.target.closest('td.jp-cell'); if(td && !td.contains(e.relatedTarget)) td.classList.remove('jp-over');
+  });
+  document.addEventListener('drop', function(e){
+    var td=e.target.closest && e.target.closest('td.jp-cell'); if(!td||!jpDrag||td.dataset.ctype!=='heat') return;
+    e.preventDefault(); td.classList.remove('jp-over');
+    var tj={ id:td.dataset.jid, prenom:td.dataset.jprenom||'', nom:td.dataset.jnom||'' };
+    console.log('[jp-drag] DROP sur juge='+tj.prenom+'('+tj.id+') → wid='+jpDrag.wid+' zone='+jpDrag.zone+' ligne='+jpDrag.ligne);
+    if(tj.id && jpDrag.wid && jpDrag.ligne>0){ setJudgeOverride(jpDrag.wid, jpDrag.zone, jpDrag.ligne, tj); }
+    else { console.warn('[jp-drag] dépôt ignoré : donnée manquante (jid='+tj.id+' wid='+jpDrag.wid+' ligne='+jpDrag.ligne+')'); }
+    jpDrag=null;
+  });
+})();
 function toggleJudgeReassign(){ _judgeReassignOpen=!_judgeReassignOpen; renderJudgeReassignGrid(); }
 
 function _buildReassignModel(){
@@ -12024,9 +12074,9 @@ function _buildReassignModel(){
 }
 function _jrgChip(j, locked, ctx){
   if(!j) return '<span class="jrg-empty">— sans juge —</span>';
-  return '<span class="jrg-chip'+(locked?' locked':'')+'" data-jid="'+String(j.id)+'" data-prenom="'+_ovEsc(j.prenom||'')+'" data-nom="'+_ovEsc(j.nom||'')+'">'
+  return '<span class="jrg-chip'+(locked?' locked':'')+'" draggable="true" data-jid="'+String(j.id)+'" data-prenom="'+_ovEsc(j.prenom||'')+'" data-nom="'+_ovEsc(j.nom||'')+'">'
     +(locked?'🔒 ':'')+_ovEsc(j.prenom||'Juge')+(j.nom?' '+_ovEsc(String(j.nom).charAt(0))+'.':'')
-    +(locked&&ctx?'<button class="jrg-x" data-clear="'+_ovEsc(ctx)+'" title="Remettre en auto">✕</button>':'')
+    +(locked&&ctx?'<button class="jrg-x" draggable="false" data-clear="'+_ovEsc(ctx)+'" title="Remettre en auto">✕</button>':'')
     +'</span>';
 }
 function renderJudgeReassignGrid(){
@@ -12094,36 +12144,29 @@ function renderJudgeReassignGrid(){
   _attachJudgeReassignDrag(panel);
 }
 function _attachJudgeReassignDrag(panel){
-  var drag=null;
-  function laneUnder(x,y){ var els=document.elementsFromPoint(x,y); for(var i=0;i<els.length;i++){ var l=els[i].closest&&els[i].closest('.jrg-lane'); if(l) return l; } return null; }
-  function onMove(e){
-    if(!drag) return;
-    if(!drag.moved){ drag.moved=true; var g=drag.chip.cloneNode(true); g.className=drag.chip.className.replace('dragging','')+' ghost'; g.style.width=drag.w+'px'; document.body.appendChild(g); drag.ghost=g; drag.chip.classList.add('dragging'); }
-    drag.ghost.style.left=(e.clientX-drag.dx)+'px'; drag.ghost.style.top=(e.clientY-drag.dy)+'px';
-    var lane=laneUnder(e.clientX,e.clientY);
-    panel.querySelectorAll('.jrg-lane.drop-ok').forEach(function(el){ el.classList.remove('drop-ok'); });
-    if(lane) lane.classList.add('drop-ok');
-  }
-  function onUp(e){
-    if(!drag) return;
-    var lane=laneUnder(e.clientX,e.clientY);
-    if(drag.ghost) drag.ghost.remove();
-    drag.chip.classList.remove('dragging');
-    panel.querySelectorAll('.jrg-lane.drop-ok').forEach(function(el){ el.classList.remove('drop-ok'); });
-    try{ drag.chip.releasePointerCapture(e.pointerId); }catch(_){}
-    document.removeEventListener('pointermove',onMove); document.removeEventListener('pointerup',onUp); document.removeEventListener('pointercancel',onUp);
-    var d=drag; drag=null;
-    if(d.moved && lane){ setJudgeOverride(lane.dataset.wid, parseInt(lane.dataset.zone,10), parseInt(lane.dataset.ligne,10), {id:d.jid, prenom:d.prenom, nom:d.nom}); }
-  }
+  // ★ Glisser-déposer NATIF HTML5 (fiable à la souris sur PC). On prend une case juge,
+  //   on la glisse sur une ligne → réaffectation. Pas d'autre bouton.
+  var dragData=null;
   panel.querySelectorAll('.jrg-chip').forEach(function(chip){
-    chip.addEventListener('pointerdown', function(e){
-      if(e.target && e.target.classList && e.target.classList.contains('jrg-x')) return;
-      if(e.button!=null && e.button!==0) return;
-      e.preventDefault();
-      var r=chip.getBoundingClientRect();
-      drag={chip:chip, jid:chip.dataset.jid, prenom:chip.dataset.prenom, nom:chip.dataset.nom, dx:e.clientX-r.left, dy:e.clientY-r.top, ghost:null, moved:false, w:r.width};
-      try{ chip.setPointerCapture(e.pointerId); }catch(_){}
-      document.addEventListener('pointermove', onMove); document.addEventListener('pointerup', onUp); document.addEventListener('pointercancel', onUp);
+    chip.addEventListener('dragstart', function(e){
+      dragData={jid:chip.dataset.jid, prenom:chip.dataset.prenom, nom:chip.dataset.nom};
+      try{ e.dataTransfer.setData('text/plain', chip.dataset.jid||''); e.dataTransfer.effectAllowed='move'; }catch(_){}
+      chip.classList.add('dragging');
+    });
+    chip.addEventListener('dragend', function(){
+      chip.classList.remove('dragging');
+      panel.querySelectorAll('.jrg-lane.drop-ok').forEach(function(el){ el.classList.remove('drop-ok'); });
+      dragData=null;
+    });
+  });
+  panel.querySelectorAll('.jrg-lane').forEach(function(lane){
+    lane.addEventListener('dragover', function(e){ e.preventDefault(); try{ e.dataTransfer.dropEffect='move'; }catch(_){} lane.classList.add('drop-ok'); });
+    lane.addEventListener('dragenter', function(e){ e.preventDefault(); lane.classList.add('drop-ok'); });
+    lane.addEventListener('dragleave', function(e){ if(!lane.contains(e.relatedTarget)) lane.classList.remove('drop-ok'); });
+    lane.addEventListener('drop', function(e){
+      e.preventDefault(); lane.classList.remove('drop-ok');
+      if(!dragData || !dragData.jid) return;
+      setJudgeOverride(lane.dataset.wid, parseInt(lane.dataset.zone,10), parseInt(lane.dataset.ligne,10), {id:dragData.jid, prenom:dragData.prenom, nom:dragData.nom});
     });
   });
   panel.querySelectorAll('.jrg-x').forEach(function(x){
@@ -14982,35 +15025,50 @@ function toggleDarkMode(){
   }
 })();;
 
-// ★ OUVERTURE AUTO (mot de passe transparent) — version robuste : on réessaie le clic
-//   simulé jusqu'à ce que ça marche (au cas où 'load' se déclenche trop tôt/tard ou que
-//   checkPassword ne soit pas encore prêt). Flux identique au clic manuel (ordre lock→app→init).
+// ★ BADGE DE VERSION (diagnostic cache) : si tu vois "build v7" en bas à gauche,
+//   tu es bien sur le nouveau fichier. Sinon, c'est que ton navigateur/site sert l'ancien.
+(function(){
+  try{
+    function add(){
+      if(!document.body){ setTimeout(add,150); return; }
+      if(document.getElementById('__delta_build_tag')) return;
+      var b=document.createElement('div'); b.id='__delta_build_tag';
+      b.textContent='build v7';
+      b.style.cssText='position:fixed;bottom:4px;left:4px;z-index:2147483647;background:rgba(220,38,38,.92);color:#fff;font:700 10px/1 system-ui,-apple-system,sans-serif;padding:3px 7px;border-radius:6px;pointer-events:none;letter-spacing:.5px;box-shadow:0 2px 8px rgba(0,0,0,.3)';
+      document.body.appendChild(b);
+    }
+    add();
+    try{ console.log('%cDELTA — build v7 chargé ('+new Date().toISOString()+')','background:#DC2626;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold'); }catch(e){}
+  }catch(e){}
+})();
+
+// ★ OUVERTURE AUTO (mot de passe transparent) — v7 : masque l'écran via la classe .hidden
+//   (le VRAI mécanisme, avec !important) ET style.display, et RÉESSAIE toutes les 0,4s
+//   jusqu'à ce que ça tienne (au cas où l'app le ré-affiche au démarrage).
 //   (Pour remettre le mot de passe : supprimer ce seul bloc.)
 (function(){
-  var tries=0;
-  function done(){ return typeof SESSION_MODE!=='undefined' && SESSION_MODE==='admin'; }
-  function tryUnlock(){
-    if(done()) return;
-    tries++;
+  function isLocked(){ var ls=document.getElementById('lock-screen'); if(!ls) return false; try{ return getComputedStyle(ls).display!=='none'; }catch(e){ return ls.style.display!=='none'; } }
+  function forceOpen(){
     try{
-      var inp=document.getElementById('lock-input');
-      if(inp) inp.value='Mirage2000D';
-      window._lockVal='Mirage2000D';
-      if(typeof checkPassword==='function' && inp) checkPassword();
-    }catch(e){}
-    if(!done() && tries<20){ setTimeout(tryUnlock, 500); return; }
-    if(!done()){
-      // Dernier recours : ouvrir à la main, dans le bon ordre (lock caché → app affichée → init)
-      try{
-        SESSION_MODE='admin';
-        var ls=document.getElementById('lock-screen'); if(ls) ls.style.display='none';
-        var app=document.getElementById('app'); if(app){ app.style.display='block'; app.style.visibility='visible'; }
-        if(typeof init==='function') init();
-      }catch(e){}
-    }
+      if(typeof SESSION_MODE!=='undefined') SESSION_MODE='admin';
+      var ls=document.getElementById('lock-screen'); if(ls){ ls.classList.add('hidden'); ls.style.display='none'; ls.style.visibility='hidden'; }
+      var app=document.getElementById('app'); if(app){ app.style.display='block'; app.style.visibility='visible'; }
+      if(typeof init==='function' && !window.__deltaInited){ window.__deltaInited=true; try{ init(); }catch(e){ console.error('[auto-open] init:',e); } }
+    }catch(e){ console.error('[auto-open] forceOpen:',e); }
   }
-  function boot(){ setTimeout(tryUnlock, 700); }
-  if(document.readyState==='loading') window.addEventListener('DOMContentLoaded', boot); else boot();
+  var tries=0;
+  function tick(){
+    tries++;
+    if(isLocked()){
+      try{
+        var inp=document.getElementById('lock-input');
+        if(inp){ inp.value='Mirage2000D'; window._lockVal='Mirage2000D'; if(typeof checkPassword==='function') checkPassword(); }
+      }catch(e){}
+      if(isLocked()) forceOpen();
+    }
+    if(isLocked() && tries<30) setTimeout(tick, 400); // insiste jusqu'à ~12s
+  }
+  if(document.readyState==='loading') window.addEventListener('DOMContentLoaded', tick); else tick();
 })();
 
 // ═══════════════════════════════════════════════════════════════════
@@ -18493,7 +18551,7 @@ function renderJudgePlanningMatrixCell(rec, col){
     if(assigned){
       // cellule active : fond à la couleur du juge + ligne en gros badge
       var jc = rec.color || {bg:'#EFF6FF',border:'#BFDBFE',solid:'#1D4ED8'};
-      return '<div style="background:'+jc.bg+';border:1px solid '+jc.border+';border-radius:8px;padding:4px 5px;line-height:1.25">'
+      return '<div draggable="true" class="jp-drag" data-ligne="'+escHtml(String(assigned.lane))+'" title="Glisse cette case sur un autre juge pour réaffecter" style="background:'+jc.bg+';border:1px solid '+jc.border+';border-radius:8px;padding:4px 5px;line-height:1.25;cursor:grab">'
         + '<div style="font-size:10px;font-weight:700;color:#0F172A;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+escHtml(assigned.team || 'Équipe')+'</div>'
         + '<div style="display:inline-block;margin-top:2px;font-size:11px;font-weight:900;color:#fff;background:'+jc.solid+';border-radius:5px;padding:1px 8px">L'+escHtml(assigned.lane)+'</div>'
         + '</div>';
@@ -18574,7 +18632,8 @@ function renderJudgePlanningDayTable(day, records){
         + '</td>';
     }
     var cells = dayRecords.map(function(rec){
-      return '<td style="padding:5px 4px;border-bottom:1px solid #F1F5F9;background:'+zebra+';vertical-align:middle;text-align:center">'
+      var _jid=String((rec.ben&&rec.ben.id)||'');
+      return '<td class="jp-cell" data-jid="'+_jid+'" data-jprenom="'+escHtml((rec.ben&&rec.ben.prenom)||'')+'" data-jnom="'+escHtml((rec.ben&&rec.ben.nom)||'')+'" data-gn="'+escHtml(String(col.globalNum||''))+'" data-zone="'+escHtml(String(col.zone||''))+'" data-ctype="'+col.type+'" style="padding:5px 4px;border-bottom:1px solid #F1F5F9;background:'+zebra+';vertical-align:middle;text-align:center">'
         + renderJudgePlanningMatrixCell(rec, col)
         + '</td>';
     }).join('');
