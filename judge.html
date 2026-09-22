@@ -107,15 +107,15 @@
   });
 })();
 </script>
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700;900&family=Barlow:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700;900&family=Barlow:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700;900&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 :root{
   /* ★ PALETTE BROADCAST — harmonisée avec live.html (noir profond + orange/feu)
      Anciennement bleu nuit (#1d324c). On garde tous les autres tokens (fire,
      ok, warn…) pour ne rien casser des écrans existants. */
-  --bg:#07090f;
-  --s1:#141e2e;--s2:#1c2840;--s3:#26344c;
+  --bg:#12152B;
+  --s1:#1B1E3D;--s2:#232748;--s3:#2E3357;
   --brd:rgba(255,255,255,.08);--brd2:rgba(255,255,255,.14);
   --ink:#EAEEF5;--ink2:#8899B4;--mid:#3A4A66;
   --fire:#FF5722;--ember:#FF8A00;--gold:#FFD166;
@@ -123,21 +123,22 @@
   --z1:#FF5722;--z1-bg:rgba(255,87,34,.15);--z1-brd:rgba(255,87,34,.35);
   --z2:#4DA6FF;--z2-bg:rgba(77,166,255,.15);--z2-brd:rgba(77,166,255,.35);
   --ff:'Bebas Neue',sans-serif;--fc:'Barlow Condensed',sans-serif;
-  --fb:'Barlow',sans-serif;--fm:'JetBrains Mono',monospace;
+  --fb:'Outfit',sans-serif;--fm:'JetBrains Mono',monospace;
   --sat:env(safe-area-inset-top,0px);--sab:env(safe-area-inset-bottom,0px);
 }
 html,body{height:100%;overflow:hidden;color:var(--ink);font-family:var(--fb)}
 body{
   display:flex;flex-direction:column;
   background:
-    radial-gradient(40% 30% at 20% 10%,rgba(255,87,34,.08),transparent 60%),
-    radial-gradient(35% 28% at 80% 5%,rgba(45,156,255,.04),transparent 60%),
-    var(--bg);
+    radial-gradient(50% 34% at 12% 4%,rgba(155,123,255,.16),transparent 60%),
+    radial-gradient(46% 32% at 90% 6%,rgba(61,224,255,.1),transparent 60%),
+    radial-gradient(60% 40% at 50% 112%,rgba(182,255,60,.055),transparent 60%),
+    linear-gradient(180deg,#1B1E3D,var(--bg));
 }
 
 @keyframes fade-up{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
-@keyframes pop{0%{transform:scale(1.22);color:var(--gold)}100%{transform:scale(1);color:var(--fire)}}
+@keyframes pop{0%{transform:scale(1.18)}100%{transform:scale(1)}}
 @keyframes cd-slam{0%{transform:scale(1.55);opacity:0}60%{transform:scale(.93)}100%{transform:scale(1);opacity:1}}
 @keyframes cd-go{0%{transform:scale(.5) rotate(-3deg);opacity:0}60%{transform:scale(1.08)}100%{transform:scale(1);opacity:1}}
 @keyframes tkFlash{0%,100%{border-color:rgba(77,166,255,.5);box-shadow:0 0 0 rgba(77,166,255,0)}50%{border-color:rgba(77,166,255,1);box-shadow:0 0 18px rgba(77,166,255,.5)}}
@@ -269,9 +270,9 @@ body{
 .emom-rnd-chip.current{background:rgba(0,229,160,.1);color:var(--ok);border-color:rgba(0,229,160,.25)}
 
 /* COMPTEUR CENTRAL */
-.j-counter{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:6px 14px 4px;cursor:pointer;user-select:none;touch-action:manipulation;background:radial-gradient(circle at 50% 42%,rgba(255,87,34,.05) 0%,transparent 65%)}
+.j-counter{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:6px 14px 4px;cursor:pointer;user-select:none;touch-action:manipulation;background:radial-gradient(circle at 50% 42%,rgba(182,255,60,.07) 0%,transparent 65%)}
 .j-lbl{font-family:var(--fc);font-size:9px;font-weight:800;letter-spacing:4px;color:rgba(255,255,255,.22);text-transform:uppercase;margin-bottom:2px}
-.j-num{font-family:var(--ff);font-size:clamp(80px,30vw,166px);font-weight:900;font-style:italic;color:var(--fire);line-height:.9;transition:transform .07s;animation:glow-fire 3s ease infinite}
+.j-num{font-family:var(--ff);font-size:clamp(80px,30vw,166px);font-weight:900;font-style:italic;line-height:.9;transition:transform .1s cubic-bezier(.34,1.8,.5,1);background:linear-gradient(160deg,#fff 22%,#B6FF3C);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 4px 22px rgba(182,255,60,.22))}
 .j-num.pop{animation:pop .15s ease,glow-fire 3s ease infinite}
 /* ★ NOM MOUVEMENT — très grand */
 .j-move-name{font-family:var(--ff);font-size:clamp(28px,9vw,56px);font-weight:900;letter-spacing:2px;color:var(--ink);margin-top:4px;text-align:center;line-height:1;text-transform:uppercase;animation:move-flash .22s ease}
@@ -293,7 +294,7 @@ body{
 
 /* BOUTONS */
 .j-btns{display:flex;gap:8px;padding:10px 12px;flex-shrink:0;border-top:1px solid var(--brd);padding-bottom:calc(var(--sab) + 10px)}
-.btn-rep{flex:1;padding:clamp(24px,7vh,52px) 8px;border:none;border-radius:clamp(12px,3vw,20px);background:linear-gradient(135deg,var(--fire),var(--ember));color:#fff;font-family:var(--ff);font-size:clamp(48px,12vw,72px);letter-spacing:3px;cursor:pointer;box-shadow:0 6px 28px rgba(255,87,34,.45);touch-action:manipulation;transition:transform .07s,box-shadow .07s}
+.btn-rep{flex:1;padding:clamp(24px,7vh,52px) 8px;border:none;border-radius:clamp(16px,4vw,24px);background:linear-gradient(135deg,#B6FF3C,#84E86B);color:#123008;font-family:var(--ff);font-size:clamp(48px,12vw,72px);letter-spacing:2px;font-weight:900;cursor:pointer;box-shadow:0 8px 30px rgba(182,255,60,.4);touch-action:manipulation;transition:transform .1s cubic-bezier(.34,1.56,.64,1),box-shadow .1s}
 .btn-rep:active{transform:scale(.94);box-shadow:0 2px 8px rgba(255,87,34,.2)}
 /* ★ REP-1 (rep invalide) — compact, à côté du +REP, valable pour TOUS les WOD comptés */
 .btn-repminus{flex:0 0 clamp(64px,20vw,110px);padding:14px 6px;border:1px solid rgba(255,59,92,.5);border-radius:clamp(12px,3vw,20px);background:rgba(255,59,92,.12);color:#FF6B85;font-family:var(--ff);font-size:clamp(16px,4.5vw,26px);letter-spacing:1px;font-weight:900;cursor:pointer;touch-action:manipulation;line-height:1.05;transition:transform .07s}
