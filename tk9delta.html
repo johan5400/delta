@@ -54,6 +54,9 @@ body::before{
 .btn.link{background:rgba(6,214,160,.1);border:1px solid rgba(6,214,160,.24);color:var(--ok)}
 .chip{background:rgba(37,62,92,.78);border:1px solid var(--line2);color:var(--muted);box-shadow:inset 0 1px 0 rgba(255,255,255,.04)}
 .chip.ok{color:var(--ok);border-color:rgba(6,214,160,.25);background:rgba(6,214,160,.08)}
+.chip.warn{color:#FFB020;border-color:rgba(255,176,32,.3);background:rgba(255,176,32,.1)}
+.chip.bad{color:#fff;border-color:rgba(255,59,92,.5);background:rgba(255,59,92,.25);animation:trafblink 1s ease-in-out infinite}
+@keyframes trafblink{50%{opacity:.55}}
 .clock{font-family:var(--fm);font-size:18px;padding:10px 14px;border-radius:14px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08)}
 .banner{display:none;padding:12px 14px;background:rgba(255,71,87,.12);border-bottom:1px solid rgba(255,71,87,.22)}
 .banner.show{display:block}
@@ -358,6 +361,7 @@ body::before{
 
   <div class="spacer"></div>
   <div class="chip ok" id="connState">Firebase connecté</div>
+  <div class="chip ok" id="trafState" title="Données reçues en temps réel">📊 —</div>
   <div class="chip" id="dayState">Jour actif, J1</div>
   <div class="clock" id="clock">--:--:--</div>
 
@@ -1181,8 +1185,9 @@ if(db){
   dbRef('heats').once('value',function(s){
     HD=s.val()||{};
     refreshAll();
-    dbRef('heats').on('child_added',function(snap){ HD[snap.key]=snap.val(); refreshAll(); });
+    dbRef('heats').on('child_added',function(snap){ HD[snap.key]=snap.val(); if(window._trafTick)window._trafTick(snap); refreshAll(); });
     dbRef('heats').on('child_changed',function(snap){
+      if(window._trafTick)window._trafTick(snap);
       var hid=snap.key, h=snap.val();
       if(!h){ delete HD[hid]; }
       else {
@@ -1241,6 +1246,7 @@ if(db){
     SC=s.val()||{};
     refreshAll();
     var _onScChange=function(snap){
+      if(window._trafTick)window._trafTick(snap);
       var key=snap.key, sc=snap.val();
       var psc=SC[key]||{};
       if(sc){
@@ -4550,6 +4556,65 @@ document.addEventListener('visibilitychange', function(){
   }
 });
 requestWakeLock();
+</script>
+<script>
+  // ★ MONITEUR DE TRAFIC — le TK voit en direct les données reçues (le trafic qui a saturé
+  //   le réseau le jour du crash). Le chip passe orange puis rouge si le débit monte trop :
+  //   une alerte AVANT que ça sature. (Additif, ne touche à rien d'autre.)
+  window._traf = window._traf || { total:0, win:[] };
+  window._trafTick = function(snap){
+    try{
+      var v = snap && snap.val ? snap.val() : null;
+      var b = v!=null ? JSON.stringify(v).length : 24;
+      window._traf.total += b;
+      window._traf.win.push([Date.now(), b]);
+    }catch(e){}
+  };
+  (function(){
+    var panel=document.createElement('div'); panel.id='trafPanel';
+    panel.style.cssText='position:fixed;top:66px;right:14px;z-index:9000;width:258px;display:none;background:linear-gradient(180deg,#141e2e,#0b1120);border:1px solid rgba(255,255,255,.14);border-radius:16px;box-shadow:0 18px 50px rgba(0,0,0,.55);padding:13px 15px;font-family:var(--fb,system-ui,sans-serif)';
+    document.body.appendChild(panel);
+    var open=false;
+    function toggle(){ open=!open; panel.style.display=open?'block':'none'; if(open) renderPanel(); }
+    window._toggleTrafPanel=toggle;
+    function fmtKo(k){ return k>=1024 ? (k/1024).toFixed(1)+' Mo' : Math.round(k)+' Ko'; }
+    function metrics(){
+      var now=Date.now(), T=window._traf;
+      T.win = T.win.filter(function(x){ return now-x[0] < 5000; });
+      var koPerSec=(T.win.reduce(function(a,x){return a+x[1];},0)/5)/1024;
+      var evtPerSec=T.win.length/5;
+      var SC=window.SC||{}, nSc=0, nVal=0;
+      Object.keys(SC).forEach(function(k){ var s=SC[k]; if(s&&typeof s==='object'){ nSc++; if(s.judgeOk) nVal++; } });
+      var HD=window.HD||{}, hDone=0,hLive=0,hPend=0;
+      Object.keys(HD).forEach(function(k){ var h=HD[k]; if(!h||typeof h!=='object')return; var st=String(h.status||'pending').toLowerCase(); if(st==='done')hDone++; else if(st==='live'||st==='timecap')hLive++; else hPend++; });
+      var conn=document.getElementById('connState'); var connOk = !!(conn && /connect/i.test(conn.textContent||'') && !/perdu|déconnect|hors/i.test(conn.textContent||''));
+      return {koPerSec:koPerSec,evtPerSec:evtPerSec,total:T.total,nSc:nSc,nVal:nVal,hDone:hDone,hLive:hLive,hPend:hPend,connOk:connOk};
+    }
+    function stat(l,v,c){ return '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0"><span style="color:#8ba0bd;font-size:12px;font-weight:600">'+l+'</span><span style="color:'+(c||'#eaeef5')+';font-size:14px;font-weight:800">'+v+'</span></div>'; }
+    function sect(t){ return '<div style="font-size:10px;letter-spacing:1.5px;color:#5f7690;font-weight:800;text-transform:uppercase;margin:11px 0 2px">'+t+'</div>'; }
+    function renderPanel(){
+      var m=metrics();
+      var hc=m.koPerSec<25?'#06d6a0':(m.koPerSec<100?'#FFB020':'#FF3B5C');
+      var ht=m.koPerSec<25?'sain ✅':(m.koPerSec<100?'modéré':'ÉLEVÉ ⚠️');
+      panel.innerHTML='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px"><span style="font-weight:900;font-size:15px;color:#fff">📊 Moniteur live</span><span onclick="_toggleTrafPanel()" style="cursor:pointer;color:#8ba0bd;font-size:15px;padding:2px 6px">✕</span></div>'
+        + sect('Réseau') + stat('Débit reçu', m.koPerSec.toFixed(1)+' Ko/s', hc) + stat('Santé', ht, hc) + stat('Événements', Math.round(m.evtPerSec)+' /s') + stat('Reçu total', fmtKo(m.total/1024))
+        + sect('Scores') + stat('Validés', m.nVal, '#06d6a0') + stat('En attente', (m.nSc-m.nVal), (m.nSc-m.nVal)>0?'#FFB020':'#8ba0bd') + stat('Total saisis', m.nSc)
+        + sect('Heats') + stat('En cours', m.hLive, m.hLive>0?'#B6FF3C':'#8ba0bd') + stat('Terminés', m.hDone, '#8ba0bd') + stat('À venir', m.hPend)
+        + sect('Connexion') + stat('Firebase', m.connOk?'🟢 connecté':'🔴 hors ligne', m.connOk?'#06d6a0':'#FF3B5C');
+    }
+    function renderChip(){
+      var m=metrics();
+      var health=m.koPerSec<25?'ok':(m.koPerSec<100?'warn':'bad');
+      var chip=document.getElementById('trafState'); if(!chip)return;
+      chip.className='chip '+health;
+      chip.textContent='📊 '+m.koPerSec.toFixed(1)+' Ko/s';
+      chip.style.cursor='pointer';
+      chip.title='Clique pour le détail · '+(health==='bad'?'⚠️ TRAFIC ÉLEVÉ':(health==='warn'?'Trafic modéré':'Réseau sain'));
+      if(!chip._bound){ chip._bound=true; chip.onclick=toggle; }
+      if(open) renderPanel();
+    }
+    setInterval(renderChip, 1000); renderChip();
+  })();
 </script>
 </body>
 </html>
