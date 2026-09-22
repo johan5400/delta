@@ -12005,6 +12005,37 @@ function _jpWodIdForGN(gn){
   for(var i=0;i<heats.length;i++){ if(heats[i] && heats[i].globalNum===gn) return String(heats[i].wodId||''); }
   return '';
 }
+// ★ GARDE-FOU 1 ÉQUIPE = 1 JUGE : quelle ligne le juge tient-il à ce heat ?
+function _jpJudgeLigneAtHeat(gn, jid){
+  try{
+    var map=(typeof buildJugeAssignment==='function')?buildJugeAssignment():{};
+    var m=map[gn]||{}; var ligs=Object.keys(m);
+    for(var i=0;i<ligs.length;i++){ var c=m[ligs[i]]; if(c && String(c.id)===String(jid)) return parseInt(ligs[i],10); }
+  }catch(e){}
+  return 0;
+}
+// Applique la réaffectation AVEC échange : si le juge cible tenait déjà une ligne à ce
+// heat, le juge d'origine y est placé → aucune équipe ne se retrouve sans juge.
+function _jpApplySwap(gn, Lsrc, dstJudge, srcJudge){
+  var db=_ovDb(); if(!db){ toast('Firebase indisponible','#EF5350'); return; }
+  if(!dstJudge || !dstJudge.id) return;
+  if(srcJudge && String(dstJudge.id)===String(srcJudge.id)){ return; } // déposé sur lui-même
+  var Ldst=_jpJudgeLigneAtHeat(gn, dstJudge.id);
+  var updates={};
+  var kA=_ovKey(gn,Lsrc);
+  updates[kA]={id:String(dstJudge.id),prenom:dstJudge.prenom||'',nom:dstJudge.nom||''};
+  window._JUDGE_OVERRIDES[kA]=updates[kA];
+  var swapped=false;
+  if(Ldst>0 && Ldst!==Lsrc && srcJudge && srcJudge.id){
+    var kB=_ovKey(gn,Ldst);
+    updates[kB]={id:String(srcJudge.id),prenom:srcJudge.prenom||'',nom:srcJudge.nom||''};
+    window._JUDGE_OVERRIDES[kB]=updates[kB];
+    swapped=true;
+  }
+  db.ref('judgeOverrides').update(updates).then(_afterJudgeOverrideChange).catch(function(){ toast('Échec écriture','#EF5350'); });
+  toast(swapped ? ('🔁 Échange : '+(dstJudge.prenom||'?')+' ⇄ '+(srcJudge.prenom||'?')+' (ligne '+Lsrc+' / '+Ldst+')')
+               : ('✅ '+(dstJudge.prenom||'Juge')+' → ligne '+Lsrc), '#22C55E', 2400);
+}
 (function _bindJpDrag(){
   if(window._jpDragBound) return; window._jpDragBound=true;
   try{
@@ -12016,10 +12047,10 @@ function _jpWodIdForGN(gn){
   document.addEventListener('dragstart', function(e){
     var cell=e.target.closest && e.target.closest('.jp-drag'); if(!cell) return;
     var td=cell.closest('td'); if(!td) return;
-    jpDrag={ gn:parseInt(td.dataset.gn,10)||0, ligne:parseInt(cell.dataset.ligne,10)||0 };
+    jpDrag={ gn:parseInt(td.dataset.gn,10)||0, ligne:parseInt(cell.dataset.ligne,10)||0, srcJid:td.dataset.jid||'', srcPrenom:td.dataset.jprenom||'', srcNom:td.dataset.jnom||'' };
     try{ e.dataTransfer.setData('text/plain','jp'); e.dataTransfer.effectAllowed='move'; }catch(_){}
     cell.classList.add('jp-dragging');
-    console.log('[jp-drag] START heat='+jpDrag.gn+' ligne='+jpDrag.ligne);
+    console.log('[jp-drag] START heat='+jpDrag.gn+' ligne='+jpDrag.ligne+' juge-src='+jpDrag.srcPrenom);
   });
   document.addEventListener('dragend', function(e){
     var c=e.target.closest && e.target.closest('.jp-drag'); if(c) c.classList.remove('jp-dragging');
@@ -12039,7 +12070,7 @@ function _jpWodIdForGN(gn){
     e.preventDefault(); td.classList.remove('jp-over');
     var tj={ id:td.dataset.jid, prenom:td.dataset.jprenom||'', nom:td.dataset.jnom||'' };
     console.log('[jp-drag] DROP sur juge='+tj.prenom+'('+tj.id+') → heat='+jpDrag.gn+' ligne='+jpDrag.ligne);
-    if(tj.id && jpDrag.gn>0 && jpDrag.ligne>0){ setJudgeOverride(jpDrag.gn, jpDrag.ligne, tj); }
+    if(tj.id && jpDrag.gn>0 && jpDrag.ligne>0){ _jpApplySwap(jpDrag.gn, jpDrag.ligne, tj, {id:jpDrag.srcJid, prenom:jpDrag.srcPrenom, nom:jpDrag.srcNom}); }
     else { console.warn('[jp-drag] dépôt ignoré : donnée manquante (jid='+tj.id+' heat='+jpDrag.gn+' ligne='+jpDrag.ligne+')'); }
     jpDrag=null;
   });
@@ -15024,7 +15055,7 @@ function toggleDarkMode(){
   }
 })();;
 
-// ★ BADGE DE VERSION (diagnostic cache) : si tu vois "build v8" en bas à gauche,
+// ★ BADGE DE VERSION (diagnostic cache) : si tu vois "build v9" en bas à gauche,
 //   tu es bien sur le nouveau fichier. Sinon, c'est que ton navigateur/site sert l'ancien.
 (function(){
   try{
@@ -15032,12 +15063,12 @@ function toggleDarkMode(){
       if(!document.body){ setTimeout(add,150); return; }
       if(document.getElementById('__delta_build_tag')) return;
       var b=document.createElement('div'); b.id='__delta_build_tag';
-      b.textContent='build v8';
+      b.textContent='build v9';
       b.style.cssText='position:fixed;bottom:4px;left:4px;z-index:2147483647;background:rgba(220,38,38,.92);color:#fff;font:700 10px/1 system-ui,-apple-system,sans-serif;padding:3px 7px;border-radius:6px;pointer-events:none;letter-spacing:.5px;box-shadow:0 2px 8px rgba(0,0,0,.3)';
       document.body.appendChild(b);
     }
     add();
-    try{ console.log('%cDELTA — build v8 chargé ('+new Date().toISOString()+')','background:#DC2626;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold'); }catch(e){}
+    try{ console.log('%cDELTA — build v9 chargé ('+new Date().toISOString()+')','background:#DC2626;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold'); }catch(e){}
   }catch(e){}
 })();
 
