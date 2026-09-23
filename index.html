@@ -11858,6 +11858,35 @@ function buildJugeAssignment(){
     if(removedCount>0){ try{ console.warn('[anti-doublon juge] '+removedCount+' placement(s) en conflit libéré(s)'); }catch(e){} }
   })();
 
+  // ★ OVERRIDES MANUELS (glisser-déposer) — APPLIQUÉS AVANT LE FILET : on force les
+  //   réaffectations manuelles de l'organisateur, PUIS le filet ci-dessous comble toute
+  //   ligne laissée vide par un déplacement (garantit 1 juge par équipe, algo conservé).
+  //   Un juge forcé sur une ligne est retiré de ses autres lignes du même heat ; la ligne
+  //   ainsi libérée est re-remplie par le filet avec un autre juge disponible.
+  try{
+    var _ovM = window._JUDGE_OVERRIDES || {};
+    if(_ovM && Object.keys(_ovM).length && Array.isArray(HEATS_RESULT)){
+      HEATS_RESULT.forEach(function(heatO){
+        var gnO = heatO.globalNum; if(gnO==null) return;
+        Object.keys(_ovM).forEach(function(k){
+          var parts = String(k).split('__'); // H<globalNum>__L<ligne>
+          if(parts.length!==2) return;
+          var kgn = parseInt(String(parts[0]).replace(/^H/,''),10);
+          if(kgn!==gnO) return;
+          var ligneO = parseInt(String(parts[1]).replace(/^L/,''),10);
+          var jO = _ovM[k];
+          if(!(ligneO>0) || !jO || !jO.id) return;
+          assignment[gnO] = assignment[gnO] || {};
+          Object.keys(assignment[gnO]).forEach(function(L){
+            var cur = assignment[gnO][L];
+            if(cur && String(cur.id)===String(jO.id) && parseInt(L,10)!==ligneO) assignment[gnO][L]=null;
+          });
+          assignment[gnO][ligneO] = {id:String(jO.id), prenom:jO.prenom||'', nom:jO.nom||'', _locked:true};
+        });
+      });
+    }
+  }catch(_ovErr){ try{ console.warn('overrides juge:', _ovErr); }catch(e){} }
+
   // ★★ FILET « TOUJOURS UN JUGE » (dernier recours) ★★
   // Les règles nobles (même lane sur tout le WOD, créneaux, zones, pauses)
   // peuvent laisser une lane vide alors que des juges restent disponibles
@@ -11889,6 +11918,11 @@ function buildJugeAssignment(){
         return b.jour===w.jour && (b.start < w.end && w.start < b.end);
       });
     }
+    // ★ Juges « touchés » manuellement (présents dans les overrides) : le filet ne les
+    //   RÉUTILISE JAMAIS ailleurs. Tes choix sont protégés — il ne comble qu'avec des
+    //   juges que tu n'as pas touchés.
+    var _ovLockedIds=[];
+    try{ var _ovLk=window._JUDGE_OVERRIDES||{}; Object.keys(_ovLk).forEach(function(k){ var v=_ovLk[k]; if(v&&v.id)_ovLockedIds.push(String(v.id)); }); }catch(e){}
     var filled=0;
     (HEATS_RESULT||[]).forEach(function(heat){
       var gn=String(heat.globalNum||''); if(!gn) return;
@@ -11901,6 +11935,7 @@ function buildJugeAssignment(){
         if(assignment[gn][ln] && assignment[gn][ln].id) return;   // déjà un juge
         // candidats : dispo ce jour, créneau couvrant le heat, libres sur la fenêtre
         var cands=jugesForDay(w.jour).filter(function(b){
+          if(_ovLockedIds.indexOf(String(b.id))>=0) return false; // ★ juge touché manuellement → jamais réutilisé par le filet
           if(typeof judgeAvailableForHeat==='function' && !judgeAvailableForHeat(b, heat, w)) {}
           return freeOn(b.id, w);
         });
@@ -11923,34 +11958,6 @@ function buildJugeAssignment(){
 
   window._jugeChargeMap = chargeMapDay;
   window._jugePauseInfo = buildJugePauseInfo(pool, judgeWodEntries);
-  // ★ OVERRIDES MANUELS (verrou glisser-déposer) : après le calcul AUTO, on force les
-  //   réaffectations manuelles de l'organisateur. Elles écrasent l'auto sur la ligne visée,
-  //   pour TOUS les heats du WOD×zone concerné. Un juge forcé sur une ligne est retiré de
-  //   toute autre ligne du MÊME heat (règle « 1 juge = 1 ligne »). Stockées à part
-  //   (nœud Firebase judgeOverrides) → effaçables → retour à l'auto sans rien casser.
-  try{
-    var _ov = window._JUDGE_OVERRIDES || {};
-    if(_ov && Object.keys(_ov).length && Array.isArray(HEATS_RESULT)){
-      HEATS_RESULT.forEach(function(heat){
-        var gn = heat.globalNum; if(gn==null) return;
-        Object.keys(_ov).forEach(function(k){
-          var parts = String(k).split('__'); // H<globalNum>__L<ligne>
-          if(parts.length!==2) return;
-          var kgn = parseInt(String(parts[0]).replace(/^H/,''),10);
-          if(kgn!==gn) return;
-          var ligne = parseInt(String(parts[1]).replace(/^L/,''),10);
-          var j = _ov[k];
-          if(!(ligne>0) || !j || !j.id) return;
-          assignment[gn] = assignment[gn] || {};
-          Object.keys(assignment[gn]).forEach(function(L){
-            var cur = assignment[gn][L];
-            if(cur && String(cur.id)===String(j.id) && parseInt(L,10)!==ligne) assignment[gn][L]=null;
-          });
-          assignment[gn][ligne] = {id:String(j.id), prenom:j.prenom||'', nom:j.nom||'', _locked:true};
-        });
-      });
-    }
-  }catch(_ovErr){ try{ console.warn('overrides juge:', _ovErr); }catch(e){} }
   return assignment;
 }
 
@@ -15055,7 +15062,7 @@ function toggleDarkMode(){
   }
 })();;
 
-// ★ BADGE DE VERSION (diagnostic cache) : si tu vois "build v9" en bas à gauche,
+// ★ BADGE DE VERSION (diagnostic cache) : si tu vois "build v11" en bas à gauche,
 //   tu es bien sur le nouveau fichier. Sinon, c'est que ton navigateur/site sert l'ancien.
 (function(){
   try{
@@ -15063,12 +15070,12 @@ function toggleDarkMode(){
       if(!document.body){ setTimeout(add,150); return; }
       if(document.getElementById('__delta_build_tag')) return;
       var b=document.createElement('div'); b.id='__delta_build_tag';
-      b.textContent='build v9';
+      b.textContent='build v11';
       b.style.cssText='position:fixed;bottom:4px;left:4px;z-index:2147483647;background:rgba(220,38,38,.92);color:#fff;font:700 10px/1 system-ui,-apple-system,sans-serif;padding:3px 7px;border-radius:6px;pointer-events:none;letter-spacing:.5px;box-shadow:0 2px 8px rgba(0,0,0,.3)';
       document.body.appendChild(b);
     }
     add();
-    try{ console.log('%cDELTA — build v9 chargé ('+new Date().toISOString()+')','background:#DC2626;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold'); }catch(e){}
+    try{ console.log('%cDELTA — build v11 chargé ('+new Date().toISOString()+')','background:#DC2626;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold'); }catch(e){}
   }catch(e){}
 })();
 
