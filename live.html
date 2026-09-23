@@ -3646,6 +3646,7 @@ if(db){
   db.ref('heats').once('value',function(s){
     HEATS=s.val()||{};renderAll();startZoneClocks();
     db.ref('heats').on('child_changed',function(snap){
+      if(window._trafTick)window._trafTick(snap);
       var hid=snap.key,h=snap.val();
       if(!h){delete HEATS[hid];}else{
         var prev=HEATS[hid]||{},ps=prev.status||null;
@@ -3677,7 +3678,7 @@ if(db){
       }
       scheduleRender();
     });
-    db.ref('heats').on('child_added',function(snap){HEATS[snap.key]=snap.val();scheduleRender();});
+    db.ref('heats').on('child_added',function(snap){if(window._trafTick)window._trafTick(snap);HEATS[snap.key]=snap.val();scheduleRender();});
     db.ref('heats').on('child_removed',function(snap){
       var hid=snap.key;
       delete HEATS[hid];
@@ -3690,6 +3691,7 @@ if(db){
   (function(){
     var _d=null;
     function onSc(s){
+  if(window._trafTick)window._trafTick(s);
   var k=s.key,v=s.val();
   if(v) SCORES[k]=v; else delete SCORES[k];
   // Propager aussi dans HEATS[hid].scores pour que getSc() le trouve directement
@@ -4007,6 +4009,36 @@ setInterval(scheduleRender,5000);
     upd(); iv=setInterval(upd,200);
   });
 })();
+</script>
+<script>
+  // ★ FEU RÉSEAU DISCRET — un petit point dans le coin qui reflète le débit reçu, pour
+  //   surveiller le réseau sans aller sur le TK. Vert=sain, orange=surveiller, rouge=risque.
+  window._traf = window._traf || { total:0, win:[] };
+  window._trafTick = function(snap){
+    try{ var v=snap&&snap.val?snap.val():null; var b=v!=null?JSON.stringify(v).length:24; window._traf.total+=b; window._traf.win.push([Date.now(),b]); }catch(e){}
+  };
+  (function(){
+    var st=document.createElement('style'); st.textContent='@keyframes netblink{50%{opacity:.4}}'; document.head.appendChild(st);
+    var feu=document.createElement('div'); feu.id='netFeu'; feu.title='Réseau — clique pour le débit';
+    feu.style.cssText='position:fixed;left:10px;bottom:10px;z-index:9500;width:13px;height:13px;border-radius:50%;background:#06d6a0;box-shadow:0 0 8px rgba(6,214,160,.7);opacity:.5;transition:background .4s,box-shadow .4s,opacity .3s;cursor:pointer';
+    var lbl=document.createElement('div'); lbl.id='netFeuLbl';
+    lbl.style.cssText='position:fixed;left:29px;bottom:7px;z-index:9500;font-family:monospace;font-size:11px;font-weight:700;color:#cfe0f0;background:rgba(7,10,18,.8);border-radius:7px;padding:2px 8px;display:none;pointer-events:none';
+    document.body.appendChild(feu); document.body.appendChild(lbl);
+    var shown=false; feu.onclick=function(){ shown=!shown; lbl.style.display=shown?'block':'none'; if(shown) render(); };
+    function render(){
+      var now=Date.now(), T=window._traf;
+      T.win=T.win.filter(function(x){ return now-x[0]<5000; });
+      var koPerSec=(T.win.reduce(function(a,x){return a+x[1];},0)/5)/1024;
+      var col,glow,op,blur;
+      if(koPerSec<25){ col='#06d6a0'; glow='rgba(6,214,160,.7)'; op=.5; blur=8; }
+      else if(koPerSec<100){ col='#FFB020'; glow='rgba(255,176,32,.8)'; op=.9; blur=13; }
+      else { col='#FF3B5C'; glow='rgba(255,59,92,.9)'; op=1; blur=16; }
+      feu.style.background=col; feu.style.boxShadow='0 0 '+blur+'px '+glow; feu.style.opacity=op;
+      feu.style.animation = koPerSec>=100 ? 'netblink 1s ease-in-out infinite' : 'none';
+      if(shown) lbl.textContent=koPerSec.toFixed(1)+' Ko/s';
+    }
+    setInterval(render, 1000); render();
+  })();
 </script>
 </body>
 </html>
