@@ -15196,7 +15196,7 @@ function toggleDarkMode(){
   }
 })();;
 
-// ★ BADGE DE VERSION (diagnostic cache) : si tu vois "build v17" en bas à gauche,
+// ★ BADGE DE VERSION (diagnostic cache) : si tu vois "build v19" en bas à gauche,
 //   tu es bien sur le nouveau fichier. Sinon, c'est que ton navigateur/site sert l'ancien.
 (function(){
   try{
@@ -15204,12 +15204,12 @@ function toggleDarkMode(){
       if(!document.body){ setTimeout(add,150); return; }
       if(document.getElementById('__delta_build_tag')) return;
       var b=document.createElement('div'); b.id='__delta_build_tag';
-      b.textContent='build v17';
+      b.textContent='build v19';
       b.style.cssText='position:fixed;bottom:4px;left:4px;z-index:2147483647;background:rgba(220,38,38,.92);color:#fff;font:700 10px/1 system-ui,-apple-system,sans-serif;padding:3px 7px;border-radius:6px;pointer-events:none;letter-spacing:.5px;box-shadow:0 2px 8px rgba(0,0,0,.3)';
       document.body.appendChild(b);
     }
     add();
-    try{ console.log('%cDELTA — build v17 chargé ('+new Date().toISOString()+')','background:#DC2626;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold'); }catch(e){}
+    try{ console.log('%cDELTA — build v19 chargé ('+new Date().toISOString()+')','background:#DC2626;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold'); }catch(e){}
   }catch(e){}
 })();
 
@@ -18354,12 +18354,11 @@ function getJudgePlanningGifSrc(type){
 }
 
 function judgePlanGifBox(type){
-  var label = type === 'coupure' ? 'Coupure' : 'Pause';
+  // ★ Emoji directement (pas de <img>) : évite les 404 sur judge-pause.gif / judge-coupure.gif
+  //   qui n'existent pas sur le serveur. Même rendu, console propre.
   var fallback = type === 'coupure' ? '✂️' : '☕';
   var bg = type === 'coupure' ? 'linear-gradient(135deg,#FCE7F3,#FAE8FF)' : 'linear-gradient(135deg,#FFF7ED,#FEF3C7)';
-  return '<div style="width:44px;height:44px;border-radius:12px;overflow:hidden;background:'+bg+';display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;box-shadow:inset 0 0 0 1px rgba(255,255,255,.6)">'
-    + '<img src="'+getJudgePlanningGifSrc(type)+'" alt="'+label+'" style="width:100%;height:100%;object-fit:cover" onerror="this.parentNode.innerHTML=\''+fallback+'\';">'
-    + '</div>';
+  return '<div style="width:44px;height:44px;border-radius:12px;background:'+bg+';display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;box-shadow:inset 0 0 0 1px rgba(255,255,255,.6)">'+fallback+'</div>';
 }
 
 function getHeatHoraireObject(heat){
@@ -18695,7 +18694,7 @@ function judgePlanningTypePill(event){
   var txt = isCut ? 'COUPURE' : 'PAUSE';
   var alt = isCut ? 'Coupure' : 'Pause';
   var fallback = isCut ? '✂️' : '☕';
-  var gif = '<span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;overflow:hidden;border-radius:999px;background:#fff;box-shadow:inset 0 0 0 1px rgba(255,255,255,.75)"><img src="'+getJudgePlanningGifSrc(event.type)+'" alt="'+alt+'" style="width:100%;height:100%;object-fit:cover" onerror="this.parentNode.textContent=\''+fallback+'\';this.parentNode.style.fontSize=\'11px\';"></span>';
+  var gif = '<span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;font-size:12px">'+fallback+'</span>';
   return '<span style="display:inline-flex;align-items:center;gap:6px;padding:4px 9px;border-radius:999px;background:'+bg+';color:'+col+';font-size:10px;font-weight:900;white-space:nowrap">'+gif+'<span>'+txt+'</span></span>';
 }
 
@@ -18909,11 +18908,26 @@ function renderJudgePlanningTab(){
   computeHorairesOnly();
   var jugeMap = (typeof buildJugeAssignment === 'function') ? buildJugeAssignment() : {};
   var query = _judgePlanSearch;
-  var judges = getJudgingBenevoles().slice().sort(function(a,b){
-    var na = ((a.prenom||'')+' '+(a.nom||'')).trim().toLowerCase();
-    var nb = ((b.prenom||'')+' '+(b.nom||'')).trim().toLowerCase();
-    return na<nb ? -1 : (na>nb ? 1 : 0);
-  });
+  var judges;
+  if(window.COMP_MODE==='interne'){
+    // ★ MODE INTERNE : les "juges" sont les ÉQUIPES issues de la rotation. On construit des
+    //   pseudo-bénévoles {id:'team:X', prenom:'X'} pour que la matrice affiche une colonne
+    //   par équipe-juge, avec les heats qu'elle juge.
+    var _teamIds = {};
+    Object.keys(jugeMap).forEach(function(gn){
+      var m = jugeMap[gn]||{};
+      Object.keys(m).forEach(function(ln){ var j=m[ln]; if(j&&j.id){ _teamIds[String(j.id)] = j.prenom || String(j.id).replace(/^team:/,''); } });
+    });
+    judges = Object.keys(_teamIds).map(function(id){
+      return { id:id, prenom:_teamIds[id], nom:'', isAthlete:false, jours:'12', zoneAssign:0, role:'juge' };
+    }).sort(function(a,b){ return (a.prenom||'').toLowerCase()<(b.prenom||'').toLowerCase()?-1:1; });
+  } else {
+    judges = getJudgingBenevoles().slice().sort(function(a,b){
+      var na = ((a.prenom||'')+' '+(a.nom||'')).trim().toLowerCase();
+      var nb = ((b.prenom||'')+' '+(b.nom||'')).trim().toLowerCase();
+      return na<nb ? -1 : (na>nb ? 1 : 0);
+    });
+  }
   var records = [];
   var totalAssign = 0, totalPause = 0, totalCuts = 0;
 
