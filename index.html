@@ -12085,7 +12085,23 @@ function _jpApplySwap(gn, Lsrc, dstJudge, srcJudge){
     e.preventDefault(); td.classList.remove('jp-over');
     var tj={ id:td.dataset.jid, prenom:td.dataset.jprenom||'', nom:td.dataset.jnom||'' };
     console.log('[jp-drag] DROP sur juge='+tj.prenom+'('+tj.id+') → heat='+jpDrag.gn+' ligne='+jpDrag.ligne);
-    if(tj.id && jpDrag.gn>0 && jpDrag.ligne>0){ _jpApplySwap(jpDrag.gn, jpDrag.ligne, tj, {id:jpDrag.srcJid, prenom:jpDrag.srcPrenom, nom:jpDrag.srcNom}); }
+    if(tj.id && jpDrag.gn>0 && jpDrag.ligne>0){
+      // ★ CONFIRMATION avant d'appliquer le déplacement
+      if(String(tj.id)!==String(jpDrag.srcJid)){
+        var _Ldst = _jpJudgeLigneAtHeat(jpDrag.gn, tj.id);
+        var _heatLbl = 'Heat '+jpDrag.gn;
+        var _msg;
+        if(_Ldst>0 && _Ldst!==jpDrag.ligne){
+          _msg = 'Échanger sur le '+_heatLbl+' ?\n\n'
+            + '• '+(tj.prenom||'ce juge')+' → ligne '+jpDrag.ligne+'\n'
+            + '• '+(jpDrag.srcPrenom||'l\'autre juge')+' → ligne '+_Ldst;
+        } else {
+          _msg = 'Placer '+(tj.prenom||'ce juge')+' sur la ligne '+jpDrag.ligne+' du '+_heatLbl+' ?';
+        }
+        if(!window.confirm(_msg)){ jpDrag=null; return; }
+      }
+      _jpApplySwap(jpDrag.gn, jpDrag.ligne, tj, {id:jpDrag.srcJid, prenom:jpDrag.srcPrenom, nom:jpDrag.srcNom});
+    }
     else { console.warn('[jp-drag] dépôt ignoré : donnée manquante (jid='+tj.id+' heat='+jpDrag.gn+' ligne='+jpDrag.ligne+')'); }
     jpDrag=null;
   });
@@ -15070,7 +15086,7 @@ function toggleDarkMode(){
   }
 })();;
 
-// ★ BADGE DE VERSION (diagnostic cache) : si tu vois "build v13" en bas à gauche,
+// ★ BADGE DE VERSION (diagnostic cache) : si tu vois "build v14" en bas à gauche,
 //   tu es bien sur le nouveau fichier. Sinon, c'est que ton navigateur/site sert l'ancien.
 (function(){
   try{
@@ -15078,12 +15094,12 @@ function toggleDarkMode(){
       if(!document.body){ setTimeout(add,150); return; }
       if(document.getElementById('__delta_build_tag')) return;
       var b=document.createElement('div'); b.id='__delta_build_tag';
-      b.textContent='build v13';
+      b.textContent='build v14';
       b.style.cssText='position:fixed;bottom:4px;left:4px;z-index:2147483647;background:rgba(220,38,38,.92);color:#fff;font:700 10px/1 system-ui,-apple-system,sans-serif;padding:3px 7px;border-radius:6px;pointer-events:none;letter-spacing:.5px;box-shadow:0 2px 8px rgba(0,0,0,.3)';
       document.body.appendChild(b);
     }
     add();
-    try{ console.log('%cDELTA — build v13 chargé ('+new Date().toISOString()+')','background:#DC2626;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold'); }catch(e){}
+    try{ console.log('%cDELTA — build v14 chargé ('+new Date().toISOString()+')','background:#DC2626;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold'); }catch(e){}
   }catch(e){}
 })();
 
@@ -18641,9 +18657,15 @@ function renderJudgePlanningMatrixCell(rec, col){
     if(assigned){
       // cellule active : fond à la couleur du juge + ligne en gros badge
       var jc = rec.color || {bg:'#EFF6FF',border:'#BFDBFE',solid:'#1D4ED8'};
-      return '<div draggable="true" class="jp-drag" data-ligne="'+escHtml(String(assigned.lane))+'" title="Glisse cette case sur un autre juge pour réaffecter" style="background:'+jc.bg+';border:1px solid '+jc.border+';border-radius:8px;padding:4px 5px;line-height:1.25;cursor:grab">'
+      // ★ VISUEL déplacement manuel : cette case est-elle un override manuel (verrou) ?
+      var _ovK = 'H'+col.globalNum+'__L'+assigned.lane;
+      var _isManual = !!(window._JUDGE_OVERRIDES && window._JUDGE_OVERRIDES[_ovK] && String(window._JUDGE_OVERRIDES[_ovK].id)===String((rec.ben&&rec.ben.id)||''));
+      var _mBorder = _isManual ? '2px solid #16A34A' : ('1px solid '+jc.border);
+      var _mShadow = _isManual ? 'box-shadow:0 0 0 2px rgba(22,163,74,.18);' : '';
+      return '<div draggable="true" class="jp-drag'+(_isManual?' jp-manual':'')+'" data-ligne="'+escHtml(String(assigned.lane))+'" title="'+(_isManual?'Déplacé manuellement — glisse pour changer':'Glisse cette case sur un autre juge pour réaffecter')+'" style="position:relative;background:'+jc.bg+';border:'+_mBorder+';'+_mShadow+'border-radius:8px;padding:4px 5px;line-height:1.25;cursor:grab">'
+        + (_isManual ? '<div style="position:absolute;top:-7px;right:-6px;font-size:11px;background:#16A34A;border-radius:50%;width:16px;height:16px;display:flex;align-items:center;justify-content:center;line-height:1;box-shadow:0 1px 3px rgba(0,0,0,.3)" title="Verrouillé manuellement">🔒</div>' : '')
         + '<div style="font-size:10px;font-weight:700;color:#0F172A;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+escHtml(assigned.team || 'Équipe')+'</div>'
-        + '<div style="display:inline-block;margin-top:2px;font-size:11px;font-weight:900;color:#fff;background:'+jc.solid+';border-radius:5px;padding:1px 8px">L'+escHtml(assigned.lane)+'</div>'
+        + '<div style="display:inline-block;margin-top:2px;font-size:11px;font-weight:900;color:#fff;background:'+(_isManual?'#16A34A':jc.solid)+';border-radius:5px;padding:1px 8px">L'+escHtml(assigned.lane)+'</div>'
         + '</div>';
     }
     if(!judgeAvailableForWindow(rec.ben, col.jour, col.startMin, col.endMin)) return '<span style="font-size:10px;color:#CBD5E1">·</span>';
