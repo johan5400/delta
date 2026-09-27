@@ -1438,6 +1438,7 @@ function checkPassword(){
     <button class="btn" onclick="printJudgePlanning()" style="font-size:11px;background:linear-gradient(135deg,#1E3A5F,#2563EB);color:#fff">🖨️ Imprimer</button>
     <span id="judge-plan-info" style="font-size:10px;color:var(--ink2);margin-left:4px"></span>
   </div>
+  <div id="judge-plan-mode-badge" style="margin:0 0 12px"></div>
   <div id="judge-planning-content"></div>
 </div>
 
@@ -8158,7 +8159,7 @@ function sanitizeBundledTestState(){
   return removed;
 }
 function applyState(state){
-  if(state.ev){var ev=state.ev;if(ev.nom)document.getElementById("ev-nom").value=ev.nom;if(ev.date1)document.getElementById("ev-date1").value=ev.date1;if(ev.date2)document.getElementById("ev-date2").value=ev.date2;if(ev.lieu)document.getElementById("ev-lieu").value=ev.lieu;if(ev.resp)document.getElementById("ev-resp").value=ev.resp;if(ev.email)document.getElementById("ev-email").value=ev.email;if(ev.compStart)document.getElementById("comp-start").value=ev.compStart;if(ev.compEnd)document.getElementById("comp-end").value=ev.compEnd;var cs2el=document.getElementById("comp-start2");var ce2el=document.getElementById("comp-end2");var rd2el=(document.getElementById("rotation-dur2")||{});if(ev.compStart2&&cs2el)cs2el.value=ev.compStart2;if(ev.compEnd2&&ce2el)ce2el.value=ev.compEnd2;if(ev.rotDur2&&rd2el)rd2el.value=ev.rotDur2;var nj1el=document.getElementById("notes-j1");var nj2el=document.getElementById("notes-j2");if(ev.notesJ1&&nj1el)nj1el.value=ev.notesJ1;if(ev.notesJ2&&nj2el)nj2el.value=ev.notesJ2;if(ev.compMode){setCompMode(ev.compMode,true);}}
+  if(state.ev){var ev=state.ev;if(ev.nom)document.getElementById("ev-nom").value=ev.nom;if(ev.date1)document.getElementById("ev-date1").value=ev.date1;if(ev.date2)document.getElementById("ev-date2").value=ev.date2;if(ev.lieu)document.getElementById("ev-lieu").value=ev.lieu;if(ev.resp)document.getElementById("ev-resp").value=ev.resp;if(ev.email)document.getElementById("ev-email").value=ev.email;if(ev.compStart)document.getElementById("comp-start").value=ev.compStart;if(ev.compEnd)document.getElementById("comp-end").value=ev.compEnd;var cs2el=document.getElementById("comp-start2");var ce2el=document.getElementById("comp-end2");var rd2el=(document.getElementById("rotation-dur2")||{});if(ev.compStart2&&cs2el)cs2el.value=ev.compStart2;if(ev.compEnd2&&ce2el)ce2el.value=ev.compEnd2;if(ev.rotDur2&&rd2el)rd2el.value=ev.rotDur2;var nj1el=document.getElementById("notes-j1");var nj2el=document.getElementById("notes-j2");if(ev.notesJ1&&nj1el)nj1el.value=ev.notesJ1;if(ev.notesJ2&&nj2el)nj2el.value=ev.notesJ2;setCompMode(ev.compMode==='interne'?'interne':'normal',true);}
   if(state.stations&&state.stations.length)STATIONS=state.stations;
   // ★ FIX CRITIQUE (perte bénévoles) : ne JAMAIS écraser la liste par du vide.
   //   Le code d'origine faisait `if(state.benevoles)` sans tester la longueur — or un
@@ -15204,12 +15205,12 @@ function toggleDarkMode(){
       if(!document.body){ setTimeout(add,150); return; }
       if(document.getElementById('__delta_build_tag')) return;
       var b=document.createElement('div'); b.id='__delta_build_tag';
-      b.textContent='build v21';
+      b.textContent='build v22';
       b.style.cssText='position:fixed;bottom:4px;left:4px;z-index:2147483647;background:rgba(220,38,38,.92);color:#fff;font:700 10px/1 system-ui,-apple-system,sans-serif;padding:3px 7px;border-radius:6px;pointer-events:none;letter-spacing:.5px;box-shadow:0 2px 8px rgba(0,0,0,.3)';
       document.body.appendChild(b);
     }
     add();
-    try{ console.log('%cDELTA — build v21 chargé ('+new Date().toISOString()+')','background:#DC2626;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold'); }catch(e){}
+    try{ console.log('%cDELTA — build v22 chargé ('+new Date().toISOString()+')','background:#DC2626;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold'); }catch(e){}
   }catch(e){}
 })();
 
@@ -18953,7 +18954,18 @@ function renderInternalJudgeView(content, info, jugeMap){
   var shown = day>0 ? rows.filter(function(r){return r.jour===day;}) : rows;
   var nbJuges = {}; rows.forEach(function(r){ r.lignes.forEach(function(l){ if(l.juge&&l.juge!=='—') nbJuges[l.juge]=true; }); });
   if(info) info.textContent = Object.keys(nbJuges).length+' équipes-juges · '+shown.length+' heats · rotation interne';
-  if(!shown.length){ content.innerHTML='<div style="text-align:center;padding:40px;color:#64748B;border:1.5px dashed #E2E8F0;border-radius:14px;background:#fff">Génère les heats pour voir la rotation.</div>'; return; }
+  if(!shown.length){
+    content.innerHTML='<div style="text-align:center;padding:44px 24px;border:2px dashed #DDD6FE;border-radius:16px;background:linear-gradient(135deg,#F5F3FF,#fff)">'
+      +'<div style="font-size:40px;margin-bottom:10px">🔄</div>'
+      +'<div style="font-size:15px;font-weight:900;color:#5B21B6;margin-bottom:8px">Mode interne actif — rotation vide</div>'
+      +'<div style="font-size:12.5px;color:#6D5B96;line-height:1.6;max-width:420px;margin:0 auto">'
+      +'Il faut des <b>heats générés</b> avec des équipes.<br>'
+      +'1️⃣ Onglet <b>Configuration</b> → vérifie que <b>« Compétition interne »</b> est coché<br>'
+      +'2️⃣ Crée tes WODs + catégories/équipes<br>'
+      +'3️⃣ Onglet <b>Planning</b> → <b>Générer les heats</b><br>'
+      +'4️⃣ Reviens ici : chaque équipe jugera une autre.</div></div>';
+    return;
+  }
   var html='';
   // bandeau + bouton fiches
   html+='<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px;padding:12px 14px;border:1.5px solid #DDD6FE;border-radius:14px;background:linear-gradient(135deg,#F5F3FF,#FFFFFF)">'
@@ -19017,6 +19029,14 @@ function renderJudgePlanningTab(){
   var content = document.getElementById('judge-planning-content');
   var info = document.getElementById('judge-plan-info');
   if(!content) return;
+  // ★ Badge de mode toujours visible : le user voit d'un coup d'œil normal / interne.
+  var _modeBadge = document.getElementById('judge-plan-mode-badge');
+  if(_modeBadge){
+    var _interne = (window.COMP_MODE==='interne');
+    _modeBadge.innerHTML = _interne
+      ? '<div style="display:inline-flex;align-items:center;gap:8px;padding:7px 14px;border-radius:10px;background:linear-gradient(135deg,#5B21B6,#7C3AED);color:#fff;font-size:12px;font-weight:900;box-shadow:0 4px 14px rgba(124,58,237,.28)">🔄 MODE INTERNE — les équipes se jugent entre elles</div>'
+      : '<div style="display:inline-flex;align-items:center;gap:8px;padding:7px 14px;border-radius:10px;background:#EEF2FF;color:#3730A3;font-size:12px;font-weight:800;border:1.5px solid #C7D2FE">🧑‍⚖️ MODE NORMAL — juges dédiés · <span style="opacity:.8;font-weight:600">pour la compét interne : onglet Configuration</span></div>';
+  }
   syncJudgePlanningToolbar();
   if((!HEATS_RESULT || !HEATS_RESULT.length) && typeof generateHeatsSilent === 'function') generateHeatsSilent();
   if(!HEATS_RESULT || !HEATS_RESULT.length){
