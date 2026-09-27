@@ -7619,7 +7619,14 @@ function syncHeatsToFirebase(){
           ja2[bid].push({heat:hid,lane:String(ln),cat:h.catNom||'—',zone:h.catZone||1,jour:parseInt((w2&&w2.jour)||h.catJour||1,10)||1,globalNum:h.globalNum||1,wod:wn2,heure:'—',team:tn||'—',wodOrdreZone:h.wodOrdreZone||1,catIndexInWod:h.catIndexInWod||0,catOrdre:h.catOrdre||0});
         });
       });
+      // ★★ MODE COMPÉTITION INTERNE — ROTATION AUTO : chaque ÉQUIPE juge des heats où elle
+      //    ne passe PAS (jamais elle-même), réparti équitablement. Remplace ja2 dans ce mode.
+      if(window.COMP_MODE==='interne'){
+        try{ ja2 = _buildInternalRotation(heats); }catch(_rotErr){ try{ console.warn('rotation interne:', _rotErr); }catch(e){} }
+      }
       if(Object.keys(ja2).length) await db.ref('judgeAssignments').set(ja2);
+      // aussi par prénom (fallback appli juge) — inoffensif en interne (ids = team:*)
+      try{ if(Object.keys(ja2).length) await db.ref('judgeAssignmentsByPrenom').set(ja2); }catch(e){}
 
       var ind = document.getElementById('save-indicator');
       if(ind){
@@ -7668,6 +7675,54 @@ function fbBuildLanesFromSlots(slots, nbLignes){
 }
 
 /* ── Sync immédiat des assignations juges → Firebase ── */
+// ★★ ROTATION INTERNE — construit judgeAssignments où chaque ÉQUIPE juge des heats
+//    où elle ne passe PAS. Répartition équitable (l'équipe la moins sollicitée d'abord).
+//    Id de juge = "team:<nom>" ; prénom = nom d'équipe (l'appli juge affiche le nom).
+function _buildInternalRotation(heats){
+  heats = heats || (typeof HEATS_RESULT!=='undefined' ? HEATS_RESULT : []) || [];
+  // nom d'équipe propre depuis un slot
+  function teamName(sl){ if(!sl||!sl.team) return ''; return typeof sl.team==='string'?sl.team:(sl.team.nom||sl.team.name||sl.team.teamName||''); }
+  // 1) recenser toutes les équipes
+  var allTeams={};
+  heats.forEach(function(h){ (h.slots||[]).forEach(function(s){ var t=teamName(s); if(t) allTeams[t]=true; }); });
+  var teams=Object.keys(allTeams);
+  if(teams.length<2) return {}; // pas assez d'équipes pour une rotation
+
+  var ja={};
+  var load={}; teams.forEach(function(t){ load[t]=0; });
+  var idOf=function(t){ return 'team:'+t; };
+
+  // 2) pour chaque heat, attribuer une équipe-juge par ligne occupée
+  //    (équipe qui ne passe PAS sur ce heat, la moins chargée d'abord)
+  heats.slice().sort(function(a,b){ return (a.globalNum||0)-(b.globalNum||0); }).forEach(function(h){
+    var hid='h'+(h.globalNum||1);
+    var w=(typeof fbGetWod==='function')?fbGetWod(h):null; var wn=w?(w.nom||'—'):'—';
+    var jour=parseInt((w&&w.jour)||h.catJour||1,10)||1;
+    // équipes qui PASSENT sur ce heat (ne peuvent pas le juger)
+    var passing={}; (h.slots||[]).forEach(function(s){ var t=teamName(s); if(t) passing[t]=true; });
+    // lignes occupées à couvrir
+    var slots=(h.slots||[]).filter(function(s){ return s && !s.empty && teamName(s) && s.ligne; });
+    // équipes candidates pour juger = celles qui ne passent pas ici
+    var usedThisHeat={};
+    slots.forEach(function(sl){
+      var cands=teams.filter(function(t){ return !passing[t] && !usedThisHeat[t]; });
+      if(!cands.length) return; // aucune équipe libre → ligne sans juge (secours QR)
+      cands.sort(function(a,b){ return load[a]-load[b]; }); // la moins sollicitée d'abord
+      var pick=cands[0];
+      usedThisHeat[pick]=true; load[pick]++;
+      var bid=idOf(pick);
+      if(!ja[bid]) ja[bid]=[];
+      ja[bid].push({
+        heat:hid, lane:String(sl.ligne), cat:h.catNom||'—', zone:h.catZone||1, jour:jour,
+        globalNum:h.globalNum||1, wod:wn, heure:'—', team:teamName(sl)||'—',
+        wodOrdreZone:h.wodOrdreZone||1, catIndexInWod:h.catIndexInWod||0, catOrdre:h.catOrdre||0,
+        prenom:pick, nom:'' // le "juge" est l'équipe → son nom s'affiche dans l'appli juge
+      });
+    });
+  });
+  return ja;
+}
+
 async function syncJudgeAssignmentsNow(){
   // ★ FIX CRITIQUE : ne pas publier d'assignations tant que Firebase n'a pas chargé
   //   (elles seraient calculées sur un roster/heats périmés).
@@ -15114,7 +15169,7 @@ function toggleDarkMode(){
   }
 })();;
 
-// ★ BADGE DE VERSION (diagnostic cache) : si tu vois "build v15" en bas à gauche,
+// ★ BADGE DE VERSION (diagnostic cache) : si tu vois "build v16" en bas à gauche,
 //   tu es bien sur le nouveau fichier. Sinon, c'est que ton navigateur/site sert l'ancien.
 (function(){
   try{
@@ -15122,12 +15177,12 @@ function toggleDarkMode(){
       if(!document.body){ setTimeout(add,150); return; }
       if(document.getElementById('__delta_build_tag')) return;
       var b=document.createElement('div'); b.id='__delta_build_tag';
-      b.textContent='build v15';
+      b.textContent='build v16';
       b.style.cssText='position:fixed;bottom:4px;left:4px;z-index:2147483647;background:rgba(220,38,38,.92);color:#fff;font:700 10px/1 system-ui,-apple-system,sans-serif;padding:3px 7px;border-radius:6px;pointer-events:none;letter-spacing:.5px;box-shadow:0 2px 8px rgba(0,0,0,.3)';
       document.body.appendChild(b);
     }
     add();
-    try{ console.log('%cDELTA — build v15 chargé ('+new Date().toISOString()+')','background:#DC2626;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold'); }catch(e){}
+    try{ console.log('%cDELTA — build v16 chargé ('+new Date().toISOString()+')','background:#DC2626;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold'); }catch(e){}
   }catch(e){}
 })();
 
