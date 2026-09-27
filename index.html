@@ -907,6 +907,19 @@ function checkPassword(){
         <div class="form-group"><label>Responsable</label><input id="ev-resp" value="" oninput="reactiveUpdate()"></div>
         <div class="form-group"><label>Email</label><input id="ev-email" type="email" value="" oninput="reactiveUpdate()"></div>
       </div>
+      <div style="background:#F5F3FF;border-radius:8px;padding:12px;border:1px solid #7C3AED33;margin-top:2px">
+        <div style="font-size:10px;font-weight:800;color:#7C3AED;text-transform:uppercase;letter-spacing:.6px;margin-bottom:9px">🏆 Type de compétition</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <label style="flex:1;min-width:200px;display:flex;align-items:flex-start;gap:8px;background:#fff;border:1.5px solid #E2E8F0;border-radius:10px;padding:10px 12px;cursor:pointer" onclick="setCompMode('normal')">
+            <input type="radio" name="comp-mode" id="comp-mode-normal" value="normal" checked style="margin-top:2px" onchange="setCompMode('normal')">
+            <div><div style="font-size:13px;font-weight:800;color:#0F172A">Compétition normale</div><div style="font-size:10.5px;color:#64748B;margin-top:2px">Juges dédiés. Les athlètes ne jugent pas.</div></div>
+          </label>
+          <label style="flex:1;min-width:200px;display:flex;align-items:flex-start;gap:8px;background:#fff;border:1.5px solid #E2E8F0;border-radius:10px;padding:10px 12px;cursor:pointer" onclick="setCompMode('interne')">
+            <input type="radio" name="comp-mode" id="comp-mode-interne" value="interne" style="margin-top:2px" onchange="setCompMode('interne')">
+            <div><div style="font-size:13px;font-weight:800;color:#0F172A">Compétition interne</div><div style="font-size:10.5px;color:#64748B;margin-top:2px">Les athlètes peuvent aussi juger. Ils entrent dans le planning des juges.</div></div>
+          </label>
+        </div>
+      </div>
       <div style="background:#F0F9FF;border-radius:8px;padding:12px;border:1px solid #1E88E533;margin-top:2px">
         <div style="font-size:10px;font-weight:800;color:var(--blue);text-transform:uppercase;letter-spacing:.6px;margin-bottom:9px">⏰ Horaires compétition</div>
         <div style="display:flex;gap:4px;background:#F0F9FF;border:1px solid #ddd;border-radius:8px;padding:3px;margin-bottom:10px;width:fit-content">
@@ -5787,7 +5800,22 @@ function hasDedicatedQrRole(ben){
 function getJudgingBenevoles(){
   // ★ HEAD JUDGE : exclus du pool — ils supervisent, ne prennent pas de ligne.
   //   (En cas de besoin ponctuel, ils passent par le QR de secours.)
-  return (BENEVOLES||[]).filter(function(b){ return !b.isAthlete && isJudgeQrRole(b) && !isHeadJudge(b); });
+  // ★ MODE COMPÉTITION INTERNE : les athlètes peuvent aussi juger → on ne les exclut plus.
+  var interne = (window.COMP_MODE==='interne');
+  return (BENEVOLES||[]).filter(function(b){ return (interne || !b.isAthlete) && isJudgeQrRole(b) && !isHeadJudge(b); });
+}
+// ★ Choix du type de compétition (normale / interne). Stocké dans COMP_MODE + sauvegardé.
+window.COMP_MODE = window.COMP_MODE || 'normal';
+function setCompMode(mode, _restoring){
+  window.COMP_MODE = (mode==='interne') ? 'interne' : 'normal';
+  var rn=document.getElementById('comp-mode-normal'), ri=document.getElementById('comp-mode-interne');
+  if(rn) rn.checked = (window.COMP_MODE==='normal');
+  if(ri) ri.checked = (window.COMP_MODE==='interne');
+  if(_restoring) return; // restauration au chargement : ne pas régénérer/sauver (évite la boucle)
+  try{ if(typeof toast==='function') toast(window.COMP_MODE==='interne'?'🏆 Mode interne : les athlètes peuvent juger':'🏆 Mode normal : juges dédiés','#7C3AED',2500); }catch(e){}
+  try{ if(typeof generateHeatsSilent==='function') generateHeatsSilent(); }catch(e){}
+  try{ if(typeof renderJudgePlanningTab==='function' && document.getElementById('judge-planning-content')) renderJudgePlanningTab(); }catch(e){}
+  try{ if(typeof autoSave==='function') autoSave(); }catch(e){}
 }
 
 function getPlanningQrBenevoles(){
@@ -7174,7 +7202,7 @@ function openMailAfterPDF(){ ouvrirMailDepuisPDF(); }
 // SAUVEGARDE
 var SAVE_KEY="zonek_foc_v12"; // _vide retiré : la clé _vide empêchait la restauration au rechargement
 function getStateToSave(){
-  return{ev:{nom:document.getElementById("ev-nom").value,date1:document.getElementById("ev-date1").value,date2:document.getElementById("ev-date2").value,lieu:document.getElementById("ev-lieu").value,resp:document.getElementById("ev-resp").value,email:document.getElementById("ev-email").value,compStart:document.getElementById("comp-start").value,compEnd:document.getElementById("comp-end").value,rotDur:"2",compStart2:(document.getElementById("comp-start2")||{}).value,compEnd2:(document.getElementById("comp-end2")||{}).value,rotDur2:((document.getElementById("rotation-dur2")||{})||{}).value,notesJ1:(document.getElementById("notes-j1")||{}).value||"",notesJ2:(document.getElementById("notes-j2")||{}).value||""},stations:STATIONS,benevoles:BENEVOLES,presence:PRESENCE,heureArr:HEURE_ARR,notesJour:NOTES_JOUR,categories:CATEGORIES,heatsResult:HEATS_RESULT,zones:ZONES,wods:WODS,zone1Resp:(document.getElementById("zone1-resp")||{}).value||"",zone1Contact:(document.getElementById("zone1-contact")||{}).value||"",zone1Desc:(document.getElementById("zone1-desc")||{}).value||"",zone2Resp:(document.getElementById("zone2-resp")||{}).value||"",zone2Contact:(document.getElementById("zone2-contact")||{}).value||"",zone2Desc:(document.getElementById("zone2-desc")||{}).value||"",savedAt:new Date().toISOString()};
+  return{ev:{nom:document.getElementById("ev-nom").value,date1:document.getElementById("ev-date1").value,date2:document.getElementById("ev-date2").value,lieu:document.getElementById("ev-lieu").value,resp:document.getElementById("ev-resp").value,email:document.getElementById("ev-email").value,compStart:document.getElementById("comp-start").value,compEnd:document.getElementById("comp-end").value,rotDur:"2",compStart2:(document.getElementById("comp-start2")||{}).value,compEnd2:(document.getElementById("comp-end2")||{}).value,rotDur2:((document.getElementById("rotation-dur2")||{})||{}).value,notesJ1:(document.getElementById("notes-j1")||{}).value||"",notesJ2:(document.getElementById("notes-j2")||{}).value||"",compMode:window.COMP_MODE||"normal"},stations:STATIONS,benevoles:BENEVOLES,presence:PRESENCE,heureArr:HEURE_ARR,notesJour:NOTES_JOUR,categories:CATEGORIES,heatsResult:HEATS_RESULT,zones:ZONES,wods:WODS,zone1Resp:(document.getElementById("zone1-resp")||{}).value||"",zone1Contact:(document.getElementById("zone1-contact")||{}).value||"",zone1Desc:(document.getElementById("zone1-desc")||{}).value||"",zone2Resp:(document.getElementById("zone2-resp")||{}).value||"",zone2Contact:(document.getElementById("zone2-contact")||{}).value||"",zone2Desc:(document.getElementById("zone2-desc")||{}).value||"",savedAt:new Date().toISOString()};
 }
 
 // ── SYNC BENEVOLES → FIREBASE ──
@@ -8079,7 +8107,7 @@ function sanitizeBundledTestState(){
   return removed;
 }
 function applyState(state){
-  if(state.ev){var ev=state.ev;if(ev.nom)document.getElementById("ev-nom").value=ev.nom;if(ev.date1)document.getElementById("ev-date1").value=ev.date1;if(ev.date2)document.getElementById("ev-date2").value=ev.date2;if(ev.lieu)document.getElementById("ev-lieu").value=ev.lieu;if(ev.resp)document.getElementById("ev-resp").value=ev.resp;if(ev.email)document.getElementById("ev-email").value=ev.email;if(ev.compStart)document.getElementById("comp-start").value=ev.compStart;if(ev.compEnd)document.getElementById("comp-end").value=ev.compEnd;var cs2el=document.getElementById("comp-start2");var ce2el=document.getElementById("comp-end2");var rd2el=(document.getElementById("rotation-dur2")||{});if(ev.compStart2&&cs2el)cs2el.value=ev.compStart2;if(ev.compEnd2&&ce2el)ce2el.value=ev.compEnd2;if(ev.rotDur2&&rd2el)rd2el.value=ev.rotDur2;var nj1el=document.getElementById("notes-j1");var nj2el=document.getElementById("notes-j2");if(ev.notesJ1&&nj1el)nj1el.value=ev.notesJ1;if(ev.notesJ2&&nj2el)nj2el.value=ev.notesJ2;}
+  if(state.ev){var ev=state.ev;if(ev.nom)document.getElementById("ev-nom").value=ev.nom;if(ev.date1)document.getElementById("ev-date1").value=ev.date1;if(ev.date2)document.getElementById("ev-date2").value=ev.date2;if(ev.lieu)document.getElementById("ev-lieu").value=ev.lieu;if(ev.resp)document.getElementById("ev-resp").value=ev.resp;if(ev.email)document.getElementById("ev-email").value=ev.email;if(ev.compStart)document.getElementById("comp-start").value=ev.compStart;if(ev.compEnd)document.getElementById("comp-end").value=ev.compEnd;var cs2el=document.getElementById("comp-start2");var ce2el=document.getElementById("comp-end2");var rd2el=(document.getElementById("rotation-dur2")||{});if(ev.compStart2&&cs2el)cs2el.value=ev.compStart2;if(ev.compEnd2&&ce2el)ce2el.value=ev.compEnd2;if(ev.rotDur2&&rd2el)rd2el.value=ev.rotDur2;var nj1el=document.getElementById("notes-j1");var nj2el=document.getElementById("notes-j2");if(ev.notesJ1&&nj1el)nj1el.value=ev.notesJ1;if(ev.notesJ2&&nj2el)nj2el.value=ev.notesJ2;if(ev.compMode){setCompMode(ev.compMode,true);}}
   if(state.stations&&state.stations.length)STATIONS=state.stations;
   // ★ FIX CRITIQUE (perte bénévoles) : ne JAMAIS écraser la liste par du vide.
   //   Le code d'origine faisait `if(state.benevoles)` sans tester la longueur — or un
@@ -15086,7 +15114,7 @@ function toggleDarkMode(){
   }
 })();;
 
-// ★ BADGE DE VERSION (diagnostic cache) : si tu vois "build v14" en bas à gauche,
+// ★ BADGE DE VERSION (diagnostic cache) : si tu vois "build v15" en bas à gauche,
 //   tu es bien sur le nouveau fichier. Sinon, c'est que ton navigateur/site sert l'ancien.
 (function(){
   try{
@@ -15094,12 +15122,12 @@ function toggleDarkMode(){
       if(!document.body){ setTimeout(add,150); return; }
       if(document.getElementById('__delta_build_tag')) return;
       var b=document.createElement('div'); b.id='__delta_build_tag';
-      b.textContent='build v14';
+      b.textContent='build v15';
       b.style.cssText='position:fixed;bottom:4px;left:4px;z-index:2147483647;background:rgba(220,38,38,.92);color:#fff;font:700 10px/1 system-ui,-apple-system,sans-serif;padding:3px 7px;border-radius:6px;pointer-events:none;letter-spacing:.5px;box-shadow:0 2px 8px rgba(0,0,0,.3)';
       document.body.appendChild(b);
     }
     add();
-    try{ console.log('%cDELTA — build v14 chargé ('+new Date().toISOString()+')','background:#DC2626;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold'); }catch(e){}
+    try{ console.log('%cDELTA — build v15 chargé ('+new Date().toISOString()+')','background:#DC2626;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold'); }catch(e){}
   }catch(e){}
 })();
 
