@@ -15196,7 +15196,7 @@ function toggleDarkMode(){
   }
 })();;
 
-// ★ BADGE DE VERSION (diagnostic cache) : si tu vois "build v19" en bas à gauche,
+// ★ BADGE DE VERSION (diagnostic cache) : si tu vois "build v21" en bas à gauche,
 //   tu es bien sur le nouveau fichier. Sinon, c'est que ton navigateur/site sert l'ancien.
 (function(){
   try{
@@ -15204,12 +15204,12 @@ function toggleDarkMode(){
       if(!document.body){ setTimeout(add,150); return; }
       if(document.getElementById('__delta_build_tag')) return;
       var b=document.createElement('div'); b.id='__delta_build_tag';
-      b.textContent='build v19';
+      b.textContent='build v21';
       b.style.cssText='position:fixed;bottom:4px;left:4px;z-index:2147483647;background:rgba(220,38,38,.92);color:#fff;font:700 10px/1 system-ui,-apple-system,sans-serif;padding:3px 7px;border-radius:6px;pointer-events:none;letter-spacing:.5px;box-shadow:0 2px 8px rgba(0,0,0,.3)';
       document.body.appendChild(b);
     }
     add();
-    try{ console.log('%cDELTA — build v19 chargé ('+new Date().toISOString()+')','background:#DC2626;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold'); }catch(e){}
+    try{ console.log('%cDELTA — build v21 chargé ('+new Date().toISOString()+')','background:#DC2626;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold'); }catch(e){}
   }catch(e){}
 })();
 
@@ -17638,6 +17638,39 @@ function printGuide(){
   w.document.close();
 }
 
+// ★ MODE INTERNE — planche de QR par ÉQUIPE : chaque équipe scanne SON QR pour ouvrir
+//   l'appli juge avec ses affectations (judge.html#juge/team:<nom>).
+function printTeamJudgeQR(){
+  var rows = _internalRotationRows();
+  var teams = {};
+  rows.forEach(function(r){ r.lignes.forEach(function(l){ if(l.juge&&l.juge!=='—') teams[l.juge]=(teams[l.juge]||0)+1; }); });
+  var list = Object.keys(teams).sort();
+  if(!list.length){ toast('Génère les heats (mode interne) d\'abord','#E65100'); return; }
+  var nomEv=(document.getElementById('ev-nom')||{}).value||'Compétition interne';
+  var baseDir=window.location.href.split('#')[0].split('?')[0].split('/').slice(0,-1).join('/')+'/';
+  var cards='';
+  list.forEach(function(team){
+    var url=baseDir+'judge.html#juge/'+encodeURIComponent('team:'+team);
+    var qr='https://api.qrserver.com/v1/create-qr-code/?size=300x300&color=5B21B6&bgcolor=FFFFFF&margin=12&ecc=L&data='+encodeURIComponent(url);
+    cards+='<div class="card"><img src="'+qr+'"><div class="nm">'+escHtml(team)+'</div><div class="jr">'+teams[team]+' passage'+(teams[team]>1?'s':'')+' à juger</div></div>';
+  });
+  var w=window.open('','_blank');
+  if(!w){ toast('Popup bloquée — autorise les popups','#D32F2F'); return; }
+  w.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>QR Équipes-juges · '+escHtml(nomEv)+'</title>'
+    +'<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;padding:16px}h2{font-size:16px;margin-bottom:4px;color:#5B21B6}'
+    +'.hint{font-size:11px;color:#555;margin-bottom:14px}'
+    +'.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}'
+    +'.card{border:1.5px solid #DDD6FE;border-radius:10px;padding:10px;text-align:center;page-break-inside:avoid}'
+    +'.card img{width:118px;height:118px;display:block;margin:0 auto 6px}'
+    +'.nm{font-size:11px;font-weight:800;color:#0F172A;line-height:1.2}.jr{font-size:9px;color:#7C3AED;margin-top:3px;font-weight:700}'
+    +'@media print{@page{size:A4;margin:10mm}button{display:none!important}}</style></head><body>'
+    +'<div style="margin-bottom:10px"><button onclick="window.print()" style="padding:8px 18px;background:#7C3AED;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">🖨️ Imprimer A4</button></div>'
+    +'<h2>🔄 QR Équipes-juges · '+escHtml(nomEv)+'</h2>'
+    +'<div class="hint">Chaque équipe scanne SON QR pour ouvrir l\'appli de jugement avec ses passages à juger. Colle-les à chaque poste ou distribue-les.</div>'
+    +'<div class="grid">'+cards+'</div></body></html>');
+  w.document.close(); w.focus();
+}
+
 function printJugeQRSheet(){
   // ★ FIX : l'élément 'qr-juges-grid' n'existe plus dans l'onglet QR de cette
   //   version → la planche de QR juges est générée ICI, en autonome, depuis la
@@ -18889,6 +18922,97 @@ function renderJudgePlanningDayTable(day, records){
     + '</div>';
 }
 
+// ★★ VUE COMPÉTITION INTERNE — "heat par heat" (claire) : pour chaque heat, les équipes qui
+//    passent et QUI LES JUGE. Plus un bouton pour imprimer une fiche par équipe.
+function _internalRotationRows(jugeMap){
+  jugeMap = jugeMap || ((typeof buildJugeAssignment==='function')?buildJugeAssignment():{});
+  var heats = (HEATS_RESULT||[]).slice().sort(function(a,b){ return (a.globalNum||0)-(b.globalNum||0); });
+  function teamName(sl){ if(!sl||!sl.team) return ''; return typeof sl.team==='string'?sl.team:(sl.team.nom||sl.team.name||sl.team.teamName||''); }
+  var rows=[];
+  heats.forEach(function(h){
+    var gn=h.globalNum||0;
+    var w=(typeof fbGetWod==='function')?fbGetWod(h):null;
+    var wn=w?(w.nom||'—'):(h.wodNom||'—');
+    var jour=parseInt((w&&w.jour)||h.catJour||1,10)||1;
+    var hor=null; if(h.horaires){ hor=(h.wodId!=null?(h.horaires[h.wodId]||h.horaires[String(h.wodId)]):null)||h.horaires[Object.keys(h.horaires)[0]]; }
+    var heure=(hor&&hor.debut!=null&&typeof minToTimeStr==='function')?minToTimeStr(hor.debut):'—';
+    var lignes=[];
+    (h.slots||[]).forEach(function(sl){
+      if(!sl||sl.empty||!teamName(sl)||!sl.ligne) return;
+      var jm=jugeMap[gn]||{}; var juge=jm[sl.ligne]||jm[String(sl.ligne)]||null;
+      lignes.push({ ligne:sl.ligne, passe:teamName(sl), juge:(juge&&juge.prenom)|| (juge&&String(juge.id||'').replace(/^team:/,'')) || '—' });
+    });
+    lignes.sort(function(a,b){ return (parseInt(a.ligne,10)||0)-(parseInt(b.ligne,10)||0); });
+    if(lignes.length) rows.push({ gn:gn, heure:heure, wod:wn, jour:jour, zone:h.catZone||1, cat:h.catNom||'—', lignes:lignes });
+  });
+  return rows;
+}
+function renderInternalJudgeView(content, info, jugeMap){
+  var rows=_internalRotationRows(jugeMap);
+  var day=(typeof _judgePlanFilterDay!=='undefined')?_judgePlanFilterDay:0;
+  var shown = day>0 ? rows.filter(function(r){return r.jour===day;}) : rows;
+  var nbJuges = {}; rows.forEach(function(r){ r.lignes.forEach(function(l){ if(l.juge&&l.juge!=='—') nbJuges[l.juge]=true; }); });
+  if(info) info.textContent = Object.keys(nbJuges).length+' équipes-juges · '+shown.length+' heats · rotation interne';
+  if(!shown.length){ content.innerHTML='<div style="text-align:center;padding:40px;color:#64748B;border:1.5px dashed #E2E8F0;border-radius:14px;background:#fff">Génère les heats pour voir la rotation.</div>'; return; }
+  var html='';
+  // bandeau + bouton fiches
+  html+='<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px;padding:12px 14px;border:1.5px solid #DDD6FE;border-radius:14px;background:linear-gradient(135deg,#F5F3FF,#FFFFFF)">'
+    +'<div style="font-size:20px">🔄</div><div style="flex:1;min-width:180px"><div style="font-size:13px;font-weight:900;color:#5B21B6">Rotation interne — chaque équipe juge une autre</div>'
+    +'<div style="font-size:11px;color:#6D5B96">Aucune équipe ne se juge elle-même. Réparti équitablement.</div></div>'
+    +'<button class="btn" onclick="printInternalTeamSheets()" style="font-size:12px;background:linear-gradient(135deg,#7C3AED,#9B7BFF);color:#fff">🖨️ Fiches par équipe</button>'
+    +'<button class="btn" onclick="printTeamJudgeQR()" style="font-size:12px;background:linear-gradient(135deg,#5B21B6,#7C3AED);color:#fff">📱 QR par équipe</button></div>';
+  var curJour=null;
+  shown.forEach(function(r){
+    if(r.jour!==curJour){ curJour=r.jour; html+='<div style="font-size:12px;font-weight:900;color:#7C3AED;letter-spacing:1px;margin:14px 0 8px">📅 JOUR '+r.jour+'</div>'; }
+    html+='<div style="border:1px solid #E2E8F0;border-radius:14px;overflow:hidden;margin-bottom:10px;background:#fff">'
+      +'<div style="display:flex;align-items:center;gap:10px;padding:9px 13px;background:linear-gradient(135deg,#0F172A,#1E3A5F);color:#fff">'
+      +'<span style="font-family:ui-monospace,monospace;font-weight:800;font-size:13px;color:#93C5FD;min-width:44px">'+escHtml(r.heure)+'</span>'
+      +'<span style="font-weight:800;font-size:13px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+escHtml(r.wod)+'</span>'
+      +'<span style="font-size:10px;font-weight:700;background:rgba(255,255,255,.15);border-radius:6px;padding:2px 8px">HEAT '+r.gn+' · Z'+r.zone+'</span></div>'
+      +'<div style="padding:6px 8px">';
+    r.lignes.forEach(function(l){
+      html+='<div style="display:flex;align-items:center;gap:8px;padding:7px 6px;border-top:1px solid #F1F5F9">'
+        +'<span style="font-size:11px;font-weight:900;color:#fff;background:#1D4ED8;border-radius:6px;padding:2px 8px;flex-shrink:0">L'+escHtml(l.ligne)+'</span>'
+        +'<span style="flex:1;min-width:0;font-size:13px;font-weight:700;color:#0F172A;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+escHtml(l.passe)+'</span>'
+        +'<span style="font-size:11px;color:#94A3B8;flex-shrink:0">jugée par</span>'
+        +'<span style="font-size:13px;font-weight:800;color:#7C3AED;background:#F5F3FF;border:1px solid #DDD6FE;border-radius:7px;padding:3px 9px;flex-shrink:0;max-width:42%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+escHtml(l.juge)+'</span></div>';
+    });
+    html+='</div></div>';
+  });
+  content.innerHTML=html;
+}
+// Impression : une fiche par équipe (ce qu'elle juge), page par équipe
+function printInternalTeamSheets(){
+  var rows=_internalRotationRows();
+  var nom_ev=(document.getElementById('ev-nom')||{}).value||'Compétition interne';
+  // regrouper par équipe-juge
+  var byTeam={};
+  rows.forEach(function(r){ r.lignes.forEach(function(l){ if(!l.juge||l.juge==='—')return; (byTeam[l.juge]=byTeam[l.juge]||[]).push({heure:r.heure,gn:r.gn,wod:r.wod,jour:r.jour,zone:r.zone,ligne:l.ligne,passe:l.passe}); }); });
+  var teams=Object.keys(byTeam).sort();
+  if(!teams.length){ toast('Génère les heats d\'abord','#E65100'); return; }
+  var body='';
+  teams.forEach(function(t,idx){
+    var list=byTeam[t].sort(function(a,b){ return (a.jour-b.jour)||(a.gn-b.gn); });
+    body+='<section class="pg'+(idx>0?' brk':'')+'">'
+      +'<h1>🔄 '+escHtml(t)+'</h1><div class="sub">'+escHtml(nom_ev)+' · '+list.length+' passage'+(list.length>1?'s':'')+' à juger</div>'
+      +'<table><thead><tr><th>Heure</th><th>Heat</th><th>WOD</th><th>Ligne</th><th>Équipe à juger</th></tr></thead><tbody>';
+    list.forEach(function(x){ body+='<tr><td class="c">'+escHtml(x.heure)+'</td><td class="c">H'+x.gn+' · Z'+x.zone+'</td><td>'+escHtml(x.wod)+'</td><td class="c"><b>L'+escHtml(x.ligne)+'</b></td><td>'+escHtml(x.passe)+'</td></tr>'; });
+    body+='</tbody></table></section>';
+  });
+  var html='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Fiches équipes-juges</title><style>'
+    +'body{font-family:Inter,system-ui,sans-serif;color:#0F172A;margin:0}'
+    +'.pg{padding:20px}.brk{page-break-before:always}'
+    +'h1{font-size:22px;font-weight:900;margin:0 0 4px}.sub{font-size:12px;color:#64748B;margin-bottom:14px}'
+    +'table{border-collapse:collapse;width:100%;font-size:12px}'
+    +'th{background:#7C3AED;color:#fff;padding:7px 9px;text-align:left}'
+    +'td{padding:6px 9px;border:1px solid #E2E8F0}.c{text-align:center}'
+    +'tr:nth-child(even) td{background:#F8FAFF}'
+    +'@media print{@page{size:A4 portrait;margin:12mm}}'
+    +'</style></head><body>'+body+'</body></html>';
+  var w=window.open('','_blank'); if(!w){ toast('Popup bloqué — autorise les popups','#E65100'); return; }
+  w.document.write(html); w.document.close(); w.focus(); setTimeout(function(){ w.print(); },600);
+}
+
 function renderJudgePlanningTab(){
   var content = document.getElementById('judge-planning-content');
   var info = document.getElementById('judge-plan-info');
@@ -18907,27 +19031,14 @@ function renderJudgePlanningTab(){
 
   computeHorairesOnly();
   var jugeMap = (typeof buildJugeAssignment === 'function') ? buildJugeAssignment() : {};
+  // ★ MODE COMPÉTITION INTERNE : vue dédiée "heat par heat" (claire), pas la matrice.
+  if(window.COMP_MODE==='interne'){ renderInternalJudgeView(content, info, jugeMap); return; }
   var query = _judgePlanSearch;
-  var judges;
-  if(window.COMP_MODE==='interne'){
-    // ★ MODE INTERNE : les "juges" sont les ÉQUIPES issues de la rotation. On construit des
-    //   pseudo-bénévoles {id:'team:X', prenom:'X'} pour que la matrice affiche une colonne
-    //   par équipe-juge, avec les heats qu'elle juge.
-    var _teamIds = {};
-    Object.keys(jugeMap).forEach(function(gn){
-      var m = jugeMap[gn]||{};
-      Object.keys(m).forEach(function(ln){ var j=m[ln]; if(j&&j.id){ _teamIds[String(j.id)] = j.prenom || String(j.id).replace(/^team:/,''); } });
-    });
-    judges = Object.keys(_teamIds).map(function(id){
-      return { id:id, prenom:_teamIds[id], nom:'', isAthlete:false, jours:'12', zoneAssign:0, role:'juge' };
-    }).sort(function(a,b){ return (a.prenom||'').toLowerCase()<(b.prenom||'').toLowerCase()?-1:1; });
-  } else {
-    judges = getJudgingBenevoles().slice().sort(function(a,b){
-      var na = ((a.prenom||'')+' '+(a.nom||'')).trim().toLowerCase();
-      var nb = ((b.prenom||'')+' '+(b.nom||'')).trim().toLowerCase();
-      return na<nb ? -1 : (na>nb ? 1 : 0);
-    });
-  }
+  var judges = getJudgingBenevoles().slice().sort(function(a,b){
+    var na = ((a.prenom||'')+' '+(a.nom||'')).trim().toLowerCase();
+    var nb = ((b.prenom||'')+' '+(b.nom||'')).trim().toLowerCase();
+    return na<nb ? -1 : (na>nb ? 1 : 0);
+  });
   var records = [];
   var totalAssign = 0, totalPause = 0, totalCuts = 0;
 
