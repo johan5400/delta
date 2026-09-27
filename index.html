@@ -1463,7 +1463,15 @@ function checkPassword(){
     </div>
     <div class="card" style="display:flex;flex-direction:column">
       <div class="sh-card-title">🧑‍⚖️ Planning des juges</div>
-      <div style="font-size:11px;color:var(--ink2);margin-bottom:12px;flex:1">Tableau d'affectation des juges par zone et par heat — <strong>une page par jour</strong>, à afficher en salle (secours réseau).</div>
+      <div style="font-size:11px;color:var(--ink2);margin-bottom:12px;flex:1">Tableau d'affectation des juges (tous les juges, une page par jour) — à afficher en salle (secours réseau).</div>
+      <div style="margin-bottom:10px">
+        <div style="font-size:10px;font-weight:800;color:var(--ink2);margin-bottom:6px">Jour à imprimer</div>
+        <select id="print-judge-day-select" style="width:100%;background:#EFF6FF;border:1px solid var(--brd2);border-radius:8px;color:var(--ink);padding:9px 10px;font-size:12px;outline:none;font-family:inherit">
+          <option value="all">Tous les jours (une page chacun)</option>
+          <option value="1">Jour 1</option>
+          <option value="2">Jour 2</option>
+        </select>
+      </div>
       <button class="btn" onclick="printJudgePlanning()" style="width:100%;justify-content:center;font-size:12px;background:linear-gradient(135deg,#1E3A5F,#2563EB);color:#fff">🖨️ Imprimer</button>
     </div>
     <div class="card" style="display:flex;flex-direction:column">
@@ -15062,7 +15070,7 @@ function toggleDarkMode(){
   }
 })();;
 
-// ★ BADGE DE VERSION (diagnostic cache) : si tu vois "build v12" en bas à gauche,
+// ★ BADGE DE VERSION (diagnostic cache) : si tu vois "build v13" en bas à gauche,
 //   tu es bien sur le nouveau fichier. Sinon, c'est que ton navigateur/site sert l'ancien.
 (function(){
   try{
@@ -15070,12 +15078,12 @@ function toggleDarkMode(){
       if(!document.body){ setTimeout(add,150); return; }
       if(document.getElementById('__delta_build_tag')) return;
       var b=document.createElement('div'); b.id='__delta_build_tag';
-      b.textContent='build v12';
+      b.textContent='build v13';
       b.style.cssText='position:fixed;bottom:4px;left:4px;z-index:2147483647;background:rgba(220,38,38,.92);color:#fff;font:700 10px/1 system-ui,-apple-system,sans-serif;padding:3px 7px;border-radius:6px;pointer-events:none;letter-spacing:.5px;box-shadow:0 2px 8px rgba(0,0,0,.3)';
       document.body.appendChild(b);
     }
     add();
-    try{ console.log('%cDELTA — build v12 chargé ('+new Date().toISOString()+')','background:#DC2626;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold'); }catch(e){}
+    try{ console.log('%cDELTA — build v13 chargé ('+new Date().toISOString()+')','background:#DC2626;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold'); }catch(e){}
   }catch(e){}
 })();
 
@@ -18115,67 +18123,83 @@ function updateJudgePlanningSearch(val){
 }
 
 function printJudgePlanning(){
-  // ★ Impression PAR JOUR : chaque jour sur sa propre page (à afficher en salle, en secours).
-  //   Même visuel que l'onglet. On force le filtre sur chaque jour, on capture, on restaure.
+  // ★ Impression PAR JOUR, TOUS LES JUGES. Records construits ici (indépendants du filtre/
+  //   recherche de l'écran) → chaque juge présent apparaît, même sans passage (cases vides).
+  //   Jour choisi via le sélecteur ; "Tous" = une page par jour.
   if((!HEATS_RESULT || !HEATS_RESULT.length) && typeof generateHeatsSilent==='function'){ try{ generateHeatsSilent(); }catch(e){} }
   if(!HEATS_RESULT || !HEATS_RESULT.length){ toast('Génère le planning (heats + juges) d\'abord','#E65100'); return; }
+  try{ computeHorairesOnly(); }catch(e){}
 
   var nom_ev = (document.getElementById('ev-nom')||{}).value || 'FOC 2026';
-  var content = document.getElementById('judge-planning-content');
-  var info = document.getElementById('judge-plan-info');
+  var sel = document.getElementById('print-judge-day-select');
+  var choice = sel ? sel.value : 'all';
 
-  // Quels jours existent dans les heats ?
+  // Jours présents dans les heats
   var daysSet={}; (HEATS_RESULT||[]).forEach(function(h){ if(h) daysSet[parseInt(h.catJour||h.jour||h.day||1,10)||1]=true; });
   var days=Object.keys(daysSet).map(function(x){return parseInt(x,10);}).sort(function(a,b){return a-b;});
   if(!days.length) days=[1];
+  if(choice!=='all'){ var d=parseInt(choice,10)||1; days=[d]; }
 
-  // Sauver le filtre courant pour le restaurer après
-  var _savedFilter = (typeof _judgePlanFilterDay!=='undefined') ? _judgePlanFilterDay : 0;
-
-  // Capturer une page par jour (le tableau + l'info de ce jour)
-  var pages=[];
-  days.forEach(function(day){
-    try{ _judgePlanFilterDay = day; renderJudgePlanningTab(); }catch(e){}
-    var c = document.getElementById('judge-planning-content');
-    var infoTxt = (document.getElementById('judge-plan-info')||{}).textContent || '';
-    pages.push({ day:day, html:(c?c.innerHTML:''), info:infoTxt });
+  // ★ Construire les records de TOUS les juges (sans filtre jour ni recherche)
+  var jugeMap = (typeof buildJugeAssignment==='function') ? buildJugeAssignment() : {};
+  var judges = getJudgingBenevoles().slice().sort(function(a,b){
+    var na=((a.prenom||'')+' '+(a.nom||'')).trim().toLowerCase(), nb=((b.prenom||'')+' '+(b.nom||'')).trim().toLowerCase();
+    return na<nb?-1:(na>nb?1:0);
+  });
+  var records = judges.map(function(ben, idx){
+    var assignedRows = getJudgeAssignmentRows(ben.id, {jugeMap:jugeMap});
+    var relevantZonesByDay = buildJudgeRelevantZonesByDay(ben, assignedRows);
+    var events = buildJudgePlanningEvents(ben, jugeMap); // TOUS les jours
+    var assignedByHeat = {}, assignedWindows = [];
+    events.forEach(function(ev){
+      if(ev.type!=='judge') return;
+      if(ev.globalNum!=null) assignedByHeat[String(ev.globalNum)] = ev;
+      assignedWindows.push({ jour:ev.jour, startMin:ev.startMin, endMin:ev.endMin });
+    });
+    return {
+      ben:ben, events:events,
+      name:((ben.prenom||'')+' '+(ben.nom||'')).trim() || ('Juge '+ben.id),
+      color:judgePlanningColorSet(idx),
+      assignedByHeat:assignedByHeat, assignedWindows:assignedWindows,
+      relevantZonesByDay:relevantZonesByDay
+    };
   });
 
-  // Restaurer l'affichage normal de l'onglet
-  try{ _judgePlanFilterDay = _savedFilter; renderJudgePlanningTab(); }catch(e){}
-
+  // Générer une page par jour demandé (tous les juges présents ce jour)
   var dateStr = new Date().toLocaleDateString('fr-FR');
   var body='';
-  pages.forEach(function(p, idx){
+  days.forEach(function(day, idx){
+    // juges présents ce jour = non absents OU ayant un passage ce jour
+    var dayRecords = records.filter(function(rec){
+      return (rec.events||[]).some(function(ev){ return ev.jour===day; })
+        || getJudgeSlotForDayGlobal(rec.ben, day) !== 'absent';
+    });
+    var tbl;
+    try{ tbl = renderJudgePlanningDayTable(day, dayRecords); }
+    catch(e){ tbl = '<div>Erreur de génération pour le Jour '+day+'.</div>'; }
+    var nb = dayRecords.length;
     body += '<section class="page'+(idx>0?' brk':'')+'">'
-      + '<div class="ph"><h1>🧑‍⚖️ Planning juge — JOUR '+p.day+'</h1>'
-      + '<div class="sub">'+escHtml(nom_ev)+' · imprimé le '+dateStr+(p.info?' · '+escHtml(p.info):'')+'</div></div>'
-      + p.html
-      + '</section>';
+      + '<div class="ph"><h1>🧑‍⚖️ Planning juge — JOUR '+day+'</h1>'
+      + '<div class="sub">'+escHtml(nom_ev)+' · '+nb+' juge'+(nb>1?'s':'')+' · imprimé le '+dateStr+'</div></div>'
+      + tbl + '</section>';
   });
 
   var html = '<!DOCTYPE html><html><head><meta charset="UTF-8">'
-    + '<title>Planning juge par jour · '+escHtml(nom_ev)+'</title>'
+    + '<title>Planning juge · '+escHtml(nom_ev)+'</title>'
     + '<style>'
     + 'body{font-family:Inter,system-ui,sans-serif;font-size:10px;color:#0F172A;margin:0;padding:0}'
-    + '.page{padding:16px}'
+    + '.page{padding:14px}'
     + '.brk{page-break-before:always}'
-    + '.ph{margin-bottom:12px}'
+    + '.ph{margin-bottom:10px}'
     + 'h1{font-size:16px;font-weight:900;margin:0 0 4px}'
     + '.sub{font-size:10px;color:#64748B}'
-    + 'table{border-collapse:collapse;width:100%;font-size:9px;margin-bottom:10px}'
-    + 'th{background:#0F172A;color:#fff;padding:5px 6px;text-align:center;font-weight:800;white-space:nowrap}'
-    + 'td{padding:4px 6px;border:1px solid #E2E8F0;text-align:center;vertical-align:middle}'
+    + 'table{border-collapse:collapse;width:100%;font-size:8.5px;margin-bottom:10px;table-layout:fixed}'
+    + 'th{background:#0F172A;color:#fff;padding:4px 4px;text-align:center;font-weight:800}'
+    + 'td{padding:3px 4px;border:1px solid #E2E8F0;text-align:center;vertical-align:middle;word-break:break-word}'
     + 'tr:nth-child(even) td{background:#F8FAFF}'
-    + '.judge-name{text-align:left;font-weight:700;white-space:nowrap}'
-    + '.cell-assign{background:#DBEAFE;color:#1D4ED8;font-weight:800;border-radius:3px;padding:2px 4px}'
-    + '.cell-pause{background:#FEF3C7;color:#B45309;font-weight:700}'
-    + '.cell-empty{color:#CBD5E1}'
     + '.jp-cell,.jp-drag{cursor:default!important}'
-    + '@media print{.page{padding:10px}@page{size:landscape;margin:8mm}}'
-    + '</style></head><body>'
-    + body
-    + '</body></html>';
+    + '@media print{.page{padding:8px}@page{size:A4 landscape;margin:7mm}}'
+    + '</style></head><body>' + body + '</body></html>';
 
   var w = window.open('','_blank');
   if(!w){ toast('Popup bloqué — autorise les popups','#E65100'); return; }
