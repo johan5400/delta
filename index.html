@@ -7619,11 +7619,7 @@ function syncHeatsToFirebase(){
           ja2[bid].push({heat:hid,lane:String(ln),cat:h.catNom||'—',zone:h.catZone||1,jour:parseInt((w2&&w2.jour)||h.catJour||1,10)||1,globalNum:h.globalNum||1,wod:wn2,heure:'—',team:tn||'—',wodOrdreZone:h.wodOrdreZone||1,catIndexInWod:h.catIndexInWod||0,catOrdre:h.catOrdre||0});
         });
       });
-      // ★★ MODE COMPÉTITION INTERNE — ROTATION AUTO : chaque ÉQUIPE juge des heats où elle
-      //    ne passe PAS (jamais elle-même), réparti équitablement. Remplace ja2 dans ce mode.
-      if(window.COMP_MODE==='interne'){
-        try{ ja2 = _buildInternalRotation(heats); }catch(_rotErr){ try{ console.warn('rotation interne:', _rotErr); }catch(e){} }
-      }
+      // ★ En mode interne, jugeMap2 (buildJugeAssignment) contient DÉJÀ la rotation → ja2 est bon.
       if(Object.keys(ja2).length) await db.ref('judgeAssignments').set(ja2);
       // aussi par prénom (fallback appli juge) — inoffensif en interne (ids = team:*)
       try{ if(Object.keys(ja2).length) await db.ref('judgeAssignmentsByPrenom').set(ja2); }catch(e){}
@@ -11385,6 +11381,37 @@ function setWodOrderIndex(id, pos){
 // Assignation juges : round-robin des bénévoles disponibles
 // Un juge = une ligne fixe par heat
 function buildJugeAssignment(){
+  // ★ MODE COMPÉTITION INTERNE : la rotation équipe-contre-équipe REMPLACE l'algo normal,
+  //   pour que le planning admin, l'appli juge et l'impression affichent tous la même chose.
+  if(window.COMP_MODE==='interne'){
+    try{
+      var _rot = _buildInternalRotation(HEATS_RESULT||[]); // { 'team:X':[{heat,lane,globalNum,...}] }
+      var _asg = {}; // { globalNum:{ligne:{id,prenom,nom}} }
+      Object.keys(_rot).forEach(function(bid){
+        (_rot[bid]||[]).forEach(function(row){
+          var gn = row.globalNum; var ln = row.lane;
+          if(gn==null || ln==null) return;
+          _asg[gn] = _asg[gn] || {};
+          _asg[gn][ln] = { id:bid, prenom:row.prenom||bid.replace(/^team:/,''), nom:row.nom||'' };
+        });
+      });
+      // Appliquer par-dessus les overrides manuels (glisser-déposer) du chef
+      try{
+        var _ovI = window._JUDGE_OVERRIDES || {};
+        if(_ovI && Object.keys(_ovI).length){
+          Object.keys(_ovI).forEach(function(k){
+            var p=String(k).split('__'); if(p.length!==2) return;
+            var kgn=parseInt(String(p[0]).replace(/^H/,''),10);
+            var kln=parseInt(String(p[1]).replace(/^L/,''),10);
+            var j=_ovI[k]; if(!(kgn>0)||!(kln>0)||!j||!j.id) return;
+            _asg[kgn]=_asg[kgn]||{};
+            _asg[kgn][kln]={ id:String(j.id), prenom:j.prenom||'', nom:j.nom||'', _locked:true };
+          });
+        }
+      }catch(e){}
+      return _asg;
+    }catch(_e){ try{ console.warn('rotation interne (buildJugeAssignment):', _e); }catch(e){} return {}; }
+  }
   /*
    * RÈGLES :
    * 1. Un juge garde la MÊME ligne pour TOUS les heats d'un WOD×zone
@@ -15169,7 +15196,7 @@ function toggleDarkMode(){
   }
 })();;
 
-// ★ BADGE DE VERSION (diagnostic cache) : si tu vois "build v16" en bas à gauche,
+// ★ BADGE DE VERSION (diagnostic cache) : si tu vois "build v17" en bas à gauche,
 //   tu es bien sur le nouveau fichier. Sinon, c'est que ton navigateur/site sert l'ancien.
 (function(){
   try{
@@ -15177,12 +15204,12 @@ function toggleDarkMode(){
       if(!document.body){ setTimeout(add,150); return; }
       if(document.getElementById('__delta_build_tag')) return;
       var b=document.createElement('div'); b.id='__delta_build_tag';
-      b.textContent='build v16';
+      b.textContent='build v17';
       b.style.cssText='position:fixed;bottom:4px;left:4px;z-index:2147483647;background:rgba(220,38,38,.92);color:#fff;font:700 10px/1 system-ui,-apple-system,sans-serif;padding:3px 7px;border-radius:6px;pointer-events:none;letter-spacing:.5px;box-shadow:0 2px 8px rgba(0,0,0,.3)';
       document.body.appendChild(b);
     }
     add();
-    try{ console.log('%cDELTA — build v16 chargé ('+new Date().toISOString()+')','background:#DC2626;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold'); }catch(e){}
+    try{ console.log('%cDELTA — build v17 chargé ('+new Date().toISOString()+')','background:#DC2626;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold'); }catch(e){}
   }catch(e){}
 })();
 
