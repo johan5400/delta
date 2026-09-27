@@ -272,7 +272,7 @@ body{
 /* COMPTEUR CENTRAL */
 .j-counter{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:6px 14px 4px;cursor:pointer;user-select:none;touch-action:manipulation;background:radial-gradient(circle at 50% 42%,rgba(182,255,60,.07) 0%,transparent 65%)}
 .j-lbl{font-family:var(--fc);font-size:9px;font-weight:800;letter-spacing:4px;color:rgba(255,255,255,.22);text-transform:uppercase;margin-bottom:2px}
-.j-num{font-family:var(--ff);font-size:clamp(80px,30vw,166px);font-weight:900;font-style:italic;line-height:.9;transition:transform .1s cubic-bezier(.34,1.8,.5,1);background:linear-gradient(160deg,#fff 22%,#B6FF3C);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 4px 22px rgba(182,255,60,.22))}
+.j-num{font-family:var(--ff);font-size:clamp(80px,29vw,158px);font-weight:900;font-style:normal;line-height:1;padding:0 8px;color:#C6FF4A;text-shadow:0 4px 26px rgba(182,255,60,.35);transition:transform .1s cubic-bezier(.34,1.8,.5,1)}
 .j-num.pop{animation:pop .15s ease,glow-fire 3s ease infinite}
 /* ★ NOM MOUVEMENT — très grand */
 .j-move-name{font-family:var(--ff);font-size:clamp(28px,9vw,56px);font-weight:900;letter-spacing:2px;color:var(--ink);margin-top:4px;text-align:center;line-height:1;text-transform:uppercase;animation:move-flash .22s ease}
@@ -629,9 +629,6 @@ setTimeout(h,6000);/* filet anti-blocage : le splash ne reste jamais coincé */}
       <button onclick="toggleWodRecall()" id="j-wod-recall"
         style="background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.22);color:rgba(255,255,255,.82);border-radius:8px;padding:6px 11px;font-size:11px;font-weight:800;cursor:pointer;flex-shrink:0;white-space:nowrap;font-family:var(--fc)"
         title="Rappel du WOD (mouvements et tours)">📋 WOD</button>
-      <button onclick="openMyPlanning()" id="j-my-planning"
-        style="background:rgba(61,224,255,.14);border:1px solid rgba(61,224,255,.4);color:#7FE3FF;border-radius:8px;padding:6px 11px;font-size:11px;font-weight:800;cursor:pointer;flex-shrink:0;white-space:nowrap;font-family:var(--fc)"
-        title="Mon planning — tous mes passages">📅 Planning</button>
       <span class="j-lane" id="j-lane">L—</span>
       <button onclick="markTeamAbsent()" id="btn-team-absent"
         style="background:rgba(245,138,0,.15);border:1px solid rgba(245,138,0,.4);color:#FF8A00;border-radius:8px;padding:6px 10px;font-size:10px;font-weight:800;cursor:pointer;flex-shrink:0;white-space:nowrap"
@@ -718,76 +715,6 @@ setTimeout(h,6000);/* filet anti-blocage : le splash ne reste jamais coincé */}
     </div>
   </div>
 
-  <!-- ★ MON PLANNING — le juge voit toute sa journée (additif, n'affecte pas le comptage) -->
-  <style>
-    #my-planning{position:fixed;inset:0;z-index:9200;display:none;background:rgba(8,10,24,.82);backdrop-filter:blur(3px);align-items:flex-end}
-    #my-planning.show{display:flex}
-    #my-planning .mp-card{background:linear-gradient(180deg,#1B1E3D,#12152B);border-top:1px solid rgba(255,255,255,.12);border-radius:24px 24px 0 0;width:100%;max-height:88vh;display:flex;flex-direction:column;box-shadow:0 -18px 50px rgba(0,0,0,.5);padding-bottom:calc(env(safe-area-inset-bottom,0px) + 8px)}
-    #my-planning .mp-head{display:flex;align-items:center;gap:10px;padding:16px 18px 8px}
-    #my-planning .mp-title{font-family:'Outfit',sans-serif;font-weight:900;font-size:20px;color:#F2F4FF}
-    #my-planning .mp-close{margin-left:auto;width:34px;height:34px;border-radius:11px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.06);color:#9AA3CC;font-size:16px;cursor:pointer}
-    #my-planning .mp-sub{padding:0 18px 12px;font-size:13px;color:#9AA3CC;font-weight:600}
-    #my-planning .mp-sub b{color:#3DE0FF}
-    #my-planning .mp-body{overflow-y:auto;padding:0 12px 12px;display:flex;flex-direction:column;gap:7px}
-    #my-planning .mp-row{display:flex;align-items:center;gap:10px;padding:11px 10px;border-radius:13px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08)}
-    #my-planning .mp-row.done{opacity:.45}
-    #my-planning .mp-row.cur{background:rgba(182,255,60,.13);border-color:rgba(182,255,60,.4)}
-    #my-planning .mp-t{font-family:'JetBrains Mono',monospace;font-weight:800;font-size:15px;width:48px;flex:0 0 auto;color:#F2F4FF;font-variant-numeric:tabular-nums}
-    #my-planning .mp-row.cur .mp-t{color:#B6FF3C}
-    #my-planning .mp-mid{flex:1;min-width:0}
-    #my-planning .mp-h{font-size:10px;font-weight:800;color:#666D96;letter-spacing:.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    #my-planning .mp-team{font-size:14px;font-weight:700;color:#EAEEFF;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    #my-planning .mp-ln{flex:0 0 auto;font-size:12px;font-weight:900;color:#0E1030;background:linear-gradient(135deg,#B6FF3C,#3DE0FF);border-radius:7px;padding:3px 9px}
-    #my-planning .mp-b{flex:0 0 auto;font-size:8.5px;font-weight:900;border-radius:6px;padding:3px 7px;letter-spacing:.4px}
-    #my-planning .mp-b.live{background:#B6FF3C;color:#123008}
-    #my-planning .mp-b.next{background:rgba(61,224,255,.2);color:#7FE3FF;border:1px solid rgba(61,224,255,.4)}
-    #my-planning .mp-b.done{background:transparent;color:#2FE0A0}
-    #my-planning .mp-empty{padding:30px 18px;text-align:center;color:#9AA3CC;font-size:14px;font-weight:600}
-  </style>
-  <div id="my-planning" onclick="if(event.target===this)closeMyPlanning()">
-    <div class="mp-card">
-      <div class="mp-head"><span class="mp-title">📅 Mon planning</span><button class="mp-close" onclick="closeMyPlanning()">✕</button></div>
-      <div class="mp-sub" id="mp-sub"></div>
-      <div class="mp-body" id="mp-body"></div>
-    </div>
-  </div>
-  <script>
-    function _mpEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-    function _mpFmtMin(m){ if(m==null||!isFinite(parseInt(m,10))) return '--:--'; m=parseInt(m,10); var h=Math.floor(m/60),mm=m%60; return h+':'+(mm<10?'0':'')+mm; }
-    function closeMyPlanning(){ var ov=document.getElementById('my-planning'); if(ov) ov.classList.remove('show'); }
-    function openMyPlanning(){
-      var ov=document.getElementById('my-planning'), body=document.getElementById('mp-body'), sub=document.getElementById('mp-sub');
-      if(!ov||!body) return;
-      ov.classList.add('show');
-      var assigns=window._judgeAssignmentsCache;
-      if(!assigns || !assigns.length){ body.innerHTML='<div class="mp-empty">Ton planning n\'est pas encore disponible.<br>Scanne ton QR ou attends la génération des heats.</div>'; sub.innerHTML=''; return; }
-      body.innerHTML='<div class="mp-empty">Chargement…</div>';
-      var jugeId=(typeof JUGE_ID!=='undefined')?JUGE_ID:null;
-      try{
-        db.ref('heats').once('value').then(function(snap){
-          var allHeats=snap.val()||{};
-          var enriched=assigns.map(function(a){ return judgeEnrichAssignment(a, allHeats); });
-          try{ enriched.sort(judgeAssignmentCompare); }catch(e){}
-          var curIdx=-1;
-          for(var i=0;i<enriched.length;i++){ if(String(enriched[i].status||'pending').toLowerCase()!=='done'){ curIdx=i; break; } }
-          var ligne=(enriched[0]&&enriched[0].lane)||'—';
-          var nb=enriched.length, faits=enriched.filter(function(e){return String(e.status||'').toLowerCase()==='done';}).length;
-          sub.innerHTML='Ta ligne : <b>'+_mpEsc(ligne)+'</b> · '+nb+' passage'+(nb>1?'s':'')+' · '+faits+' fait'+(faits>1?'s':'');
-          var html='';
-          enriched.forEach(function(e,i){
-            var st=String(e.status||'pending').toLowerCase();
-            var done=(st==='done'), cur=(i===curIdx), live=(st==='live'||st==='timecap');
-            var badge = live?'<span class="mp-b live">EN COURS</span>' : (done?'<span class="mp-b done">✓ fait</span>' : (cur?'<span class="mp-b next">À VENIR</span>':''));
-            html+='<div class="mp-row'+(cur?' cur':'')+(done?' done':'')+'">'
-              +'<span class="mp-t">'+_mpFmtMin(e.startMinute)+'</span>'
-              +'<div class="mp-mid"><div class="mp-h">HEAT '+_mpEsc(e.globalNum||'?')+(e.wod?' · '+_mpEsc(e.wod):'')+'</div><div class="mp-team">'+_mpEsc(e.team||'—')+'</div></div>'
-              +'<span class="mp-ln">L'+_mpEsc(e.lane)+'</span>'+badge+'</div>';
-          });
-          body.innerHTML=html||'<div class="mp-empty">Aucun passage trouvé.</div>';
-        }).catch(function(){ body.innerHTML='<div class="mp-empty">Erreur de chargement du planning.</div>'; });
-      }catch(e){ body.innerHTML='<div class="mp-empty">Erreur.</div>'; }
-    }
-  </script>
 
   <!-- Zone MAXLOAD -->
   <div id="j-maxload-zone" style="display:none;flex-direction:column;flex:1;overflow:hidden">
@@ -862,7 +789,7 @@ setTimeout(h,6000);/* filet anti-blocage : le splash ne reste jamais coincé */}
 <!-- DONE -->
 <div class="scr" id="s-done">
   <!-- ★ FIX : annonce prochain heat en HAUT, grande et visible -->
-  <div id="done-next-info" style="width:100%;max-width:360px;font-size:22px;color:#fff;text-align:center;line-height:1.4;padding:18px 20px;border-radius:20px;background:linear-gradient(135deg,rgba(255,176,32,.22),rgba(255,120,0,.18),rgba(37,62,92,.95));border:2px solid rgba(255,176,32,.5);font-weight:900;letter-spacing:.5px;box-shadow:0 8px 32px rgba(255,176,32,.25);min-height:72px;display:flex;align-items:center;justify-content:center"></div>
+  <div id="done-next-info" style="width:100%;max-width:360px;font-size:22px;color:#fff;text-align:center;line-height:1.4;padding:18px 20px;border-radius:20px;background:linear-gradient(135deg,rgba(61,224,255,.22),rgba(155,123,255,.18),rgba(27,30,61,.95));border:2px solid rgba(61,224,255,.5);font-weight:900;letter-spacing:.5px;box-shadow:0 8px 32px rgba(61,224,255,.22);min-height:72px;display:flex;align-items:center;justify-content:center"></div>
   <div class="done-ico">✅</div>
   <div class="done-title">SCORE VALIDÉ</div>
   <div class="done-score" id="done-score">—</div>
@@ -913,11 +840,11 @@ setTimeout(h,6000);/* filet anti-blocage : le splash ne reste jamais coincé */}
 </div>
 
 <!-- ★ ÉCRAN BRIEFING PLEIN ÉCRAN — affiché pendant l'inter-heat pour préparer l'équipe -->
-<div class="scr" id="s-brief" style="overflow-y:auto;background:radial-gradient(ellipse at 50% 22%,rgba(255,138,0,.12) 0%,transparent 58%),var(--bg);flex-direction:column">
+<div class="scr" id="s-brief" style="overflow-y:auto;background:radial-gradient(ellipse at 50% 22%,rgba(61,224,255,.12) 0%,transparent 58%),var(--bg);flex-direction:column">
   <!-- Espace réservé pour le banner inter-heat qui flotte en haut -->
   <div id="brief-ih-spacer" style="height:0;flex-shrink:0;transition:height .3s"></div>
-  <div style="background:linear-gradient(135deg,var(--fire),#FF8A00);padding:18px 20px;text-align:center;flex-shrink:0">
-    <div style="font-family:var(--fc);font-size:11px;font-weight:900;letter-spacing:3px;color:rgba(255,255,255,.85);text-transform:uppercase">📋 Briefing · Prépare ton équipe</div>
+  <div style="background:linear-gradient(135deg,#9B7BFF,#3DE0FF);padding:18px 20px;text-align:center;flex-shrink:0">
+    <div style="font-family:var(--fc);font-size:11px;font-weight:900;letter-spacing:3px;color:rgba(255,255,255,.92);text-transform:uppercase">📋 Briefing · Prépare ton équipe</div>
     <div style="font-family:var(--ff);font-size:32px;letter-spacing:2px;color:#fff;line-height:1;margin-top:4px">PROCHAIN HEAT</div>
   </div>
   <div style="display:flex;gap:8px;padding:14px;flex-shrink:0">
@@ -940,7 +867,7 @@ setTimeout(h,6000);/* filet anti-blocage : le splash ne reste jamais coincé */}
   <div id="brief-note" style="display:none;margin:12px 14px 0;padding:12px;background:rgba(255,176,32,.1);border:1px solid rgba(255,176,32,.3);border-radius:12px;font-size:13px;color:var(--gold,#FFB020);font-weight:700;text-align:center;flex-shrink:0"></div>
   <div style="padding:16px 20px;flex-shrink:0;text-align:center">
     <div id="brief-cd-line" style="font-size:12px;color:rgba(255,255,255,.5);font-weight:700">Le jugement s'ouvre dans <b id="brief-cd" style="color:#fff">—</b></div>
-    <div style="height:6px;background:rgba(255,255,255,.1);border-radius:3px;margin-top:10px;overflow:hidden"><div id="brief-cd-fill" style="height:100%;width:100%;background:linear-gradient(90deg,var(--fire),#FFB020);border-radius:3px;transition:width 1s linear"></div></div>
+    <div style="height:6px;background:rgba(255,255,255,.1);border-radius:3px;margin-top:10px;overflow:hidden"><div id="brief-cd-fill" style="height:100%;width:100%;background:linear-gradient(90deg,#B6FF3C,#3DE0FF);border-radius:3px;transition:width 1s linear"></div></div>
     <div style="font-size:11px;color:rgba(255,255,255,.35);margin-top:8px">Reste sur cet écran, le jugement démarre tout seul</div>
     <!-- ★ Bouton "Brief OK" bien voyant : le juge le tape quand il a briefé son équipe → il disparaît -->
     <button id="brief-ok-btn" onclick="briefOkAction()" style="margin-top:16px;width:100%;padding:18px;background:linear-gradient(135deg,#00E5A0,#00B894);border:none;border-radius:16px;font-family:var(--ff);font-size:26px;letter-spacing:2px;color:#04231a;cursor:pointer;touch-action:manipulation;box-shadow:0 8px 28px rgba(0,229,160,.45)">✓ BRIEF OK</button>
