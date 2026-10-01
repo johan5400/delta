@@ -7203,7 +7203,7 @@ function openMailAfterPDF(){ ouvrirMailDepuisPDF(); }
 // SAUVEGARDE
 var SAVE_KEY="zonek_foc_v12"; // _vide retiré : la clé _vide empêchait la restauration au rechargement
 function getStateToSave(){
-  return{ev:{nom:document.getElementById("ev-nom").value,date1:document.getElementById("ev-date1").value,date2:document.getElementById("ev-date2").value,lieu:document.getElementById("ev-lieu").value,resp:document.getElementById("ev-resp").value,email:document.getElementById("ev-email").value,compStart:document.getElementById("comp-start").value,compEnd:document.getElementById("comp-end").value,rotDur:"2",compStart2:(document.getElementById("comp-start2")||{}).value,compEnd2:(document.getElementById("comp-end2")||{}).value,rotDur2:((document.getElementById("rotation-dur2")||{})||{}).value,notesJ1:(document.getElementById("notes-j1")||{}).value||"",notesJ2:(document.getElementById("notes-j2")||{}).value||"",compMode:window.COMP_MODE||"normal"},stations:STATIONS,benevoles:BENEVOLES,presence:PRESENCE,heureArr:HEURE_ARR,notesJour:NOTES_JOUR,categories:CATEGORIES,heatsResult:HEATS_RESULT,zones:ZONES,wods:WODS,zone1Resp:(document.getElementById("zone1-resp")||{}).value||"",zone1Contact:(document.getElementById("zone1-contact")||{}).value||"",zone1Desc:(document.getElementById("zone1-desc")||{}).value||"",zone2Resp:(document.getElementById("zone2-resp")||{}).value||"",zone2Contact:(document.getElementById("zone2-contact")||{}).value||"",zone2Desc:(document.getElementById("zone2-desc")||{}).value||"",savedAt:new Date().toISOString()};
+  return{ev:{nom:document.getElementById("ev-nom").value,date1:document.getElementById("ev-date1").value,date2:document.getElementById("ev-date2").value,lieu:document.getElementById("ev-lieu").value,resp:document.getElementById("ev-resp").value,email:document.getElementById("ev-email").value,compStart:document.getElementById("comp-start").value,compEnd:document.getElementById("comp-end").value,rotDur:"2",compStart2:(document.getElementById("comp-start2")||{}).value,compEnd2:(document.getElementById("comp-end2")||{}).value,rotDur2:((document.getElementById("rotation-dur2")||{})||{}).value,notesJ1:(document.getElementById("notes-j1")||{}).value||"",notesJ2:(document.getElementById("notes-j2")||{}).value||"",compMode:window.COMP_MODE||"normal",internalRotation:(window._INTERNAL_ROTATION_FROZEN||null)},stations:STATIONS,benevoles:BENEVOLES,presence:PRESENCE,heureArr:HEURE_ARR,notesJour:NOTES_JOUR,categories:CATEGORIES,heatsResult:HEATS_RESULT,zones:ZONES,wods:WODS,zone1Resp:(document.getElementById("zone1-resp")||{}).value||"",zone1Contact:(document.getElementById("zone1-contact")||{}).value||"",zone1Desc:(document.getElementById("zone1-desc")||{}).value||"",zone2Resp:(document.getElementById("zone2-resp")||{}).value||"",zone2Contact:(document.getElementById("zone2-contact")||{}).value||"",zone2Desc:(document.getElementById("zone2-desc")||{}).value||"",savedAt:new Date().toISOString()};
 }
 
 // ── SYNC BENEVOLES → FIREBASE ──
@@ -7675,36 +7675,50 @@ function fbBuildLanesFromSlots(slots, nbLignes){
 // ★★ ROTATION INTERNE — construit judgeAssignments où chaque ÉQUIPE juge des heats
 //    où elle ne passe PAS. Répartition équitable (l'équipe la moins sollicitée d'abord).
 //    Id de juge = "team:<nom>" ; prénom = nom d'équipe (l'appli juge affiche le nom).
-function _buildInternalRotation(heats){
+// ★ Nom d'équipe propre depuis un slot (partagé).
+function _rotTeamName(sl){ if(!sl||!sl.team) return ''; return typeof sl.team==='string'?sl.team:(sl.team.nom||sl.team.name||sl.team.teamName||''); }
+// ★ Signature stable des heats+équipes : si elle ne change pas, la rotation NE DOIT PAS changer.
+//   Sert à détecter quand on peut réutiliser la rotation figée (QR distribués = contenu stable).
+function _internalRotationSignature(heats){
+  heats = heats || (typeof HEATS_RESULT!=='undefined'?HEATS_RESULT:[]) || [];
+  var parts=[];
+  heats.slice().sort(function(a,b){ return (a.globalNum||0)-(b.globalNum||0); }).forEach(function(h){
+    var ts=(h.slots||[]).filter(function(s){return s&&!s.empty&&_rotTeamName(s)&&s.ligne;})
+      .map(function(s){ return s.ligne+':'+_rotTeamName(s); }).sort();
+    parts.push((h.globalNum||0)+'['+ts.join(',')+']');
+  });
+  return parts.join('|');
+}
+// ★ Calcul DÉTERMINISTE de la rotation (mêmes entrées → même sortie, toujours).
+function _computeInternalRotation(heats){
   heats = heats || (typeof HEATS_RESULT!=='undefined' ? HEATS_RESULT : []) || [];
-  // nom d'équipe propre depuis un slot
-  function teamName(sl){ if(!sl||!sl.team) return ''; return typeof sl.team==='string'?sl.team:(sl.team.nom||sl.team.name||sl.team.teamName||''); }
-  // 1) recenser toutes les équipes
+  var teamName=_rotTeamName;
+  // 1) recenser toutes les équipes — TRIÉES (ordre stable, indépendant de l'ordre de build des heats)
   var allTeams={};
   heats.forEach(function(h){ (h.slots||[]).forEach(function(s){ var t=teamName(s); if(t) allTeams[t]=true; }); });
-  var teams=Object.keys(allTeams);
+  var teams=Object.keys(allTeams).sort(function(a,b){ return a.localeCompare(b,'fr'); });
   if(teams.length<2) return {}; // pas assez d'équipes pour une rotation
 
   var ja={};
   var load={}; teams.forEach(function(t){ load[t]=0; });
   var idOf=function(t){ return 'team:'+t; };
 
-  // 2) pour chaque heat, attribuer une équipe-juge par ligne occupée
-  //    (équipe qui ne passe PAS sur ce heat, la moins chargée d'abord)
+  // 2) pour chaque heat (ordre globalNum), attribuer une équipe-juge par ligne occupée
+  //    (équipe qui ne passe PAS sur ce heat, la moins chargée d'abord ; égalité → ordre alpha STABLE)
   heats.slice().sort(function(a,b){ return (a.globalNum||0)-(b.globalNum||0); }).forEach(function(h){
     var hid='h'+(h.globalNum||1);
     var w=(typeof fbGetWod==='function')?fbGetWod(h):null; var wn=w?(w.nom||'—'):'—';
     var jour=parseInt((w&&w.jour)||h.catJour||1,10)||1;
-    // équipes qui PASSENT sur ce heat (ne peuvent pas le juger)
     var passing={}; (h.slots||[]).forEach(function(s){ var t=teamName(s); if(t) passing[t]=true; });
-    // lignes occupées à couvrir
-    var slots=(h.slots||[]).filter(function(s){ return s && !s.empty && teamName(s) && s.ligne; });
-    // équipes candidates pour juger = celles qui ne passent pas ici
+    // lignes occupées à couvrir — TRIÉES par n° de ligne (ordre de traitement stable)
+    var slots=(h.slots||[]).filter(function(s){ return s && !s.empty && teamName(s) && s.ligne; })
+      .sort(function(a,b){ return (parseInt(a.ligne,10)||0)-(parseInt(b.ligne,10)||0); });
     var usedThisHeat={};
     slots.forEach(function(sl){
       var cands=teams.filter(function(t){ return !passing[t] && !usedThisHeat[t]; });
       if(!cands.length) return; // aucune équipe libre → ligne sans juge (secours QR)
-      cands.sort(function(a,b){ return load[a]-load[b]; }); // la moins sollicitée d'abord
+      // la moins sollicitée d'abord ; en cas d'égalité, ordre alphabétique → tie-break STABLE
+      cands.sort(function(a,b){ return (load[a]-load[b]) || a.localeCompare(b,'fr'); });
       var pick=cands[0];
       usedThisHeat[pick]=true; load[pick]++;
       var bid=idOf(pick);
@@ -7718,6 +7732,24 @@ function _buildInternalRotation(heats){
     });
   });
   return ja;
+}
+// ★ FIX QR INSTABLE : la rotation est FIGÉE une fois calculée.
+//   Tant que les heats/équipes n'ont pas changé (même signature), on réutilise la rotation
+//   mémorisée — donc le contenu derrière chaque QR d'équipe reste identique entre deux affichages,
+//   régénérations de heats, ou rechargements. Elle n'est recalculée QUE si la signature change.
+function _buildInternalRotation(heats){
+  heats = heats || (typeof HEATS_RESULT!=='undefined' ? HEATS_RESULT : []) || [];
+  var sig = _internalRotationSignature(heats);
+  var frozen = window._INTERNAL_ROTATION_FROZEN;
+  if(frozen && frozen.sig===sig && frozen.data && Object.keys(frozen.data).length){
+    return frozen.data; // ← contenu stable : on ne recalcule pas
+  }
+  var data = _computeInternalRotation(heats);
+  if(Object.keys(data).length){
+    window._INTERNAL_ROTATION_FROZEN = { sig:sig, data:data, at:new Date().toISOString() };
+    try{ if(typeof autoSave==='function') autoSave(); }catch(e){} // persiste le gel dans le backup
+  }
+  return data;
 }
 
 async function syncJudgeAssignmentsNow(){
@@ -8159,7 +8191,7 @@ function sanitizeBundledTestState(){
   return removed;
 }
 function applyState(state){
-  if(state.ev){var ev=state.ev;if(ev.nom)document.getElementById("ev-nom").value=ev.nom;if(ev.date1)document.getElementById("ev-date1").value=ev.date1;if(ev.date2)document.getElementById("ev-date2").value=ev.date2;if(ev.lieu)document.getElementById("ev-lieu").value=ev.lieu;if(ev.resp)document.getElementById("ev-resp").value=ev.resp;if(ev.email)document.getElementById("ev-email").value=ev.email;if(ev.compStart)document.getElementById("comp-start").value=ev.compStart;if(ev.compEnd)document.getElementById("comp-end").value=ev.compEnd;var cs2el=document.getElementById("comp-start2");var ce2el=document.getElementById("comp-end2");var rd2el=(document.getElementById("rotation-dur2")||{});if(ev.compStart2&&cs2el)cs2el.value=ev.compStart2;if(ev.compEnd2&&ce2el)ce2el.value=ev.compEnd2;if(ev.rotDur2&&rd2el)rd2el.value=ev.rotDur2;var nj1el=document.getElementById("notes-j1");var nj2el=document.getElementById("notes-j2");if(ev.notesJ1&&nj1el)nj1el.value=ev.notesJ1;if(ev.notesJ2&&nj2el)nj2el.value=ev.notesJ2;setCompMode(ev.compMode==='interne'?'interne':'normal',true);}
+  if(state.ev){var ev=state.ev;if(ev.nom)document.getElementById("ev-nom").value=ev.nom;if(ev.date1)document.getElementById("ev-date1").value=ev.date1;if(ev.date2)document.getElementById("ev-date2").value=ev.date2;if(ev.lieu)document.getElementById("ev-lieu").value=ev.lieu;if(ev.resp)document.getElementById("ev-resp").value=ev.resp;if(ev.email)document.getElementById("ev-email").value=ev.email;if(ev.compStart)document.getElementById("comp-start").value=ev.compStart;if(ev.compEnd)document.getElementById("comp-end").value=ev.compEnd;var cs2el=document.getElementById("comp-start2");var ce2el=document.getElementById("comp-end2");var rd2el=(document.getElementById("rotation-dur2")||{});if(ev.compStart2&&cs2el)cs2el.value=ev.compStart2;if(ev.compEnd2&&ce2el)ce2el.value=ev.compEnd2;if(ev.rotDur2&&rd2el)rd2el.value=ev.rotDur2;var nj1el=document.getElementById("notes-j1");var nj2el=document.getElementById("notes-j2");if(ev.notesJ1&&nj1el)nj1el.value=ev.notesJ1;if(ev.notesJ2&&nj2el)nj2el.value=ev.notesJ2;setCompMode(ev.compMode==='interne'?'interne':'normal',true);if(ev.internalRotation&&ev.internalRotation.data){window._INTERNAL_ROTATION_FROZEN=ev.internalRotation;}}
   if(state.stations&&state.stations.length)STATIONS=state.stations;
   // ★ FIX CRITIQUE (perte bénévoles) : ne JAMAIS écraser la liste par du vide.
   //   Le code d'origine faisait `if(state.benevoles)` sans tester la longueur — or un
@@ -10595,6 +10627,9 @@ function toggleCatWodZone(catId, wodId){
 // Les adaptations par catégorie ne filtrent jamais une catégorie
 // Ordre global : trié par (ordreZone du WOD, puis ordre catégorie)
 function generateHeats(){
+  // ★ Le bouton "Générer" est la SEULE action qui remet la rotation interne à zéro.
+  //   (Les régénérations silencieuses automatiques, elles, respectent la rotation figée.)
+  window._INTERNAL_ROTATION_FROZEN = null;
   var sortedCats = CATEGORIES.slice().sort(function(a,b){return (a.ordre||0)-(b.ordre||0);});
   if(!sortedCats.length){toast('Aucune catégorie configurée','#E65100');return;}
   var sortedWods = (WODS||[]).slice().sort(function(a,b){return (a.ordreZone||99)-(b.ordreZone||99);});
@@ -15205,12 +15240,12 @@ function toggleDarkMode(){
       if(!document.body){ setTimeout(add,150); return; }
       if(document.getElementById('__delta_build_tag')) return;
       var b=document.createElement('div'); b.id='__delta_build_tag';
-      b.textContent='build v22';
+      b.textContent='build v24';
       b.style.cssText='position:fixed;bottom:4px;left:4px;z-index:2147483647;background:rgba(220,38,38,.92);color:#fff;font:700 10px/1 system-ui,-apple-system,sans-serif;padding:3px 7px;border-radius:6px;pointer-events:none;letter-spacing:.5px;box-shadow:0 2px 8px rgba(0,0,0,.3)';
       document.body.appendChild(b);
     }
     add();
-    try{ console.log('%cDELTA — build v22 chargé ('+new Date().toISOString()+')','background:#DC2626;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold'); }catch(e){}
+    try{ console.log('%cDELTA — build v24 chargé ('+new Date().toISOString()+')','background:#DC2626;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold'); }catch(e){}
   }catch(e){}
 })();
 
@@ -18970,7 +19005,7 @@ function renderInternalJudgeView(content, info, jugeMap){
   // bandeau + bouton fiches
   html+='<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px;padding:12px 14px;border:1.5px solid #DDD6FE;border-radius:14px;background:linear-gradient(135deg,#F5F3FF,#FFFFFF)">'
     +'<div style="font-size:20px">🔄</div><div style="flex:1;min-width:180px"><div style="font-size:13px;font-weight:900;color:#5B21B6">Rotation interne — chaque équipe juge une autre</div>'
-    +'<div style="font-size:11px;color:#6D5B96">Aucune équipe ne se juge elle-même. Réparti équitablement.</div></div>'
+    +'<div style="font-size:11px;color:#6D5B96">Aucune équipe ne se juge elle-même. Réparti équitablement. <b style="color:#5B21B6">🔒 Rotation figée</b> — les QR restent valables.</div></div>'
     +'<button class="btn" onclick="printInternalTeamSheets()" style="font-size:12px;background:linear-gradient(135deg,#7C3AED,#9B7BFF);color:#fff">🖨️ Fiches par équipe</button>'
     +'<button class="btn" onclick="printTeamJudgeQR()" style="font-size:12px;background:linear-gradient(135deg,#5B21B6,#7C3AED);color:#fff">📱 QR par équipe</button></div>';
   var curJour=null;
