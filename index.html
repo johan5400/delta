@@ -7677,6 +7677,18 @@ function fbBuildLanesFromSlots(slots, nbLignes){
 //    Id de juge = "team:<nom>" ; prénom = nom d'équipe (l'appli juge affiche le nom).
 // ★ Nom d'équipe propre depuis un slot (partagé).
 function _rotTeamName(sl){ if(!sl||!sl.team) return ''; return typeof sl.team==='string'?sl.team:(sl.team.nom||sl.team.name||sl.team.teamName||''); }
+// ★ FIX CLÉ FIREBASE INVALIDE : les caractères . # $ / [ ] (et ~ utilisé pour l'échappement)
+//   sont INTERDITS dans une clé Firebase. On les encode en ~XX (hex) → clé toujours valide,
+//   réversible, sans collision. Ex : "Monkey D.lifters" → "Monkey D~2Elifters".
+function _fbSafe(s){
+  return String(s||'').replace(/[.#$/\[\]~]/g, function(c){ return '~'+c.charCodeAt(0).toString(16).toUpperCase(); });
+}
+// ★ Id Firebase d'une équipe-juge, TOUJOURS sûr. Un seul point de vérité pour admin + QR + appli.
+function _teamId(name){ return 'team:'+_fbSafe(name); }
+// ★ Inverse de _fbSafe : ~XX → caractère d'origine (pour réafficher le vrai nom d'équipe).
+function _fbUnsafe(s){ return String(s||'').replace(/~([0-9A-F]{2})/g, function(_,h){ return String.fromCharCode(parseInt(h,16)); }); }
+// ★ Nom d'équipe lisible depuis un id "team:...".
+function _teamNameFromId(id){ return _fbUnsafe(String(id||'').replace(/^team:/,'')); }
 // ★ Signature stable des heats+équipes : si elle ne change pas, la rotation NE DOIT PAS changer.
 //   Sert à détecter quand on peut réutiliser la rotation figée (QR distribués = contenu stable).
 function _internalRotationSignature(heats){
@@ -7701,7 +7713,7 @@ function _computeInternalRotation(heats){
 
   var ja={};
   var load={}; teams.forEach(function(t){ load[t]=0; });
-  var idOf=function(t){ return 'team:'+t; };
+  var idOf=function(t){ return _teamId(t); };
 
   // 2) pour chaque heat (ordre globalNum), attribuer une équipe-juge par ligne occupée
   //    (équipe qui ne passe PAS sur ce heat, la moins chargée d'abord ; égalité → ordre alpha STABLE)
@@ -7741,6 +7753,12 @@ function _buildInternalRotation(heats){
   heats = heats || (typeof HEATS_RESULT!=='undefined' ? HEATS_RESULT : []) || [];
   var sig = _internalRotationSignature(heats);
   var frozen = window._INTERNAL_ROTATION_FROZEN;
+  // ★ Sécurité : une rotation figée AVANT le fix pouvait contenir des clés invalides
+  //   (nom avec . # $ / [ ]). Si c'est le cas, on la jette et on recalcule proprement.
+  if(frozen && frozen.data){
+    var badKey = Object.keys(frozen.data).some(function(k){ return /[.#$/\[\]]/.test(k); });
+    if(badKey){ frozen=null; window._INTERNAL_ROTATION_FROZEN=null; }
+  }
   if(frozen && frozen.sig===sig && frozen.data && Object.keys(frozen.data).length){
     return frozen.data; // ← contenu stable : on ne recalcule pas
   }
@@ -11428,7 +11446,7 @@ function buildJugeAssignment(){
           var gn = row.globalNum; var ln = row.lane;
           if(gn==null || ln==null) return;
           _asg[gn] = _asg[gn] || {};
-          _asg[gn][ln] = { id:bid, prenom:row.prenom||bid.replace(/^team:/,''), nom:row.nom||'' };
+          _asg[gn][ln] = { id:bid, prenom:row.prenom||_teamNameFromId(bid), nom:row.nom||'' };
         });
       });
       // Appliquer par-dessus les overrides manuels (glisser-déposer) du chef
@@ -15240,12 +15258,12 @@ function toggleDarkMode(){
       if(!document.body){ setTimeout(add,150); return; }
       if(document.getElementById('__delta_build_tag')) return;
       var b=document.createElement('div'); b.id='__delta_build_tag';
-      b.textContent='build v24';
+      b.textContent='build v25';
       b.style.cssText='position:fixed;bottom:4px;left:4px;z-index:2147483647;background:rgba(220,38,38,.92);color:#fff;font:700 10px/1 system-ui,-apple-system,sans-serif;padding:3px 7px;border-radius:6px;pointer-events:none;letter-spacing:.5px;box-shadow:0 2px 8px rgba(0,0,0,.3)';
       document.body.appendChild(b);
     }
     add();
-    try{ console.log('%cDELTA — build v24 chargé ('+new Date().toISOString()+')','background:#DC2626;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold'); }catch(e){}
+    try{ console.log('%cDELTA — build v25 chargé ('+new Date().toISOString()+')','background:#DC2626;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold'); }catch(e){}
   }catch(e){}
 })();
 
@@ -17686,7 +17704,7 @@ function printTeamJudgeQR(){
   var baseDir=window.location.href.split('#')[0].split('?')[0].split('/').slice(0,-1).join('/')+'/';
   var cards='';
   list.forEach(function(team){
-    var url=baseDir+'judge.html#juge/'+encodeURIComponent('team:'+team);
+    var url=baseDir+'judge.html#juge/'+encodeURIComponent(_teamId(team));
     var qr='https://api.qrserver.com/v1/create-qr-code/?size=300x300&color=5B21B6&bgcolor=FFFFFF&margin=12&ecc=L&data='+encodeURIComponent(url);
     cards+='<div class="card"><img src="'+qr+'"><div class="nm">'+escHtml(team)+'</div><div class="jr">'+teams[team]+' passage'+(teams[team]>1?'s':'')+' à juger</div></div>';
   });
@@ -18976,7 +18994,7 @@ function _internalRotationRows(jugeMap){
     (h.slots||[]).forEach(function(sl){
       if(!sl||sl.empty||!teamName(sl)||!sl.ligne) return;
       var jm=jugeMap[gn]||{}; var juge=jm[sl.ligne]||jm[String(sl.ligne)]||null;
-      lignes.push({ ligne:sl.ligne, passe:teamName(sl), juge:(juge&&juge.prenom)|| (juge&&String(juge.id||'').replace(/^team:/,'')) || '—' });
+      lignes.push({ ligne:sl.ligne, passe:teamName(sl), juge:(juge&&juge.prenom)|| (juge&&_teamNameFromId(juge.id)) || '—' });
     });
     lignes.sort(function(a,b){ return (parseInt(a.ligne,10)||0)-(parseInt(b.ligne,10)||0); });
     if(lignes.length) rows.push({ gn:gn, heure:heure, wod:wn, jour:jour, zone:h.catZone||1, cat:h.catNom||'—', lignes:lignes });
