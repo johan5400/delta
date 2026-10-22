@@ -2,7 +2,7 @@
 // ⚠ La constante BUILD est mise à jour automatiquement par deploy.sh
 //   (ou manuellement avec n'importe quelle valeur qui change à chaque déploiement).
 // Pour forcer une MAJ : modifier cette ligne et redéployer.
-const BUILD = '2026-10-22T14:36:06Z-4b89bea';
+const BUILD = '2026-10-22T15:30:00Z-v28fb';
 const CACHE_NAME = 'foc2026-' + BUILD;
 
 const CORE_FILES_TO_CACHE = [
@@ -16,6 +16,12 @@ const CORE_FILES_TO_CACHE = [
   './speaker.html',
   './history.html',
   './errors.html',
+  './podium.html',
+  './planning.html',
+  './superviseur.html',
+  './bg-live.jpg',
+  './firebase-app-compat.js',
+  './firebase-database-compat.js',
   './manifest.json',
   './icon-192.png',
   './icon-512.png'

@@ -50,10 +50,10 @@
 <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="preload" as="script" href="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js">
-<link rel="preload" as="script" href="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js">
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<link rel="preload" as="script" href="./firebase-app-compat.js">
+<link rel="preload" as="script" href="./firebase-database-compat.js">
+<script src="./firebase-app-compat.js"></script>
+<script src="./firebase-database-compat.js"></script>
 <script>
 /* ── LOGGING FIREBASE (errors → system/errors) ──────────────────────────
    Capture les erreurs JS, promises non-catchées, et expose logError()
@@ -233,7 +233,9 @@ body{
 .j-hdr-r1{display:flex;align-items:center;gap:8px;margin-bottom:5px}
 .j-heat-lbl{font-family:var(--fc);font-size:10px;font-weight:800;letter-spacing:2px;color:var(--ember);text-transform:uppercase;flex-shrink:0}
 .j-team{font-family:var(--fc);font-size:clamp(17px,5.2vw,26px);font-weight:900;color:var(--ink);flex:1;min-width:0;line-height:1.15;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;word-break:break-word;hyphens:auto}
-.j-lane{font-family:var(--fc);font-size:9px;font-weight:800;padding:3px 8px;border-radius:5px;background:rgba(255,255,255,.07);color:var(--ink2);border:1px solid var(--brd);flex-shrink:0}
+/* ★ LISIBILITÉ : le n° de ligne est l'info "ne te trompe pas d'athlète" — avant 9px gris terne.
+   Désormais gros, fond vif (vert acidulé = couleur forte de l'appli), texte foncé = lisible plein soleil. */
+.j-lane{font-family:var(--fc);font-size:clamp(15px,4.6vw,22px);font-weight:900;line-height:1;padding:5px 12px;border-radius:8px;background:#C6FF4A;color:#14263a;border:1px solid rgba(0,0,0,.15);box-shadow:0 2px 10px rgba(198,255,74,.35);flex-shrink:0;letter-spacing:.5px}
 .j-hdr-r2{display:flex;align-items:center;gap:8px}
 .j-wod-lbl{font-family:var(--fc);font-size:11px;font-weight:600;color:var(--ink2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .j-fmt{font-family:var(--fc);font-size:8px;font-weight:800;padding:2px 7px;border-radius:4px;background:rgba(255,87,34,.1);color:var(--fire);border:1px solid rgba(255,87,34,.2);text-transform:uppercase;flex-shrink:0}
@@ -306,7 +308,10 @@ body{
 .btn-tb{flex:1;padding:20px 6px;border:1px solid rgba(255,209,102,.22);border-radius:14px;background:rgba(255,209,102,.06);color:var(--gold);font-family:var(--ff);font-size:13px;cursor:pointer;touch-action:manipulation;line-height:1.2}
 .btn-tb:active{transform:scale(.95)}
 .btn-tb.done{background:rgba(0,229,160,.1);color:var(--ok);border-color:rgba(0,229,160,.28)}
-.btn-validate{width:calc(100% - 24px);margin:8px 12px 0;padding:15px;border:none;border-radius:14px;background:linear-gradient(135deg,#1e344e,var(--ok));color:#14263a;font-family:var(--ff);font-size:20px;letter-spacing:3px;cursor:pointer;touch-action:manipulation;font-weight:900;box-shadow:0 4px 18px rgba(0,229,160,.18)}
+/* ★ SÉCURITÉ FAUX CLIC : le bouton Valider était collé (margin bas 0) au-dessus de la zone
+   de comptage cliquable → risque de valider par erreur en visant une rep. On ajoute un vrai
+   espace sous le bouton pour séparer nettement "valider" de "compter". */
+.btn-validate{width:calc(100% - 24px);margin:8px 12px 14px;padding:15px;border:none;border-radius:14px;background:linear-gradient(135deg,#1e344e,var(--ok));color:#14263a;font-family:var(--ff);font-size:20px;letter-spacing:3px;cursor:pointer;touch-action:manipulation;font-weight:900;box-shadow:0 4px 18px rgba(0,229,160,.18)}
 @keyframes valPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.03)}}
 .is-disabled{opacity:.38 !important;filter:grayscale(.18);cursor:not-allowed !important;box-shadow:none !important}
 .j-counter.is-disabled{pointer-events:none;opacity:.45;filter:saturate(.7)}
@@ -1693,11 +1698,7 @@ function startJudgePostHeatWindow(){
   return true;
 }
 function refreshJudgeLockUI_unused_removed(){}
-function guardScoreEdit(msg){
-  if(canEditScoreNow()) return true;
-  toast(msg||'Saisie bloquée hors chrono live');
-  return false;
-}
+/* (guardScoreEdit : définition en double retirée — la version plus bas, identique, fait foi.) */
 function judgeStartMinuteFromHeat(h){
   if(!h) return null;
   // Priorité 1 : estimatedStartMin calculé par TK — précis au heat près
@@ -6165,7 +6166,36 @@ function playGoSound(){
 }
 
 /* Pousser score live vers Firebase (avec fallback queue offline) */
+// ★★ THROTTLE BANDE PASSANTE (fix crash saturation) ──────────────────────────
+//   AVANT : chaque tap de rep/no-rep appelait pushScoreLive() → 2 écritures Firebase
+//   immédiates (scores/ + heats/scores/), chacune re-diffusée à TOUS les spectateurs
+//   (50-150) via child_changed. Sur un AMRAP à fort volume ×12 lignes = flux massif.
+//   APRÈS : on garde la 1re écriture immédiate (réactivité), puis on COALESCE les taps
+//   suivants en 1 seule écriture toutes les ~700 ms, qui envoie TOUJOURS le dernier état.
+//   Aucune perte : un "tick" live intermédiaire n'a pas de valeur, seul le dernier compte.
+//   Les VALIDATIONS (pushScoreFinal, priorité 90) ne passent pas par ici → jamais throttlées.
+var _pslTimer=null, _pslLast=0, _PSL_MIN_MS=700;
 function pushScoreLive(){
+  // Les écritures "live" sont throttlées ; un flush immédiat reste possible via flushScoreLive().
+  var now=Date.now();
+  var since=now-_pslLast;
+  if(since>=_PSL_MIN_MS){
+    _pslLast=now;
+    _pushScoreLiveNow();
+  } else if(!_pslTimer){
+    _pslTimer=setTimeout(function(){
+      _pslTimer=null; _pslLast=Date.now();
+      _pushScoreLiveNow(); // recalcule l'état au moment du flush → dernier score garanti
+    }, _PSL_MIN_MS-since);
+  }
+}
+// Forcer l'envoi immédiat du dernier état (ex. avant une validation ou un changement d'écran).
+function flushScoreLive(){
+  if(_pslTimer){ clearTimeout(_pslTimer); _pslTimer=null; }
+  _pslLast=Date.now();
+  _pushScoreLiveNow();
+}
+function _pushScoreLiveNow(){
   if(!db||!FB_HEAT_ID||!FB_LANE||!REAL_MODE) return;
   if(HEAT_STATUS!=='live') return;
   // ★ FIX BUG FORTIME : si le juge a déjà validé localement (done=true),
@@ -6253,6 +6283,9 @@ function pushScoreLive(){
 /* Pousser score final validé — priorité maximale + blocage navigation 1.2s */
 function pushScoreFinal(scorePayload){
   if(!db||!FB_HEAT_ID||!FB_LANE) return;
+  // ★ Annuler tout "tick" live en attente : la validation (priorité 90) prime et ne doit
+  //   pas être suivie d'un push live retardataire (de toute façon la transaction le refuserait).
+  if(typeof _pslTimer!=='undefined' && _pslTimer){ clearTimeout(_pslTimer); _pslTimer=null; }
   // ★ FIX AMRAP STEPH (score qui ne remonte pas) : le juge saisit les cals PENDANT
   //   l'interheat. À ce moment le heat courant est fini et le TK a souvent déjà passé le
   //   heat suivant en 'pre' → HEAT_STATUS n'est plus 'live'/'timecap', et done=true ferme

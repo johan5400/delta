@@ -139,8 +139,8 @@ body{min-height:100vh;overflow-x:hidden}
   </div>
   <div class="last-update" id="lastUpdate"></div>
 </div>
-<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+<script src="./firebase-app-compat.js"></script>
+<script src="./firebase-database-compat.js"></script>
 <script>
 var FIREBASE_DB_URL='https://foc-2026-default-rtdb.europe-west1.firebasedatabase.app';
 if(!firebase.apps.length) firebase.initializeApp({databaseURL:FIREBASE_DB_URL});

@@ -10,8 +10,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <title>FOC 2026 · Classement</title>
 <script>var FIREBASE_DB_URL='https://foc-2026-default-rtdb.europe-west1.firebasedatabase.app';</script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="./firebase-app-compat.js"></script>
+<script src="./firebase-database-compat.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700;900&family=Barlow:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700;900&display=swap');
@@ -28,6 +28,13 @@
   --ok-bg:rgba(0,229,160,.08);--ok-brd:rgba(0,229,160,.2);
   --err-bg:rgba(255,59,92,.08);--err-brd:rgba(255,59,92,.2);
   --ff:'Bebas Neue',sans-serif;--fb:'Plus Jakarta Sans',sans-serif;--fm:'JetBrains Mono',monospace;
+  /* ★ FIX COULEURS : variables utilisées dans le CSS mais jamais définies → les scores,
+     pastilles et dégradés s'affichaient sans couleur de marque. On les mappe sur la palette. */
+  --accent:#FF5722;--accent2:#FF8A00;
+  --panel:#223955;--panel2:#253e5c;
+  --muted:#7FB8E0;--muted2:#4A7099;
+  --line2:rgba(255,255,255,.17);
+  --fc:'Bebas Neue',sans-serif;
 }
 html,body{min-height:100%;background:var(--bg);color:var(--ink);font-family:var(--fb)}
 body{display:flex;flex-direction:column}
