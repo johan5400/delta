@@ -12312,9 +12312,9 @@ function jpResetAllMoves(){
   });
   document.addEventListener('dragover', function(e){
     var td=e.target.closest && e.target.closest('td.jp-cell'); if(!td||!jpDrag||td.dataset.ctype!=='heat') return;
-    // ne surligner que les cases du MÊME heat (où le dépôt est permis)
-    var dstGn=parseInt(td.dataset.gn,10)||0;
-    if(dstGn && jpDrag.gn && dstGn!==jpDrag.gn){ try{ e.dataTransfer.dropEffect='none'; }catch(_){}; return; }
+    // ★ On autorise le dépôt sur N'IMPORTE QUELLE case d'un AUTRE juge (on identifie le juge
+    //   cible par sa colonne). L'échange se fait toujours sur le heat de la case prise.
+    if(td.dataset.jid && String(td.dataset.jid)===String(jpDrag.srcJid)){ try{ e.dataTransfer.dropEffect='none'; }catch(_){}; return; }
     e.preventDefault(); try{ e.dataTransfer.dropEffect='move'; }catch(_){}
     td.classList.add('jp-over');
   });
@@ -12324,14 +12324,9 @@ function jpResetAllMoves(){
   document.addEventListener('drop', function(e){
     var td=e.target.closest && e.target.closest('td.jp-cell'); if(!td||!jpDrag||td.dataset.ctype!=='heat') return;
     e.preventDefault(); td.classList.remove('jp-over');
-    // ★ SIMPLIFICATION + ANTI-TROU : on ne peut échanger QUE dans le MÊME heat (même rangée).
-    //   Déposer sur un autre heat n'a pas de sens (le juge cible n'y est peut-être pas) et
-    //   pouvait créer des affectations incohérentes. On refuse clairement au lieu de bricoler.
-    var dstGn=parseInt(td.dataset.gn,10)||0;
-    if(dstGn && jpDrag.gn && dstGn!==jpDrag.gn){
-      toast('↔️ Dépose sur la MÊME ligne de heat (même rangée) pour échanger les juges','#E65100',2600);
-      jpDrag=null; return;
-    }
+    // ★ On identifie le juge CIBLE par sa colonne (son data-jid), peu importe la rangée visée.
+    //   L'échange s'applique sur le heat de la case qu'on a PRISE (jpDrag.gn / jpDrag.ligne).
+    //   Plus besoin de viser pile la bonne rangée → geste beaucoup plus naturel.
     var tj={ id:td.dataset.jid, prenom:td.dataset.jprenom||'', nom:td.dataset.jnom||'' };
     console.log('[jp-drag] DROP sur juge='+tj.prenom+'('+tj.id+') → heat='+jpDrag.gn+' ligne='+jpDrag.ligne);
     if(tj.id && jpDrag.gn>0 && jpDrag.ligne>0){
@@ -15357,12 +15352,12 @@ function toggleDarkMode(){
       if(!document.body){ setTimeout(add,150); return; }
       if(document.getElementById('__delta_build_tag')) return;
       var b=document.createElement('div'); b.id='__delta_build_tag';
-      b.textContent='build v28';
+      b.textContent='build v29';
       b.style.cssText='position:fixed;bottom:4px;left:4px;z-index:2147483647;background:rgba(220,38,38,.92);color:#fff;font:700 10px/1 system-ui,-apple-system,sans-serif;padding:3px 7px;border-radius:6px;pointer-events:none;letter-spacing:.5px;box-shadow:0 2px 8px rgba(0,0,0,.3)';
       document.body.appendChild(b);
     }
     add();
-    try{ console.log('%cDELTA — build v28 chargé ('+new Date().toISOString()+')','background:#DC2626;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold'); }catch(e){}
+    try{ console.log('%cDELTA — build v29 chargé ('+new Date().toISOString()+')','background:#DC2626;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold'); }catch(e){}
   }catch(e){}
 })();
 
