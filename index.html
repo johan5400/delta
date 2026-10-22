@@ -1432,6 +1432,8 @@ function checkPassword(){
       <button id="judge-plan-btn-j1" onclick="setJudgePlanningDay(1)" style="padding:6px 16px;border:none;cursor:pointer;font-size:11px;font-weight:800;background:#F1F5F9;color:#3A5270">📅 Jour 1</button>
       <button id="judge-plan-btn-j2" onclick="setJudgePlanningDay(2)" style="padding:6px 16px;border:none;cursor:pointer;font-size:11px;font-weight:800;background:#F1F5F9;color:#3A5270">📅 Jour 2</button>
     </div>
+    <button id="jp-undo-btn" onclick="jpUndoLastMove()" title="Annuler le dernier déplacement de juge" style="display:none;font-size:11px;font-weight:800;padding:6px 12px;border-radius:8px;border:1.5px solid #FDBA74;background:#FFF7ED;color:#C2410C;cursor:pointer">↩ Annuler</button>
+    <button id="jp-reset-btn" onclick="jpResetAllMoves()" title="Remettre tous les juges comme l'algorithme les a générés" style="display:none;font-size:11px;font-weight:800;padding:6px 12px;border-radius:8px;border:1.5px solid #93C5FD;background:#EFF6FF;color:#1D4ED8;cursor:pointer">🤖 Tout en auto</button>
     <input id="judge-plan-search" placeholder="🔍 Rechercher un juge..." oninput="updateJudgePlanningSearch(this.value)"
       style="flex:1;min-width:220px;background:#fff;border:1.5px solid var(--brd2);border-radius:8px;padding:8px 12px;font-size:12px;outline:none;font-family:inherit;color:var(--ink)">
     <button class="btn btn-blue" onclick="renderJudgePlanningTab()" style="font-size:11px">🔄</button>
@@ -12169,8 +12171,12 @@ function clearJudgeOverride(gn,l){
 }
 function clearAllJudgeOverrides(){
   if(!confirm('Retirer TOUS les verrous manuels et revenir à l\'affectation automatique ?')) return;
+  clearAllJudgeOverridesNoConfirm();
+}
+function clearAllJudgeOverridesNoConfirm(){
   var db=_ovDb(); if(!db) return; window._JUDGE_OVERRIDES={};
-  db.ref('judgeOverrides').remove().then(_afterJudgeOverrideChange).catch(function(){});
+  try{ window._JP_UNDO_STACK=[]; }catch(e){}
+  db.ref('judgeOverrides').remove().then(function(){ _afterJudgeOverrideChange(); try{_jpUpdateUndoButtons();}catch(e){} }).catch(function(){});
   toast('🔓 Tous les verrous retirés — retour à l\'auto','#2D9CFF',2500);
 }
 function _afterJudgeOverrideChange(){
@@ -12196,27 +12202,89 @@ function _jpJudgeLigneAtHeat(gn, jid){
   }catch(e){}
   return 0;
 }
-// Applique la réaffectation AVEC échange : si le juge cible tenait déjà une ligne à ce
-// heat, le juge d'origine y est placé → aucune équipe ne se retrouve sans juge.
+// ★★ HISTORIQUE des déplacements (pour ↩ Annuler). Chaque entrée = l'état AVANT le geste,
+//    pour les seules clés touchées → on peut revenir exactement en arrière, étape par étape.
+window._JP_UNDO_STACK = window._JP_UNDO_STACK || [];
+function _jpSnapshotKeys(keys){
+  var snap={};
+  keys.forEach(function(k){ snap[k] = (window._JUDGE_OVERRIDES && window._JUDGE_OVERRIDES[k]) ? JSON.parse(JSON.stringify(window._JUDGE_OVERRIDES[k])) : null; });
+  return snap;
+}
+function _jpUpdateUndoButtons(){
+  try{
+    var u=document.getElementById('jp-undo-btn'), r=document.getElementById('jp-reset-btn');
+    var nMoves=window._JUDGE_OVERRIDES?Object.keys(window._JUDGE_OVERRIDES).length:0;
+    if(u) u.style.display=(window._JP_UNDO_STACK&&window._JP_UNDO_STACK.length)?'inline-block':'none';
+    if(r) r.style.display=(nMoves>0)?'inline-block':'none';
+  }catch(e){}
+}
+
+// ★ SÉQUENCE SIMPLIFIÉE — un glissé = un ÉCHANGE qui ne laisse JAMAIS une ligne sans juge.
+//   • Juge A (sa ligne Lsrc) déposé sur juge B :
+//     - B tient déjà une ligne Ldst sur ce heat → A et B échangent leurs lignes (A→Ldst, B→Lsrc).
+//     - B ne juge pas ce heat (pause) → B prend Lsrc ; la ligne de A est reprise, A passe en renfort.
+//   Dans les deux cas, toute ligne occupée garde un juge. Le geste est enregistré pour ↩ Annuler.
 function _jpApplySwap(gn, Lsrc, dstJudge, srcJudge){
   var db=_ovDb(); if(!db){ toast('Firebase indisponible','#EF5350'); return; }
   if(!dstJudge || !dstJudge.id) return;
   if(srcJudge && String(dstJudge.id)===String(srcJudge.id)){ return; } // déposé sur lui-même
   var Ldst=_jpJudgeLigneAtHeat(gn, dstJudge.id);
-  var updates={};
+
+  // clés concernées par le geste (pour l'historique + l'écriture)
   var kA=_ovKey(gn,Lsrc);
+  var kB=(Ldst>0 && Ldst!==Lsrc) ? _ovKey(gn,Ldst) : null;
+  var touchedKeys=[kA]; if(kB) touchedKeys.push(kB);
+
+  // 1) mémoriser l'état AVANT (pour pouvoir annuler exactement ce geste)
+  window._JP_UNDO_STACK.push({ gn:gn, keys:touchedKeys, before:_jpSnapshotKeys(touchedKeys),
+                               label:(dstJudge.prenom||'Juge')+' → L'+Lsrc });
+  if(window._JP_UNDO_STACK.length>50) window._JP_UNDO_STACK.shift(); // borne mémoire
+
+  // 2) appliquer l'échange
+  var updates={};
   updates[kA]={id:String(dstJudge.id),prenom:dstJudge.prenom||'',nom:dstJudge.nom||''};
   window._JUDGE_OVERRIDES[kA]=updates[kA];
   var swapped=false;
-  if(Ldst>0 && Ldst!==Lsrc && srcJudge && srcJudge.id){
-    var kB=_ovKey(gn,Ldst);
+  if(kB && srcJudge && srcJudge.id){
     updates[kB]={id:String(srcJudge.id),prenom:srcJudge.prenom||'',nom:srcJudge.nom||''};
     window._JUDGE_OVERRIDES[kB]=updates[kB];
     swapped=true;
   }
-  db.ref('judgeOverrides').update(updates).then(_afterJudgeOverrideChange).catch(function(){ toast('Échec écriture','#EF5350'); });
-  toast(swapped ? ('🔁 Échange : '+(dstJudge.prenom||'?')+' ⇄ '+(srcJudge.prenom||'?')+' (ligne '+Lsrc+' / '+Ldst+')')
+  db.ref('judgeOverrides').update(updates).then(function(){ _afterJudgeOverrideChange(); _jpUpdateUndoButtons(); })
+    .catch(function(){ toast('Échec écriture','#EF5350'); });
+  toast(swapped ? ('🔁 Échange : '+(dstJudge.prenom||'?')+' ⇄ '+(srcJudge.prenom||'?')+' (L'+Lsrc+' / L'+Ldst+')')
                : ('✅ '+(dstJudge.prenom||'Juge')+' → ligne '+Lsrc), '#22C55E', 2400);
+}
+
+// ↩ ANNULER le dernier déplacement : restaure uniquement les clés de ce geste.
+function jpUndoLastMove(){
+  var db=_ovDb(); if(!db){ toast('Firebase indisponible','#EF5350'); return; }
+  var stack=window._JP_UNDO_STACK||[];
+  if(!stack.length){ toast('Rien à annuler','#64748B',1500); return; }
+  var last=stack.pop();
+  var updates={};
+  (last.keys||[]).forEach(function(k){
+    var prev=last.before ? last.before[k] : null;
+    if(prev){ updates[k]=prev; window._JUDGE_OVERRIDES[k]=prev; }       // remettre l'ancienne valeur
+    else { updates[k]=null;  delete window._JUDGE_OVERRIDES[k]; }       // il n'y avait rien → effacer (retour auto)
+  });
+  db.ref('judgeOverrides').update(updates).then(function(){ _afterJudgeOverrideChange(); _jpUpdateUndoButtons(); })
+    .catch(function(){ toast('Échec écriture','#EF5350'); });
+  toast('↩ Déplacement annulé','#2D9CFF',1800);
+}
+
+// 🤖 TOUT EN AUTO : efface tous les déplacements manuels, vide l'historique.
+function jpResetAllMoves(){
+  if(!confirm('Remettre TOUS les juges comme l\'algorithme les a générés ?\n(tes déplacements manuels seront effacés)')) return;
+  window._JP_UNDO_STACK=[];
+  if(typeof clearAllJudgeOverridesNoConfirm==='function') clearAllJudgeOverridesNoConfirm();
+  else { // repli : vider directement
+    var db=_ovDb(); if(!db){ toast('Firebase indisponible','#EF5350'); return; }
+    window._JUDGE_OVERRIDES={};
+    db.ref('judgeOverrides').remove().then(function(){ _afterJudgeOverrideChange(); _jpUpdateUndoButtons(); }).catch(function(){});
+  }
+  _jpUpdateUndoButtons();
+  toast('🤖 Retour à l\'affectation générée','#2D9CFF',2200);
 }
 (function _bindJpDrag(){
   if(window._jpDragBound) return; window._jpDragBound=true;
@@ -12241,6 +12309,9 @@ function _jpApplySwap(gn, Lsrc, dstJudge, srcJudge){
   });
   document.addEventListener('dragover', function(e){
     var td=e.target.closest && e.target.closest('td.jp-cell'); if(!td||!jpDrag||td.dataset.ctype!=='heat') return;
+    // ne surligner que les cases du MÊME heat (où le dépôt est permis)
+    var dstGn=parseInt(td.dataset.gn,10)||0;
+    if(dstGn && jpDrag.gn && dstGn!==jpDrag.gn){ try{ e.dataTransfer.dropEffect='none'; }catch(_){}; return; }
     e.preventDefault(); try{ e.dataTransfer.dropEffect='move'; }catch(_){}
     td.classList.add('jp-over');
   });
@@ -12250,6 +12321,14 @@ function _jpApplySwap(gn, Lsrc, dstJudge, srcJudge){
   document.addEventListener('drop', function(e){
     var td=e.target.closest && e.target.closest('td.jp-cell'); if(!td||!jpDrag||td.dataset.ctype!=='heat') return;
     e.preventDefault(); td.classList.remove('jp-over');
+    // ★ SIMPLIFICATION + ANTI-TROU : on ne peut échanger QUE dans le MÊME heat (même rangée).
+    //   Déposer sur un autre heat n'a pas de sens (le juge cible n'y est peut-être pas) et
+    //   pouvait créer des affectations incohérentes. On refuse clairement au lieu de bricoler.
+    var dstGn=parseInt(td.dataset.gn,10)||0;
+    if(dstGn && jpDrag.gn && dstGn!==jpDrag.gn){
+      toast('↔️ Dépose sur la MÊME ligne de heat (même rangée) pour échanger les juges','#E65100',2600);
+      jpDrag=null; return;
+    }
     var tj={ id:td.dataset.jid, prenom:td.dataset.jprenom||'', nom:td.dataset.jnom||'' };
     console.log('[jp-drag] DROP sur juge='+tj.prenom+'('+tj.id+') → heat='+jpDrag.gn+' ligne='+jpDrag.ligne);
     if(tj.id && jpDrag.gn>0 && jpDrag.ligne>0){
@@ -12271,6 +12350,20 @@ function _jpApplySwap(gn, Lsrc, dstJudge, srcJudge){
     }
     else { console.warn('[jp-drag] dépôt ignoré : donnée manquante (jid='+tj.id+' heat='+jpDrag.gn+' ligne='+jpDrag.ligne+')'); }
     jpDrag=null;
+  });
+  // ★ Double-clic sur une case déplacée manuellement (🔒) → remet CETTE ligne en auto.
+  document.addEventListener('dblclick', function(e){
+    var cell=e.target.closest && e.target.closest('.jp-drag.jp-manual'); if(!cell) return;
+    var td=cell.closest('td.jp-cell'); if(!td) return;
+    var gn=parseInt(td.dataset.gn,10)||0, ligne=parseInt(cell.dataset.ligne,10)||0;
+    if(!(gn>0)||!(ligne>0)) return;
+    e.preventDefault();
+    if(!confirm('Remettre la ligne '+ligne+' du Heat '+gn+' en automatique ?')) return;
+    // historiser pour ↩ Annuler puis retirer l'override de cette ligne
+    try{ var k=_ovKey(gn,ligne); window._JP_UNDO_STACK=window._JP_UNDO_STACK||[];
+      window._JP_UNDO_STACK.push({gn:gn,keys:[k],before:_jpSnapshotKeys([k]),label:'L'+ligne+' → auto'}); }catch(_){}
+    clearJudgeOverride(gn, ligne);
+    try{ _jpUpdateUndoButtons(); }catch(_){}
   });
 })();
 function toggleJudgeReassign(){ _judgeReassignOpen=!_judgeReassignOpen; renderJudgeReassignGrid(); }
@@ -15261,12 +15354,12 @@ function toggleDarkMode(){
       if(!document.body){ setTimeout(add,150); return; }
       if(document.getElementById('__delta_build_tag')) return;
       var b=document.createElement('div'); b.id='__delta_build_tag';
-      b.textContent='build v26';
+      b.textContent='build v27';
       b.style.cssText='position:fixed;bottom:4px;left:4px;z-index:2147483647;background:rgba(220,38,38,.92);color:#fff;font:700 10px/1 system-ui,-apple-system,sans-serif;padding:3px 7px;border-radius:6px;pointer-events:none;letter-spacing:.5px;box-shadow:0 2px 8px rgba(0,0,0,.3)';
       document.body.appendChild(b);
     }
     add();
-    try{ console.log('%cDELTA — build v26 chargé ('+new Date().toISOString()+')','background:#DC2626;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold'); }catch(e){}
+    try{ console.log('%cDELTA — build v27 chargé ('+new Date().toISOString()+')','background:#DC2626;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold'); }catch(e){}
   }catch(e){}
 })();
 
@@ -19094,6 +19187,7 @@ function renderJudgePlanningTab(){
       : '<div style="display:inline-flex;align-items:center;gap:8px;padding:7px 14px;border-radius:10px;background:#EEF2FF;color:#3730A3;font-size:12px;font-weight:800;border:1.5px solid #C7D2FE">🧑‍⚖️ MODE NORMAL — juges dédiés · <span style="opacity:.8;font-weight:600">pour la compét interne : onglet Configuration</span></div>';
   }
   syncJudgePlanningToolbar();
+  try{ if(typeof _jpUpdateUndoButtons==='function') _jpUpdateUndoButtons(); }catch(e){}
   if((!HEATS_RESULT || !HEATS_RESULT.length) && typeof generateHeatsSilent === 'function') generateHeatsSilent();
   if(!HEATS_RESULT || !HEATS_RESULT.length){
     if(info) info.textContent = '0 juge · 0 passage · 0 pause · 0 coupure';
