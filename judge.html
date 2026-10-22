@@ -641,6 +641,11 @@ setTimeout(h,6000);/* filet anti-blocage : le splash ne reste jamais coincé */}
       <button onclick="callTK()" id="btn-call-tk"
         style="display:none;margin-left:auto;background:rgba(77,166,255,.25);border:2.5px solid rgba(77,166,255,.7);color:var(--blue);border-radius:12px;padding:10px 18px;font-size:16px;font-weight:900;cursor:pointer;letter-spacing:.5px;flex-shrink:0;animation:tkFlash 1.8s ease infinite"
         title="Appeler le Timekeeper">📞 TK</button>
+      <!-- ★ FILET DE SÉCURITÉ amrapsteph : ouvrir la saisie du score (cals/distance bike) à la main
+           si l'ouverture auto a raté. Affiché seulement quand le temps est écoulé. -->
+      <button onclick="forceAmrapStephCal()" id="btn-force-score"
+        style="display:none;margin-left:auto;background:rgba(0,229,160,.2);border:2.5px solid var(--ok);color:var(--ok);border-radius:12px;padding:10px 18px;font-size:15px;font-weight:900;cursor:pointer;letter-spacing:.5px;flex-shrink:0"
+        title="Saisir le score du bike (fin de WOD)">📊 SAISIR SCORE</button>
     </div>
     <div class="j-hdr-r2">
       <span class="j-wod-lbl" id="j-wod">—</span>
@@ -814,6 +819,8 @@ setTimeout(h,6000);/* filet anti-blocage : le splash ne reste jamais coincé */}
   <div style="font-size:60px;line-height:1">🚴</div>
   <div id="amrapsteph-cal-title" style="font-family:var(--ff);font-size:26px;font-weight:900;letter-spacing:2px;color:#fff;text-align:center">CALORIES ECHO BIKE</div>
   <div id="amrapsteph-cal-desc" style="font-family:var(--fc);font-size:13px;color:var(--ink2);text-align:center;max-width:320px;line-height:1.6">Saisis le <b>total de calories</b> affiché sur l'echobike en fin de WOD, puis valide. Une seule valeur — c'est le score de l'équipe.</div>
+  <!-- ★ Alerte si le prochain heat du juge a DÉMARRÉ pendant qu'il saisit encore -->
+  <div id="amrapsteph-cal-warn" style="display:none;max-width:340px;padding:10px 14px;border-radius:12px;background:rgba(255,59,92,.15);border:1.5px solid rgba(255,59,92,.5);color:#FF3B5C;font-family:var(--fc);font-size:13px;font-weight:800;text-align:center;line-height:1.4">⚠️ Ton prochain heat a démarré — saisis ce score et valide vite, puis file sur ta ligne.</div>
   <input id="amrapsteph-cal-inp" type="number" min="0" inputmode="numeric" placeholder="ex : 84"
     onkeydown="if(event.key==='Enter') amrapStephSubmitCal()"
     style="width:100%;max-width:340px;padding:18px;border-radius:14px;border:1px solid rgba(159,107,255,.4);background:rgba(159,107,255,.08);color:var(--ink);font-family:var(--fm);font-size:38px;font-weight:800;outline:none;text-align:center">
@@ -1544,7 +1551,17 @@ function clearJudgePostHeatWindow(){
   _judgePostHeatEditUntilTs=0;
 }
 function judgeIsPostHeatEntryOpen(){
-  return !done && _judgePostHeatEditUntilTs>serverNow();
+  if(done) return false;
+  // ★ amrapsteph : tant que le SCORE du bike n'est pas saisi, la fenêtre de saisie
+  //   reste ouverte INDÉFINIMENT (pas de minuteur qui coupe). Le juge a besoin d'aller
+  //   lire la machine — on ne le met jamais hors délai avant qu'il ait validé.
+  var _isSteph = String((SC&&SC.fmt)||'').toLowerCase()==='amrapsteph';
+  if(_isSteph && !_amrapStephCalDone && !_scoreValidated){
+    var capSec=parseInt((SC&&SC.cap)||0,10)||0;
+    var tempsEcoule = capSec>0 && (elapsed>=capSec);
+    if(tempsEcoule || HEAT_STATUS==='timecap' || HEAT_STATUS==='done') return true;
+  }
+  return _judgePostHeatEditUntilTs>serverNow();
 }
 function clearJudgeDoneGuidanceLock(){
   clearInterval(_judgeDoneGuidanceIv);
@@ -1616,7 +1633,22 @@ function startJudgePostHeatWindow(){
     //   reps du buzzer étaient perdus. Maintenant : 20s de grâce pendant lesquelles le
     //   compteur reste ACTIF (canEditScoreNow inclut judgeIsPostHeatEntryOpen()), le juge
     //   rattrape les derniers reps, puis validation auto. Il peut aussi valider avant.
-    var POSTHEAT_REPS_MS = 20000; // 20s pour rattraper les derniers reps
+    // ★ amrapsteph : il faut aller LIRE les cals/distance sur l'echobike → 20s trop court.
+    //   On laisse une fenêtre bien plus large (2 min) pour ce format. (Un bouton de secours
+    //   "📊 SAISIR SCORE" reste dispo même après, pour ne jamais rester bloqué.)
+    var _isSteph = String((SC&&SC.fmt)||'').toLowerCase()==='amrapsteph';
+    if(_isSteph){
+      // ★ amrapsteph : la fenêtre de saisie reste ouverte TANT QUE le score n'est pas saisi.
+      //   Pas de minuteur qui coupe (judgeIsPostHeatEntryOpen() garde ouvert pour ce format).
+      //   On ouvre directement l'écran de saisie des cals/distance du bike.
+      _judgePostHeatEditUntilTs = Date.now() + 3600000; // très long = de fait "jusqu'à saisie"
+      refreshJudgeLockUI();
+      toast('⏱ Fin du WOD — va lire le total du bike puis valide', '#FFB020');
+      vib([100,60,100]);
+      try{ forceAmrapStephCal(); }catch(e){ console.warn('ouverture saisie cals:',e); }
+      return true;
+    }
+    var POSTHEAT_REPS_MS = 20000;
     _judgePostHeatEditUntilTs = Date.now() + POSTHEAT_REPS_MS;
     refreshJudgeLockUI();
     toast('⏱ 20s pour rattraper les derniers reps — puis validation auto', '#FFB020');
@@ -2563,6 +2595,7 @@ function judgeShouldRequireRescan(){
    tard, etc.) sans toucher au flux normal quand il marche. */
 setInterval(function(){
   try{
+    try{ _refreshForceScoreBtn(); }catch(e){} // ★ garde le rappel "score à saisir" à jour sur TOUS les écrans
     if(!db || !FB_HEAT_ID) return;
     if(done) return;
     // ★ FIX FORTIME : si le juge a déjà VALIDÉ son score, ne JAMAIS rouvrir la saisie,
@@ -2571,7 +2604,12 @@ setInterval(function(){
     if(_scoreValidated) return;
     if(_currentScreen==='s-judge' || _currentScreen==='s-cd') return;
     if(_currentScreen==='s-next' || _currentScreen==='s-done') return;
-    if(_currentScreen==='s-amrapsteph-cal') return; // ★ FIX FLASH : ne pas rouvrir s-judge pendant la saisie des cals de fin
+    if(_currentScreen==='s-amrapsteph-cal'){
+      // ★ Le juge saisit encore le score du heat précédent, mais son heat suivant tourne déjà :
+      //   on NE le vire PAS (le score doit être saisi), on l'ALERTE pour qu'il se dépêche.
+      try{ var _w=$('amrapsteph-cal-warn'); if(_w){ _w.style.display='block'; } vib([80,50,80]); }catch(e){}
+      return;
+    }
     if(HEAT_STATUS!=='live' && HEAT_STATUS!=='timecap') return;
     // À ce stade : heat actuel est live, juge pas en train de saisir, pas validé.
     // Vérifier en plus côté Firebase pour éviter une fausse alerte sur un cache stale.
@@ -2672,6 +2710,7 @@ function refreshJudgeLockUI(){
   if(tkBtn) tkBtn.style.display=showBtns?'inline-flex':'none';
   var ergoBtn=document.querySelector('#j-ergo-zone button');
   if(ergoBtn) setCtlDisabled(ergoBtn, !finalOpen);
+  try{ _refreshForceScoreBtn(); }catch(e){} // ★ bouton de secours SCORE (amrapsteph)
 }
 function guardScoreEdit(msg){
   if(canEditScoreNow()) return true;
@@ -3186,6 +3225,7 @@ function startJudge(){
       startTs=HEAT_START_TS;
     }
     elapsed=Math.max(0,Math.floor((serverNow()-startTs)/1000));
+    try{ _refreshForceScoreBtn(); }catch(e){} // ★ montre le bouton de secours SCORE dès le temps écoulé
     var isAmrap=(fmt==='amrap'||fmt==='amrapsteph'), isEmomT=(fmt==='emom'||fmt==='interval');
     if(isEmomT){
       updateEmomPhase(elapsed);
@@ -4709,6 +4749,56 @@ function amrapStephSubmitCal(){
   // done doit être vrai pour que validate() finalise sans re-bloquer sur le garde-fou temps.
   done=true;
   try{ validate(); }catch(e){ console.warn('amrapsteph submit → validate:',e); }
+}
+
+/* ★★ FILET DE SÉCURITÉ (bug "l'écran de saisie ne s'est pas ouvert") :
+   Ouvre DIRECTEMENT l'écran de saisie des cals/distance du bike, sans dépendre des
+   automatismes (fenêtre post-heat, flags). Utilisable dès que le temps est écoulé.
+   Rien n'est perdu : la valeur saisie finalise le score via amrapStephSubmitCal(). */
+function forceAmrapStephCal(){
+  if(String((SC&&SC.fmt)||'').toLowerCase()!=='amrapsteph'){ toast('Disponible seulement sur ce type de WOD'); return; }
+  // couper les boucles qui volent le focus
+  try{ clearInterval(timerIv); }catch(e){}
+  try{ clearInterval(tbIv); }catch(e){}
+  try{ clearInterval(_scoreIv); }catch(e){}
+  try{ if(typeof dismissTB==='function') dismissTB(); }catch(e){}
+  try{ var _ov=document.getElementById('j-end-overlay'); if(_ov) _ov.style.display='none'; }catch(e){}
+  // préparer le libellé (cal vs mètres) — même logique que l'ouverture auto
+  try{
+    var _ci=$('amrapsteph-cal-inp'); if(_ci){ _ci.value=''; }
+    var _wr=$('amrapsteph-cal-warn'); if(_wr){ _wr.style.display='none'; } // repartir sans alerte
+    var _bk=(SC&&SC.moves)?SC.moves.filter(function(mm){return mm&&mm.ergoFree;})[0]:null;
+    var _u=String((_bk&&_bk.ergoUnit)||(SC&&(SC.scoreFinale||SC.judgeMode))||'').toLowerCase();
+    var _isCal=(_u==='cal');
+    var _t=$('amrapsteph-cal-title'), _d=$('amrapsteph-cal-desc'), _uL=$('amrapsteph-cal-unit');
+    if(_isCal){
+      if(_t) _t.textContent='CALORIES ECHO BIKE';
+      if(_d) _d.innerHTML='Saisis le <b>total de calories</b> affiché sur l\'echobike en fin de WOD, puis valide. Une seule valeur.';
+      if(_uL) _uL.textContent='CALORIES'; if(_ci) _ci.placeholder='ex : 84';
+    } else {
+      if(_t) _t.textContent='DISTANCE ECHO BIKE';
+      if(_d) _d.innerHTML='Saisis la <b>distance en mètres</b> affichée sur l\'echobike en fin de WOD, puis valide. Une seule valeur.';
+      if(_uL) _uL.textContent='MÈTRES'; if(_ci) _ci.placeholder='ex : 520';
+    }
+    show('s-amrapsteph-cal');
+    setTimeout(function(){ try{ _ci&&_ci.focus(); }catch(e){} }, 120);
+  }catch(e){ console.warn('forceAmrapStephCal:',e); }
+}
+// Affiche/masque le bouton de secours "SAISIR SCORE" + le rappel permanent en haut,
+// selon l'état (temps écoulé + score amrapsteph non saisi).
+function _refreshForceScoreBtn(){
+  try{
+    var isSteph=String((SC&&SC.fmt)||'').toLowerCase()==='amrapsteph';
+    var capSec=parseInt((SC&&SC.cap)||0,10)||0;
+    var tempsEcoule = capSec>0 && (elapsed>=capSec);
+    var heatFini = (HEAT_STATUS==='timecap' || HEAT_STATUS==='done');
+    var dispo = isSteph && !_amrapStephCalDone && !_scoreValidated && (tempsEcoule || heatFini || judgeIsPostHeatEntryOpen());
+    var b=$('btn-force-score');
+    if(b){
+      b.style.display = dispo ? 'inline-block' : 'none';
+      if(dispo){ var tk=$('btn-call-tk'); if(tk) tk.style.marginLeft='8px'; }
+    }
+  }catch(e){}
 }
 
 /* ★ Bandeau du haut de l'écran récap : prochain passage DU JUGE, libellé
