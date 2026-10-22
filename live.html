@@ -4019,23 +4019,29 @@ setInterval(scheduleRender,5000);
   };
   (function(){
     var st=document.createElement('style'); st.textContent='@keyframes netblink{50%{opacity:.4}}'; document.head.appendChild(st);
-    var feu=document.createElement('div'); feu.id='netFeu'; feu.title='Réseau — clique pour le débit';
-    feu.style.cssText='position:fixed;left:10px;bottom:10px;z-index:9500;width:13px;height:13px;border-radius:50%;background:#06d6a0;box-shadow:0 0 8px rgba(6,214,160,.7);opacity:.5;transition:background .4s,box-shadow .4s,opacity .3s;cursor:pointer';
+    // ★ PLUS VISIBLE : pastille + label "RÉSEAU" et débit affichés en permanence (bas gauche).
+    //   Un seul conteneur cliquable pour agrandir/réduire le détail.
+    var box=document.createElement('div'); box.id='netFeuBox'; box.title='Santé réseau — vert sain · orange à surveiller · rouge risque';
+    box.style.cssText='position:fixed;left:12px;bottom:12px;z-index:9500;display:flex;align-items:center;gap:8px;background:rgba(7,10,18,.78);border:1px solid rgba(255,255,255,.12);border-radius:999px;padding:5px 11px 5px 7px;cursor:pointer;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);box-shadow:0 2px 10px rgba(0,0,0,.35)';
+    var feu=document.createElement('div'); feu.id='netFeu';
+    feu.style.cssText='width:18px;height:18px;border-radius:50%;background:#06d6a0;box-shadow:0 0 10px rgba(6,214,160,.75);transition:background .4s,box-shadow .4s;flex-shrink:0';
     var lbl=document.createElement('div'); lbl.id='netFeuLbl';
-    lbl.style.cssText='position:fixed;left:29px;bottom:7px;z-index:9500;font-family:monospace;font-size:11px;font-weight:700;color:#cfe0f0;background:rgba(7,10,18,.8);border-radius:7px;padding:2px 8px;display:none;pointer-events:none';
-    document.body.appendChild(feu); document.body.appendChild(lbl);
-    var shown=false; feu.onclick=function(){ shown=!shown; lbl.style.display=shown?'block':'none'; if(shown) render(); };
+    lbl.style.cssText='font-family:monospace;font-size:12px;font-weight:800;color:#e6eefc;letter-spacing:.3px;white-space:nowrap';
+    lbl.textContent='RÉSEAU';
+    box.appendChild(feu); box.appendChild(lbl); document.body.appendChild(box);
+    var detail=true; box.onclick=function(){ detail=!detail; render(); };
     function render(){
       var now=Date.now(), T=window._traf;
       T.win=T.win.filter(function(x){ return now-x[0]<5000; });
       var koPerSec=(T.win.reduce(function(a,x){return a+x[1];},0)/5)/1024;
-      var col,glow,op,blur;
-      if(koPerSec<25){ col='#06d6a0'; glow='rgba(6,214,160,.7)'; op=.5; blur=8; }
-      else if(koPerSec<100){ col='#FFB020'; glow='rgba(255,176,32,.8)'; op=.9; blur=13; }
-      else { col='#FF3B5C'; glow='rgba(255,59,92,.9)'; op=1; blur=16; }
-      feu.style.background=col; feu.style.boxShadow='0 0 '+blur+'px '+glow; feu.style.opacity=op;
+      var col,glow,blur,etat;
+      if(koPerSec<25){ col='#06d6a0'; glow='rgba(6,214,160,.75)'; blur=10; etat='OK'; }
+      else if(koPerSec<100){ col='#FFB020'; glow='rgba(255,176,32,.85)'; blur=14; etat='⚠'; }
+      else { col='#FF3B5C'; glow='rgba(255,59,92,.95)'; blur=18; etat='RISQUE'; }
+      feu.style.background=col; feu.style.boxShadow='0 0 '+blur+'px '+glow;
       feu.style.animation = koPerSec>=100 ? 'netblink 1s ease-in-out infinite' : 'none';
-      if(shown) lbl.textContent=koPerSec.toFixed(1)+' Ko/s';
+      // Label toujours visible : "RÉSEAU" + état, et le débit en plus si on a cliqué (detail).
+      lbl.textContent = detail ? ('RÉSEAU '+etat+' · '+koPerSec.toFixed(1)+' Ko/s') : ('RÉSEAU '+etat);
     }
     setInterval(render, 1000); render();
   })();
