@@ -7604,6 +7604,9 @@ function syncHeatsToFirebase(){
 
       await db.ref().update(updates);
 
+      // ★ Publier aussi le nœud léger lu par les spectateurs (QR classement) — bande passante.
+      try{ if(typeof publishClassementLite==='function') publishClassementLite(); }catch(e){}
+
       // judgeAssignments
       var jugeMap2 = (typeof buildJugeAssignment==='function') ? buildJugeAssignment() : {};
       var ja2={};
@@ -15258,12 +15261,12 @@ function toggleDarkMode(){
       if(!document.body){ setTimeout(add,150); return; }
       if(document.getElementById('__delta_build_tag')) return;
       var b=document.createElement('div'); b.id='__delta_build_tag';
-      b.textContent='build v25';
+      b.textContent='build v26';
       b.style.cssText='position:fixed;bottom:4px;left:4px;z-index:2147483647;background:rgba(220,38,38,.92);color:#fff;font:700 10px/1 system-ui,-apple-system,sans-serif;padding:3px 7px;border-radius:6px;pointer-events:none;letter-spacing:.5px;box-shadow:0 2px 8px rgba(0,0,0,.3)';
       document.body.appendChild(b);
     }
     add();
-    try{ console.log('%cDELTA — build v25 chargé ('+new Date().toISOString()+')','background:#DC2626;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold'); }catch(e){}
+    try{ console.log('%cDELTA — build v26 chargé ('+new Date().toISOString()+')','background:#DC2626;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold'); }catch(e){}
   }catch(e){}
 })();
 
@@ -20240,9 +20243,79 @@ function _classTrigger(lbl){
   //   quasi immédiatement (perceptiblement instantané).
   _classDeb=setTimeout(function(){
     renderClassementTK();
+    publishClassementLite(); // ★ met à jour le nœud léger lu par les spectateurs (QR)
     if(lbl) lbl.textContent='🔄 Mis à jour — '+new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
   },200);
 }
+
+// ★★ BANDE PASSANTE : nœud "classementLite" ──────────────────────────────────
+//   Problème : classement.html téléchargeait tout le nœud "heats" (~230 Ko/visiteur,
+//   dont 92% de wodInfo.mouvements + métadonnées de lanes INUTILES au classement).
+//   À 50-100 spectateurs qui scannent le QR (et rafraîchissent), ça saturait la
+//   bande passante Firebase et a pu contribuer au crash.
+//   Solution : l'admin publie une version RÉDUITE (~40 Ko) que les spectateurs lisent.
+//   Les apps live/juge/TK continuent de lire "heats" complet (timer, mouvements, etc.).
+//   Champs de wodInfo réellement utilisés par le calcul de classement :
+var _CLASSLITE_WOD_FIELDS = ['nom','name','type','scoreType','scoreFinale','scoreFinaleUnit',
+  'wodFormat','judgeMode','stephAddReps','pointsMultiplier','isFinal','workMin','duree',
+  'durationSec','capSeconds','capSec','capMinutes','hasTiebreak'];
+// Champs d'une lane utiles au classement (nom d'équipe + catégorie effective + invité) :
+var _CLASSLITE_LANE_FIELDS = ['teamName','teamId','scores','score',
+  'hostCatId','hostCatName','teamCatId','teamCatName','isGuest','catId','catName'];
+function _slimWodInfo(wi){
+  var o={}; wi=wi||{};
+  _CLASSLITE_WOD_FIELDS.forEach(function(k){ if(wi[k]!==undefined) o[k]=wi[k]; });
+  return o;
+}
+function _slimLane(lane){
+  if(!lane) return null;
+  var o={};
+  _CLASSLITE_LANE_FIELDS.forEach(function(k){ if(lane[k]!==undefined) o[k]=lane[k]; });
+  return o;
+}
+function _slimHeatForClass(h){
+  if(!h) return null;
+  var nh={
+    globalNum:h.globalNum, catName:h.catName, catNom:h.catNom, catZone:h.catZone,
+    catHeatNum:h.catHeatNum, status:h.status, isFinal:h.isFinal, zone:h.zone,
+    nbHeatsTotal:h.nbHeatsTotal, wodNom:h.wodNom, wodId:h.wodId, catId:h.catId,
+    jour:h.jour, catJour:h.catJour, wodInfo:_slimWodInfo(h.wodInfo)
+  };
+  // lanes (objet {ligne:lane} ou tableau)
+  var L=h.lanes;
+  if(L && typeof L==='object' && !Array.isArray(L)){
+    var nl={}; Object.keys(L).forEach(function(ln){ nl[ln]=_slimLane(L[ln]); }); nh.lanes=nl;
+  } else if(Array.isArray(L)){
+    nh.lanes=L.map(_slimLane);
+  }
+  // scores imbriqués éventuels (certains heats portent h.scores)
+  if(h.scores) nh.scores=h.scores;
+  return nh;
+}
+var _classLiteBusy=false, _classLiteLast=0, _classLitePending=null;
+function publishClassementLite(){
+  // ★ Throttle : au plus 1 écriture / 4 s (l'admin relit heats+scores pour bâtir le nœud ;
+  //   inutile de le refaire à chaque frappe). Un appel pendant le cooldown est reporté une fois.
+  var now=Date.now();
+  if(now-_classLiteLast < 4000){
+    if(!_classLitePending){ _classLitePending=setTimeout(function(){ _classLitePending=null; publishClassementLite(); }, 4000-(now-_classLiteLast)); }
+    return;
+  }
+  if(_classLiteBusy) return; _classLiteBusy=true; _classLiteLast=now;
+  var _db=(typeof LS_FB_DB!=='undefined'&&LS_FB_DB)||window.db||null;
+  if(!_db||typeof _db.ref!=='function'){ _classLiteBusy=false; return; }
+  // Lire une fois heats + scores, construire le nœud réduit, l'écrire.
+  Promise.all([ _db.ref('heats').once('value'), _db.ref('scores').once('value') ])
+    .then(function(res){
+      var heats=res[0].val()||{}, scores=res[1].val()||{};
+      var liteHeats={};
+      Object.keys(heats).forEach(function(hid){ liteHeats[hid]=_slimHeatForClass(heats[hid]); });
+      return _db.ref('classementLite').set({ heats:liteHeats, scores:scores, at:Date.now() });
+    })
+    .then(function(){ _classLiteBusy=false; })
+    .catch(function(e){ _classLiteBusy=false; try{console.warn('publishClassementLite:',e&&e.message);}catch(_){} });
+}
+window.publishClassementLite=publishClassementLite;
 
 function startClassementAutoRefresh(){
   renderClassementTK();

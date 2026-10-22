@@ -1511,9 +1511,13 @@ function debouncedRender(ms){
   _renderTimer=setTimeout(render, ms||1200);
 }
 
-/* ── Listeners fins heats ── */
+/* ── Listeners fins heats ──
+   ★ BANDE PASSANTE : on lit en PRIORITÉ le nœud léger "classementLite" (~40 Ko),
+   publié par l'admin, au lieu du gros nœud "heats" (~230 Ko) qui embarque les
+   mouvements des WOD et les métadonnées de juges inutiles au classement.
+   Repli automatique sur "heats" si le nœud léger n'existe pas encore (compat). */
 (function(){
-  var ref=db.ref('heats');
+  var heatsRef=db.ref('heats');
 
   function onHeatChange(snap){
     var hid=snap.key, h=snap.val();
@@ -1523,15 +1527,39 @@ function debouncedRender(ms){
     debouncedRender(300); // léger debounce heats seulement
   }
 
-  ref.once('value',function(snap){
-    HEATS=snap.val()||{};
-    checkHeatDone(HEATS);
-    updateStamp();
-    render();
-    ref.on('child_changed',onHeatChange);
-    ref.on('child_added',function(snap){if(!HEATS[snap.key])onHeatChange(snap);});
-    ref.on('child_removed',onHeatChange);
-  });
+  function startHeatsFallback(){
+    // Ancien comportement : lecture complète de "heats" + écoute fine.
+    window.__CLASS_SRC='full';
+    heatsRef.once('value',function(snap){
+      HEATS=snap.val()||{};
+      checkHeatDone(HEATS);
+      updateStamp();
+      render();
+      heatsRef.on('child_changed',onHeatChange);
+      heatsRef.on('child_added',function(snap){if(!HEATS[snap.key])onHeatChange(snap);});
+      heatsRef.on('child_removed',onHeatChange);
+    });
+  }
+
+  // 1) Tenter le nœud léger (une seule lecture, bien plus petite).
+  db.ref('classementLite').once('value',function(snap){
+    var lite=snap.val();
+    if(lite && lite.heats && Object.keys(lite.heats).length){
+      HEATS=lite.heats||{};
+      window.__CLASS_SRC='LITE';
+      checkHeatDone(HEATS);
+      updateStamp();
+      render();
+      // Mises à jour live : on écoute les CHANGEMENTS de structure sur "heats"
+      // (statut d'un heat, etc.) en child_* — léger, pas de retéléchargement global.
+      heatsRef.on('child_changed',onHeatChange);
+      heatsRef.on('child_added',function(snap){if(!HEATS[snap.key])onHeatChange(snap);});
+      heatsRef.on('child_removed',onHeatChange);
+    } else {
+      // Nœud léger absent (vieille compét / admin pas à jour) → repli sûr.
+      startHeatsFallback();
+    }
+  }, function(){ startHeatsFallback(); }); // erreur de lecture → repli
 })();
 
 /* ── Listeners scores ── */
@@ -1594,6 +1622,24 @@ function toggleFS(){
   if(!document.fullscreenElement)document.documentElement.requestFullscreen().catch(function(){});
   else document.exitFullscreen().catch(function(){});
 }
+
+/* ★ Badge de version (diagnostic cache) + indicateur de source de données.
+   "LITE" = lit le nœud léger (bande passante réduite) ; "full" = repli sur heats. */
+(function(){
+  try{
+    function add(){
+      if(!document.body){ setTimeout(add,200); return; }
+      if(document.getElementById('__class_build')) return;
+      var b=document.createElement('div'); b.id='__class_build';
+      b.style.cssText='position:fixed;bottom:4px;right:4px;z-index:2147483647;background:rgba(21,101,192,.85);color:#fff;font:700 9px/1 system-ui,sans-serif;padding:3px 6px;border-radius:5px;pointer-events:none;letter-spacing:.3px';
+      document.body.appendChild(b);
+      // rafraîchir le libellé avec la source de données réelle une fois chargée
+      var tick=setInterval(function(){ if(window.__CLASS_SRC){ b.textContent='classement v26 · '+window.__CLASS_SRC; clearInterval(tick); } },300);
+      setTimeout(function(){ clearInterval(tick); if(!/·/.test(b.textContent)) b.textContent='classement v26'; },6000);
+    }
+    add();
+  }catch(e){}
+})();
 </script>
 </body>
 </html>
