@@ -6013,8 +6013,18 @@ function loadAndShowPlanning(jugeId){
     var d=snap.val()||{};
     if(d.day) _judgeActiveDay=parseInt(d.day,10)||null;
   });
-  _planningRef.on('value', function(snap){
-    _refreshPlanning(snap.val()||{});
+  // ★★ BANDE PASSANTE (fix 27 Mo sur 1 heat) : AVANT, .on('value') sur TOUT le nœud heats
+  //   (~225 Ko) re-téléchargeait les 225 Ko à CHAQUE écriture de score pendant le heat.
+  //   Maintenant : 1 lecture complète au départ, puis écoute child_* (seul le heat modifié
+  //   descend, quelques Ko). L'objet complet est maintenu localement pour _refreshPlanning.
+  var _planHeats={};
+  _planningRef.once('value', function(snap){
+    _planHeats=snap.val()||{};
+    _refreshPlanning(_planHeats);
+    function _apply(cs){ var k=cs.key, v=cs.val(); if(v==null) delete _planHeats[k]; else _planHeats[k]=v; _refreshPlanning(_planHeats); }
+    _planningRef.on('child_changed', _apply);
+    _planningRef.on('child_added', _apply);
+    _planningRef.on('child_removed', function(cs){ delete _planHeats[cs.key]; _refreshPlanning(_planHeats); });
   }, function(err){ /* erreur Firebase — silencieux */ });
 }
 
@@ -7054,30 +7064,54 @@ function startWatchNextHeat(){
     _doApplyNext(best);
   }
 
+  // ★★ BANDE PASSANTE (optimisation max) : tryLoadNext() n'a besoin QUE du STATUT de chaque
+  //   heat. On écoute donc le nœud léger "statuses" (~0,8 Ko : {h1:"done",...}) au lieu de
+  //   "heats" (225 Ko dont 5 Ko de wodInfo PAR heat, inutile ici). Le TK écrit statuses/<id>
+  //   à chaque changement → même réactivité, quasi zéro données. On reconstruit un objet
+  //   {id:{status}} que tryLoadNext sait lire (il lit heats[id].status).
+  var _nextStatuses={};
+  // Reconstruit {id:{status, lanes, wodInfo…}} : le STATUT vient du nœud léger "statuses"
+  //   (fraîcheur, quasi zéro données), et les lanes/wodInfo viennent du cache complet
+  //   _judgeHeatsCache (déjà maintenu par _planningRef en child_*). Rien n'est perdu.
+  function _statusesToHeats(){
+    var cache=window._judgeHeatsCache||{}; var o={};
+    Object.keys(_nextStatuses).forEach(function(k){
+      var stv=_nextStatuses[k]; var st=(stv&&stv.status)||stv||'pending';
+      var full=cache[k];
+      if(full){ o[k]=Object.assign({}, full, {status:st}); } // données complètes + statut frais
+      else { o[k]={status:st}; }
+    });
+    // inclure aussi les heats présents dans le cache mais pas (encore) dans statuses
+    Object.keys(cache).forEach(function(k){ if(!o[k]) o[k]=cache[k]; });
+    return o;
+  }
+  function _watchHeatsIncremental(){
+    _nextHeatWatchRef=db.ref('statuses');
+    _nextHeatWatchRef.once('value', function(snap){
+      _nextStatuses=snap.val()||{};
+      tryLoadNext(_statusesToHeats());
+      function _apply(cs){ var k=cs.key, v=cs.val(); if(v==null) delete _nextStatuses[k]; else _nextStatuses[k]=v; tryLoadNext(_statusesToHeats()); }
+      _nextHeatWatchRef.on('child_changed', _apply);
+      _nextHeatWatchRef.on('child_added', _apply);
+      _nextHeatWatchRef.on('child_removed', function(cs){ delete _nextStatuses[cs.key]; tryLoadNext(_statusesToHeats()); });
+    });
+  }
   // Charger le planning judgeAssignments en cache puis écouter les heats
   db.ref('judgeAssignments/'+FB_JUGE_ID).once('value').then(function(aSnap){
     var assigns=aSnap.val();
     if(assigns && Array.isArray(assigns) && assigns.length){
       window._judgeAssignmentsCache=assigns;
     }
-    // Écouter tous les heats en temps réel
-    _nextHeatWatchRef=db.ref('heats');
-    _nextHeatWatchRef.on('value', function(snap){
-      tryLoadNext(snap.val()||{});
-    });
+    _watchHeatsIncremental();
   }).catch(function(){
-    // En cas d'erreur Firebase, continuer sans cache
-    _nextHeatWatchRef=db.ref('heats');
-    _nextHeatWatchRef.on('value', function(snap){
-      tryLoadNext(snap.val()||{});
-    });
+    _watchHeatsIncremental();
   });
   // Retry toutes les 10s pendant 5 min (fallback)
   var _attempts=0;
   _nextHeatWatchIv=setInterval(function(){
     _attempts++;
     if(_attempts>30||_checked){ clearInterval(_nextHeatWatchIv); return; }
-    db.ref('heats').once('value').then(function(s){ tryLoadNext(s.val()||{}); });
+    db.ref('statuses').once('value').then(function(s){ _nextStatuses=s.val()||_nextStatuses; tryLoadNext(_statusesToHeats()); });
   }, 10000);
 }
 function stopWatchNextHeat(){
