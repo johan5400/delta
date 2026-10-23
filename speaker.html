@@ -500,6 +500,9 @@ var zState = {
 };
 var prevHeatStatus = {z1:null,z2:null};
 var prevScores = {z1:{},z2:{}};
+// ★ Cache global des scores du nœud léger "scores/" (clé h<hid>_<lane>). Sert à ré-hydrater
+//   une zone quand elle change de heat, SANS dépendre de heats/<hid>/scores (double-write supprimé).
+var _spkFlat = {};
 var ZSYNC = {}; // sync zones depuis TK
 
 // Render zone
@@ -899,6 +902,9 @@ function initSpeaker(){
       zState[z].cap=cap;
       zState[z].startTs=h.startTimestamp||null;
       zState[z].scores=h.scores||{};
+      // ★ Ré-hydrater depuis le cache plat scores/ (indépendant de heats/scores) : récupère
+      //   les scores DÉJÀ saisis du heat sélectionné, même sans nouveau tick juge.
+      try{ Object.keys(_spkFlat||{}).forEach(function(k){ if(k.indexOf(hid+'_')===0){ var ln=k.replace(hid+'_',''); zState[z].scores[ln]=Object.assign({},zState[z].scores[ln]||{},_spkFlat[k]); } }); }catch(e){}
 
       if(heatChanged){
         if(zState[z]._scoresRef){ try{zState[z]._scoresRef.off();}catch(e){} }
@@ -977,10 +983,10 @@ function initSpeaker(){
     }, function(err){ if(window.logError) window.logError('heats.once.err', err); });
 
     // Scores plats — pour capter les mises à jour même hors heats/scores
-    var _flatScores={};
+    var _flatScores=_spkFlat; // ★ alias du cache global (ré-hydratation au changement de heat)
     var scoresRef=db.ref('scores');
     scoresRef.once('value',function(snap){
-      _flatScores=snap.val()||{};
+      _flatScores=snap.val()||{}; _spkFlat=_flatScores;
       // Pré-charger les scores dans zState
       Object.keys(_flatScores).forEach(function(k){
         var sc=_flatScores[k]; if(!sc) return;

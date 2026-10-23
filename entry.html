@@ -1049,7 +1049,10 @@ function resetWelcome(){
 // ── MODE SECOURS ──
 var BK_HEATS={},BK_LANES=[],BK_SEL_HEAT=null,BK_SEL_LANE=null;
 function loadBackupLanes(){
-  db.ref('heats').once('value').then(function(snap){
+  // ★ Lire aussi le nœud léger "scores/" : la détection "un juge est déjà sur la lane"
+  //   ne dépend plus de heats/<hid>/scores (double-write supprimé). On fusionne les deux.
+  Promise.all([ db.ref('heats').once('value'), db.ref('scores').once('value') ]).then(function(res){
+    var snap=res[0]; var _flat=(res[1]&&res[1].val())||{};
     BK_HEATS=snap.val()||{};BK_LANES=[];
     var statOrd={live:0,timecap:1,countdown:2,pre:3,pending:4,done:9};
     Object.keys(BK_HEATS).forEach(function(hid){
@@ -1057,7 +1060,7 @@ function loadBackupLanes(){
       var st=h.status||'pending';if(st==='done')return;
       Object.keys(h.lanes).forEach(function(ln){
         var li=h.lanes[ln];if(!li||!li.teamName)return;
-        var sc=(h.scores||{})[ln]||{},hasJudge=!!(sc.judgePrenom);
+        var sc=(h.scores||{})[ln]||_flat[hid+'_'+ln]||{},hasJudge=!!(sc.judgePrenom);
         var ord=statOrd[st]!=null?statOrd[st]:5;
         BK_LANES.push({heatId:hid, lane:ln, teamName:li.teamName||'—',
           catName:h.catName||'—',wodNom:(h.wodInfo&&h.wodInfo.nom)||'—',status:st,hasJudge:hasJudge,_ord:ord,

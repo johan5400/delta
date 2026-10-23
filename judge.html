@@ -6120,7 +6120,7 @@ function _flushQueue(){
       });
     };
     _guardedReplay(db.ref('scores/'+item.path)).catch(function(){ _offlineQueue.push(item); _saveOfflineQueue(); });
-    if(item.hpath) _guardedReplay(db.ref('heats/'+item.hpath)).catch(function(){});
+    // ★ ENCOMBREMENT : on ne rejoue plus dans heats/<hid>/scores (double-write supprimé — cf. pushScoreLive).
   });
   if(q.length) toast('📶 '+q.length+' rep(s) synchronisé(s) ✓','#00E5A0');
 }
@@ -6374,10 +6374,12 @@ function _pushScoreLiveNow(){
       return sc;
     });
   };
+  // ★★ ENCOMBREMENT (fix pic de trafic) : on n'écrit QUE dans le nœud léger "scores/" (~0,5 Ko).
+  //   AVANT, on écrivait AUSSI dans heats/<hid>/scores → chaque tick faisait redescendre le HEAT
+  //   ENTIER (~4,7 Ko) à tous les écrans (child_changed sur "heats"). Les écrans lisent déjà
+  //   "scores/" → le double-write était redondant. (entry/speaker adaptés en conséquence.)
   var p1=_liveGuardedSet(db.ref('scores/'+path));
-  var p2=_liveGuardedSet(db.ref('heats/'+hpath));
   if(p1&&p1.catch) p1.catch(function(){ _enqueueScore(path,hpath,sc); });
-  if(p2&&p2.catch) p2.catch(function(){});
 }
 
 /* Pousser score final validé — priorité maximale + blocage navigation 1.2s */
