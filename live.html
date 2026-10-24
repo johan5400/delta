@@ -294,15 +294,29 @@ body{height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-fami
   text-shadow:0 0 18px rgba(45,156,255,.5)}
 
 /* Cartes équipes */
-.tc{flex-shrink:0;padding:5px 14px;border-radius:8px;
-  border:1px solid rgba(255,255,255,.07);background:rgba(12,18,30,.9);transition:border-color .3s,background .3s}
-.tc.ok{border-color:rgba(0,229,160,.25);background:rgba(0,229,160,.05)}
+/* ★ HARMONISATION LIVE ↔ CLASSEMENT : les cartes du heat en direct reprennent l'ADN visuel
+   du classement général (fond de ligne dégradé + bordure gauche or/argent/bronze pour le top 3),
+   SANS toucher aux infos live (mouvement, tour, écart, badge de rang .dyn/.final conservés).
+   NB : .tc.lead et les modes accessibilité gardent leurs !important → le leader reste bien marqué. */
+.tc{flex-shrink:0;padding:8px 16px;border-radius:8px;
+  border:1px solid transparent;border-left:4px solid #2A3A52;
+  background:linear-gradient(90deg,rgba(45,156,255,.05) 0%,rgba(155,93,229,.025) 55%,rgba(255,255,255,.01) 100%);
+  transition:border-color .3s,background .3s}
+/* Top 3 : même code couleur or / argent / bronze que le classement */
+.tc.r1{border-left-color:#FFD166;
+  background:linear-gradient(90deg,rgba(255,209,102,.20) 0%,rgba(255,138,0,.05) 60%,transparent 100%);
+  box-shadow:0 0 22px rgba(255,209,102,.13),inset 0 0 0 1px rgba(255,209,102,.08)}
+.tc.r2{border-left-color:#C4CBD8;
+  background:linear-gradient(90deg,rgba(196,203,216,.16) 0%,rgba(196,203,216,.03) 60%,transparent 100%)}
+.tc.r3{border-left-color:#CD7F32;
+  background:linear-gradient(90deg,rgba(205,127,50,.16) 0%,rgba(205,127,50,.03) 60%,transparent 100%)}
+.tc.ok{border-left-color:rgba(0,229,160,.5)}
 .tm{display:flex;align-items:center;gap:12px}
 .tcol{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
 .tmeta{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:3px}
 .rk{font-family:var(--ff);font-size:clamp(20px,2.1vw,34px);line-height:1;min-width:36px;text-align:center;color:var(--gold)}
 .rk.r1{color:#FFD700}.rk.r2{color:#C0C0C0}.rk.r3{color:#CD7F32}
-.tn{font-family:var(--ff);font-size:clamp(16px,2vw,30px);letter-spacing:.5px;color:#fff;
+.tn{font-family:var(--ff);font-size:clamp(16px,2vw,30px);letter-spacing:.5px;color:#F2F6FC;
   flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .tsc{font-family:var(--fm);font-size:clamp(14px,1.8vw,26px);font-weight:900;text-align:right;flex-shrink:0}
 .tsc.lv{color:#FFB020}.tsc.vl{color:#00E5A0}.tsc.nd{color:var(--ink3)}
@@ -418,6 +432,16 @@ body{height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-fami
 .gen-row.r2 .p-pts{color:#E2E8F2}
 .gen-row.r3 .p-pts{color:#F0A862}
 .gen-row .p-nm{color:#F2F6FC}
+
+/* ── Colonne TENDANCE (style Competition Corner) : monte ▲ / descend ▼ / stable ▬ / nouveau ● ──
+   Colonne dédiée à gauche du rang, bien visible sur l'écran public. */
+.p-trend{flex:0 0 clamp(26px,3.2vw,46px);display:flex;align-items:center;justify-content:center;line-height:1}
+.p-trend .tri{font-size:clamp(15px,2.1vw,30px);line-height:1;display:inline-block}
+.p-trend.up   .tri{color:#22c55e;filter:drop-shadow(0 0 8px rgba(34,197,94,.55))}
+.p-trend.down .tri{color:#ef4444;filter:drop-shadow(0 0 8px rgba(239,68,68,.55))}
+.p-trend.same .tri{color:#64748b}
+@keyframes trendPulse{0%,100%{transform:translateY(0)}50%{transform:translateY(-2px)}}
+.p-trend.up .tri,.p-trend.down .tri{animation:trendPulse 1.6s ease-in-out infinite}
 
 /* ════════════════════════════════════════════════════════════════════
    ✦ PROCHAIN HEAT — version colorée
@@ -2653,18 +2677,19 @@ function renderRankCards(rows,w,st,showLiveChips,h,catId,catLeader){
     // LIGNE 1 : rang | nom d'équipe          | score (reps en cours) à droite
     // LIGNE 2 :       | badge gap/leader+ETA  |
     // LIGNE 3 :       | chips mouvements       |
+    // ★ Plus de badge texte « LEADER » : le 1er est déjà clairement marqué par le cadre
+    //   vert (.tc.lead) + sa bordure. Évite le doublon cadre vert + « LEADER » + couronne.
     var gapBadge='';
-    if(i===0){ gapBadge='<span class="mini lead">LEADER</span>'; }
     // ★ ETA supprimé de l'affichage
     // ★ Médailles UNIQUEMENT quand le heat est terminé (classement figé).
     //   Pendant live/pre/timecap : classement dynamique → on garde un chiffre lisible.
     var _isFinal = (st==='done');
     var _rkBadge = _isFinal ? (MEDALS[i]||String(i+1)) : String(i+1);
-    return _catSep+'<div class="tc'+(val?' ok':'')+(i===0?' lead':'')+'">'
+    return _catSep+'<div class="tc'+(i<3?' r'+(i+1):'')+(val?' ok':'')+(i===0?' lead':'')+'">'
       +'<div class="tm">'
         +'<div class="rk'+(i<3?' r'+(i+1):'')+(_isFinal?' final':' dyn')+'">'+_rkBadge+'</div>'
         +'<div class="tcol">'
-          +'<div class="tn">'+esc(e.team)+(isCatLeader?'<span class="crown">&#x1F451;</span>':'')+'</div>'
+          +'<div class="tn">'+esc(e.team)+((isCatLeader&&i>0)?'<span class="crown">&#x1F451;</span>':'')+'</div>'
           +(gapBadge?'<div class="tmeta">'+gapBadge+'</div>':'')
         +'</div>'  
         +'<div style="flex-shrink:0;text-align:right;min-width:80px">'
@@ -3363,10 +3388,42 @@ function isLastCategoryHeat(h){
   }
   return !!(h.catHeatNum && h.nbHeatsTotal && parseInt(h.catHeatNum,10)>=parseInt(h.nbHeatsTotal,10));
 }
+// ── Flèche pour le RÉSULTAT D'UN HEAT : ce résultat fait-il monter/descendre l'équipe
+//    au classement GÉNÉRAL ? → rang général APRÈS ce heat comparé au rang général AVANT.
+//    Même logique que le général (style Competition Corner), calculée par catégorie effective
+//    pour que la comparaison reste juste sur un heat mère multi-catégories.
+function _heatArrowFn(hid, h){
+  var effCats=_liveHeatEffCats(h);
+  var afterRank={}, beforeRank={};
+  (effCats.length?effCats:[null]).forEach(function(_cf){
+    var catId=String(h.catId||'');
+    // Tous les heats finis de la ou les catégorie(s) concernée(s)
+    var doneH=Object.keys(HEATS).filter(function(k){var hh=HEATS[k];return hh&&(hh.status==='done'||hh.status==='timecap');});
+    // "avant" = on retire CE heat ; "après" = on le garde
+    var beforeH=doneH.filter(function(k){return k!==String(hid);});
+    // Restreindre à la bonne catégorie comme le fait le général
+    var catH=doneH.filter(function(k){return String((HEATS[k]||{}).catId)===catId;});
+    var catBeforeH=beforeH.filter(function(k){return String((HEATS[k]||{}).catId)===catId;});
+    var rA=_genCumulativeRanks(catH, _cf);
+    var rB=_genCumulativeRanks(catBeforeH, _cf);
+    Object.keys(rA).forEach(function(t){ if(afterRank[t]==null) afterRank[t]=rA[t]; });
+    Object.keys(rB).forEach(function(t){ if(beforeRank[t]==null) beforeRank[t]=rB[t]; });
+  });
+  // S'il n'y a aucun heat "avant" (c'est le tout premier de la catégorie), aucune flèche.
+  if(!Object.keys(beforeRank).length) return null;
+  return function(team){
+    var a=afterRank[team], b=beforeRank[team];
+    if(a==null||b==null) return null;   // pas présente avant → pas de flèche
+    if(a<b) return 'up';
+    if(a>b) return 'down';
+    return 'same';
+  };
+}
 function renderHeatHtml(hid,h){
   var w=h.wodInfo||{},sf=(w.scoreType||w.scoreFinale||'').toLowerCase();
   var isT=(w.wodFormat||'').toLowerCase()==='fortime'||sf==='time';
   var lanes=h.slots||h.lanes||{},entries=[];
+  var arrowFn=null; try{ arrowFn=_heatArrowFn(hid,h); }catch(e){}
   Object.keys(lanes).forEach(function(ln){var l=lanes[ln];if(!l||!l.teamName)return;var sc=getSc(hid,h,ln);entries.push({t:l.teamName,sc:sc,v:scoreVal(sc,w),isGuest:!!l.isGuest,guestCatName:l.teamCatName||'',guestCatColor:l.teamCatColor||'#888'});});
   entries.sort(function(a,b){
     if(a.sc.judgeOk&&!b.sc.judgeOk)return -1;
@@ -3384,7 +3441,16 @@ function renderHeatHtml(hid,h){
   var html='<div class="p-title">🏁 '+esc(w.nom||'WOD')+'</div>'
     +'<div class="p-sub">'+esc(h.catName||'')+' · Heat '+(h.catHeatNum||'—')+' / '+(h.nbHeatsTotal||'—')+'</div>';
   entries.forEach(function(e,i){
+    // ★ Colonne TENDANCE (même visuel que le classement général) : ce résultat fait-il
+    //   monter/descendre l'équipe au général ? Rien à comparer → colonne vide.
+    var _tCls='same', _tSym='';
+    if(arrowFn && e.sc.judgeOk){ var _d=arrowFn(e.t);
+      if(_d==='up'){ _tCls='up'; _tSym='▲'; }
+      else if(_d==='down'){ _tCls='down'; _tSym='▼'; }
+      else if(_d==='same'){ _tCls='same'; _tSym='▬'; } }
+    var trendHtml='<div class="p-trend '+_tCls+'"><span class="tri">'+_tSym+'</span></div>';
     html+='<div class="p-row'+(i<3?' r'+(i+1):'')+'">'
+      +trendHtml
       +'<div class="p-rk">'+(i+1)+'</div>'
       +'<div class="p-nm">'+esc(e.t)+'</div>'
       +'<div class="p-sc">'+(e.sc.judgeOk?scoreStr(e.sc,w):'—')+'</div>'
@@ -3474,11 +3540,16 @@ function renderWodHtml(h){
       var rowCls='p-row gen-row'+(i<3&&!isNR?' r'+(i+1):'');
       var op=isNR?' style="opacity:.5"':'';
       var ptsHtml=isNR?'<div class="p-pts" style="color:var(--ink3)">—</div>':'<div class="p-pts">'+t.p+' pt'+(t.p>1?'s':'')+'</div>';
-      var arr=''; if(arrowFn && !isNR){ var _d=arrowFn(t.t);
-        if(_d==='up')        arr=' <span style="color:#22c55e;font-weight:800">▲</span>';
-        else if(_d==='down') arr=' <span style="color:#ef4444;font-weight:800">▼</span>';
-        else if(_d==='same') arr=' <span style="color:var(--ink3);font-weight:700">=</span>'; }
-      html+='<div class="'+rowCls+'"'+op+'><div class="p-rk">'+(i+1)+'</div><div class="p-nm">'+esc(t.t)+arr+'</div>'+ptsHtml+'</div>';
+      // ★ Colonne TENDANCE dédiée (style Competition Corner) — à gauche du rang.
+      //   Toutes les équipes sont présentes dès le début → pas de cas "nouvelle".
+      //   Rien à comparer (début de compét ou équipe sans historique) → colonne vide.
+      var _tCls='same', _tSym='';
+      if(arrowFn && !isNR){ var _d=arrowFn(t.t);
+        if(_d==='up'){ _tCls='up'; _tSym='▲'; }
+        else if(_d==='down'){ _tCls='down'; _tSym='▼'; }
+        else if(_d==='same'){ _tCls='same'; _tSym='▬'; } }
+      var trendHtml='<div class="p-trend '+_tCls+'"><span class="tri">'+_tSym+'</span></div>';
+      html+='<div class="'+rowCls+'"'+op+'>'+trendHtml+'<div class="p-rk">'+(i+1)+'</div><div class="p-nm">'+esc(t.t)+'</div>'+ptsHtml+'</div>';
     });
   });
   html+='</div>';
