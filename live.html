@@ -373,6 +373,11 @@ body{height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-fami
 .p-title{font-family:var(--ff);font-size:clamp(28px,5.5vw,72px);letter-spacing:4px;color:#fff;text-align:center;
   text-shadow:0 0 24px rgba(255,255,255,.15);margin-bottom:2px}
 .p-sub{font-family:var(--ff);font-size:clamp(13px,2vw,24px);letter-spacing:3px;color:var(--ink2);text-align:center;margin-bottom:10px}
+/* Bandeau « scores en cours de validation » (WOD amrapsteph, en attente de la saisie du bike) */
+.score-wait{font-family:var(--fc);font-weight:900;font-size:clamp(13px,1.8vw,22px);letter-spacing:2px;
+  text-align:center;color:#FFB020;background:rgba(255,176,32,.10);border:1px solid rgba(255,176,32,.35);
+  border-radius:8px;padding:7px 12px;margin:0 0 10px;animation:scoreWaitPulse 1.8s ease-in-out infinite}
+@keyframes scoreWaitPulse{0%,100%{opacity:.72}50%{opacity:1}}
 .p-row{display:flex;align-items:center;gap:14px;padding:10px 16px;border-radius:8px;margin-bottom:6px;
   background:linear-gradient(90deg,rgba(255,255,255,.04) 0%,rgba(255,255,255,.01) 100%);
   border:none;border-left:4px solid #2A3A52;transition:all .3s}
@@ -3013,9 +3018,24 @@ function startTeamBandIH(zone,ihTarget,doneHid,doneH,doneW,catId,catLeader){
     }
     startTeamBandIH._sched[zone]={hid:doneHid,heatEnd:heatEnd,wodEnd:wodEnd,previewStart:previewStart};
   }
+  // ★ WOD amrapsteph : si ce heat a attendu la saisie et qu'elle vient d'arriver (sur une
+  //   ré-entrée déclenchée par Firebase), on (re)cale ici la fenêtre de lecture du résultat,
+  //   bornée par previewStart. Sans ça, le heatEnd d'origine (déjà écoulé) ferait sauter le
+  //   classement directement en preview. Le départ du prochain heat (previewStart) ne bouge pas.
+  var _scw=startTeamBandIH._sched[zone];
+  if(_scw && _scw.hid===doneHid && _scw.waited && !_scw.windowSet
+     && !_heatResultsShouldWait(doneHid, HEATS[doneHid]||doneH)){
+    heatEnd=Math.min(now()+heatSec*1000, previewStart);
+    wodEnd=(isLast && wodSec>=3)?Math.min(heatEnd+wodSec*1000, previewStart):null;
+    _scw.windowSet=true; _scw.heatEnd=heatEnd; _scw.wodEnd=wodEnd;
+  }
   // Phase initiale déduite du planning (jamais rejouée en arrière car le temps avance).
   var _t0=now();
   var phase=(_t0<heatEnd)?'heat':((wodEnd&&_t0<wodEnd)?'wod':'preview'); // 'heat'|'wod'|'preview'
+  // ★ WOD amrapsteph non saisi : on force la phase « heat » (bandeau d'attente) même si le
+  //   chrono de lecture est déjà écoulé — on n'affiche jamais de classement avant la saisie.
+  //   Sauf si on a déjà atteint le moment d'annoncer le prochain heat (départ à l'heure).
+  if(_heatResultsShouldWait(doneHid, HEATS[doneHid]||doneH) && _t0<previewStart){ phase='heat'; }
   function _setPhase(p){ phase=p; renderPhase(); }
 
   // ★ HARMONISATION HEADER : on synchronise le wod-hdr de la zone avec la phase
@@ -3096,6 +3116,20 @@ function startTeamBandIH(zone,ihTarget,doneHid,doneH,doneW,catId,catLeader){
       //   (= un vrai prochain heat, cas à éviter). Plus de flash.
       var _dhSt=(HEATS[doneHid]&&HEATS[doneHid].status)||(doneH&&doneH.status)||'';
       if(_dhSt==='pending' || _dhSt==='pre'){ _setPhase('preview'); return; }
+      // ★ WOD amrapsteph (ex « Bike N Run ») : le juge saisit les cals du bike en fin de WOD.
+      //   Tant que TOUT le heat n'est pas saisi, on N'AFFICHE PAS le classement de résultat
+      //   (il serait faux/incomplet). On reste sur la vue du heat avec un bandeau d'attente,
+      //   et on laisse au juge le temps de saisir (il a les minutes d'inter-heat). Dès que
+      //   la saisie est complète, la transition laisse place au classement (phase normale).
+      if(_heatResultsShouldWait(doneHid, HEATS[doneHid]||doneH)){
+        syncHeader('done');
+        var _waitRows=rankHeatEntries(doneHid,HEATS[doneHid]||doneH,doneW);
+        el2.innerHTML=''
+          +'<div class="p-title">🏁 '+esc(doneW.nom||'WOD')+(doneH.catName?(' · '+esc(doneH.catName)):'')+'</div>'
+          +'<div class="score-wait">⏳ SCORES EN COURS DE VALIDATION</div>'
+          +renderRankCards(_waitRows,doneW,'live',true,HEATS[doneHid]||doneH,catId,catLeader);
+        return;
+      }
       syncHeader('done');
       var heatRows=rankHeatEntries(doneHid,HEATS[doneHid]||doneH,doneW);
       // ★ VISUEL HEAT FINI — plus de gros logo tournant qui écrase la colonne.
@@ -3166,6 +3200,34 @@ function startTeamBandIH(zone,ihTarget,doneHid,doneH,doneW,catId,catLeader){
     var t=now();
     var rem=Math.max(0,Math.ceil((ihTarget-t)/1000));
     if(rem<=0){clearTeamIv(zone);scheduleRender();return;}
+
+    // ★ WOD amrapsteph : on affiche le classement de résultat UNIQUEMENT quand les juges ont
+    //   validé. IMPORTANT : l'heure de départ du prochain heat NE BOUGE PAS (ihTarget /
+    //   previewStart restent fixes). Donc :
+    //   • Tant que la saisie n'est pas complète → on reste en phase « heat » (bandeau
+    //     d'attente + cartes live), SANS toucher aux timestamps. Si on atteint previewStart
+    //     avant la saisie, on annonce quand même le prochain heat (il doit partir à l'heure).
+    //   • Dès que la saisie est complète → le résultat a droit à sa fenêtre de lecture, mais
+    //     BORNÉE par previewStart (jamais après). Si la saisie arrive tard, le résultat
+    //     s'affiche moins longtemps, mais le heat suivant part quand même à l'heure prévue.
+    if(phase==='heat'){
+      var _scL=startTeamBandIH._sched[zone]||{};
+      var _waiting=_heatResultsShouldWait(doneHid, HEATS[doneHid]||doneH);
+      if(_waiting){
+        _scL.waited=true;           // on mémorise qu'on a attendu (pour caler la lecture après)
+        renderPhase();              // garde le bandeau + les cartes vivantes
+        if(t>=previewStart){ _setPhase('preview'); } // le prochain heat part à l'heure
+        return;
+      }
+      // La saisie vient d'arriver APRÈS une attente : caler la fenêtre de lecture du résultat,
+      //   bornée par previewStart (jamais après → départ du prochain heat inchangé). Une fois.
+      if(_scL.hid===doneHid && _scL.waited && !_scL.windowSet){
+        heatEnd=Math.min(t+heatSec*1000, previewStart);
+        wodEnd=(isLast && wodSec>=3)?Math.min(heatEnd+wodSec*1000, previewStart):null;
+        _scL.windowSet=true; _scL.heatEnd=heatEnd; _scL.wodEnd=wodEnd;
+        renderPhase(); // affiche le classement tout de suite (la saisie vient d'arriver)
+      }
+    }
 
     // Transitions de phase
     if(phase==='heat' && t>=heatEnd){
@@ -3387,6 +3449,29 @@ function isLastCategoryHeat(h){
     }
   }
   return !!(h.catHeatNum && h.nbHeatsTotal && parseInt(h.catHeatNum,10)>=parseInt(h.nbHeatsTotal,10));
+}
+// ── WOD « amrapsteph » (ex : « Bike N Run ») : le juge saisit les cals du bike UNE FOIS en
+//    fin de WOD. On ne doit donc PAS afficher les résultats de ce heat tant que la saisie
+//    n'est pas faite (sinon classement faux / incomplet). Ces deux helpers servent de garde.
+function _isAmrapStephHeat(h){
+  var w=(h&&h.wodInfo)||{};
+  return String(w.wodFormat||'').toLowerCase()==='amrapsteph';
+}
+// Heat entièrement saisi = au moins une équipe, et TOUTES les équipes ont un score validé (judgeOk).
+function _heatFullyScored(hid,h){
+  if(!h) return true;
+  var lanes=h.slots||h.lanes||{}, nbTeams=0, nbOk=0;
+  Object.keys(lanes).forEach(function(ln){
+    var l=lanes[ln]; if(!l||!(l.teamName||l.team)) return;
+    nbTeams++;
+    var sc=getSc(hid,h,ln)||{};
+    if(sc.judgeOk===true||sc.judgeOk===1||sc.judgeOk==='true') nbOk++;
+  });
+  return nbTeams>0 && nbOk===nbTeams;
+}
+// L'affichage des RÉSULTATS d'un heat doit-il attendre ? (uniquement amrapsteph non encore saisi)
+function _heatResultsShouldWait(hid,h){
+  return _isAmrapStephHeat(h) && !_heatFullyScored(hid,h);
 }
 // ── Flèche pour le RÉSULTAT D'UN HEAT : ce résultat fait-il monter/descendre l'équipe
 //    au classement GÉNÉRAL ? → rang général APRÈS ce heat comparé au rang général AVANT.
