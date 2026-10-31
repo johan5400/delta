@@ -1497,6 +1497,25 @@ function checkPassword(){
     </div>
   </div>
 
+  <!-- ░░ RÉSULTATS PAR HEAT (litiges) ░░ -->
+  <div style="font-size:12px;font-weight:900;color:#1E88E5;letter-spacing:1.5px;text-transform:uppercase;margin:8px 0 12px;display:flex;align-items:center;gap:8px"><span>🧾</span> Résultats par heat <span id="hs-count" style="color:var(--ink3);font-weight:800"></span></div>
+  <div class="card" style="margin-bottom:28px">
+    <div class="sh-card-title">🧾 Feuille de résultat de chaque heat (litiges)</div>
+    <div style="font-size:11px;color:var(--ink2);margin-bottom:10px">Une page A4 par heat terminé : WOD, catégorie, classement du heat, juge de chaque lane, score, heure et source de validation, zone de réclamation et signatures. Une ligne apparaît ici dès qu'un heat se termine.</div>
+    <label style="display:flex;align-items:flex-start;gap:8px;font-size:12px;font-weight:700;color:var(--ink);margin-bottom:10px;cursor:pointer">
+      <input type="checkbox" id="hs-auto" onchange="hsToggleAuto(this.checked)" style="margin-top:2px">
+      <span>Lancer l'impression automatiquement à la fin de chaque heat<br><span style="font-weight:600;font-size:10px;color:var(--ink3)">À activer sur l'ordinateur relié à l'imprimante. Attend que tous les scores soient validés (5 min maximum), puis ouvre la boîte d'impression du navigateur. Cet onglet doit rester ouvert.</span></span>
+    </label>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+      <select id="hs-day-select" style="background:#EFF6FF;border:1px solid var(--brd2);border-radius:8px;color:var(--ink);padding:8px 10px;font-size:12px;outline:none;font-family:inherit">
+        <option value="all">Tous les jours</option><option value="1">Jour 1</option><option value="2">Jour 2</option>
+      </select>
+      <button class="btn btn-blue" onclick="hsPrintAll()" style="font-size:12px">🖨️ Imprimer tous les heats terminés</button>
+      <button class="btn" onclick="hsRenderList()" style="font-size:12px">🔄 Actualiser</button>
+    </div>
+    <div id="hs-list" style="max-height:340px;overflow:auto"></div>
+  </div>
+
   <!-- ░░ QR CODES ░░ -->
   <div style="font-size:12px;font-weight:900;color:#059669;letter-spacing:1.5px;text-transform:uppercase;margin:8px 0 12px;display:flex;align-items:center;gap:8px"><span>📱</span> QR Codes</div>
   <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px;margin-bottom:28px;align-items:stretch">
@@ -7399,7 +7418,401 @@ function renderPrintCenter(){
   // ★ Remplir aussi le menu des scorecards VIERGES (WOD + catégorie)
   if(typeof fillBlankScWodSelect==='function') fillBlankScWodSelect();
   if(typeof fillBlankScCatSelect==='function') fillBlankScCatSelect();
+  // ★ Feuilles de résultat par heat (litiges)
+  if(typeof hsRenderList==='function') hsRenderList();
 }
+
+/* ════════════════════════════════════════════════════════════════════════
+   🧾 FEUILLES DE RÉSULTAT PAR HEAT (litiges)
+   Une page A4 par heat terminé : WOD, catégorie, horaire, classement du heat,
+   juge de chaque lane, score, détail, heure/source de validation, zone de signatures.
+   • Liste dans Impression → « Feuilles de résultat par heat » (mise à jour auto).
+   • Option « impression automatique » : à la FIN de chaque heat (statut done/timecap),
+     dès que tous les scores sont validés (ou après 5 min max), la feuille se lance
+     toute seule (boîte d'impression du navigateur).
+   Trafic : lecture seule, quelques Ko par heat — rien n'est écrit dans Firebase.
+   ════════════════════════════════════════════════════════════════════════ */
+var _HS_LS_AUTO='delta_heatsheet_auto';
+var _HS_LS_DONE='delta_heatsheet_printed';
+var _HS_MAX_WAIT_MS=5*60*1000;      // si un score manque, on imprime quand même après 5 min
+var _HS_POLL_MS=8000;
+var _hsStatusRef=null, _hsBaseline=null, _hsTimers={}, _hsBindTries=0;
+
+function _hsEsc(s){
+  return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+function _hsBool(v){ return v===true||v===1||v==='true'||v==='1'; }
+function _hsLsGet(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
+function _hsLsSet(k,v){ try{ localStorage.setItem(k,v); }catch(e){} }
+function _hsPrintedSet(){ try{ return JSON.parse(_hsLsGet(_HS_LS_DONE)||'{}')||{}; }catch(e){ return {}; } }
+function _hsMarkPrinted(hid){ var s=_hsPrintedSet(); s[hid]=Date.now(); _hsLsSet(_HS_LS_DONE,JSON.stringify(s)); }
+function _hsAutoOn(){ return _hsLsGet(_HS_LS_AUTO)==='1'; }
+function _hsClock(ts){
+  var n=parseInt(ts,10)||0; if(!n) return '';
+  try{ return new Date(n).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit',second:'2-digit'}); }catch(e){ return ''; }
+}
+function _hsDateTime(ts){
+  try{ return new Date(ts).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit'}); }catch(e){ return ''; }
+}
+function _hsHm(min){
+  var m=parseInt(min,10); if(isNaN(m)) return '';
+  return String(Math.floor(m/60)).padStart(2,'0')+'h'+String(m%60).padStart(2,'0');
+}
+function _hsMmss(sec){ sec=parseInt(sec||0,10)||0; return Math.floor(sec/60)+':'+String(sec%60).padStart(2,'0'); }
+
+/* Score affiché — même logique que le live (scoreStr) */
+function _hsScoreStr(sc,w){
+  sc=sc||{}; w=w||{};
+  var fm=String(w.wodFormat||'').toLowerCase();
+  var sf=String(w.scoreType||w.scoreFinale||'').toLowerCase(), jm=String(w.judgeMode||'').toLowerCase();
+  if(fm==='amrapsteph' && w.stephAddReps){
+    var tot=parseInt(sc.reps,10)||0;
+    if(sc.stephReps!=null && sc.stephCals!=null) return (parseInt(sc.stephReps,10)||0)+' rep + '+(parseInt(sc.stephCals,10)||0)+' cal = '+tot;
+    return tot+' pts';
+  }
+  if(fm==='cleanladder') return (parseFloat(sc.clLoad!=null?sc.clLoad:sc.load)||0)+' kg';
+  if(jm==='maxload'||sf==='load') return (parseFloat(sc.load)||0)+' kg';
+  if(jm==='ergo'||sf==='dist'||sf==='cal'){
+    var v=parseFloat(sc.dist||sc.ergoVal||sc.distance)||0;
+    return v+(sf==='cal'?' cal':(' '+(sc.ergoUnit||'m')));
+  }
+  if(fm==='fortime'||sf==='time'){
+    if((parseInt(sc.finalTime,10)||0)>0) return _hsMmss(sc.finalTime);
+    var r=parseInt(sc.reps,10)||0;
+    return r>0?('CAP · '+r+' reps'):'CAP';
+  }
+  return (parseInt(sc.reps,10)||0)+' reps';
+}
+/* Valeur de tri (plus grand = mieux) — même logique que le live (scoreVal) */
+function _hsScoreVal(sc,w){
+  sc=sc||{}; w=w||{};
+  var fm=String(w.wodFormat||'').toLowerCase();
+  var sf=String(w.scoreType||w.scoreFinale||'').toLowerCase(), jm=String(w.judgeMode||'').toLowerCase();
+  if(fm==='cleanladder') return parseFloat(sc.clLoad!=null?sc.clLoad:sc.load)||0;
+  if(fm==='amrapsteph' && w.stephAddReps) return parseInt(sc.reps,10)||0;
+  if(jm==='maxload'||sf==='load') return parseFloat(sc.load)||0;
+  if(jm==='ergo'||sf==='dist'||sf==='cal') return parseFloat(sc.dist||sc.ergoVal||sc.distance)||0;
+  if(fm==='fortime'||sf==='time'){
+    var ft=parseInt(sc.finalTime,10)||0;
+    return ft>0?(1000000-ft):(parseInt(sc.reps,10)||0);
+  }
+  return parseInt(sc.reps,10)||0;
+}
+function _hsTb(sc){
+  if(sc && Array.isArray(sc.tiebreaks) && sc.tiebreaks.length){
+    return sc.tiebreaks.map(function(t){ return (t&&(parseInt(t.ts||t.val||0,10)||0))||0; });
+  }
+  if(sc && sc.tiebreak && parseInt(sc.tiebreak,10)>0) return [parseInt(sc.tiebreak,10)];
+  return [];
+}
+function _hsCmpTb(a,b){
+  var A=_hsTb(a), B=_hsTb(b), n=Math.max(A.length,B.length);
+  for(var i=0;i<n;i++){
+    var x=A[i]||0, y=B[i]||0;
+    if(x>0&&y>0&&x!==y) return x-y;
+    if(x>0&&y===0) return -1;
+    if(x===0&&y>0) return 1;
+  }
+  return 0;
+}
+/* Quel score retenir entre celui du heat et celui du nœud scores/ : le plus prioritaire, puis le plus récent */
+function _hsPick(a,b){
+  if(a&&!b) return a;
+  if(b&&!a) return b;
+  if(!a&&!b) return {};
+  var pa=parseInt(a._priority,10)||0, pb=parseInt(b._priority,10)||0;
+  if(pa!==pb) return pa>pb?a:b;
+  var ta=parseInt(a.modifiedAt||a.ts,10)||0, tb=parseInt(b.modifiedAt||b.ts,10)||0;
+  return tb>ta?b:a;
+}
+function _hsGetSc(hid,h,ln,flat){
+  var hs=(h&&h.scores)||{};
+  var a=hs[ln]||hs[String(ln)]||hs[parseInt(ln,10)]||null;
+  var n=parseInt(String(hid).replace(/\D/g,''),10)||0;
+  var b=flat[hid+'_'+ln]||flat[hid+'_'+parseInt(ln,10)]||flat[n+'_'+ln]||null;
+  return _hsPick(a,b);
+}
+function _hsLaneTeam(l){ return l&&(l.teamName||l.team||l.nom||l.name||''); }
+function _hsLaneJudge(l,sc){
+  if(sc&&sc.judgeName) return sc.judgeName;
+  if(l&&Array.isArray(l.assignedJuges)&&l.assignedJuges.length){
+    return l.assignedJuges.map(function(j){ return ((j.prenom||'')+' '+(j.nom||'')).trim(); }).filter(Boolean).join(' / ');
+  }
+  return (l&&l.primaryJuge)||'';
+}
+function _hsHeatIsClosed(h){ return !!h && (h.status==='done'||h.status==='timecap'); }
+
+/* Lignes du heat, regroupées par catégorie effective, classées */
+function _hsBuildGroups(hid,h,flat){
+  var w=h.wodInfo||{};
+  var lanes=h.lanes||h.slots||{};
+  var groups={}, order=[];
+  Object.keys(lanes).forEach(function(ln){
+    var l=lanes[ln]; var team=_hsLaneTeam(l); if(!team) return;
+    var sc=_hsGetSc(hid,h,ln,flat);
+    var cat=(l.teamCatName||l.hostCatName||h.catName||'');
+    if(!groups[cat]){ groups[cat]=[]; order.push(cat); }
+    var hasRaw=!!(sc && (sc.judgeOk!=null || sc.reps!=null || sc.dist!=null || sc.finalTime!=null || sc.load!=null || sc.ergoVal!=null));
+    groups[cat].push({ln:ln,team:team,sc:sc,l:l,ok:_hsBool(sc&&sc.judgeOk),has:hasRaw&&Object.keys(sc).length>0,v:_hsScoreVal(sc,w)});
+  });
+  var hostCat=h.catName||'';
+  order.sort(function(a,b){ if(a===hostCat) return -1; if(b===hostCat) return 1; return 0; });
+  return order.map(function(cat){
+    var rows=groups[cat];
+    rows.sort(function(a,b){
+      if(a.ok&&!b.ok) return -1;
+      if(!a.ok&&b.ok) return 1;
+      if(b.v!==a.v) return b.v-a.v;
+      var t=_hsCmpTb(a.sc,b.sc); if(t) return t;
+      return (parseInt(a.ln,10)||0)-(parseInt(b.ln,10)||0);
+    });
+    var rk=0;
+    rows.forEach(function(r,i){
+      var prev=rows[i-1];
+      var tie=prev && r.ok && prev.ok && r.v===prev.v && _hsCmpTb(r.sc,prev.sc)===0;
+      if(!tie) rk=i+1;
+      r.rank=rk; r.tie=!!tie || (rows[i+1] && r.ok && rows[i+1].ok && r.v===rows[i+1].v && _hsCmpTb(r.sc,rows[i+1].sc)===0);
+    });
+    return {cat:cat,rows:rows};
+  });
+}
+
+/* Détail (colonne « Détail » de la feuille) */
+function _hsDetail(sc,w,l){
+  var out=[];
+  var nr=parseInt(sc&&sc.noReps,10)||0;
+  if(nr>0) out.push(nr+' no-rep'+(nr>1?'s':''));
+  var tb=_hsTb(sc||{});
+  if(tb.length) out.push('TB '+tb.map(_hsMmss).join(' · '));
+  if(sc&&sc.dbOut) out.push('hors course');
+  if(sc&&sc.clOut) out.push('hors course');
+  // Juge qui a saisi ≠ juge affecté à la lane : utile en cas de litige
+  if(sc&&sc.judgePrenom&&l&&l.primaryJuge&&String(sc.judgePrenom).trim().toLowerCase()!==String(l.primaryJuge).trim().toLowerCase()){
+    var aff=(Array.isArray(l.assignedJuges)&&l.assignedJuges.length)?l.assignedJuges.map(function(j){return ((j.prenom||'')+' '+(j.nom||'')).trim();}).filter(Boolean).join(' / '):l.primaryJuge;
+    out.push('affecté : '+aff);
+  }
+  return out.join(' · ');
+}
+
+/* HTML d'UNE page (un heat) */
+function hsSheetPage(hid,h,flat,eventName){
+  var w=h.wodInfo||{};
+  var groups=_hsBuildGroups(hid,h,flat);
+  var hor=h.horaires||{}; var hk=Object.keys(hor)[0]; var hh=hk?hor[hk]:null;
+  var horTxt=hh?(_hsHm(hh.debut)+' – '+_hsHm(hh.fin)):'';
+  var capSec=parseInt(w.capSec||w.capSeconds||0,10)||((parseInt(w.capMinutes,10)||0)*60);
+  var statusTxt=h.status==='timecap'?'TIME CAP':(h.status==='done'?'TERMINÉ':String(h.status||'').toUpperCase());
+  var nbTeams=0, nbOk=0;
+  groups.forEach(function(g){ g.rows.forEach(function(r){ nbTeams++; if(r.ok) nbOk++; }); });
+
+  var html='<section class="pg">';
+  html+='<div class="top"><div><div class="ev">'+_hsEsc(eventName)+'</div><div class="doc">FEUILLE DE RÉSULTAT · HEAT</div></div>'
+      +'<div class="tr">'+(h.jour||h.catJour?('Jour '+_hsEsc(h.jour||h.catJour)):'')
+      +'<br>Zone '+_hsEsc(h.catZone!=null?h.catZone:(h.zone||'—'))+(horTxt?('<br>'+_hsEsc(horTxt)):'')+'</div></div>';
+  html+='<div class="wod">'+_hsEsc(w.nom||h.wodNom||'WOD')+'</div>';
+  html+='<div class="meta">'
+      +'<span class="chip">'+_hsEsc(h.catName||'')+'</span>'
+      +'<span class="chip">Heat '+_hsEsc(h.catHeatNum||'—')+' / '+_hsEsc(h.nbHeatsTotal||'—')+'</span>'
+      +'<span class="chip">N° global '+_hsEsc(h.globalNum||'—')+'</span>'
+      +(w.wodFormat?('<span class="chip">'+_hsEsc(String(w.wodFormat).toUpperCase())+'</span>'):'')
+      +(capSec>0?('<span class="chip">Cap '+_hsEsc(_hsMmss(capSec))+'</span>'):'')
+      +'<span class="chip st">'+_hsEsc(statusTxt)+'</span>'
+      +'<span class="chip '+(nbOk===nbTeams?'okc':'warnc')+'">'+nbOk+' / '+nbTeams+' scores validés</span>'
+      +'</div>';
+  groups.forEach(function(g){
+    if(groups.length>1) html+='<div class="gcat">'+_hsEsc(g.cat||'—')+'</div>';
+    html+='<table><colgroup><col style="width:8%"><col style="width:7%"><col style="width:21%"><col style="width:15%"><col style="width:25%"><col style="width:10%"><col style="width:14%"></colgroup><thead><tr><th class="c">Rang</th><th class="c">Lane</th><th>Équipe</th><th>Juge</th><th class="r">Score</th><th>Détail</th><th>Validation</th></tr></thead><tbody>';
+    g.rows.forEach(function(r){
+      var sc=r.sc||{};
+      var scoreTxt=r.has?_hsScoreStr(sc,w):'—';
+      var val;
+      if(r.ok){
+        var src=String(sc._src||'').toLowerCase();
+        var by=src==='tk'?'TK':(src==='judge'||!src?'juge':src);
+        var mod=parseInt(sc.modifiedAt,10)||0, ts=parseInt(sc.ts,10)||0;
+        val='<span class="v">✓ '+_hsEsc(_hsClock(mod||ts))+'</span> <span class="s">('+_hsEsc(by)+(mod&&ts&&mod-ts>5000?', modifié':'')+')</span>';
+      } else {
+        val='<span class="nv">'+(r.has?'⚠ NON VALIDÉ':'⚠ AUCUN SCORE')+'</span>';
+      }
+      html+='<tr><td class="c rk">'+(r.ok?(_hsEsc(r.rank)+(r.tie?' =':'')):'—')+'</td>'
+          +'<td class="c">'+_hsEsc(r.ln)+'</td>'
+          +'<td class="tm">'+_hsEsc(r.team)+'</td>'
+          +'<td>'+_hsEsc(_hsLaneJudge(r.l,sc)||'—')+'</td>'
+          +'<td class="r sc">'+_hsEsc(scoreTxt)+'</td>'
+          +'<td class="d">'+_hsEsc(_hsDetail(sc,w,r.l))+'</td>'
+          +'<td>'+val+'</td></tr>';
+    });
+    html+='</tbody></table>';
+  });
+  html+='<div class="obs"><div class="obs-t">Réclamation / observations</div><div class="ln"></div><div class="ln"></div><div class="ln"></div></div>';
+  html+='<div class="sig"><div><span>Head Judge</span></div><div><span>Juge(s) de lane</span></div><div><span>Équipe / capitaine</span></div></div>';
+  html+='<div class="ft">Édité le '+_hsEsc(_hsDateTime(Date.now()))+' · heat '+_hsEsc(hid)+' · document de référence en cas de litige</div>';
+  html+='</section>';
+  return html;
+}
+var _HS_CSS=''
+  +'*{box-sizing:border-box;margin:0;padding:0}body{font-family:"Segoe UI",Arial,sans-serif;color:#0F172A;background:#fff}'
+  +'.pg{width:190mm;min-height:270mm;margin:0 auto;padding:6mm 0;page-break-after:always;break-after:page}.pg:last-child{page-break-after:auto;break-after:auto}'
+  +'.top{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #0F172A;padding-bottom:6px;margin-bottom:10px}'
+  +'.ev{font-size:11pt;font-weight:800;letter-spacing:.5px}.doc{font-size:9pt;letter-spacing:2px;color:#475569;margin-top:2px}'
+  +'.tr{text-align:right;font-size:9pt;font-weight:700;color:#334155;line-height:1.4}'
+  +'.wod{font-size:22pt;font-weight:900;letter-spacing:.5px;text-transform:uppercase;margin-bottom:6px}'
+  +'.meta{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:12px}'
+  +'.chip{font-size:8.5pt;font-weight:700;padding:3px 9px;border:1px solid #CBD5E1;border-radius:20px;background:#F8FAFC}'
+  +'.chip.st{background:#0F172A;color:#fff;border-color:#0F172A}.chip.okc{background:#DCFCE7;border-color:#86EFAC;color:#166534}.chip.warnc{background:#FEF3C7;border-color:#FCD34D;color:#92400E}'
+  +'.gcat{font-size:10pt;font-weight:900;margin:10px 0 4px;padding:3px 8px;background:#E2E8F0;border-radius:4px}'
+  +'table{width:100%;table-layout:fixed;border-collapse:collapse;font-size:9.5pt;margin-bottom:8px}'
+  +'th{background:#0F172A;color:#fff;text-align:left;font-size:8pt;letter-spacing:.5px;padding:5px 6px}td{padding:6px;border-bottom:1px solid #CBD5E1;vertical-align:middle}'
+  +'.c{text-align:center}.r{text-align:right}.rk{font-size:13pt;font-weight:900}.tm{font-weight:800}.sc{font-weight:900;font-size:11pt;white-space:nowrap}.d{font-size:8.5pt;color:#475569}'
+  +'.v{font-weight:800;color:#166534}.s{font-size:8pt;color:#64748B}.nv{font-weight:900;color:#B91C1C;font-size:8.5pt}'
+  +'.obs{margin-top:14px;border:1px solid #94A3B8;border-radius:6px;padding:8px 10px}.obs-t{font-size:8.5pt;font-weight:800;color:#475569;margin-bottom:4px}'
+  +'.ln{border-bottom:1px solid #CBD5E1;height:22px}'
+  +'.sig{display:flex;gap:10px;margin-top:14px}.sig>div{flex:1;border:1px solid #94A3B8;border-radius:6px;height:26mm;padding:5px 8px;font-size:8.5pt;font-weight:800;color:#475569}'
+  +'.ft{margin-top:10px;font-size:7.5pt;color:#64748B;text-align:center}'
+  +'@page{size:A4 portrait;margin:8mm}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}';
+function hsSheetDocument(pagesHtml,eventName){
+  return '<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>Résultats par heat · '+_hsEsc(eventName)+'</title><style>'+_HS_CSS+'</style></head><body>'+pagesHtml+'</body></html>';
+}
+function _hsEventName(){ return (document.getElementById('ev-nom')||{}).value||'FOC 2026'; }
+
+/* Chargement Firebase (lecture seule) */
+function _hsLoad(){
+  var d=getDb();
+  if(!d||typeof d.ref!=='function') return Promise.reject(new Error('Firebase indisponible'));
+  return Promise.all([ d.ref('heats').once('value'), d.ref('scores').once('value') ]).then(function(s){
+    return { heats:s[0].val()||{}, scores:s[1].val()||{} };
+  });
+}
+function _hsHeatSort(a,b,heats){
+  var A=heats[a], B=heats[b];
+  var ja=parseInt(A.jour||A.catJour,10)||0, jb=parseInt(B.jour||B.catJour,10)||0;
+  if(ja!==jb) return ja-jb;
+  var ga=parseInt(A.globalNum,10)||parseInt(String(a).replace(/\D/g,''),10)||0;
+  var gb=parseInt(B.globalNum,10)||parseInt(String(b).replace(/\D/g,''),10)||0;
+  return ga-gb;
+}
+function _hsClosedIds(heats){
+  return Object.keys(heats).filter(function(k){ return heats[k] && _hsHeatIsClosed(heats[k]); })
+    .sort(function(a,b){ return _hsHeatSort(a,b,heats); });
+}
+
+/* ── Impression manuelle (aperçu) ── */
+function hsPrintHeat(hid){
+  _hsLoad().then(function(d){
+    var h=d.heats[hid];
+    if(!h){ toast('Heat introuvable','#E65100'); return; }
+    var ev=_hsEventName();
+    openPrintPreviewOverlay(hsSheetDocument(hsSheetPage(hid,h,d.scores,ev),ev),'Feuille de résultat · '+(h.wodNom||(h.wodInfo&&h.wodInfo.nom)||'')+' · '+(h.catName||'')+' · Heat '+(h.catHeatNum||''));
+  }).catch(function(e){ toast('Erreur : '+e.message,'#D32F2F'); });
+}
+function hsPrintAll(){
+  var sel=document.getElementById('hs-day-select'); var day=sel?sel.value:'all';
+  _hsLoad().then(function(d){
+    var ids=_hsClosedIds(d.heats).filter(function(k){
+      if(day==='all') return true;
+      return String(d.heats[k].jour||d.heats[k].catJour||'')===String(day);
+    });
+    if(!ids.length){ toast('Aucun heat terminé à imprimer','#E65100'); return; }
+    var ev=_hsEventName();
+    var pages=ids.map(function(k){ return hsSheetPage(k,d.heats[k],d.scores,ev); }).join('');
+    openPrintPreviewOverlay(hsSheetDocument(pages,ev),'Feuilles de résultat · '+ids.length+' heat(s)');
+  }).catch(function(e){ toast('Erreur : '+e.message,'#D32F2F'); });
+}
+
+/* ── Liste dans l'onglet Impression ── */
+function hsRenderList(){
+  var box=document.getElementById('hs-list'); if(!box) return;
+  var chk=document.getElementById('hs-auto'); if(chk) chk.checked=_hsAutoOn();
+  box.innerHTML='<div style="font-size:11px;color:var(--ink3);padding:6px 0">⏳ Chargement…</div>';
+  _hsLoad().then(function(d){
+    var ids=_hsClosedIds(d.heats);
+    var printed=_hsPrintedSet();
+    var cnt=document.getElementById('hs-count'); if(cnt) cnt.textContent=ids.length?('('+ids.length+')'):'';
+    if(!ids.length){
+      box.innerHTML='<div style="font-size:11px;color:var(--ink3);padding:6px 0">Aucun heat terminé pour l\'instant. Les feuilles apparaissent ici dès la fin de chaque heat.</div>';
+      return;
+    }
+    box.innerHTML=ids.slice().reverse().map(function(k){
+      var h=d.heats[k], w=h.wodInfo||{};
+      var g=_hsBuildGroups(k,h,d.scores), n=0, ok=0;
+      g.forEach(function(gr){ gr.rows.forEach(function(r){ n++; if(r.ok) ok++; }); });
+      var lbl='J'+_hsEsc(h.jour||h.catJour||'?')+' · '+_hsEsc(w.nom||h.wodNom||'WOD')+' · '+_hsEsc(h.catName||'')+' · Heat '+_hsEsc(h.catHeatNum||'—')+'/'+_hsEsc(h.nbHeatsTotal||'—');
+      var badge=(ok===n)?'<span style="color:#166534;font-weight:800">✓ '+ok+'/'+n+'</span>':'<span style="color:#B45309;font-weight:800">⚠ '+ok+'/'+n+'</span>';
+      var pr=printed[k]?'<span style="color:var(--ink3)"> · imprimée '+_hsEsc(_hsClock(printed[k]))+'</span>':'';
+      return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--brd2);font-size:11px">'
+        +'<div style="flex:1;min-width:0"><div style="font-weight:800;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+lbl+'</div><div style="color:var(--ink2)">scores validés '+badge+pr+'</div></div>'
+        +'<button class="btn btn-blue" style="font-size:11px;padding:6px 10px" onclick="hsPrintHeat(\''+_hsEsc(k)+'\')">🖨️</button></div>';
+    }).join('');
+  }).catch(function(e){
+    box.innerHTML='<div style="font-size:11px;color:var(--err)">❌ '+_hsEsc(e.message)+'</div>';
+  });
+}
+
+/* ── Impression automatique à la fin de chaque heat ── */
+function hsToggleAuto(on){
+  _hsLsSet(_HS_LS_AUTO,on?'1':'0');
+  if(on){
+    toast('🖨️ Impression automatique activée sur cet appareil','#2E7D32');
+    hsBindAuto();
+  } else {
+    hsUnbindAuto(true);
+    toast('Impression automatique désactivée','#E65100');
+  }
+}
+function hsUnbindAuto(stopTimers){
+  try{ if(_hsStatusRef) _hsStatusRef.off(); }catch(e){}
+  _hsStatusRef=null; _hsBaseline=null;
+  // Les minuteurs d'attente d'un heat déjà terminé ne sont coupés que si on désactive l'option
+  if(stopTimers){
+    Object.keys(_hsTimers).forEach(function(k){ clearTimeout(_hsTimers[k]); });
+    _hsTimers={};
+  }
+}
+function hsBindAuto(){
+  hsUnbindAuto(false);
+  if(!_hsAutoOn()) return;
+  var d=getDb();
+  if(!d||typeof d.ref!=='function'){
+    if(_hsBindTries++<40) setTimeout(hsBindAuto,1500);
+    return;
+  }
+  d.ref('statuses').once('value').then(function(snap){
+    if(!_hsAutoOn()) return;
+    var base=snap.val()||{}; _hsBaseline={};
+    Object.keys(base).forEach(function(k){ var v=base[k]; _hsBaseline[k]=(v&&typeof v==='object')?v.status:v; });
+    _hsStatusRef=d.ref('statuses');
+    _hsStatusRef.on('child_changed',function(s){
+      var hid=s.key, v=s.val(); var st=(v&&typeof v==='object')?v.status:v;
+      var prev=_hsBaseline?_hsBaseline[hid]:undefined;
+      if(_hsBaseline) _hsBaseline[hid]=st;
+      if((st==='done'||st==='timecap') && prev!==st) hsSchedule(hid);
+    });
+  }).catch(function(){});
+}
+function hsSchedule(hid){
+  if(_hsTimers[hid]||_hsPrintedSet()[hid]) return;
+  var t0=Date.now();
+  function poll(){
+    delete _hsTimers[hid];
+    if(!_hsAutoOn()) return;
+    _hsLoad().then(function(d){
+      var h=d.heats[hid]; if(!h) return;
+      var g=_hsBuildGroups(hid,h,d.scores), n=0, ok=0;
+      g.forEach(function(gr){ gr.rows.forEach(function(r){ n++; if(r.ok) ok++; }); });
+      var timeout=(Date.now()-t0)>=_HS_MAX_WAIT_MS;
+      if(n>0 && ok<n && !timeout){ _hsTimers[hid]=setTimeout(poll,_HS_POLL_MS); return; }
+      _hsMarkPrinted(hid);
+      var ev=_hsEventName();
+      toast('🧾 Feuille de résultat prête : '+(h.wodNom||(h.wodInfo&&h.wodInfo.nom)||'WOD')+' · '+(h.catName||'')+' · Heat '+(h.catHeatNum||''),'#1E88E5',5000);
+      try{ printHtmlInHiddenFrame(hsSheetDocument(hsSheetPage(hid,h,d.scores,ev),ev)); }catch(e){}
+      if(document.getElementById('hs-list')) hsRenderList();
+    }).catch(function(){ _hsTimers[hid]=setTimeout(poll,_HS_POLL_MS*2); });
+  }
+  _hsTimers[hid]=setTimeout(poll,2500);
+}
+if(document.readyState==='loading') window.addEventListener('DOMContentLoaded',function(){ setTimeout(hsBindAuto,1200); });
+else setTimeout(hsBindAuto,1200);
+/* ═══════════════ FIN FEUILLES DE RÉSULTAT PAR HEAT ═══════════════ */
 
 // ★ Imprimer les scorecards du WOD choisi dans le centre d'impression
 function printScorecardFromCenter(){
@@ -7689,7 +8102,13 @@ function _rotTeamName(sl){ if(!sl||!sl.team) return ''; return typeof sl.team===
 //   sont INTERDITS dans une clé Firebase. On les encode en ~XX (hex) → clé toujours valide,
 //   réversible, sans collision. Ex : "Monkey D.lifters" → "Monkey D~2Elifters".
 function _fbSafe(s){
-  return String(s||'').replace(/[.#$/\[\]~]/g, function(c){ return '~'+c.charCodeAt(0).toString(16).toUpperCase(); });
+  // Encode les caractères interdits comme clé Firebase : . # $ / [ ] ~ ET les caractères de
+  //   contrôle (retour à la ligne, tab… qui peuvent se glisser via un copier-coller).
+  //   ~XX (hex) → réversible par _fbUnsafe. Padding 2 chiffres garanti (charCode < 128 ici).
+  return String(s||'').replace(/[.#$/\[\]~\x00-\x1F\x7F]/g, function(c){
+    var h=c.charCodeAt(0).toString(16).toUpperCase();
+    return '~'+(h.length<2?'0'+h:h);
+  });
 }
 // ★ Id Firebase d'une équipe-juge, TOUJOURS sûr. Un seul point de vérité pour admin + QR + appli.
 function _teamId(name){ return 'team:'+_fbSafe(name); }
@@ -15352,12 +15771,12 @@ function toggleDarkMode(){
       if(!document.body){ setTimeout(add,150); return; }
       if(document.getElementById('__delta_build_tag')) return;
       var b=document.createElement('div'); b.id='__delta_build_tag';
-      b.textContent='build v29';
+      b.textContent='build v30';
       b.style.cssText='position:fixed;bottom:4px;left:4px;z-index:2147483647;background:rgba(220,38,38,.92);color:#fff;font:700 10px/1 system-ui,-apple-system,sans-serif;padding:3px 7px;border-radius:6px;pointer-events:none;letter-spacing:.5px;box-shadow:0 2px 8px rgba(0,0,0,.3)';
       document.body.appendChild(b);
     }
     add();
-    try{ console.log('%cDELTA — build v29 chargé ('+new Date().toISOString()+')','background:#DC2626;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold'); }catch(e){}
+    try{ console.log('%cDELTA — build v30 chargé ('+new Date().toISOString()+')','background:#DC2626;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold'); }catch(e){}
   }catch(e){}
 })();
 
