@@ -14984,12 +14984,13 @@ function renderAdaptPopup(){
 
 
 // ════ CLASSEMENT AUTO-REFRESH ════
-var _classModalHeatRef=null, _classModalScoreRef=null, _classModalDeb=null, _classModalSafety=null;
+var _classModalHeatRef=null, _classModalScoreRef=null, _classModalDeb=null, _classModalSafety=null, _classModalLastAct=0;
 function startClassementModalLiveRefresh(){
   var _db=window.db||(typeof LS_FB_DB!=='undefined'&&LS_FB_DB)||null;
   if(!_db) return;
   // Debounce 800ms pour éviter les refresh trop fréquents
   function trigger(){
+    _classModalLastAct=Date.now();   // ← on note qu'il y a eu de l'activité réseau
     clearTimeout(_classModalDeb);
     _classModalDeb=setTimeout(function(){
       var modal=document.getElementById('classement-modal');
@@ -15005,15 +15006,20 @@ function startClassementModalLiveRefresh(){
   _classModalScoreRef.on('child_changed',function(){ trigger(); });
   _classModalScoreRef.on('child_added',function(){ trigger(); });
 
-  // ★ ANTI-PSCHITT : filet de sécurité. Toutes les 20 s, si la modale est ouverte, on
-  //   redessine (relecture fraîche). Garantit que le classement ne reste JAMAIS figé
-  //   plus de 20 s, même si un événement réseau a été manqué. (Même modèle que l'onglet
-  //   classement-TK qui a déjà ce filet.)
+  // ★ ANTI-PSCHITT MALIN (économe) : on ne redessine PAS en boucle. On vérifie toutes
+  //   les 30 s, et on ne recharge QUE si AUCUNE activité n'est arrivée depuis 70 s —
+  //   c'est le signe qu'un écouteur est peut-être mort (vrai risque de pschitt). En
+  //   fonctionnement normal (scores qui tombent régulièrement), ce filet ne coûte RIEN.
+  _classModalLastAct=Date.now();
   if(_classModalSafety) clearInterval(_classModalSafety);
   _classModalSafety=setInterval(function(){
     var modal=document.getElementById('classement-modal');
-    if(modal&&modal.style.display!=='none') renderClassementModal();
-  },20000);
+    if(!modal||modal.style.display==='none') return;
+    if(Date.now()-_classModalLastAct > 70000){   // 70 s de silence suspect
+      _classModalLastAct=Date.now();
+      renderClassementModal();
+    }
+  },30000);
 }
 function stopClassementModalLiveRefresh(){
   if(_classModalHeatRef){ _classModalHeatRef.off(); _classModalHeatRef=null; }
@@ -16046,7 +16052,7 @@ function toggleDarkMode(){
   }
 })();;
 
-// ★ BADGE DE VERSION (diagnostic cache) : si tu vois "build v25" en bas à gauche,
+// ★ BADGE DE VERSION (diagnostic cache) : si tu vois "build v26" en bas à gauche,
 //   tu es bien sur le nouveau fichier. Sinon, c'est que ton navigateur/site sert l'ancien.
 (function(){
   try{
@@ -23094,13 +23100,14 @@ function submitScoreEdit(){
 // ══════════════════════════════════════════════════════════
 var _classementLiveBound=false;
 var _classementRefreshTm=null;
-var _classScoresRefAdmin=null, _classHeatsRefAdmin=null, _classScoreCb=null, _classHeatCb=null, _classAdminSafety=null;
+var _classScoresRefAdmin=null, _classHeatsRefAdmin=null, _classScoreCb=null, _classHeatCb=null, _classAdminSafety=null, _classAdminLastAct=0;
 function bindClassementLive(){
   if(_classementLiveBound) return;
   var _db = window.db || (typeof LS_FB_DB!=='undefined' && LS_FB_DB) || (typeof db!=='undefined'&&db) || null;
   if(!_db) return;
   _classementLiveBound=true;
   function scheduleRefresh(){
+    _classAdminLastAct=Date.now();   // ← activité réseau détectée
     // Ne pas rafraîchir si la modal de modif est ouverte (évite de perturber le chef)
     var m=document.getElementById('score-edit-modal');
     if(m && m.style.display==='flex') return;
@@ -23123,16 +23130,21 @@ function bindClassementLive(){
   _classHeatsRefAdmin.on('child_added', _classHeatCb);
   _classHeatsRefAdmin.on('child_removed', _classHeatCb);
 
-  // ★ ANTI-PSCHITT : filet 20 s. Si l'onglet classement est visible (et pas de modale
-  //   de modif ouverte), on recharge le classement toutes les 20 s quoi qu'il arrive.
-  //   Garantit « jamais figé plus de 20 s », même si un événement réseau a été manqué.
+  // ★ ANTI-PSCHITT MALIN (économe) : on ne recharge PAS en boucle. On vérifie toutes les
+  //   30 s, et on ne recharge QUE si AUCUNE activité n'est arrivée depuis 70 s (signe
+  //   qu'un écouteur est peut-être mort). En fonctionnement normal, ce filet ne coûte RIEN.
+  _classAdminLastAct=Date.now();
   if(_classAdminSafety) clearInterval(_classAdminSafety);
   _classAdminSafety=setInterval(function(){
     var m=document.getElementById('score-edit-modal');
     if(m && m.style.display==='flex') return;
     var sheet=document.getElementById('classement-admin');
-    if(sheet && sheet.style.display!=='none') loadClassement();
-  },20000);
+    if(!sheet || sheet.style.display==='none') return;
+    if(Date.now()-_classAdminLastAct > 70000){
+      _classAdminLastAct=Date.now();
+      loadClassement();
+    }
+  },30000);
 }
 // ★ Délier les listeners quand on quitte l'onglet classement → zéro trafic en arrière-plan.
 function unbindClassementLive(){
