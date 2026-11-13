@@ -1534,6 +1534,25 @@ function debouncedRender(ms){
     debouncedRender(300); // léger debounce heats seulement
   }
 
+  function _attachHeats(){
+    heatsRef.on('child_changed',onHeatChange);
+    heatsRef.on('child_added',function(snap){if(!HEATS[snap.key])onHeatChange(snap);});
+    heatsRef.on('child_removed',onHeatChange);
+  }
+  // ★ ÉCONOMIE : exposer de quoi couper/resynchroniser au passage en arrière-plan.
+  window.__clsHeats = { ref:heatsRef, detach:function(){ try{ heatsRef.off(); }catch(e){} }, resync:function(){
+    db.ref('classementLite').once('value',function(snap){
+      var lite=snap.val();
+      if(lite && lite.heats && Object.keys(lite.heats).length){ HEATS=lite.heats||{}; }
+      checkHeatDone(HEATS); updateStamp(); render(); _attachHeats();
+    }, function(){
+      // ★ ANTI-PSCHITT : même si la relecture légère échoue, on retente heats, et
+      //   SURTOUT on ré-attache les écouteurs quoi qu'il arrive (sinon écran figé).
+      heatsRef.once('value',function(s){ HEATS=s.val()||{}; checkHeatDone(HEATS); updateStamp(); render(); _attachHeats(); },
+                    function(){ _attachHeats(); });   // échec total → on ré-attache quand même
+    });
+  }};
+
   function startHeatsFallback(){
     // Ancien comportement : lecture complète de "heats" + écoute fine.
     window.__CLASS_SRC='full';
@@ -1542,9 +1561,7 @@ function debouncedRender(ms){
       checkHeatDone(HEATS);
       updateStamp();
       render();
-      heatsRef.on('child_changed',onHeatChange);
-      heatsRef.on('child_added',function(snap){if(!HEATS[snap.key])onHeatChange(snap);});
-      heatsRef.on('child_removed',onHeatChange);
+      _attachHeats();
     });
   }
 
@@ -1559,9 +1576,7 @@ function debouncedRender(ms){
       render();
       // Mises à jour live : on écoute les CHANGEMENTS de structure sur "heats"
       // (statut d'un heat, etc.) en child_* — léger, pas de retéléchargement global.
-      heatsRef.on('child_changed',onHeatChange);
-      heatsRef.on('child_added',function(snap){if(!HEATS[snap.key])onHeatChange(snap);});
-      heatsRef.on('child_removed',onHeatChange);
+      _attachHeats();
     } else {
       // Nœud léger absent (vieille compét / admin pas à jour) → repli sûr.
       startHeatsFallback();
@@ -1588,17 +1603,68 @@ function debouncedRender(ms){
     debouncedRender(150); // évite N renders/seconde pendant un heat live
   }
 
+  // ★ ÉCONOMIE DE DONNÉES (page aussi consultée par QR sur beaucoup de téléphones) :
+  //   on expose de quoi COUPER les écouteurs quand l'onglet passe en arrière-plan,
+  //   et les RÉ-ATTACHER (avec une lecture de rattrapage) au retour. Un QR laissé
+  //   ouvert dans un onglet en veille cesse alors de consommer des données.
+  function _attachScores(){
+    ref.on('child_changed',onScoreChange);
+    ref.on('child_added',function(snap){ if(!SCORES[snap.key]) onScoreChange(snap); });
+  }
+  function _detachScores(){ try{ ref.off(); }catch(e){} }
+  window.__clsScores = { ref:ref, attach:_attachScores, detach:_detachScores, resync:function(){
+    ref.once('value',function(snap){
+      var raw=snap.val()||{}; SCORES={};
+      Object.keys(raw).forEach(function(k){ indexScore(k, raw[k]); });
+      updateStamp(); render(); _attachScores();
+    }, function(){ _attachScores(); });   // ★ ANTI-PSCHITT : échec de relecture → on ré-attache quand même
+  }};
   ref.once('value',function(snap){
     var raw=snap.val()||{};
     SCORES={};
     Object.keys(raw).forEach(function(k){ indexScore(k, raw[k]); });
     updateStamp();
     render();
-    ref.on('child_changed',onScoreChange);
-    ref.on('child_added',function(snap){
-      if(!SCORES[snap.key]) onScoreChange(snap);
-    });
+    _attachScores();
   });
+})();
+
+/* ★ ÉCONOMIE : suspendre les écouteurs quand la page est en arrière-plan (onglet caché
+   sur un téléphone), et resynchroniser au retour. Gros gain multiplié par le nombre
+   de téléphones qui laissent le QR ouvert sans regarder. */
+(function(){
+  var _suspended=false;
+  document.addEventListener('visibilitychange',function(){
+    try{
+      if(document.hidden){
+        if(window.__clsScores) window.__clsScores.detach();
+        if(window.__clsHeats) window.__clsHeats.detach();
+        _suspended=true;
+      } else if(_suspended){
+        _suspended=false;
+        if(window.__clsScores) window.__clsScores.resync();
+        if(window.__clsHeats) window.__clsHeats.resync();
+      }
+    }catch(e){}
+  });
+
+  // ★ ANTI-PSCHITT (ceinture + bretelles) : à chaque retour de connexion Firebase,
+  //   si la page est visible, on resynchronise et on ré-attache les écouteurs. Couvre
+  //   le cas où un téléphone aurait coupé l'écoute sans émettre de 'visibilitychange'
+  //   propre au réveil → garantit qu'on ne reste jamais figé sur un vieux classement.
+  //   (Pas de setInterval de relecture : ça gâcherait l'économie de données. Ce handler
+  //   ne se déclenche qu'au PASSAGE à "connecté", c'est-à-dire une fois par reconnexion.)
+  var _wasConnected=true;
+  try{
+    db.ref('.info/connected').on('value',function(s){
+      var up=s.val()===true;
+      if(up && !_wasConnected && !document.hidden && !_suspended){
+        if(window.__clsScores) window.__clsScores.resync();
+        if(window.__clsHeats) window.__clsHeats.resync();
+      }
+      _wasConnected=up;
+    });
+  }catch(e){}
 })();
 
 /* ── Export CSV ── */

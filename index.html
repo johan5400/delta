@@ -14984,7 +14984,7 @@ function renderAdaptPopup(){
 
 
 // ════ CLASSEMENT AUTO-REFRESH ════
-var _classModalHeatRef=null, _classModalScoreRef=null, _classModalDeb=null;
+var _classModalHeatRef=null, _classModalScoreRef=null, _classModalDeb=null, _classModalSafety=null;
 function startClassementModalLiveRefresh(){
   var _db=window.db||(typeof LS_FB_DB!=='undefined'&&LS_FB_DB)||null;
   if(!_db) return;
@@ -15004,10 +15004,21 @@ function startClassementModalLiveRefresh(){
   _classModalScoreRef=_db.ref('scores');
   _classModalScoreRef.on('child_changed',function(){ trigger(); });
   _classModalScoreRef.on('child_added',function(){ trigger(); });
+
+  // ★ ANTI-PSCHITT : filet de sécurité. Toutes les 20 s, si la modale est ouverte, on
+  //   redessine (relecture fraîche). Garantit que le classement ne reste JAMAIS figé
+  //   plus de 20 s, même si un événement réseau a été manqué. (Même modèle que l'onglet
+  //   classement-TK qui a déjà ce filet.)
+  if(_classModalSafety) clearInterval(_classModalSafety);
+  _classModalSafety=setInterval(function(){
+    var modal=document.getElementById('classement-modal');
+    if(modal&&modal.style.display!=='none') renderClassementModal();
+  },20000);
 }
 function stopClassementModalLiveRefresh(){
   if(_classModalHeatRef){ _classModalHeatRef.off(); _classModalHeatRef=null; }
   if(_classModalScoreRef){ _classModalScoreRef.off(); _classModalScoreRef=null; }
+  if(_classModalSafety){ clearInterval(_classModalSafety); _classModalSafety=null; }
 }
 function secToMmss(s) {
   s = Number(s); if (!isFinite(s)) s = 0;  // ★ blindage fuzzing : NaN/Infinity → 0
@@ -16035,7 +16046,7 @@ function toggleDarkMode(){
   }
 })();;
 
-// ★ BADGE DE VERSION (diagnostic cache) : si tu vois "build v22" en bas à gauche,
+// ★ BADGE DE VERSION (diagnostic cache) : si tu vois "build v25" en bas à gauche,
 //   tu es bien sur le nouveau fichier. Sinon, c'est que ton navigateur/site sert l'ancien.
 (function(){
   try{
@@ -23083,7 +23094,7 @@ function submitScoreEdit(){
 // ══════════════════════════════════════════════════════════
 var _classementLiveBound=false;
 var _classementRefreshTm=null;
-var _classScoresRefAdmin=null, _classHeatsRefAdmin=null, _classScoreCb=null, _classHeatCb=null;
+var _classScoresRefAdmin=null, _classHeatsRefAdmin=null, _classScoreCb=null, _classHeatCb=null, _classAdminSafety=null;
 function bindClassementLive(){
   if(_classementLiveBound) return;
   var _db = window.db || (typeof LS_FB_DB!=='undefined' && LS_FB_DB) || (typeof db!=='undefined'&&db) || null;
@@ -23111,6 +23122,17 @@ function bindClassementLive(){
   _classHeatsRefAdmin.on('child_changed', _classHeatCb);
   _classHeatsRefAdmin.on('child_added', _classHeatCb);
   _classHeatsRefAdmin.on('child_removed', _classHeatCb);
+
+  // ★ ANTI-PSCHITT : filet 20 s. Si l'onglet classement est visible (et pas de modale
+  //   de modif ouverte), on recharge le classement toutes les 20 s quoi qu'il arrive.
+  //   Garantit « jamais figé plus de 20 s », même si un événement réseau a été manqué.
+  if(_classAdminSafety) clearInterval(_classAdminSafety);
+  _classAdminSafety=setInterval(function(){
+    var m=document.getElementById('score-edit-modal');
+    if(m && m.style.display==='flex') return;
+    var sheet=document.getElementById('classement-admin');
+    if(sheet && sheet.style.display!=='none') loadClassement();
+  },20000);
 }
 // ★ Délier les listeners quand on quitte l'onglet classement → zéro trafic en arrière-plan.
 function unbindClassementLive(){
@@ -23121,6 +23143,7 @@ function unbindClassementLive(){
   _classScoresRefAdmin=_classHeatsRefAdmin=_classScoreCb=_classHeatCb=null;
   _classementLiveBound=false;
   clearTimeout(_classementRefreshTm);
+  if(_classAdminSafety){ clearInterval(_classAdminSafety); _classAdminSafety=null; }
 }
 window.unbindClassementLive=unbindClassementLive;
 
