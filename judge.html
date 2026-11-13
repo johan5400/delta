@@ -6057,7 +6057,10 @@ function signalPresence(){
     heat:parseInt(String(FB_HEAT_ID).replace(/\D/g,''))||0,
     lane:parseInt(FB_LANE)||0,ts:Date.now()};
   if(_battPct!=null){ payload.judgeBatt=_battPct; payload.judgeBattTs=Date.now(); }
-  db.ref(path).update(payload);
+  // ★ ÉCONOMIE DE DONNÉES : on n'écrit QUE le nœud plat scores/ (que tous les écrans
+  //   lisent déjà). Avant, la présence était écrite AUSSI dans heats/<hid>/scores, ce
+  //   qui faisait redescendre un child_changed sur le GROS nœud heats à tous les écrans
+  //   (speaker, superviseur, classement), toutes les 3 min et par juge. Doublon inutile.
   db.ref('scores/'+FB_HEAT_ID+'_'+FB_LANE).update(payload);
 }
 // ★ Rafraîchir la présence (et donc la batterie) toutes les 3 minutes

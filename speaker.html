@@ -906,20 +906,15 @@ function initSpeaker(){
       //   les scores DÉJÀ saisis du heat sélectionné, même sans nouveau tick juge.
       try{ Object.keys(_spkFlat||{}).forEach(function(k){ if(k.indexOf(hid+'_')===0){ var ln=k.replace(hid+'_',''); zState[z].scores[ln]=Object.assign({},zState[z].scores[ln]||{},_spkFlat[k]); } }); }catch(e){}
 
+      // ★ ÉCONOMIE DE DONNÉES : plus de listener `heats/<hid>/scores` par zone (il
+      //   re-téléchargeait TOUTES les lanes du heat à chaque tick/validation). Le nœud
+      //   plat `scores/` est DÉJÀ écouté en child_changed/added (plus bas) et alimente
+      //   zState[z].scores + les alertes. L'état de départ est ré-hydraté via _spkFlat
+      //   juste au-dessus. Donc ce listener faisait doublon de bande passante.
       if(heatChanged){
-        if(zState[z]._scoresRef){ try{zState[z]._scoresRef.off();}catch(e){} }
-        zState[z]._scoresRef=db.ref('heats/'+hid+'/scores');
-        zState[z]._scoresRef.on('value',function(sSnap){
-          try{
-            var freshScores=sSnap.val()||{};
-            Object.keys(freshScores).forEach(function(ln){
-              zState[z].scores[ln]=Object.assign({},zState[z].scores[ln]||{},freshScores[ln]);
-            });
-            // ★ Détecter les nouveaux scores validés / tiebreaks pour alertes
-            checkScoreAlerts(z, zState[z].scores);
-            renderZone(z);
-          }catch(e){ if(window.logError) window.logError('scoresRef:'+z, e); }
-        }, function(err){ if(window.logError) window.logError('scoresRef.err:'+z, err); });
+        if(zState[z]._scoresRef){ try{zState[z]._scoresRef.off();}catch(e){} zState[z]._scoresRef=null; }
+        checkScoreAlerts(z, zState[z].scores);
+        renderZone(z);
       }
 
       var gn=h.globalNum||hid.replace(/\D/g,'');
@@ -1016,6 +1011,7 @@ function initSpeaker(){
           // Fusionner avec le score existant de la lane
           var prev=zState[z].scores[ln]||{};
           zState[z].scores[ln]=Object.assign({},prev,sc);
+          checkScoreAlerts(z, zState[z].scores);   // ★ alertes (reprises du listener heats/scores supprimé)
           renderZone(z);
         }
       });
@@ -1032,6 +1028,7 @@ function initSpeaker(){
             var ln=k.replace(hid+'_','');
             if(!zState[z].scores) zState[z].scores={};
             zState[z].scores[ln]=Object.assign({},zState[z].scores[ln]||{},sc);
+            checkScoreAlerts(z, zState[z].scores);   // ★ alertes
             renderZone(z);
           }
         });
