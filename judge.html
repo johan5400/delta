@@ -5457,8 +5457,14 @@ function initFirebase(){
       _serverTimeReady = true;
     });
     db.ref('.info/connected').on('value',function(s){
+      var connected = s.val()===true;
       var off=document.getElementById('fb-offline');
-      if(off) off.style.display=s.val()?'none':'block';
+      if(off) off.style.display=connected?'none':'block';
+      // ★ FIX hors-ligne réel : piloter la file sur l'état RÉEL de Firebase, pas
+      //   seulement navigator.onLine. Un Wi-Fi « connecté mais sans Internet »
+      //   (salle saturée) laisse navigator.onLine=true alors que Firebase est coupé :
+      //   sans ça, les scores partaient dans le vide au lieu d'être mis en file.
+      if(typeof _setOnlineState==='function') _setOnlineState(connected, 'firebase');
     });
     // ── Suivre les WODs et catégories en temps réel ──
     // Permet aux noms affichés (WOD, catégorie) de se mettre à jour quand
@@ -6060,7 +6066,30 @@ setInterval(function(){ try{ if(typeof signalPresence==='function') signalPresen
 /* ── Queue offline — persist dans localStorage si réseau coupé ── */
 var _offlineQueue=[];
 var _isOnline=navigator.onLine!==false;
+var _fbConnected=null;   // état réel Firebase (.info/connected) : null tant qu'inconnu
 var _LS_KEY='foc-judge-offline-'+window.location.pathname;
+
+/* ★ État de connexion CENTRALISÉ. Source 'firebase' = vérité (.info/connected) ;
+   source 'navigator' = complément (events online/offline du navigateur).
+   Dès qu'une des deux dit « connecté », on considère en ligne et on vide la file.
+   Si Firebase dit « coupé », on bascule hors ligne même si navigator.onLine=true. */
+function _setOnlineState(up, source){
+  if(source==='firebase') _fbConnected = up;
+  var online = (_fbConnected===true) || (_fbConnected===null && navigator.onLine!==false);
+  if(_fbConnected===false) online=false;
+  var was=_isOnline;
+  _isOnline=online;
+  var dot=document.getElementById('conn-dot-judge');
+  if(dot){
+    dot.style.background = online ? '#00E5A0' : '#FF3B5C';
+    dot.title = online ? 'Connecté' : 'Hors ligne';
+  }
+  if(online && !was){
+    _flushQueue();
+  } else if(!online && was){
+    if(_offlineQueue.length) toast('📴 Hors ligne — reps sauvegardés localement','#FF8A00');
+  }
+}
 
 function _saveOfflineQueue(){
   try{ localStorage.setItem(_LS_KEY, JSON.stringify(_offlineQueue)); }catch(e){}
@@ -6087,18 +6116,8 @@ function _loadOfflineQueue(){
 }
 
 if(typeof window!=='undefined'){
-  window.addEventListener('online', function(){
-    _isOnline=true;
-    _flushQueue();
-    var dot=document.getElementById('conn-dot-judge');
-    if(dot){ dot.style.background='#00E5A0'; dot.title='Connecté'; }
-  });
-  window.addEventListener('offline', function(){
-    _isOnline=false;
-    toast('📴 Hors ligne — reps sauvegardés localement','#FF8A00');
-    var dot=document.getElementById('conn-dot-judge');
-    if(dot){ dot.style.background='#FF3B5C'; dot.title='Hors ligne'; }
-  });
+  window.addEventListener('online', function(){ _setOnlineState(true,'navigator'); });
+  window.addEventListener('offline', function(){ _setOnlineState(false,'navigator'); });
   // Charger les reps sauvegardés au démarrage
   _loadOfflineQueue();
 }
@@ -6414,6 +6433,16 @@ function pushScoreFinal(scorePayload){
   });
   var path=FB_HEAT_ID+'_'+FB_LANE;
   var hpath=FB_HEAT_ID+'/scores/'+FB_LANE;
+  // ★ FIX hors-ligne réel : si Firebase est coupé, on met le score final en file
+  //   IMMÉDIATEMENT (avant d'essayer d'écrire). Hors ligne, .set() ne « rejette »
+  //   pas tout de suite → sans ça, un onglet fermé pendant la coupure perdait le
+  //   score final. Il repartira seul au retour de la connexion (via _flushQueue).
+  if(!_isOnline){
+    _enqueueScore(path,hpath,sc);
+    toast('📴 Hors ligne — score final sauvegardé, envoi au retour du réseau','#FF8A00',5000);
+    vib([100, 50, 200]);
+    return;
+  }
   var _finalQueued=false;
   var push=function(){
     var p1=db.ref('scores/'+path).set(sc);
@@ -7433,9 +7462,12 @@ function listenHeatStatus(){
 
   // Reconnexion Firebase → relancer startWatchNextHeat si en attente
   db.ref('.info/connected').on('value',function(snap){
+    // ★ Redondance volontaire avec le handler principal : garantit que la file
+    //   suit l'état réel Firebase même dans ce flux (watch du heat suivant).
+    if(typeof _setOnlineState==='function') _setOnlineState(snap.val()===true,'firebase');
     if(snap.val()===true && (HEAT_STATUS==='done'||HEAT_STATUS==='timecap') && done){
       setTimeout(function(){
-        db.ref('heats').once('value').then(function(s){ 
+        db.ref('heats').once('value').then(function(s){
           if(_nextHeatWatchRef||_nextHeatWatchIv) return; // déjà en cours
           startWatchNextHeat();
         });
