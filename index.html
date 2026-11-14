@@ -1488,6 +1488,11 @@ function checkPassword(){
           <option value="2">Jour 2</option>
         </select>
       </div>
+      <label style="display:flex;align-items:center;gap:8px;margin-bottom:10px;font-size:11px;color:var(--ink2);cursor:pointer">
+        <input type="checkbox" id="print-judge-onepage" style="width:16px;height:16px;cursor:pointer">
+        <span>Forcer <b>tout sur une seule feuille</b> (texte plus petit)</span>
+      </label>
+      <div style="font-size:10px;color:var(--mid);margin-bottom:10px;line-height:1.4">Par défaut : jusqu'à 12 juges tiennent sur 1 feuille ; au-delà, l'impression se découpe automatiquement en pages lisibles (colonne Heat répétée).</div>
       <button class="btn" onclick="printJudgePlanning()" style="width:100%;justify-content:center;font-size:12px;background:linear-gradient(135deg,#1E3A5F,#2563EB);color:#fff">🖨️ Imprimer</button>
     </div>
     <div class="card" style="display:flex;flex-direction:column">
@@ -16141,7 +16146,7 @@ function toggleDarkMode(){
   }
 })();;
 
-// ★ BADGE DE VERSION (diagnostic cache) : si tu vois "build v37" en bas à gauche,
+// ★ BADGE DE VERSION (diagnostic cache) : si tu vois "build v39" en bas à gauche,
 //   tu es bien sur le nouveau fichier. Sinon, c'est que ton navigateur/site sert l'ancien.
 (function(){
   try{
@@ -16149,12 +16154,12 @@ function toggleDarkMode(){
       if(!document.body){ setTimeout(add,150); return; }
       if(document.getElementById('__delta_build_tag')) return;
       var b=document.createElement('div'); b.id='__delta_build_tag';
-      b.textContent='build v37';
+      b.textContent='build v39';
       b.style.cssText='position:fixed;bottom:4px;left:4px;z-index:2147483647;background:rgba(220,38,38,.92);color:#fff;font:700 10px/1 system-ui,-apple-system,sans-serif;padding:3px 7px;border-radius:6px;pointer-events:none;letter-spacing:.5px;box-shadow:0 2px 8px rgba(0,0,0,.3)';
       document.body.appendChild(b);
     }
     add();
-    try{ console.log('%cDELTA — build v37 chargé ('+new Date().toISOString()+')','background:#DC2626;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold'); }catch(e){}
+    try{ console.log('%cDELTA — build v39 chargé ('+new Date().toISOString()+')','background:#DC2626;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold'); }catch(e){}
   }catch(e){}
 })();
 
@@ -19272,21 +19277,57 @@ function printJudgePlanning(){
   // Générer une page par jour demandé (tous les juges présents ce jour)
   var dateStr = new Date().toLocaleDateString('fr-FR');
   var body='';
-  days.forEach(function(day, idx){
+  var _maxJugesAnyDay = 0; // pour calculer l'échelle d'impression
+  // ★★ Choix "tout sur une seule feuille" (case à cocher) : si cochée, on ne découpe pas,
+  //   on compresse tout sur une page quitte à réduire le texte. Sinon, au-delà de 12 juges,
+  //   on découpe en paquets lisibles (une page par paquet), colonne Heat répétée.
+  var _onePage = !!(document.getElementById('print-judge-onepage')||{}).checked;
+  var _MAX_PER_PAGE = 12; // au-delà, on scinde (sauf si _onePage)
+  var _biggestChunk = 1;  // plus gros nb de juges sur une même page (pour calculer l'échelle)
+
+  days.forEach(function(day){
     // juges présents ce jour = non absents OU ayant un passage ce jour
     var dayRecords = records.filter(function(rec){
       return (rec.events||[]).some(function(ev){ return ev.jour===day; })
         || getJudgeSlotForDayGlobal(rec.ben, day) !== 'absent';
     });
-    var tbl;
-    try{ tbl = renderJudgePlanningDayTable(day, dayRecords); }
-    catch(e){ tbl = '<div>Erreur de génération pour le Jour '+day+'.</div>'; }
-    var nb = dayRecords.length;
-    body += '<section class="page'+(idx>0?' brk':'')+'">'
-      + '<div class="ph"><h1>🧑‍⚖️ Planning juge — JOUR '+day+'</h1>'
-      + '<div class="sub">'+escHtml(nom_ev)+' · '+nb+' juge'+(nb>1?'s':'')+' · imprimé le '+dateStr+'</div></div>'
-      + tbl + '</section>';
+    if(dayRecords.length > _maxJugesAnyDay) _maxJugesAnyDay = dayRecords.length;
+    if(!dayRecords.length) return;
+
+    // Découper les juges en paquets (sauf si "une seule feuille")
+    var chunks=[];
+    if(_onePage || dayRecords.length<=_MAX_PER_PAGE){
+      chunks=[dayRecords];
+    } else {
+      // répartition équilibrée : ex 16 juges -> 2 pages de 8, pas 12+4
+      var nbPages=Math.ceil(dayRecords.length/_MAX_PER_PAGE);
+      var per=Math.ceil(dayRecords.length/nbPages);
+      for(var s=0;s<dayRecords.length;s+=per){ chunks.push(dayRecords.slice(s,s+per)); }
+    }
+    chunks.forEach(function(chunk){
+      if(chunk.length > _biggestChunk) _biggestChunk = chunk.length;
+    });
+
+    chunks.forEach(function(chunk, ci){
+      var tbl;
+      try{ tbl = renderJudgePlanningDayTable(day, chunk); }
+      catch(e){ tbl = '<div>Erreur de génération pour le Jour '+day+'.</div>'; }
+      var partLbl = (chunks.length>1) ? (' · groupe '+(ci+1)+'/'+chunks.length+' ('+chunk.length+' juges)') : '';
+      var nb = dayRecords.length;
+      body += '<section class="page'+(body?' brk':'')+'">'
+        + '<div class="ph"><h1>🧑‍⚖️ Planning juge — JOUR '+day+'</h1>'
+        + '<div class="sub">'+escHtml(nom_ev)+' · '+nb+' juge'+(nb>1?'s':'')+partLbl+' · imprimé le '+dateStr+'</div></div>'
+        + '<div class="pjwrap">' + tbl + '</div></section>';
+    });
   });
+
+  // ★★ IMPRESSION : on compresse pour que les colonnes de juges d'UNE page tiennent sur la
+  //   largeur A4 paysage (~283mm utiles). L'échelle se base sur le plus gros PAQUET (après
+  //   découpe), pas sur le total → une impression découpée reste bien lisible.
+  var _nJ = Math.max(1, _biggestChunk);
+  var _heatMM = 42, _jugeMM = Math.max(16, Math.min(30, Math.floor((283 - _heatMM) / _nJ)));
+  var _totalMM = _heatMM + _nJ*_jugeMM;
+  var _scale = _totalMM > 283 ? (283/_totalMM) : 1; // filet ultime si ça déborde encore
 
   var html = '<!DOCTYPE html><html><head><meta charset="UTF-8">'
     + '<title>Planning juge · '+escHtml(nom_ev)+'</title>'
@@ -19294,15 +19335,24 @@ function printJudgePlanning(){
     + 'body{font-family:Inter,system-ui,sans-serif;font-size:10px;color:#0F172A;margin:0;padding:0}'
     + '.page{padding:14px}'
     + '.brk{page-break-before:always}'
-    + '.ph{margin-bottom:10px}'
-    + 'h1{font-size:16px;font-weight:900;margin:0 0 4px}'
-    + '.sub{font-size:10px;color:#64748B}'
-    + 'table{border-collapse:collapse;width:100%;font-size:8.5px;margin-bottom:10px;table-layout:fixed}'
-    + 'th{background:#0F172A;color:#fff;padding:4px 4px;text-align:center;font-weight:800}'
-    + 'td{padding:3px 4px;border:1px solid #E2E8F0;text-align:center;vertical-align:middle;word-break:break-word}'
-    + 'tr:nth-child(even) td{background:#F8FAFF}'
+    + '.ph{margin-bottom:8px}'
+    + 'h1{font-size:15px;font-weight:900;margin:0 0 3px}'
+    + '.sub{font-size:9px;color:#64748B}'
+    // ★ compression forte, largeurs fixes, plus de scroll ni de min-width écran à l'impression
+    + '.pjwrap{transform-origin:top left;transform:scale('+_scale.toFixed(3)+')}'
+    + '.pjwrap table{border-collapse:collapse!important;border-spacing:0!important;width:auto!important;min-width:0!important;font-size:8px!important;table-layout:fixed!important;margin-bottom:8px}'
+    + '.pjwrap div[style*="overflow:auto"],.pjwrap div[style*="overflow: auto"]{overflow:visible!important;max-height:none!important}'
+    + '.pjwrap th,.pjwrap td{padding:2px 2px!important;border:1px solid #E2E8F0!important;text-align:center;vertical-align:middle;word-break:break-word;overflow:hidden!important}'
+    + '.pjwrap th{background:#0F172A!important;color:#fff!important;font-weight:800;min-width:0!important;max-width:'+_jugeMM+'mm!important;width:'+_jugeMM+'mm!important}'
+    + '.pjwrap td{min-width:0!important;max-width:'+_jugeMM+'mm!important;width:'+_jugeMM+'mm!important}'
+    // 1re colonne (Heat) plus large, pas sticky à l'impression
+    + '.pjwrap th:first-child,.pjwrap td:first-child{position:static!important;width:'+_heatMM+'mm!important;max-width:'+_heatMM+'mm!important;min-width:'+_heatMM+'mm!important;text-align:left}'
+    + '.pjwrap th>div,.pjwrap td>div{padding:1px 2px!important;line-height:1.1!important}'
+    // réduire les badges "L5" et noms d'équipe pour gagner de la place
+    + '.pjwrap td span,.pjwrap td div{font-size:8px!important}'
+    + '.pjwrap .jp-drag span[style*="background"]{padding:0 4px!important;font-size:8px!important}'
     + '.jp-cell,.jp-drag{cursor:default!important}'
-    + '@media print{.page{padding:8px}@page{size:A4 landscape;margin:7mm}}'
+    + '@media print{.page{padding:6px}@page{size:A4 landscape;margin:6mm}}'
     + '</style></head><body>' + body + '</body></html>';
 
   var w = window.open('','_blank');
@@ -19749,10 +19799,10 @@ function renderJudgePlanningMatrixCell(rec, col){
       var _isManual = !!(window._JUDGE_OVERRIDES && window._JUDGE_OVERRIDES[_ovK] && String(window._JUDGE_OVERRIDES[_ovK].id)===String((rec.ben&&rec.ben.id)||''));
       var _mBorder = _isManual ? '2px solid #16A34A' : ('1px solid '+jc.border);
       var _mShadow = _isManual ? 'box-shadow:0 0 0 2px rgba(22,163,74,.18);' : '';
-      return '<div draggable="true" class="jp-drag'+(_isManual?' jp-manual':'')+'" data-ligne="'+escHtml(String(assigned.lane))+'" title="'+(_isManual?'Déplacé manuellement — glisse pour changer':'Glisse cette case sur un autre juge pour réaffecter')+'" style="position:relative;background:'+jc.bg+';border:'+_mBorder+';'+_mShadow+'border-radius:8px;padding:4px 5px;line-height:1.25;cursor:grab">'
-        + (_isManual ? '<div style="position:absolute;top:-7px;right:-6px;font-size:11px;background:#16A34A;border-radius:50%;width:16px;height:16px;display:flex;align-items:center;justify-content:center;line-height:1;box-shadow:0 1px 3px rgba(0,0,0,.3)" title="Verrouillé manuellement">🔒</div>' : '')
-        + '<div style="font-size:10px;font-weight:700;color:#0F172A;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+escHtml(assigned.team || 'Équipe')+'</div>'
-        + '<div style="display:inline-block;margin-top:2px;font-size:11px;font-weight:900;color:#fff;background:'+(_isManual?'#16A34A':jc.solid)+';border-radius:5px;padding:1px 8px">L'+escHtml(assigned.lane)+'</div>'
+      return '<div draggable="true" class="jp-drag'+(_isManual?' jp-manual':'')+'" data-ligne="'+escHtml(String(assigned.lane))+'" title="'+(_isManual?'Déplacé manuellement — glisse pour changer':'Glisse cette case sur un autre juge pour réaffecter')+'" style="position:relative;background:'+jc.bg+';border:'+_mBorder+';'+_mShadow+'border-radius:7px;padding:3px 4px;line-height:1.15;cursor:grab">'
+        + (_isManual ? '<div style="position:absolute;top:-6px;right:-5px;font-size:10px;background:#16A34A;border-radius:50%;width:14px;height:14px;display:flex;align-items:center;justify-content:center;line-height:1;box-shadow:0 1px 3px rgba(0,0,0,.3)" title="Verrouillé manuellement">🔒</div>' : '')
+        + '<div style="font-size:9px;font-weight:700;color:#0F172A;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+escHtml(assigned.team || 'Équipe')+'</div>'
+        + '<div style="display:inline-block;margin-top:1px;font-size:10px;font-weight:900;color:#fff;background:'+(_isManual?'#16A34A':jc.solid)+';border-radius:4px;padding:0 6px">L'+escHtml(assigned.lane)+'</div>'
         + '</div>';
     }
     if(!judgeAvailableForWindow(rec.ben, col.jour, col.startMin, col.endMin)) return '<span style="font-size:10px;color:#CBD5E1">·</span>';
@@ -19802,9 +19852,9 @@ function renderJudgePlanningDayTable(day, records){
   // En-tête juges (réutilisable) — avec la couleur du juge en bandeau
   var headerJuges = dayRecords.map(function(rec){
     var jc = rec.color || {bg:'#FAFBFC',border:'#E2E8F0',solid:'#0F172A'};
-    return '<th style="min-width:110px;max-width:140px;padding:0;border-bottom:1px solid #E2E8F0;background:#FAFBFC;vertical-align:middle">'
-      + '<div style="border-top:3px solid '+jc.solid+';background:'+jc.bg+';padding:7px 6px">'
-      + '<div style="font-size:11px;font-weight:800;color:#0F172A;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center" title="'+escHtml(rec.name)+'">'+escHtml(rec.name)+'</div>'
+    return '<th style="min-width:84px;max-width:104px;padding:0;border-bottom:1px solid #E2E8F0;background:#FAFBFC;vertical-align:middle">'
+      + '<div style="border-top:3px solid '+jc.solid+';background:'+jc.bg+';padding:5px 5px">'
+      + '<div style="font-size:10px;font-weight:800;color:#0F172A;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center" title="'+escHtml(rec.name)+'">'+escHtml(rec.name)+'</div>'
       + '</div>'
       + '</th>';
   }).join('');
@@ -19814,25 +19864,25 @@ function renderJudgePlanningDayTable(day, records){
     var zebra = (col.type==='heat') ? ((_ri++ % 2===0) ? '#FFFFFF' : '#F8FAFC') : '#FDF4FF';
     var firstCell;
     if(col.type==='heat'){
-      firstCell = '<td style="position:sticky;left:0;z-index:2;padding:7px 10px;border-bottom:1px solid #EEF2F7;border-right:1px solid #E2E8F0;background:'+zebra+';min-width:160px">'
-        + '<div style="display:flex;align-items:center;gap:8px">'
-        +   '<span style="font-family:ui-monospace,monospace;font-size:11px;font-weight:800;color:#1E3A5F;min-width:38px">'+escHtml(col.horaire||'—')+'</span>'
-        +   '<span style="font-size:11px;font-weight:700;color:#334155;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+escHtml(col.wod||'WOD')+'</span>'
-        +   '<span style="font-size:9px;font-weight:700;color:#64748B;white-space:nowrap">H'+escHtml(col.heat)+' · Z'+escHtml(col.zone)+'</span>'
+      firstCell = '<td style="position:sticky;left:0;z-index:2;padding:5px 8px;border-bottom:1px solid #EEF2F7;border-right:1px solid #E2E8F0;background:'+zebra+';min-width:128px">'
+        + '<div style="display:flex;align-items:center;gap:6px">'
+        +   '<span style="font-family:ui-monospace,monospace;font-size:10px;font-weight:800;color:#1E3A5F;min-width:34px">'+escHtml(col.horaire||'—')+'</span>'
+        +   '<span style="font-size:10px;font-weight:700;color:#334155;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+escHtml(col.wod||'WOD')+'</span>'
+        +   '<span style="font-size:8px;font-weight:700;color:#64748B;white-space:nowrap">H'+escHtml(col.heat)+'·Z'+escHtml(col.zone)+'</span>'
         + '</div>'
         + '</td>';
     } else {
-      firstCell = '<td style="position:sticky;left:0;z-index:2;padding:7px 10px;border-bottom:1px solid #EEF2F7;border-right:1px solid #E2E8F0;background:#FDF4FF;min-width:160px">'
-        + '<div style="display:flex;align-items:center;gap:8px">'
-        +   '<span style="font-family:ui-monospace,monospace;font-size:11px;font-weight:800;color:#7E22CE;min-width:38px">'+escHtml(col.horaire||'—')+'</span>'
-        +   '<span style="font-size:11px;font-weight:700;color:#7E22CE;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+escHtml(col.title||'Coupure')+'</span>'
-        +   '<span style="font-size:9px;font-weight:700;color:#A855F7;white-space:nowrap">Z'+escHtml(col.zone)+'</span>'
+      firstCell = '<td style="position:sticky;left:0;z-index:2;padding:5px 8px;border-bottom:1px solid #EEF2F7;border-right:1px solid #E2E8F0;background:#FDF4FF;min-width:128px">'
+        + '<div style="display:flex;align-items:center;gap:6px">'
+        +   '<span style="font-family:ui-monospace,monospace;font-size:10px;font-weight:800;color:#7E22CE;min-width:34px">'+escHtml(col.horaire||'—')+'</span>'
+        +   '<span style="font-size:10px;font-weight:700;color:#7E22CE;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+escHtml(col.title||'Coupure')+'</span>'
+        +   '<span style="font-size:8px;font-weight:700;color:#A855F7;white-space:nowrap">Z'+escHtml(col.zone)+'</span>'
         + '</div>'
         + '</td>';
     }
     var cells = dayRecords.map(function(rec){
       var _jid=String((rec.ben&&rec.ben.id)||'');
-      return '<td class="jp-cell" data-jid="'+_jid+'" data-jprenom="'+escHtml((rec.ben&&rec.ben.prenom)||'')+'" data-jnom="'+escHtml((rec.ben&&rec.ben.nom)||'')+'" data-gn="'+escHtml(String(col.globalNum||''))+'" data-zone="'+escHtml(String(col.zone||''))+'" data-ctype="'+col.type+'" style="padding:5px 4px;border-bottom:1px solid #F1F5F9;background:'+zebra+';vertical-align:middle;text-align:center">'
+      return '<td class="jp-cell" data-jid="'+_jid+'" data-jprenom="'+escHtml((rec.ben&&rec.ben.prenom)||'')+'" data-jnom="'+escHtml((rec.ben&&rec.ben.nom)||'')+'" data-gn="'+escHtml(String(col.globalNum||''))+'" data-zone="'+escHtml(String(col.zone||''))+'" data-ctype="'+col.type+'" style="padding:4px 3px;border-bottom:1px solid #F1F5F9;background:'+zebra+';vertical-align:middle;text-align:center">'
         + renderJudgePlanningMatrixCell(rec, col)
         + '</td>';
     }).join('');
@@ -19851,9 +19901,9 @@ function renderJudgePlanningDayTable(day, records){
       +   '<span style="font-size:10px;font-weight:600;color:#64748B">'+nbHeats+' heats</span>'
       + '</div>'
       + '<div style="overflow:auto;max-height:60vh">'
-      + '<table style="width:100%;border-collapse:separate;border-spacing:0;min-width:'+(180 + dayRecords.length*110)+'px;font-size:11px">'
+      + '<table style="width:100%;border-collapse:separate;border-spacing:0;min-width:'+(132 + dayRecords.length*84)+'px;font-size:10px">'
       + '<thead><tr>'
-      +   '<th style="position:sticky;left:0;top:0;z-index:4;padding:8px 10px;text-align:left;color:#64748B;font-size:10px;font-weight:700;border-bottom:1px solid #E2E8F0;border-right:1px solid #E2E8F0;background:#FAFBFC;min-width:160px">Heat</th>'
+      +   '<th style="position:sticky;left:0;top:0;z-index:4;padding:6px 8px;text-align:left;color:#64748B;font-size:10px;font-weight:700;border-bottom:1px solid #E2E8F0;border-right:1px solid #E2E8F0;background:#FAFBFC;min-width:128px">Heat</th>'
       +   headerJuges
       + '</tr></thead><tbody>'+bodyRows+'</tbody></table></div></div>';
   }).join('');
