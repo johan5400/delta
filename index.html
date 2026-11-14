@@ -12796,6 +12796,40 @@ function buildJugeAssignment(){
     }
   }catch(_ovErr){ try{ console.warn('overrides juge:', _ovErr); }catch(e){} }
 
+  // ★★ GARDE-FOU « 1 juge = 1 seule équipe par heat » — AVANT LE FILET.
+  //   Règle métier : un juge ne peut pas juger 2 lanes du MÊME heat. Si une passe
+  //   précédente (auto + override, ou un vieil override périmé) a laissé un juge en double
+  //   sur un heat, on garde UNE seule lane pour ce juge (priorité à la lane verrouillée
+  //   _locked ; sinon la 1re dans l'ordre) et on VIDE les autres. ★ Important : ce nettoyage
+  //   se fait AVANT le filet « fillEmptyLanes » → la lane ainsi libérée est aussitôt
+  //   recomblée par un autre juge disponible (donc pas de nouveau trou de judging).
+  (function _dedupeJudgePerHeat(){
+    try{
+      var _removed=0;
+      Object.keys(assignment).forEach(function(gn){
+        var lanes=assignment[gn]||{};
+        var seen={}; // jugeId -> lane retenue
+        // 1er passage : les lanes verrouillées gagnent
+        Object.keys(lanes).forEach(function(L){
+          var j=lanes[L]; if(!j||!j.id) return;
+          var id=String(j.id);
+          if(j._locked && seen[id]==null) seen[id]=L;
+        });
+        // 2e passage : garder 1 lane par juge, vider les doublons
+        Object.keys(lanes).forEach(function(L){
+          var j=lanes[L]; if(!j||!j.id) return;
+          var id=String(j.id);
+          if(seen[id]==null){ seen[id]=L; return; }
+          if(String(seen[id])!==String(L)){
+            lanes[L]=null; _removed++;
+            try{ console.warn('[anti-doublon juge] heat '+gn+' : juge '+id+' retiré de la lane '+L+' (déjà sur la lane '+seen[id]+') → lane recomblée par le filet'); }catch(e){}
+          }
+        });
+      });
+      if(_removed>0){ try{ console.info('[anti-doublon juge] '+_removed+' doublon(s) retiré(s) avant le filet'); }catch(e){} }
+    }catch(_dErr){ try{ console.warn('dedupe juge/heat:', _dErr); }catch(e){} }
+  })();
+
   // ★★ FILET « TOUJOURS UN JUGE » (dernier recours) ★★
   // Les règles nobles (même lane sur tout le WOD, créneaux, zones, pauses)
   // peuvent laisser une lane vide alors que des juges restent disponibles
@@ -12863,39 +12897,6 @@ function buildJugeAssignment(){
       });
     });
     if(filled>0){ try{ console.info('[filet juge] '+filled+' lane(s) vide(s) comblée(s) en dernier recours'); }catch(e){} }
-  })();
-
-  // ★★ GARDE-FOU FINAL « 1 juge = 1 seule équipe par heat » (dernière passe, après tout).
-  //   Règle métier : un juge ne peut pas juger 2 lanes du MÊME heat. Même si une passe
-  //   précédente (auto + override + filet, ou un vieil override au format périmé) laissait
-  //   un juge en double sur un heat, on nettoie ici : on garde UNE seule lane pour ce juge
-  //   (priorité à la lane verrouillée manuellement _locked ; sinon la 1re dans l'ordre) et
-  //   on vide les autres. Les lanes ainsi libérées restent sans juge (secours QR) plutôt
-  //   que de montrer un juge sur 2 équipes à la fois (ce qui cassait l'appli juge).
-  (function _dedupeJudgePerHeat(){
-    try{
-      Object.keys(assignment).forEach(function(gn){
-        var lanes=assignment[gn]||{};
-        var seen={}; // jugeId -> lane retenue
-        // 1er passage : repérer les lanes verrouillées pour les privilégier
-        Object.keys(lanes).forEach(function(L){
-          var j=lanes[L]; if(!j||!j.id) return;
-          var id=String(j.id);
-          if(j._locked && !seen[id]) seen[id]=L; // la lane verrouillée gagne
-        });
-        // 2e passage : décider lane retenue + vider les doublons
-        Object.keys(lanes).forEach(function(L){
-          var j=lanes[L]; if(!j||!j.id) return;
-          var id=String(j.id);
-          if(seen[id]==null){ seen[id]=L; return; } // 1re occurrence → on garde
-          if(String(seen[id])!==String(L)){
-            // doublon du même juge sur un autre lane de CE heat → on le retire
-            lanes[L]=null;
-            try{ console.warn('[anti-doublon juge] heat '+gn+' : juge '+id+' retiré de la lane '+L+' (déjà sur la lane '+seen[id]+')'); }catch(e){}
-          }
-        });
-      });
-    }catch(_dErr){ try{ console.warn('dedupe juge/heat:', _dErr); }catch(e){} }
   })();
 
   window._jugeChargeMap = chargeMapDay;
@@ -16140,7 +16141,7 @@ function toggleDarkMode(){
   }
 })();;
 
-// ★ BADGE DE VERSION (diagnostic cache) : si tu vois "build v36" en bas à gauche,
+// ★ BADGE DE VERSION (diagnostic cache) : si tu vois "build v37" en bas à gauche,
 //   tu es bien sur le nouveau fichier. Sinon, c'est que ton navigateur/site sert l'ancien.
 (function(){
   try{
@@ -16148,12 +16149,12 @@ function toggleDarkMode(){
       if(!document.body){ setTimeout(add,150); return; }
       if(document.getElementById('__delta_build_tag')) return;
       var b=document.createElement('div'); b.id='__delta_build_tag';
-      b.textContent='build v36';
+      b.textContent='build v37';
       b.style.cssText='position:fixed;bottom:4px;left:4px;z-index:2147483647;background:rgba(220,38,38,.92);color:#fff;font:700 10px/1 system-ui,-apple-system,sans-serif;padding:3px 7px;border-radius:6px;pointer-events:none;letter-spacing:.5px;box-shadow:0 2px 8px rgba(0,0,0,.3)';
       document.body.appendChild(b);
     }
     add();
-    try{ console.log('%cDELTA — build v36 chargé ('+new Date().toISOString()+')','background:#DC2626;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold'); }catch(e){}
+    try{ console.log('%cDELTA — build v37 chargé ('+new Date().toISOString()+')','background:#DC2626;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold'); }catch(e){}
   }catch(e){}
 })();
 
