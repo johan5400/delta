@@ -414,24 +414,18 @@ body.dark #btn-dark-mode{background:rgba(255,122,0,.15)!important;color:var(--fi
 // ─────────────────────────────────────────────────────────────────────────────
 </script>
 <style id="theme-chic">/* ════════════════════════════════════════════════════════════
-   THÈME « SPORT & CHIC » — Anthracite & Or  (override)
-   Redéfinit les variables existantes : aucune ligne de HTML à changer.
+   THÈME « SPORT & CHIC » — Anthracite & Or  (override, CSS pur)
+   Redéfinit les variables + rattrape les fonds blancs en dur.
    ════════════════════════════════════════════════════════════ */
 :root{
-  /* Fonds sombres */
   --bg:#12141A; --void:#0B0D12;
   --s1:#1A1D26; --s2:#1F232E; --s3:#262A35; --s4:#2E323E;
-  /* Bordures discrètes claires sur fond sombre */
-  --brd:rgba(201,162,75,.10); --brd2:rgba(255,255,255,.10);
-  --border:rgba(201,162,75,.10); --border2:rgba(255,255,255,.10);
-  /* Textes : clairs */
+  --brd:rgba(201,162,75,.12); --brd2:rgba(255,255,255,.12);
+  --border:rgba(201,162,75,.12); --border2:rgba(255,255,255,.12);
   --ink:#F5F3EE; --ink2:#C9C4B6; --ink3:#9A9484; --mid:#7D7869; --dim:#55514A;
-  /* Accent OR (remplace le bleu comme couleur principale) */
   --blue:#C9A24B; --purple:#B98BE0;
   --blue-bg:rgba(201,162,75,.12); --blue-brd:rgba(201,162,75,.30);
-  /* On garde le feu/or pour les accents sport */
   --fire:#C9A24B; --fire2:#D4B264; --ember:#E0C178; --amber:#D4A000; --gold:#C9A24B;
-  /* États (un peu plus lumineux pour ressortir sur sombre) */
   --ok:#34D399; --green:#34D399; --err:#F87171; --red:#F87171; --warn:#FBBF24;
   --ok-bg:rgba(52,211,153,.12); --ok-brd:rgba(52,211,153,.28);
   --err-bg:rgba(248,113,113,.12); --err-brd:rgba(248,113,113,.28);
@@ -439,36 +433,69 @@ body.dark #btn-dark-mode{background:rgba(255,122,0,.15)!important;color:var(--fi
   --z1:#D4B264; --z1-bg:rgba(201,162,75,.12); --z1-brd:rgba(201,162,75,.30);
   --z2:#7AB5E8; --z2-bg:rgba(122,181,232,.12); --z2-brd:rgba(122,181,232,.30);
 }
-/* Fond global sombre */
 html,body{ background:#0B0D12!important; color:var(--ink)!important; }
 
-/* Cartes et surfaces blanches → sombres */
-.card{ background:#1A1D26!important; border-color:rgba(255,255,255,.08)!important; }
-.card h1,.card h2,.card h3{ color:var(--ink)!important; }
+/* ===== Surfaces larges ===== */
+.card,.sheet,.panel,.box,.modal,.sheet-inner,.block{ background:#1A1D26!important; border-color:rgba(255,255,255,.08)!important; color:var(--ink)!important; }
+.card h1,.card h2,.card h3,h1,h2,h3,h4{ color:var(--ink)!important; }
 
-/* Champs de saisie sombres */
-select,input[type=text],input[type=number],input[type=email],input[type=tel],
-input[type=time],input[type=date],textarea{
-  background:#12141A!important; color:var(--ink)!important;
-  border:1.5px solid rgba(255,255,255,.12)!important;
+/* ===== Rattrapage des fonds blancs EN DUR (styles inline) ===== */
+/* blancs purs */
+[style*="background:#fff"]:not(#__testbanner),
+[style*="background:#FFF"]:not(#__testbanner),
+[style*="background:#ffffff"]:not(#__testbanner),
+[style*="background:#FFFFFF"]:not(#__testbanner),
+[style*="background:white"]:not(#__testbanner),
+[style*="background-color:#fff"]:not(#__testbanner),
+[style*="background-color:#FFFFFF"]:not(#__testbanner),
+[style*="background: #fff"]:not(#__testbanner),
+[style*="background:#FFF)"]:not(#__testbanner){
+  background-color:#1A1D26!important;
+  background-image:none!important;
 }
+/* pastels clairs (orange/jaune/rouge très clairs) → teinte sombre dorée */
+[style*="background:#FFF7"]:not(#__testbanner),[style*="background:#FFF5"]:not(#__testbanner),
+[style*="background:#FFF8"]:not(#__testbanner),[style*="background:#FFFB"]:not(#__testbanner),
+[style*="background:#FFF3"]:not(#__testbanner),[style*="background:#fff7"]:not(#__testbanner),
+[style*="background:#fff5"]:not(#__testbanner),[style*="background:#fff8"]:not(#__testbanner),
+[style*="background:#fff3"]:not(#__testbanner),[style*="background:#fffb"]:not(#__testbanner),
+[style*="background:#F5F8FF"]:not(#__testbanner),[style*="background:#EFF"]:not(#__testbanner),
+[style*="background:#F0F"]:not(#__testbanner),[style*="background:#F8F"]:not(#__testbanner),
+[style*="background:#EBF0FA"]:not(#__testbanner),[style*="background:#F5F9FF"]:not(#__testbanner),
+[style*="background:#F8FAFF"]:not(#__testbanner),[style*="background:#F8FBFF"]:not(#__testbanner){
+  background-color:#1F232E!important;
+  background-image:none!important;
+}
+
+/* ===== Champs de saisie ===== */
+select,input,textarea{ background:#12141A!important; color:var(--ink)!important; border:1.5px solid rgba(255,255,255,.14)!important; }
+input::placeholder,textarea::placeholder{ color:#6E6A5E!important; }
 .form-group input,.form-group select{ background:#12141A!important; color:var(--ink)!important; }
 
-/* Tables : en-tête sombre */
-th{ background:#1A1D26!important; color:var(--ink2)!important; border-bottom-color:rgba(255,255,255,.12)!important; }
-td{ color:var(--ink)!important; border-bottom-color:rgba(255,255,255,.06)!important; }
+/* ===== Tables ===== */
+th{ background:#1A1D26!important; color:var(--ink2)!important; border-bottom-color:rgba(255,255,255,.14)!important; }
+td{ color:var(--ink)!important; border-bottom-color:rgba(255,255,255,.07)!important; }
+tr:nth-child(even) td{ background:rgba(255,255,255,.015)!important; }
 
-/* Boutons principaux : dégradé OR */
-.btn-blue,.bg-blue{ background:linear-gradient(135deg,#C9A24B,#A8822F)!important; color:#15120A!important; box-shadow:0 2px 12px rgba(201,162,75,.25)!important; }
+/* ===== Textes sombres en dur → clairs (lisibilité) ===== */
+[style*="color:#0F1C2E"]:not(#__testbanner),[style*="color:#0F172A"]:not(#__testbanner),
+[style*="color:#15"]:not(#__testbanner),[style*="color:#12"]:not(#__testbanner),
+[style*="color:#1E293B"]:not(#__testbanner),[style*="color:#334155"]:not(#__testbanner),
+[style*="color:#0"]:not(#__testbanner){ color:#E8E4DA!important; }
+
+/* ===== Boutons principaux : OR ===== */
+.btn-blue,.bg-blue,.btn-primary{ background:linear-gradient(135deg,#C9A24B,#A8822F)!important; color:#15120A!important; box-shadow:0 2px 12px rgba(201,162,75,.25)!important; }
 .bg-blue-l{ background:rgba(201,162,75,.14)!important; color:#D4B264!important; }
+[style*="background:#1E88E5"]:not(#__testbanner),[style*="background:#1D6DB5"]:not(#__testbanner),
+[style*="background:#2563EB"]:not(#__testbanner),[style*="background:#1D4ED8"]:not(#__testbanner){
+  background-color:#C9A24B!important; background-image:none!important; color:#15120A!important;
+}
 
-/* Header : encore plus noir, liseré or (déjà présent, on force la teinte) */
+/* ===== Header ===== */
 .header{ background:linear-gradient(135deg,#0B0D12 0%,#15171F 60%,#1A1D26 100%)!important; }
 .logo-k{ background:linear-gradient(145deg,#C9A24B,#A8822F)!important; color:#15120A!important; box-shadow:0 2px 14px rgba(201,162,75,.35)!important; }
 .header .tabs .tab.active{ border-bottom-color:#C9A24B!important; }
 .logo-text .n2{ color:#D4B264!important; }
-
-/* Onglet actif, liens accent */
 a{ color:#D4B264; }
 
 #__testbanner{position:fixed;top:0;left:0;right:0;z-index:99999;background:#C9A24B;color:#15120A;text-align:center;font:800 11px system-ui;padding:3px;letter-spacing:.5px}body{padding-top:20px!important}</style>
