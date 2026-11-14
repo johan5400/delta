@@ -13003,7 +13003,20 @@ function _jpUpdateUndoButtons(){
     var u=document.getElementById('jp-undo-btn'), r=document.getElementById('jp-reset-btn');
     var nMoves=window._JUDGE_OVERRIDES?Object.keys(window._JUDGE_OVERRIDES).length:0;
     if(u) u.style.display=(window._JP_UNDO_STACK&&window._JP_UNDO_STACK.length)?'inline-block':'none';
-    if(r) r.style.display=(nMoves>0)?'inline-block':'none';
+    // ★ Bouton "🤖 Tout en auto" TOUJOURS visible (remise à l'origine à portée de main).
+    //   Actif seulement s'il y a des déplacements manuels, sinon grisé + libellé "déjà en auto".
+    if(r){
+      r.style.display='inline-block';
+      if(nMoves>0){
+        r.disabled=false; r.style.opacity='1'; r.style.cursor='pointer';
+        r.textContent='🤖 Tout en auto ('+nMoves+')';
+        r.title='Remettre tous les juges comme l\'algorithme les a générés ('+nMoves+' déplacement(s) manuel(s) à annuler)';
+      } else {
+        r.disabled=true; r.style.opacity='.5'; r.style.cursor='default';
+        r.textContent='🤖 Déjà en auto';
+        r.title='Aucun déplacement manuel — les juges sont déjà sur l\'affectation automatique';
+      }
+    }
   }catch(e){}
 }
 
@@ -13107,31 +13120,35 @@ function jpResetAllMoves(){
     var td=e.target.closest && e.target.closest('td.jp-cell'); if(td && !td.contains(e.relatedTarget)) td.classList.remove('jp-over');
   });
   document.addEventListener('drop', function(e){
-    var td=e.target.closest && e.target.closest('td.jp-cell'); if(!td||!jpDrag||td.dataset.ctype!=='heat') return;
+    // ★★ FIX CRASH "jpDrag is null" : on CAPTURE l'état du drag dans une variable locale
+    //   AU DÉBUT. La popup confirm() ci-dessous bloque le thread, et un autre événement
+    //   (dragend/drop) peut remettre le jpDrag GLOBAL à null entre-temps → les accès
+    //   suivants à jpDrag.gn plantaient. On ne lit plus que la copie locale _d.
+    var _d = jpDrag;
+    var td=e.target.closest && e.target.closest('td.jp-cell'); if(!td||!_d||td.dataset.ctype!=='heat') return;
     e.preventDefault(); td.classList.remove('jp-over');
     // ★ On identifie le juge CIBLE par sa colonne (son data-jid), peu importe la rangée visée.
-    //   L'échange s'applique sur le heat de la case qu'on a PRISE (jpDrag.gn / jpDrag.ligne).
-    //   Plus besoin de viser pile la bonne rangée → geste beaucoup plus naturel.
+    //   L'échange s'applique sur le heat de la case qu'on a PRISE (_d.gn / _d.ligne).
     var tj={ id:td.dataset.jid, prenom:td.dataset.jprenom||'', nom:td.dataset.jnom||'' };
-    console.log('[jp-drag] DROP sur juge='+tj.prenom+'('+tj.id+') → heat='+jpDrag.gn+' ligne='+jpDrag.ligne);
-    if(tj.id && jpDrag.gn>0 && jpDrag.ligne>0){
+    try{ console.log('[jp-drag] DROP sur juge='+tj.prenom+'('+tj.id+') → heat='+_d.gn+' ligne='+_d.ligne); }catch(_e){}
+    if(tj.id && _d.gn>0 && _d.ligne>0){
       // ★ CONFIRMATION avant d'appliquer le déplacement
-      if(String(tj.id)!==String(jpDrag.srcJid)){
-        var _Ldst = _jpJudgeLigneAtHeat(jpDrag.gn, tj.id);
-        var _heatLbl = 'Heat '+jpDrag.gn;
+      if(String(tj.id)!==String(_d.srcJid)){
+        var _Ldst = _jpJudgeLigneAtHeat(_d.gn, tj.id);
+        var _heatLbl = 'Heat '+_d.gn;
         var _msg;
-        if(_Ldst>0 && _Ldst!==jpDrag.ligne){
+        if(_Ldst>0 && _Ldst!==_d.ligne){
           _msg = 'Échanger sur le '+_heatLbl+' ?\n\n'
-            + '• '+(tj.prenom||'ce juge')+' → ligne '+jpDrag.ligne+'\n'
-            + '• '+(jpDrag.srcPrenom||'l\'autre juge')+' → ligne '+_Ldst;
+            + '• '+(tj.prenom||'ce juge')+' → ligne '+_d.ligne+'\n'
+            + '• '+(_d.srcPrenom||'l\'autre juge')+' → ligne '+_Ldst;
         } else {
-          _msg = 'Placer '+(tj.prenom||'ce juge')+' sur la ligne '+jpDrag.ligne+' du '+_heatLbl+' ?';
+          _msg = 'Placer '+(tj.prenom||'ce juge')+' sur la ligne '+_d.ligne+' du '+_heatLbl+' ?';
         }
         if(!window.confirm(_msg)){ jpDrag=null; return; }
       }
-      _jpApplySwap(jpDrag.gn, jpDrag.ligne, tj, {id:jpDrag.srcJid, prenom:jpDrag.srcPrenom, nom:jpDrag.srcNom});
+      _jpApplySwap(_d.gn, _d.ligne, tj, {id:_d.srcJid, prenom:_d.srcPrenom, nom:_d.srcNom});
     }
-    else { console.warn('[jp-drag] dépôt ignoré : donnée manquante (jid='+tj.id+' heat='+jpDrag.gn+' ligne='+jpDrag.ligne+')'); }
+    else { try{ console.warn('[jp-drag] dépôt ignoré : donnée manquante (jid='+tj.id+' heat='+_d.gn+' ligne='+_d.ligne+')'); }catch(_e){} }
     jpDrag=null;
   });
   // ★ Double-clic sur une case déplacée manuellement (🔒) → remet CETTE ligne en auto.
@@ -16146,7 +16163,7 @@ function toggleDarkMode(){
   }
 })();;
 
-// ★ BADGE DE VERSION (diagnostic cache) : si tu vois "build v39" en bas à gauche,
+// ★ BADGE DE VERSION (diagnostic cache) : si tu vois "build v40" en bas à gauche,
 //   tu es bien sur le nouveau fichier. Sinon, c'est que ton navigateur/site sert l'ancien.
 (function(){
   try{
@@ -16154,12 +16171,12 @@ function toggleDarkMode(){
       if(!document.body){ setTimeout(add,150); return; }
       if(document.getElementById('__delta_build_tag')) return;
       var b=document.createElement('div'); b.id='__delta_build_tag';
-      b.textContent='build v39';
+      b.textContent='build v40';
       b.style.cssText='position:fixed;bottom:4px;left:4px;z-index:2147483647;background:rgba(220,38,38,.92);color:#fff;font:700 10px/1 system-ui,-apple-system,sans-serif;padding:3px 7px;border-radius:6px;pointer-events:none;letter-spacing:.5px;box-shadow:0 2px 8px rgba(0,0,0,.3)';
       document.body.appendChild(b);
     }
     add();
-    try{ console.log('%cDELTA — build v39 chargé ('+new Date().toISOString()+')','background:#DC2626;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold'); }catch(e){}
+    try{ console.log('%cDELTA — build v40 chargé ('+new Date().toISOString()+')','background:#DC2626;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold'); }catch(e){}
   }catch(e){}
 })();
 
