@@ -5420,7 +5420,17 @@ function selectBestJudgeAssignment(jugeId, heats){
       {heatId:b.heatId,lane:b.lane,globalNum:b.globalNum,startMinute:b.startMinute,wodOrdreZone:b.wodOrdreZone,catIndexInWod:b.catIndexInWod,catOrdre:b.catOrdre}
     );
   });
-  // Premier heat NON terminé
+  // ★★ FIX "juge sur 2 lignes en même temps" :
+  //   PRIORITÉ ABSOLUE au heat réellement EN COURS (live/timecap). Un seul heat tourne
+  //   à un instant T sur une zone → le juge ne peut avoir qu'un passage actif. Avant, on
+  //   prenait "le premier NON-done" : si le heat courant démarrait AVANT que le précédent
+  //   soit passé 'done', DEUX heats étaient "non-done" en même temps et l'appli oscillait
+  //   entre les deux → le juge apparaissait sur 2 lanes. On force donc le live/timecap.
+  for(var li2=0; li2<candidates.length; li2++){
+    var st2=String(candidates[li2].status||'pending').toLowerCase();
+    if(st2==='live' || st2==='timecap') return candidates[li2];
+  }
+  // Sinon : premier heat NON terminé dans l'ordre du planning (= le prochain à venir)
   for(var i=0;i<candidates.length;i++){
     if(String(candidates[i].status||'pending').toLowerCase()!=='done') return candidates[i];
   }
@@ -5920,6 +5930,32 @@ function loadAndShowPlanning(jugeId){
         wodOrdreZone:a.wodOrdreZone,catIndexInWod:a.catIndexInWod,catOrdre:a.catOrdre
       };
     });
+    // ★★ FIX "juge sur 2 passages actifs en même temps" (appli juge) :
+    //   Les entries sont triées par séquence de planning. Un juge ne peut avoir qu'UN
+    //   passage réellement en cours à un instant T. Si un heat précédent est resté bloqué
+    //   sur 'pre'/'timecap'/'live' (le TK ne l'a pas passé 'done'), l'appli affichait DEUX
+    //   pastilles actives → le juge croyait avoir 2 passages simultanés. On normalise
+    //   l'AFFICHAGE (on n'écrit rien dans Firebase, on ne touche pas au jugement) :
+    //   tout passage situé AVANT le passage courant est marqué 'done'. Le passage courant =
+    //   le dernier live/timecap ; à défaut le premier non-done.
+    (function _normalizeScheduleActiveStatus(){
+      var E=_judgeScheduleEntries; if(!E || E.length<2) return;
+      var curIdx=-1;
+      for(var i=0;i<E.length;i++){
+        var st=String(E[i].status||'pending').toLowerCase();
+        if(st==='live'||st==='timecap') curIdx=i; // le plus avancé qui tourne vraiment
+      }
+      if(curIdx===-1){
+        for(var j=0;j<E.length;j++){
+          if(String(E[j].status||'pending').toLowerCase()!=='done'){ curIdx=j; break; }
+        }
+      }
+      if(curIdx<=0) return; // rien avant le courant (ou aucun courant) → rien à corriger
+      for(var k=0;k<curIdx;k++){
+        var sk=String(E[k].status||'pending').toLowerCase();
+        if(sk!=='done'){ E[k].status='done'; } // passage déjà dépassé → terminé à l'affichage
+      }
+    })();
     updateJudgeInstructionPanels();
     // ★ Afficher TOUS les passages du juge (liste complète avec horaires) dès l'attente
     renderJudgeFullSchedule();

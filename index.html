@@ -12865,6 +12865,39 @@ function buildJugeAssignment(){
     if(filled>0){ try{ console.info('[filet juge] '+filled+' lane(s) vide(s) comblée(s) en dernier recours'); }catch(e){} }
   })();
 
+  // ★★ GARDE-FOU FINAL « 1 juge = 1 seule équipe par heat » (dernière passe, après tout).
+  //   Règle métier : un juge ne peut pas juger 2 lanes du MÊME heat. Même si une passe
+  //   précédente (auto + override + filet, ou un vieil override au format périmé) laissait
+  //   un juge en double sur un heat, on nettoie ici : on garde UNE seule lane pour ce juge
+  //   (priorité à la lane verrouillée manuellement _locked ; sinon la 1re dans l'ordre) et
+  //   on vide les autres. Les lanes ainsi libérées restent sans juge (secours QR) plutôt
+  //   que de montrer un juge sur 2 équipes à la fois (ce qui cassait l'appli juge).
+  (function _dedupeJudgePerHeat(){
+    try{
+      Object.keys(assignment).forEach(function(gn){
+        var lanes=assignment[gn]||{};
+        var seen={}; // jugeId -> lane retenue
+        // 1er passage : repérer les lanes verrouillées pour les privilégier
+        Object.keys(lanes).forEach(function(L){
+          var j=lanes[L]; if(!j||!j.id) return;
+          var id=String(j.id);
+          if(j._locked && !seen[id]) seen[id]=L; // la lane verrouillée gagne
+        });
+        // 2e passage : décider lane retenue + vider les doublons
+        Object.keys(lanes).forEach(function(L){
+          var j=lanes[L]; if(!j||!j.id) return;
+          var id=String(j.id);
+          if(seen[id]==null){ seen[id]=L; return; } // 1re occurrence → on garde
+          if(String(seen[id])!==String(L)){
+            // doublon du même juge sur un autre lane de CE heat → on le retire
+            lanes[L]=null;
+            try{ console.warn('[anti-doublon juge] heat '+gn+' : juge '+id+' retiré de la lane '+L+' (déjà sur la lane '+seen[id]+')'); }catch(e){}
+          }
+        });
+      });
+    }catch(_dErr){ try{ console.warn('dedupe juge/heat:', _dErr); }catch(e){} }
+  })();
+
   window._jugeChargeMap = chargeMapDay;
   window._jugePauseInfo = buildJugePauseInfo(pool, judgeWodEntries);
   return assignment;
@@ -12881,10 +12914,27 @@ var _judgeOvListening=false, _judgeReassignOpen=true;
 function _ovDb(){ try{ return window.db||(typeof getDb==='function'?getDb():null); }catch(e){ return null; } }
 function _ovKey(gn,l){ return 'H'+gn+'__L'+l; }
 function _ovEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+// ★★ Format VALIDE d'une clé d'override : exactement "H<nombre>__L<nombre>".
+//   Les vieux overrides au format périmé (ex: "1787997122474__z1__L1", avec timestamp +
+//   zone) ne sont plus lisibles par l'algo (split('__') ≠ 2 parties) : ils ne s'appliquent
+//   nulle part proprement mais pouvaient parasiter. On les détecte pour les purger.
+function _ovKeyIsValid(k){ return /^H\d+__L\d+$/.test(String(k||'')); }
 function loadJudgeOverrides(){
   var db=_ovDb(); if(!db||_judgeOvListening) return; _judgeOvListening=true;
   db.ref('judgeOverrides').on('value',function(s){
-    window._JUDGE_OVERRIDES=s.val()||{};
+    var raw=s.val()||{};
+    // ★ Purge auto des clés au vieux format (une seule fois, quand on en détecte).
+    var badKeys=Object.keys(raw).filter(function(k){ return !_ovKeyIsValid(k); });
+    if(badKeys.length){
+      var clean={};
+      Object.keys(raw).forEach(function(k){ if(_ovKeyIsValid(k)) clean[k]=raw[k]; });
+      window._JUDGE_OVERRIDES=clean;
+      var rm={};
+      badKeys.forEach(function(k){ rm['judgeOverrides/'+k]=null; });
+      try{ db.ref().update(rm).then(function(){ try{ console.info('[overrides] '+badKeys.length+' ancien(s) override(s) au format périmé purgé(s) : '+badKeys.join(', ')); }catch(e){} }).catch(function(){}); }catch(e){}
+    } else {
+      window._JUDGE_OVERRIDES=raw;
+    }
     try{ if(document.getElementById('judge-planning-content') && typeof renderJudgePlanningTab==='function') renderJudgePlanningTab(); }catch(e){}
   });
 }
@@ -16090,7 +16140,7 @@ function toggleDarkMode(){
   }
 })();;
 
-// ★ BADGE DE VERSION (diagnostic cache) : si tu vois "build v35" en bas à gauche,
+// ★ BADGE DE VERSION (diagnostic cache) : si tu vois "build v36" en bas à gauche,
 //   tu es bien sur le nouveau fichier. Sinon, c'est que ton navigateur/site sert l'ancien.
 (function(){
   try{
@@ -16098,12 +16148,12 @@ function toggleDarkMode(){
       if(!document.body){ setTimeout(add,150); return; }
       if(document.getElementById('__delta_build_tag')) return;
       var b=document.createElement('div'); b.id='__delta_build_tag';
-      b.textContent='build v35';
+      b.textContent='build v36';
       b.style.cssText='position:fixed;bottom:4px;left:4px;z-index:2147483647;background:rgba(220,38,38,.92);color:#fff;font:700 10px/1 system-ui,-apple-system,sans-serif;padding:3px 7px;border-radius:6px;pointer-events:none;letter-spacing:.5px;box-shadow:0 2px 8px rgba(0,0,0,.3)';
       document.body.appendChild(b);
     }
     add();
-    try{ console.log('%cDELTA — build v35 chargé ('+new Date().toISOString()+')','background:#DC2626;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold'); }catch(e){}
+    try{ console.log('%cDELTA — build v36 chargé ('+new Date().toISOString()+')','background:#DC2626;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold'); }catch(e){}
   }catch(e){}
 })();
 
