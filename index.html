@@ -8210,6 +8210,34 @@ function syncHeatsToFirebase(){
         return;
       }
 
+      // ★★ FIX CRASH 19/09 (bouchon Firebase) — GARDE COMPÉTITION EN COURS.
+      //   Cause du crash : pendant un WOD, chaque regénération de planning renvoyait le
+      //   nœud "heats" ENTIER (tous les heats + tous leurs scores validés embarqués dans
+      //   heats/<hid>/scores) à Firebase. Au WOD2, ce nœud était gros → le gros upload
+      //   saturait la bande passante et bloquait les petites écritures de score des juges.
+      //   Correctif : si la compétition est EN COURS (au moins un heat live/timecap/done
+      //   = des scores existent), on ne réécrit QUE les heats dont la STRUCTURE a vraiment
+      //   changé. Les heats inchangés (l'immense majorité) ne sont plus renvoyés du tout →
+      //   plus de gros upload, les scores restent intacts côté Firebase.
+      var _compIsLive = Object.keys(existingHeats).some(function(k){
+        var st = existingHeats[k] && existingHeats[k].status;
+        return st==='live' || st==='timecap' || st==='done';
+      });
+      // Compare deux objets heat SANS tenir compte des scores ni des champs runtime TK.
+      // true = structurellement identiques → inutile de réécrire ce heat.
+      function _heatStructUnchanged(ex, next){
+        if(!ex) return false;
+        var pick = function(o){
+          if(!o) return '';
+          var c = Object.assign({}, o);
+          delete c.scores; delete c.startTimestamp; delete c.curRound; delete c.roundPhase;
+          delete c.status; // le status est géré/préservé à part, il ne force pas une réécriture
+          try { return JSON.stringify(c); } catch(e){ return ''; }
+        };
+        return pick(ex) === pick(next);
+      }
+      var _skippedUnchanged = 0;
+
       var updates = {};
       var jugeMap = buildJugeAssignment();
       heats.forEach(function(h){
@@ -8267,8 +8295,18 @@ function syncHeatsToFirebase(){
         if(existing && existing.startTimestamp) hObj.startTimestamp = existing.startTimestamp;
         if(existing && existing.curRound) hObj.curRound = existing.curRound;
         if(existing && existing.roundPhase) hObj.roundPhase = existing.roundPhase;
+        // ★★ FIX CRASH : compétition en cours + heat structurellement inchangé → on NE le
+        //   réécrit PAS (évite de renvoyer scores + structure pour rien). Hors compét, on
+        //   publie normalement (setup avant l'événement : aucun score en jeu, aucun risque).
+        if(_compIsLive && _heatStructUnchanged(existing, hObj)){
+          _skippedUnchanged++;
+          return; // ce heat ne bouge pas : on le laisse tel quel dans Firebase
+        }
         updates['heats/'+hid] = hObj;
       });
+      if(_compIsLive && _skippedUnchanged>0){
+        console.log('syncHeatsToFirebase: '+_skippedUnchanged+' heat(s) inchangé(s) NON réécrit(s) (anti-bouchon, scores préservés)');
+      }
 
       // ★ Source de vérité = index.html.
       // Si l'ordre par WOD change, les anciens heats Firebase non régénérés ne doivent plus rester visibles.
@@ -16052,7 +16090,7 @@ function toggleDarkMode(){
   }
 })();;
 
-// ★ BADGE DE VERSION (diagnostic cache) : si tu vois "build v27" en bas à gauche,
+// ★ BADGE DE VERSION (diagnostic cache) : si tu vois "build v35" en bas à gauche,
 //   tu es bien sur le nouveau fichier. Sinon, c'est que ton navigateur/site sert l'ancien.
 (function(){
   try{
@@ -16060,12 +16098,12 @@ function toggleDarkMode(){
       if(!document.body){ setTimeout(add,150); return; }
       if(document.getElementById('__delta_build_tag')) return;
       var b=document.createElement('div'); b.id='__delta_build_tag';
-      b.textContent='build v34';
+      b.textContent='build v35';
       b.style.cssText='position:fixed;bottom:4px;left:4px;z-index:2147483647;background:rgba(220,38,38,.92);color:#fff;font:700 10px/1 system-ui,-apple-system,sans-serif;padding:3px 7px;border-radius:6px;pointer-events:none;letter-spacing:.5px;box-shadow:0 2px 8px rgba(0,0,0,.3)';
       document.body.appendChild(b);
     }
     add();
-    try{ console.log('%cDELTA — build v34 chargé ('+new Date().toISOString()+')','background:#DC2626;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold'); }catch(e){}
+    try{ console.log('%cDELTA — build v35 chargé ('+new Date().toISOString()+')','background:#DC2626;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold'); }catch(e){}
   }catch(e){}
 })();
 
@@ -24061,17 +24099,15 @@ generateHeats = function() {
   if (document.getElementById('livescoring') && document.getElementById('livescoring').classList.contains('active')) {
     setTimeout(lsInit, 300);
   }
-  // Push heats to Firebase — retry up to 3x if not ready yet
-  var attempts = 0;
-  function tryPush() {
-    attempts++;
-    if (LS_FB_DB && HEATS_RESULT && HEATS_RESULT.length) {
-      lsPushAllHeatsToFirebase();
-    } else if (attempts < 5) {
-      setTimeout(tryPush, 600);
-    }
-  }
-  setTimeout(tryPush, 400);
+  // ★★ FIX CRASH 19/09 (bouchon Firebase) :
+  //   AVANT, on rappelait ici lsPushAllHeatsToFirebase() → c'était une 2e republication
+  //   COMPLÈTE du nœud "heats" (scores compris), EN PLUS de celle déjà faite par
+  //   autoSave()→syncHeatsToFirebase() à la fin de generateHeats(). Pendant le WOD2,
+  //   quand tous les heats portaient déjà leurs scores, ça renvoyait la base ENTIÈRE
+  //   DEUX FOIS d'un coup → saturation de bande passante → les écritures de score des
+  //   juges étaient bloquées → plus aucun résultat ne remontait. On supprime ce doublon :
+  //   syncHeatsToFirebase() suffit (et il protège scores/status des heats en cours).
+  // (lsPushAllHeatsToFirebase reste disponible pour le bouton manuel "🔥 Sync Firebase".)
 };
 
 function lsPushAllHeatsToFirebase() {
