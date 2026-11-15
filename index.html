@@ -16167,7 +16167,7 @@ function toggleDarkMode(){
   }
 })();;
 
-// ★ BADGE DE VERSION (diagnostic cache) : si tu vois "build v44" en bas à gauche,
+// ★ BADGE DE VERSION (diagnostic cache) : si tu vois "build v45" en bas à gauche,
 //   tu es bien sur le nouveau fichier. Sinon, c'est que ton navigateur/site sert l'ancien.
 (function(){
   try{
@@ -16175,12 +16175,12 @@ function toggleDarkMode(){
       if(!document.body){ setTimeout(add,150); return; }
       if(document.getElementById('__delta_build_tag')) return;
       var b=document.createElement('div'); b.id='__delta_build_tag';
-      b.textContent='build v44';
+      b.textContent='build v45';
       b.style.cssText='position:fixed;bottom:4px;left:4px;z-index:2147483647;background:rgba(220,38,38,.92);color:#fff;font:700 10px/1 system-ui,-apple-system,sans-serif;padding:3px 7px;border-radius:6px;pointer-events:none;letter-spacing:.5px;box-shadow:0 2px 8px rgba(0,0,0,.3)';
       document.body.appendChild(b);
     }
     add();
-    try{ console.log('%cDELTA — build v44 chargé ('+new Date().toISOString()+')','background:#DC2626;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold'); }catch(e){}
+    try{ console.log('%cDELTA — build v45 chargé ('+new Date().toISOString()+')','background:#DC2626;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold'); }catch(e){}
   }catch(e){}
 })();
 
@@ -21312,9 +21312,19 @@ function publishPlanningPublic(heatsArr){
       });
       pub[hid]=lite;
     });
+    // ★ Sécurité : ne JAMAIS publier un planning_public sans aucune équipe (sinon le QR
+    //   afficherait "aucun résultat"). On compte les équipes ; si 0, on n'écrit rien et on
+    //   laisse l'éventuel planning_public précédent (ou le fallback heats côté lecture).
+    var _nbTeams=0;
+    Object.keys(pub).forEach(function(k){ _nbTeams+=Object.keys(pub[k].ln||{}).length; });
+    if(_nbTeams===0){
+      _planPubBusy=false;
+      try{ console.warn('publishPlanningPublic: 0 équipe → publication annulée (HEATS_RESULT pas prêt ?)'); }catch(_){}
+      return;
+    }
     _planPubBusy=true; _planPubLast=Date.now();
     _db.ref('planning_public').set({ heats:pub, v:Date.now(), at:Date.now() })
-      .then(function(){ _planPubBusy=false; })
+      .then(function(){ _planPubBusy=false; try{ console.info('planning_public publié : '+Object.keys(pub).length+' heats, '+_nbTeams+' équipes'); }catch(_){} })
       .catch(function(e){ _planPubBusy=false; try{console.warn('publishPlanningPublic:',e&&e.message);}catch(_){} });
   }catch(e){ _planPubBusy=false; try{console.warn('publishPlanningPublic:',e&&e.message);}catch(_){} }
 }

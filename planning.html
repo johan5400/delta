@@ -210,22 +210,50 @@ function _writeCache(v, heatsObj){
   if(!heatsObj || !Object.keys(heatsObj).length) return;
   try{ localStorage.setItem(_CACHE_KEY, JSON.stringify({v:v, h:heatsObj})); }catch(e){}
 }
-function _cacheHasData(c){ return !!(c && c.h && Object.keys(c.h).length); }
+function _cacheHasData(c){ return !!(c && c.h && _countTeams(c.h) > 0); }
+// ★ Compte les heats qui ont au moins une équipe (= affichables). Sert de filet : si la
+//   version légère ne produit RIEN d'affichable, on bascule sur le nœud "heats" complet.
+function _countTeams(heatsObj){
+  var n=0;
+  try{
+    Object.keys(heatsObj||{}).forEach(function(hid){
+      var h=heatsObj[hid]; if(!h) return;
+      var lanes=h.lanes||h.slots||{};
+      Object.keys(lanes).forEach(function(k){ if(lanes[k]&&lanes[k].teamName) n++; });
+    });
+  }catch(e){}
+  return n;
+}
+function _loadHeatsFull(ic, cb){
+  db.ref('heats').once('value').then(function(s2){
+    _allHeats=s2.val()||{};
+    _afterPlanningLoaded(ic);
+    if(cb) cb(true);
+  }).catch(function(){ if(cb)cb(false); else _planErr(); });
+}
 function _loadFromPlanningPublic(ic, cb){
   // télécharge le nœud léger complet, l'étend, met en cache, affiche
   db.ref('planning_public').once('value').then(function(snap){
     var pub=snap.val();
     if(pub && pub.heats && Object.keys(pub.heats).length){
-      _allHeats=_expandPlanningPublic(pub.heats);
-      _writeCache(pub.v||0, _allHeats);
-      _afterPlanningLoaded(ic);
-      if(cb) cb(true);
+      var expanded=_expandPlanningPublic(pub.heats);
+      // ★★ FILET : si la version légère ne contient aucune équipe affichable, on NE l'utilise
+      //   pas — on retombe sur "heats" complet (comportement d'origine, toujours fiable).
+      if(_countTeams(expanded) > 0){
+        _allHeats=expanded;
+        _writeCache(pub.v||0, _allHeats);
+        _afterPlanningLoaded(ic);
+        if(cb) cb(true);
+        return;
+      }
+      // planning_public vide/incomplet → fallback heats
+      _loadHeatsFull(ic, cb);
       return;
     }
-    // Fallback : pas de planning_public (vieux event) → heats complet comme avant
-    db.ref('heats').once('value').then(function(s2){ _allHeats=s2.val()||{}; _afterPlanningLoaded(ic); if(cb)cb(true); }).catch(function(){ if(cb)cb(false); else _planErr(); });
+    // Pas de planning_public → heats complet comme avant
+    _loadHeatsFull(ic, cb);
   }).catch(function(){
-    db.ref('heats').once('value').then(function(s2){ _allHeats=s2.val()||{}; _afterPlanningLoaded(ic); if(cb)cb(true); }).catch(function(){ if(cb)cb(false); else _planErr(); });
+    _loadHeatsFull(ic, cb);
   });
 }
 function loadPlanning(){
