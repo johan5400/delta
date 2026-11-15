@@ -158,16 +158,57 @@ function startMinuteFromHeat(h){
   for(var i=0;i<keys.length;i++){var item=horaires[keys[i]];if(item&&item.debut!=null){var mins=parseInt(item.debut,10);if(isFinite(mins))return mins;}}
   return null;
 }
+// ★★ BANDE PASSANTE : convertit le nœud léger "planning_public" (~18 Ko, champs courts)
+//   vers le format complet attendu par render()/buildFilters(). On ne touche qu'ici.
+function _expandPlanningPublic(pub){
+  var out={};
+  if(!pub) return out;
+  Object.keys(pub).forEach(function(hid){
+    var p=pub[hid]; if(!p) return;
+    var lanes={};
+    var pl=p.ln||{};
+    Object.keys(pl).forEach(function(k){
+      var o=pl[k]||{};
+      var l={teamName:o.t};
+      if(o.g){ l.isGuest=true; if(o.tci)l.teamCatId=o.tci; if(o.tcn)l.teamCatName=o.tcn; if(o.tcc)l.teamCatColor=o.tcc; }
+      lanes[k]=l;
+    });
+    out[hid]={
+      catJour:p.j, jour:p.j,
+      catId:p.cid, catName:p.cn, catNom:p.cn, catCouleur:p.cc,
+      catZone:p.z, zone:p.z,
+      horaires:p.ho||{},
+      wodNom:p.w, wodInfo:{nom:p.w},
+      globalNum:p.gn, catHeatNum:p.chn, wodHeatNum:p.chn,
+      nbHeatsTotal:p.nb, wodHeatTotal:p.nb,
+      lanes:lanes
+    };
+  });
+  return out;
+}
+function _afterPlanningLoaded(ic){
+  buildFilters(); render();
+  var now=new Date();
+  document.getElementById('lastUpdate').textContent='Mis a jour a '+now.getHours()+':'+(now.getMinutes()<10?'0':'')+now.getMinutes();
+  if(ic) setTimeout(function(){ic.style.transform='';},450);
+}
+function _planErr(){
+  document.getElementById('content').innerHTML='<div class="state"><div class="em">&#9888;&#65039;</div><div class="ttl">Connexion impossible</div><div>Reessaie dans un instant</div></div>';
+}
 function loadPlanning(){
   var ic=document.getElementById('refIc'); if(ic) ic.style.transform='rotate(360deg)';
-  db.ref('heats').once('value').then(function(snap){
-    _allHeats=snap.val()||{};
-    buildFilters(); render();
-    var now=new Date();
-    document.getElementById('lastUpdate').textContent='Mis a jour a '+now.getHours()+':'+(now.getMinutes()<10?'0':'')+now.getMinutes();
-    if(ic) setTimeout(function(){ic.style.transform='';},450);
+  // 1) D'abord le nœud léger planning_public (12x plus petit, pas de scores)
+  db.ref('planning_public').once('value').then(function(snap){
+    var pub=snap.val();
+    if(pub && pub.heats && Object.keys(pub.heats).length){
+      _allHeats=_expandPlanningPublic(pub.heats);
+      _afterPlanningLoaded(ic);
+      return;
+    }
+    // 2) Fallback : pas encore de planning_public (vieux event) → lire heats comme avant
+    db.ref('heats').once('value').then(function(s2){ _allHeats=s2.val()||{}; _afterPlanningLoaded(ic); }).catch(_planErr);
   }).catch(function(){
-    document.getElementById('content').innerHTML='<div class="state"><div class="em">&#9888;&#65039;</div><div class="ttl">Connexion impossible</div><div>Reessaie dans un instant</div></div>';
+    db.ref('heats').once('value').then(function(s2){ _allHeats=s2.val()||{}; _afterPlanningLoaded(ic); }).catch(_planErr);
   });
 }
 function buildFilters(){

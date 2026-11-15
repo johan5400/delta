@@ -8339,6 +8339,10 @@ function syncHeatsToFirebase(){
 
       // ★ Publier aussi le nœud léger lu par les spectateurs (QR classement) — bande passante.
       try{ if(typeof publishClassementLite==='function') publishClassementLite(); }catch(e){}
+      // ★★ Publier le nœud léger "planning_public" lu par la page planning (QR) — ~18 Ko
+      //   au lieu des 225 Ko du nœud heats. Évite que les athlètes téléchargent toute la
+      //   base (scores compris) juste pour voir leurs horaires. Voir publishPlanningPublic().
+      try{ if(typeof publishPlanningPublic==='function') publishPlanningPublic(heats); }catch(e){}
 
       // judgeAssignments
       var jugeMap2 = (typeof buildJugeAssignment==='function') ? buildJugeAssignment() : {};
@@ -16163,7 +16167,7 @@ function toggleDarkMode(){
   }
 })();;
 
-// ★ BADGE DE VERSION (diagnostic cache) : si tu vois "build v40" en bas à gauche,
+// ★ BADGE DE VERSION (diagnostic cache) : si tu vois "build v41" en bas à gauche,
 //   tu es bien sur le nouveau fichier. Sinon, c'est que ton navigateur/site sert l'ancien.
 (function(){
   try{
@@ -16171,12 +16175,12 @@ function toggleDarkMode(){
       if(!document.body){ setTimeout(add,150); return; }
       if(document.getElementById('__delta_build_tag')) return;
       var b=document.createElement('div'); b.id='__delta_build_tag';
-      b.textContent='build v40';
+      b.textContent='build v41';
       b.style.cssText='position:fixed;bottom:4px;left:4px;z-index:2147483647;background:rgba(220,38,38,.92);color:#fff;font:700 10px/1 system-ui,-apple-system,sans-serif;padding:3px 7px;border-radius:6px;pointer-events:none;letter-spacing:.5px;box-shadow:0 2px 8px rgba(0,0,0,.3)';
       document.body.appendChild(b);
     }
     add();
-    try{ console.log('%cDELTA — build v40 chargé ('+new Date().toISOString()+')','background:#DC2626;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold'); }catch(e){}
+    try{ console.log('%cDELTA — build v41 chargé ('+new Date().toISOString()+')','background:#DC2626;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold'); }catch(e){}
   }catch(e){}
 })();
 
@@ -21272,6 +21276,49 @@ function publishClassementLite(){
     .catch(function(e){ _classLiteBusy=false; try{console.warn('publishClassementLite:',e&&e.message);}catch(_){} });
 }
 window.publishClassementLite=publishClassementLite;
+
+// ★★ BANDE PASSANTE — nœud "planning_public" (lu par planning.html via QR) ───────────
+//   La page planning n'a besoin QUE des horaires/lanes/catégories, pas des scores ni des
+//   détails WOD. On publie donc une version allégée (~18 Ko au lieu de 225 Ko), 12x plus
+//   légère. planning.html lit ce nœud en priorité et retombe sur "heats" si absent.
+//   "v" = version : change à chaque republication (ex: arrêt d'urgence qui décale les
+//   horaires) → sert à la mise en cache côté athlète (étape suivante).
+var _planPubBusy=false, _planPubLast=0, _planPubPending=null;
+function publishPlanningPublic(heatsArr){
+  try{
+    var _db=(typeof db!=='undefined'&&db)?db:(typeof LS_FB_DB!=='undefined'?LS_FB_DB:null);
+    if(!_db) return;
+    var now=Date.now();
+    if(now-_planPubLast<4000){
+      if(!_planPubPending){ _planPubPending=setTimeout(function(){ _planPubPending=null; publishPlanningPublic(heatsArr); }, 4000-(now-_planPubLast)); }
+      return;
+    }
+    if(_planPubBusy) return;
+    var src=heatsArr;
+    if(!src){ try{ src=(typeof HEATS_RESULT!=='undefined')?HEATS_RESULT:null; }catch(e){} }
+    if(!src || !src.length) return;
+    var pub={};
+    src.forEach(function(h){
+      if(!h) return;
+      var hid='h'+(h.globalNum||1);
+      var wn=''; try{ var w=fbGetWod(h); wn=(h.wodInfo&&h.wodInfo.nom)||h.wodNom||h.wod||(w&&w.nom)||'WOD'; }catch(e){ wn=(h.wodInfo&&h.wodInfo.nom)||h.wodNom||'WOD'; }
+      var lite={ j:h.catJour||h.jour||1, cid:String(h.catId||h.catName||''), cn:h.catName||h.catNom||'', cc:h.catCouleur||'#4DA6FF', z:h.catZone||h.zone||1, ho:h.horaires||{}, w:wn, gn:h.globalNum||0, chn:h.catHeatNum||h.wodHeatNum||0, nb:h.nbHeatsTotal||h.wodHeatTotal||0, ln:{} };
+      var lanes=h.lanes||h.slots||{};
+      Object.keys(lanes).forEach(function(k){
+        var l=lanes[k]; if(!l||!l.teamName) return;
+        var o={t:l.teamName};
+        if(l.isGuest){ o.g=1; if(l.teamCatId)o.tci=l.teamCatId; if(l.teamCatName)o.tcn=l.teamCatName; if(l.teamCatColor)o.tcc=l.teamCatColor; }
+        lite.ln[k]=o;
+      });
+      pub[hid]=lite;
+    });
+    _planPubBusy=true; _planPubLast=Date.now();
+    _db.ref('planning_public').set({ heats:pub, v:Date.now(), at:Date.now() })
+      .then(function(){ _planPubBusy=false; })
+      .catch(function(e){ _planPubBusy=false; try{console.warn('publishPlanningPublic:',e&&e.message);}catch(_){} });
+  }catch(e){ _planPubBusy=false; try{console.warn('publishPlanningPublic:',e&&e.message);}catch(_){} }
+}
+window.publishPlanningPublic=publishPlanningPublic;
 
 function startClassementAutoRefresh(){
   renderClassementTK();
