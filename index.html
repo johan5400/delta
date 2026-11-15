@@ -16167,7 +16167,7 @@ function toggleDarkMode(){
   }
 })();;
 
-// ★ BADGE DE VERSION (diagnostic cache) : si tu vois "build v46" en bas à gauche,
+// ★ BADGE DE VERSION (diagnostic cache) : si tu vois "build v47" en bas à gauche,
 //   tu es bien sur le nouveau fichier. Sinon, c'est que ton navigateur/site sert l'ancien.
 (function(){
   try{
@@ -16175,12 +16175,12 @@ function toggleDarkMode(){
       if(!document.body){ setTimeout(add,150); return; }
       if(document.getElementById('__delta_build_tag')) return;
       var b=document.createElement('div'); b.id='__delta_build_tag';
-      b.textContent='build v46';
+      b.textContent='build v47';
       b.style.cssText='position:fixed;bottom:4px;left:4px;z-index:2147483647;background:rgba(220,38,38,.92);color:#fff;font:700 10px/1 system-ui,-apple-system,sans-serif;padding:3px 7px;border-radius:6px;pointer-events:none;letter-spacing:.5px;box-shadow:0 2px 8px rgba(0,0,0,.3)';
       document.body.appendChild(b);
     }
     add();
-    try{ console.log('%cDELTA — build v46 chargé ('+new Date().toISOString()+')','background:#DC2626;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold'); }catch(e){}
+    try{ console.log('%cDELTA — build v47 chargé ('+new Date().toISOString()+')','background:#DC2626;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold'); }catch(e){}
   }catch(e){}
 })();
 
@@ -21233,6 +21233,19 @@ function _slimLane(lane){
   _CLASSLITE_LANE_FIELDS.forEach(function(k){ if(lane[k]!==undefined) o[k]=lane[k]; });
   return o;
 }
+// ★★ Firebase REFUSE les valeurs undefined (set échoue : "contains undefined in property…").
+//   Retire récursivement toute clé dont la valeur est undefined avant publication.
+function _stripUndef(o){
+  if(o===null || typeof o!=='object') return o;
+  if(Array.isArray(o)) return o.map(_stripUndef);
+  var out={};
+  Object.keys(o).forEach(function(k){
+    var v=o[k];
+    if(v===undefined) return;           // on omet la clé
+    out[k]=_stripUndef(v);
+  });
+  return out;
+}
 function _slimHeatForClass(h){
   if(!h) return null;
   var nh={
@@ -21250,7 +21263,7 @@ function _slimHeatForClass(h){
   }
   // scores imbriqués éventuels (certains heats portent h.scores)
   if(h.scores) nh.scores=h.scores;
-  return nh;
+  return _stripUndef(nh);   // ★ nettoie les undefined (sinon Firebase rejette l'écriture)
 }
 var _classLiteBusy=false, _classLiteLast=0, _classLitePending=null;
 function publishClassementLite(){
