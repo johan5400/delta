@@ -43,6 +43,11 @@ body{min-height:100vh;overflow-x:hidden}
 .search-box .ico{position:absolute;left:15px;top:50%;transform:translateY(-50%);font-size:17px;opacity:.6}
 .search-box .clear{position:absolute;right:12px;top:50%;transform:translateY(-50%);background:var(--card3);border:none;color:var(--ink2);width:26px;height:26px;border-radius:50%;cursor:pointer;font-size:14px;display:none;align-items:center;justify-content:center}
 .search-box .clear.show{display:flex}
+.team-select-wrap{position:relative;margin-top:9px}
+.team-select-wrap select{width:100%;-webkit-appearance:none;appearance:none;background:var(--card);border:1.5px solid var(--brd2);border-radius:13px;padding:13px 42px 13px 44px;font-size:15px;color:var(--ink);outline:none;font-family:inherit;font-weight:700;transition:.2s}
+.team-select-wrap select:focus{border-color:var(--fire);background:var(--card2);box-shadow:0 0 0 4px rgba(255,87,34,.12)}
+.team-select-wrap .ico{position:absolute;left:15px;top:50%;transform:translateY(-50%);font-size:17px;opacity:.6;pointer-events:none}
+.team-select-wrap .chev{position:absolute;right:15px;top:50%;transform:translateY(-50%);font-size:12px;opacity:.6;pointer-events:none}
 .ctrl-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .day-tabs{display:flex;gap:4px;background:var(--card);padding:4px;border-radius:11px;border:1px solid var(--brd)}
 .day-tab{padding:9px 16px;background:transparent;border:none;border-radius:8px;font-family:var(--ff);font-size:17px;letter-spacing:1.5px;color:var(--ink3);cursor:pointer;transition:.18s;white-space:nowrap}
@@ -123,9 +128,15 @@ body{min-height:100vh;overflow-x:hidden}
   <div class="controls">
     <div class="search-box">
       <span class="ico">&#128269;</span>
-      <input type="text" id="search" list="teamsList" placeholder="Choisis ou cherche ton equipe..." autocomplete="off">
-      <datalist id="teamsList"></datalist>
+      <input type="text" id="search" placeholder="Cherche ton equipe..." autocomplete="off">
       <button class="clear" id="clearBtn" onclick="clearSearch()">&#10005;</button>
+    </div>
+    <div class="team-select-wrap">
+      <span class="ico">&#128101;</span>
+      <select id="teamSelect" onchange="onTeamSelect(this.value)">
+        <option value="">— Choisis ton equipe dans la liste —</option>
+      </select>
+      <span class="chev">&#9660;</span>
     </div>
     <div class="ctrl-row">
       <div class="day-tabs" id="dayTabs"></div>
@@ -194,10 +205,10 @@ function _afterPlanningLoaded(ic){
   document.getElementById('lastUpdate').textContent='Mis a jour a '+now.getHours()+':'+(now.getMinutes()<10?'0':'')+now.getMinutes();
   if(ic) setTimeout(function(){ic.style.transform='';},450);
 }
-// ★ Remplit la liste déroulante avec TOUTES les équipes (triées A→Z, sans doublon).
-//   L'athlète peut cliquer le champ et choisir son équipe sans la taper.
+// ★ Remplit le menu déroulant avec TOUTES les équipes (triées A→Z, sans doublon).
+//   L'athlète clique le menu et choisit son équipe dans la liste, SANS clavier ni frappe.
 function _fillTeamsList(){
-  var dl=document.getElementById('teamsList'); if(!dl) return;
+  var sel=document.getElementById('teamSelect'); if(!sel) return;
   var seen={}, names=[];
   Object.keys(_allHeats).forEach(function(hid){
     var h=_allHeats[hid]; if(!h) return;
@@ -210,7 +221,19 @@ function _fillTeamsList(){
     });
   });
   names.sort(function(a,b){return a.localeCompare(b,'fr',{sensitivity:'base'});});
-  dl.innerHTML=names.map(function(n){return '<option value="'+esc(n)+'"></option>';}).join('');
+  var cur=sel.value;
+  sel.innerHTML='<option value="">— Choisis ton equipe ('+names.length+') —</option>'
+    + names.map(function(n){return '<option value="'+esc(n)+'">'+esc(n)+'</option>';}).join('');
+  // conserve la sélection courante si elle existe encore
+  if(cur){ sel.value=cur; }
+}
+// ★ Choix d'une équipe dans le menu déroulant → applique le filtre + synchronise la barre.
+function onTeamSelect(val){
+  _searchTerm=(val||'').trim().toLowerCase();
+  var inp=document.getElementById('search'); if(inp) inp.value=val||'';
+  var cb=document.getElementById('clearBtn'); if(cb) cb.classList.toggle('show',!!_searchTerm);
+  _updateMyPdfBtn();
+  render();
 }
 function _planErr(){
   document.getElementById('content').innerHTML='<div class="state"><div class="em">&#9888;&#65039;</div><div class="ttl">Connexion impossible</div><div>Reessaie dans un instant</div></div>';
@@ -336,15 +359,17 @@ function buildFilters(){
 }
 function setDay(d){_dayFilter=d;buildFilters();render();}
 function setCat(c){_catFilter=c;buildFilters();render();}
-function clearSearch(){_searchTerm='';document.getElementById('search').value='';document.getElementById('clearBtn').classList.remove('show');_updateMyPdfBtn();render();}
+function clearSearch(){_searchTerm='';document.getElementById('search').value='';document.getElementById('clearBtn').classList.remove('show');var sel=document.getElementById('teamSelect');if(sel)sel.value='';_updateMyPdfBtn();render();}
 function _onSearchChanged(e){
   _searchTerm=e.target.value.trim().toLowerCase();
   document.getElementById('clearBtn').classList.toggle('show',!!_searchTerm);
+  // resynchronise le menu déroulant si la frappe correspond exactement à une équipe
+  var sel=document.getElementById('teamSelect');
+  if(sel){ var match=''; for(var i=0;i<sel.options.length;i++){ if(sel.options[i].value && sel.options[i].value.toLowerCase()===_searchTerm){ match=sel.options[i].value; break; } } sel.value=match; }
   _updateMyPdfBtn();
   render();
 }
 document.getElementById('search').addEventListener('input',_onSearchChanged);
-// ★ 'change' = sélection d'une équipe dans la liste déroulante (fiable sur mobile).
 document.getElementById('search').addEventListener('change',_onSearchChanged);
 // ★ Le bouton "Mon planning PDF" n'apparaît que quand on cherche une équipe.
 function _updateMyPdfBtn(){
