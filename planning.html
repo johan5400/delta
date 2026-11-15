@@ -48,6 +48,8 @@ body{min-height:100vh;overflow-x:hidden}
 .team-select-wrap select:focus{border-color:var(--fire);background:var(--card2);box-shadow:0 0 0 4px rgba(255,87,34,.12)}
 .team-select-wrap .ico{position:absolute;left:15px;top:50%;transform:translateY(-50%);font-size:17px;opacity:.6;pointer-events:none}
 .team-select-wrap .chev{position:absolute;right:15px;top:50%;transform:translateY(-50%);font-size:12px;opacity:.6;pointer-events:none}
+.team-select-wrap select optgroup{font-weight:800;font-size:13px;color:var(--fire);background:var(--card3,#1b1d24);text-transform:uppercase;letter-spacing:.5px}
+.team-select-wrap select option{font-weight:600;color:var(--ink);background:var(--card,#15161a);text-transform:none}
 .ctrl-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .day-tabs{display:flex;gap:4px;background:var(--card);padding:4px;border-radius:11px;border:1px solid var(--brd)}
 .day-tab{padding:9px 16px;background:transparent;border:none;border-radius:8px;font-family:var(--ff);font-size:17px;letter-spacing:1.5px;color:var(--ink3);cursor:pointer;transition:.18s;white-space:nowrap}
@@ -142,7 +144,6 @@ body{min-height:100vh;overflow-x:hidden}
       <div class="day-tabs" id="dayTabs"></div>
       <div class="spacer"></div>
       <button class="btn" onclick="loadPlanning()"><span class="ic" id="refIc">&#128260;</span> Actualiser</button>
-      <button class="btn" onclick="window.print()"><span class="ic">&#128424;</span> Imprimer</button>
       <button class="btn" id="myPdfBtn" onclick="downloadMyPlanning()" style="display:none;background:linear-gradient(135deg,var(--fire,#FF6B35),var(--ember,#E8421A));border:none;color:#fff;font-weight:800"><span class="ic">&#128196;</span> Mon planning PDF</button>
     </div>
     <div class="cat-filters" id="catFilters"></div>
@@ -205,26 +206,36 @@ function _afterPlanningLoaded(ic){
   document.getElementById('lastUpdate').textContent='Mis a jour a '+now.getHours()+':'+(now.getMinutes()<10?'0':'')+now.getMinutes();
   if(ic) setTimeout(function(){ic.style.transform='';},450);
 }
-// ★ Remplit le menu déroulant avec TOUTES les équipes (triées A→Z, sans doublon).
-//   L'athlète clique le menu et choisit son équipe dans la liste, SANS clavier ni frappe.
+// ★ Remplit le menu déroulant avec TOUTES les équipes, GROUPÉES PAR CATÉGORIE
+//   (séparateurs <optgroup>). Dédupliqué, trié A→Z dans chaque catégorie.
 function _fillTeamsList(){
   var sel=document.getElementById('teamSelect'); if(!sel) return;
-  var seen={}, names=[];
+  var seen={}, byCat={}, catOrder=[], total=0;
   Object.keys(_allHeats).forEach(function(hid){
     var h=_allHeats[hid]; if(!h) return;
+    var catName=h.catName||h.catNom||'Categorie';
     var lanes=h.lanes||h.slots||{};
     Object.keys(lanes).forEach(function(ln){
       var l=lanes[ln]; if(!l||!l.teamName) return;
       var nm=String(l.teamName).trim(); if(!nm) return;
       var key=nm.toLowerCase(); if(seen[key]) return;
-      seen[key]=1; names.push(nm);
+      seen[key]=1; total++;
+      // catégorie de l'équipe (invité = sa propre catégorie, comme dans render())
+      var cat=(l.isGuest&&l.teamCatName)?l.teamCatName:catName;
+      if(!byCat[cat]){ byCat[cat]=[]; catOrder.push(cat); }
+      byCat[cat].push(nm);
     });
   });
-  names.sort(function(a,b){return a.localeCompare(b,'fr',{sensitivity:'base'});});
+  catOrder.sort(function(a,b){return a.localeCompare(b,'fr',{sensitivity:'base'});});
   var cur=sel.value;
-  sel.innerHTML='<option value="">— Choisis ton equipe ('+names.length+') —</option>'
-    + names.map(function(n){return '<option value="'+esc(n)+'">'+esc(n)+'</option>';}).join('');
-  // conserve la sélection courante si elle existe encore
+  var html='<option value="">— Choisis ton equipe ('+total+') —</option>';
+  catOrder.forEach(function(cat){
+    byCat[cat].sort(function(a,b){return a.localeCompare(b,'fr',{sensitivity:'base'});});
+    html+='<optgroup label="'+esc(cat)+'">'
+      + byCat[cat].map(function(n){return '<option value="'+esc(n)+'">'+esc(n)+'</option>';}).join('')
+      + '</optgroup>';
+  });
+  sel.innerHTML=html;
   if(cur){ sel.value=cur; }
 }
 // ★ Choix d'une équipe dans le menu déroulant → applique le filtre + synchronise la barre.
