@@ -195,20 +195,60 @@ function _afterPlanningLoaded(ic){
 function _planErr(){
   document.getElementById('content').innerHTML='<div class="state"><div class="em">&#9888;&#65039;</div><div class="ttl">Connexion impossible</div><div>Reessaie dans un instant</div></div>';
 }
-function loadPlanning(){
-  var ic=document.getElementById('refIc'); if(ic) ic.style.transform='rotate(360deg)';
-  // 1) D'abord le nœud léger planning_public (12x plus petit, pas de scores)
+// ★★ CACHE PLANNING (bande passante niveau ultime) ───────────────────────────────────
+//   Le planning est FIGÉ après "Générer & Publier". On le garde donc en mémoire du
+//   téléphone (localStorage) avec son numéro de version "v". À chaque ouverture, on lit
+//   SEULEMENT la version (quelques octets) : si elle n'a pas changé → on affiche le cache
+//   (0 Ko de planning téléchargé). Si elle a changé (ex: arrêt d'urgence qui décale les
+//   horaires) → on re-télécharge le planning léger une seule fois et on remet à jour le cache.
+var _CACHE_KEY='boxcrew_planning_cache_v1';
+function _readCache(){
+  try{ var raw=localStorage.getItem(_CACHE_KEY); return raw?JSON.parse(raw):null; }catch(e){ return null; }
+}
+function _writeCache(v, heatsObj){
+  try{ localStorage.setItem(_CACHE_KEY, JSON.stringify({v:v, h:heatsObj})); }catch(e){}
+}
+function _loadFromPlanningPublic(ic, cb){
+  // télécharge le nœud léger complet, l'étend, met en cache, affiche
   db.ref('planning_public').once('value').then(function(snap){
     var pub=snap.val();
     if(pub && pub.heats && Object.keys(pub.heats).length){
       _allHeats=_expandPlanningPublic(pub.heats);
+      _writeCache(pub.v||0, _allHeats);
+      _afterPlanningLoaded(ic);
+      if(cb) cb(true);
+      return;
+    }
+    // Fallback : pas de planning_public (vieux event) → heats complet comme avant
+    db.ref('heats').once('value').then(function(s2){ _allHeats=s2.val()||{}; _afterPlanningLoaded(ic); if(cb)cb(true); }).catch(function(){ if(cb)cb(false); else _planErr(); });
+  }).catch(function(){
+    db.ref('heats').once('value').then(function(s2){ _allHeats=s2.val()||{}; _afterPlanningLoaded(ic); if(cb)cb(true); }).catch(function(){ if(cb)cb(false); else _planErr(); });
+  });
+}
+function loadPlanning(){
+  var ic=document.getElementById('refIc'); if(ic) ic.style.transform='rotate(360deg)';
+  var cache=_readCache();
+  // 1) On lit UNIQUEMENT la version (quelques octets), pas tout le planning
+  db.ref('planning_public/v').once('value').then(function(snap){
+    var v=snap.val();
+    if(v==null){
+      // pas de planning_public → si on a un cache on l'affiche, sinon fallback complet
+      if(cache && cache.h){ _allHeats=cache.h; _afterPlanningLoaded(ic); }
+      else _loadFromPlanningPublic(ic);
+      return;
+    }
+    // 2) Version inchangée ET cache présent → 0 Ko, on affiche le cache
+    if(cache && cache.h && String(cache.v)===String(v)){
+      _allHeats=cache.h;
       _afterPlanningLoaded(ic);
       return;
     }
-    // 2) Fallback : pas encore de planning_public (vieux event) → lire heats comme avant
-    db.ref('heats').once('value').then(function(s2){ _allHeats=s2.val()||{}; _afterPlanningLoaded(ic); }).catch(_planErr);
+    // 3) Version changée (ou pas de cache) → on recharge le planning léger une fois
+    _loadFromPlanningPublic(ic);
   }).catch(function(){
-    db.ref('heats').once('value').then(function(s2){ _allHeats=s2.val()||{}; _afterPlanningLoaded(ic); }).catch(_planErr);
+    // Hors ligne / erreur réseau : si on a un cache, on l'affiche quand même (robustesse)
+    if(cache && cache.h){ _allHeats=cache.h; _afterPlanningLoaded(ic); }
+    else _loadFromPlanningPublic(ic);
   });
 }
 function buildFilters(){
