@@ -206,8 +206,11 @@ function _readCache(){
   try{ var raw=localStorage.getItem(_CACHE_KEY); return raw?JSON.parse(raw):null; }catch(e){ return null; }
 }
 function _writeCache(v, heatsObj){
+  // ★ NE JAMAIS cacher un planning vide (sinon on resservirait du vide en boucle).
+  if(!heatsObj || !Object.keys(heatsObj).length) return;
   try{ localStorage.setItem(_CACHE_KEY, JSON.stringify({v:v, h:heatsObj})); }catch(e){}
 }
+function _cacheHasData(c){ return !!(c && c.h && Object.keys(c.h).length); }
 function _loadFromPlanningPublic(ic, cb){
   // télécharge le nœud léger complet, l'étend, met en cache, affiche
   db.ref('planning_public').once('value').then(function(snap){
@@ -228,26 +231,27 @@ function _loadFromPlanningPublic(ic, cb){
 function loadPlanning(){
   var ic=document.getElementById('refIc'); if(ic) ic.style.transform='rotate(360deg)';
   var cache=_readCache();
+  var hasCache=_cacheHasData(cache);  // ★ cache valide SEULEMENT s'il contient des heats
   // 1) On lit UNIQUEMENT la version (quelques octets), pas tout le planning
   db.ref('planning_public/v').once('value').then(function(snap){
     var v=snap.val();
     if(v==null){
-      // pas de planning_public → si on a un cache on l'affiche, sinon fallback complet
-      if(cache && cache.h){ _allHeats=cache.h; _afterPlanningLoaded(ic); }
+      // pas encore de planning_public → cache valide si présent, sinon chargement complet
+      if(hasCache){ _allHeats=cache.h; _afterPlanningLoaded(ic); }
       else _loadFromPlanningPublic(ic);
       return;
     }
-    // 2) Version inchangée ET cache présent → 0 Ko, on affiche le cache
-    if(cache && cache.h && String(cache.v)===String(v)){
+    // 2) Version inchangée ET cache VALIDE (non vide) → 0 Ko, on affiche le cache
+    if(hasCache && String(cache.v)===String(v)){
       _allHeats=cache.h;
       _afterPlanningLoaded(ic);
       return;
     }
-    // 3) Version changée (ou pas de cache) → on recharge le planning léger une fois
+    // 3) Version changée, OU pas de cache, OU cache vide → on recharge le planning léger
     _loadFromPlanningPublic(ic);
   }).catch(function(){
-    // Hors ligne / erreur réseau : si on a un cache, on l'affiche quand même (robustesse)
-    if(cache && cache.h){ _allHeats=cache.h; _afterPlanningLoaded(ic); }
+    // Hors ligne / erreur réseau : on affiche le cache SEULEMENT s'il a des données
+    if(hasCache){ _allHeats=cache.h; _afterPlanningLoaded(ic); }
     else _loadFromPlanningPublic(ic);
   });
 }
