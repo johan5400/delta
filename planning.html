@@ -131,6 +131,7 @@ body{min-height:100vh;overflow-x:hidden}
       <div class="spacer"></div>
       <button class="btn" onclick="loadPlanning()"><span class="ic" id="refIc">&#128260;</span> Actualiser</button>
       <button class="btn" onclick="window.print()"><span class="ic">&#128424;</span> Imprimer</button>
+      <button class="btn" id="myPdfBtn" onclick="downloadMyPlanning()" style="display:none;background:linear-gradient(135deg,var(--fire,#FF6B35),var(--ember,#E8421A));border:none;color:#fff;font-weight:800"><span class="ic">&#128196;</span> Mon planning PDF</button>
     </div>
     <div class="cat-filters" id="catFilters"></div>
   </div>
@@ -316,12 +317,83 @@ function buildFilters(){
 }
 function setDay(d){_dayFilter=d;buildFilters();render();}
 function setCat(c){_catFilter=c;buildFilters();render();}
-function clearSearch(){_searchTerm='';document.getElementById('search').value='';document.getElementById('clearBtn').classList.remove('show');render();}
+function clearSearch(){_searchTerm='';document.getElementById('search').value='';document.getElementById('clearBtn').classList.remove('show');_updateMyPdfBtn();render();}
 document.getElementById('search').addEventListener('input',function(e){
   _searchTerm=e.target.value.trim().toLowerCase();
   document.getElementById('clearBtn').classList.toggle('show',!!_searchTerm);
+  _updateMyPdfBtn();
   render();
 });
+// ★ Le bouton "Mon planning PDF" n'apparaît que quand on cherche une équipe.
+function _updateMyPdfBtn(){
+  var b=document.getElementById('myPdfBtn');
+  if(b) b.style.display=_searchTerm?'':'none';
+}
+// ★★ PDF PLANNING PERSO : pour l'équipe recherchée, génère une feuille (en-tête équipe +
+//   catégorie, puis ses passages). Généré 100% dans le navigateur à partir des données déjà
+//   chargées → AUCUNE donnée/bande passante Firebase. Ouvre la fenêtre d'impression →
+//   "Enregistrer en PDF" (natif sur tous les téléphones et navigateurs).
+function downloadMyPlanning(){
+  if(!_searchTerm){ return; }
+  var passages=[], teamName='', catName='', catColor='#FF6B35';
+  Object.keys(_allHeats).forEach(function(hid){
+    var h=_allHeats[hid]; if(!h) return;
+    var lanes=h.lanes||h.slots||{};
+    Object.keys(lanes).forEach(function(ln){
+      var l=lanes[ln]; if(!l||!l.teamName) return;
+      if(l.teamName.toLowerCase().indexOf(_searchTerm)<0) return;
+      teamName=l.teamName;
+      catName=(l.isGuest&&l.teamCatName)?l.teamCatName:(h.catName||h.catNom||'');
+      catColor=(l.isGuest&&l.teamCatColor)?l.teamCatColor:(h.catCouleur||'#FF6B35');
+      passages.push({
+        jour:parseInt(h.catJour||h.jour||1,10)||1,
+        startMin:startMinuteFromHeat(h),
+        zone:h.catZone||h.zone||1,
+        wod:(h.wodInfo&&h.wodInfo.nom)||h.wodNom||h.wod||'WOD',
+        ln:ln,
+        catHeatNum:parseInt(h.catHeatNum||h.wodHeatNum||0,10)||0,
+        nbHeats:parseInt(h.nbHeatsTotal||h.wodHeatTotal||0,10)||0,
+        globalNum:heatGlobalNum(hid,h)
+      });
+    });
+  });
+  if(!passages.length){ alert('Aucun passage trouvé pour cette équipe.'); return; }
+  passages.sort(function(a,b){ if(a.jour!==b.jour)return a.jour-b.jour; var sa=a.startMin==null?999999:a.startMin,sb=b.startMin==null?999999:b.startMin; return sa-sb; });
+  var byDay={}; passages.forEach(function(p){ (byDay[p.jour]=byDay[p.jour]||[]).push(p); });
+  var rows='';
+  Object.keys(byDay).map(function(x){return parseInt(x,10);}).sort(function(a,b){return a-b;}).forEach(function(j){
+    rows+='<tr class="dayrow"><td colspan="5">JOUR '+j+'</td></tr>';
+    byDay[j].forEach(function(p){
+      var heatLbl=(p.catHeatNum&&p.nbHeats)?('H'+p.catHeatNum+'/'+p.nbHeats):(p.globalNum?('#'+p.globalNum):'—');
+      rows+='<tr><td class="t">'+fmtMin(p.startMin)+'</td><td>'+esc(p.wod)+'</td><td class="c">Zone '+esc(p.zone)+'</td><td class="c">Lane '+esc(p.ln)+'</td><td class="c">'+heatLbl+'</td></tr>';
+    });
+  });
+  var evName=''; try{ var t=document.querySelector('.hero-title, .brand-title, h1'); evName=t?t.textContent.trim():''; }catch(e){}
+  var dateStr=new Date().toLocaleDateString('fr-FR');
+  var html='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Planning - '+esc(teamName)+'</title><style>'
+    + 'body{font-family:"Segoe UI",system-ui,Arial,sans-serif;color:#15161A;margin:0;padding:24px}'
+    + '.head{border-bottom:4px solid '+catColor+';padding-bottom:14px;margin-bottom:18px}'
+    + '.ev{font-size:12px;color:#888;font-weight:700;text-transform:uppercase;letter-spacing:1px}'
+    + '.team{font-size:28px;font-weight:900;margin:4px 0}'
+    + '.cat{display:inline-block;font-size:13px;font-weight:800;color:#fff;background:'+catColor+';padding:3px 12px;border-radius:20px}'
+    + 'table{width:100%;border-collapse:collapse;margin-top:6px;font-size:14px}'
+    + 'th{background:#15161A;color:#fff;padding:9px 10px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.5px}'
+    + 'td{padding:10px;border-bottom:1px solid #eee}'
+    + 'td.t{font-weight:900;color:'+catColor+';font-family:ui-monospace,monospace}'
+    + 'td.c{text-align:center;font-weight:700}'
+    + '.dayrow td{background:#F3F4F6;font-weight:900;font-size:12px;letter-spacing:1px;color:#555;padding:7px 10px}'
+    + '.foot{margin-top:20px;font-size:11px;color:#999;text-align:center}'
+    + '@media print{@page{margin:14mm}}'
+    + '</style></head><body>'
+    + '<div class="head">'+(evName?'<div class="ev">'+esc(evName)+'</div>':'')+'<div class="team">'+esc(teamName)+'</div>'+(catName?'<span class="cat">'+esc(catName)+'</span>':'')+'</div>'
+    + '<table><thead><tr><th>Heure</th><th>WOD</th><th>Zone</th><th>Lane</th><th>Heat</th></tr></thead><tbody>'+rows+'</tbody></table>'
+    + '<div class="foot">'+passages.length+' passage(s) · édité le '+dateStr+'</div></body></html>';
+  var w=window.open('','_blank');
+  if(!w){ alert('Autorise les pop-ups pour télécharger le PDF.'); return; }
+  w.document.write(html); w.document.close(); w.focus();
+  setTimeout(function(){ try{ w.print(); }catch(e){} }, 400);
+}
+window.downloadMyPlanning=downloadMyPlanning;
 function heatGlobalNum(hid,h){var n=parseInt(h.globalNum||h.catHeatNum||String(hid).replace(/\D/g,''),10);return isNaN(n)?0:n;}
 function render(){
   var content=document.getElementById('content'),list=[];
