@@ -167,10 +167,15 @@ body{display:flex;flex-direction:column}
   </div>
   <div id="next-wod-banner" style="display:none;padding:5px 12px;border-radius:8px;background:rgba(77,166,255,.15);border:1px solid rgba(77,166,255,.3);font-size:11px;font-weight:800;color:#4DA6FF;letter-spacing:.5px"></div>
   <button id="chef-btn" onclick="toggleChefMode()" style="margin-left:auto;padding:9px 16px;border-radius:9px;background:rgba(255,255,255,.07);border:1.5px solid rgba(255,255,255,.15);color:var(--ink2);font-size:12px;font-weight:800;cursor:pointer;letter-spacing:.5px;transition:.2s">🔓 Mode Chef</button>
+  <button id="refresh-btn" onclick="refreshClassement()" style="padding:9px 16px;border-radius:9px;background:linear-gradient(135deg,var(--fire,#FF6B35),var(--ember,#E8421A));border:none;color:#fff;font-size:12px;font-weight:800;cursor:pointer;letter-spacing:.5px;transition:.2s;white-space:nowrap">🔄 Actualiser</button>
   <div class="clock">
     <div class="lbl">Mise a jour</div>
     <div class="val" id="top-clock">--:--:--</div>
   </div>
+</div>
+
+<div id="refresh-info" style="text-align:center;font-size:12px;font-weight:700;color:var(--ink2,#9fb0cc);padding:8px 12px;background:rgba(255,107,53,.08);border-bottom:1px solid rgba(255,107,53,.15)">
+  🔄 Mise à jour automatique chaque minute · <span id="refresh-countdown">prochaine dans 60s</span>
 </div>
 
 <div class="hero">
@@ -357,6 +362,56 @@ function escH(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;')
 function escHtml(s){return escH(s);}
 function escQ(s){return String(s||'').replace(/'/g,"\\'");}
 function updateStamp(){var d=new Date(); LAST_UPDATE=p2(d.getHours())+':'+p2(d.getMinutes())+':'+p2(d.getSeconds()); var el=document.getElementById('stamp'); if(el) el.textContent='Maj '+LAST_UPDATE;}
+
+// ★★ BOUTON ACTUALISER (bande passante mini) : relit ponctuellement le classement léger
+//   + les scores, une seule fois, à la demande. Comme _attachHeats/_attachScores sont
+//   neutralisés, aucune écoute permanente n'est ré-ouverte. Anti-spam : 3 s minimum.
+var _lastRefresh=0, _refreshing=false;
+function refreshClassement(){
+  var now=Date.now();
+  if(_refreshing || now-_lastRefresh<3000){ return; }
+  _refreshing=true; _lastRefresh=now;
+  var btn=document.getElementById('refresh-btn');
+  if(btn){ btn.style.opacity='.6'; btn.textContent='⏳ ...'; }
+  var done=0;
+  function finish(){
+    done++;
+    if(done>=2){
+      _refreshing=false;
+      if(btn){ btn.style.opacity='1'; btn.textContent='🔄 Actualiser'; }
+    }
+  }
+  try{ if(window.__clsScores && window.__clsScores.resync){ window.__clsScores.resync(); } }catch(e){}
+  try{ if(window.__clsHeats && window.__clsHeats.resync){ window.__clsHeats.resync(); } }catch(e){}
+  // les resync sont asynchrones ; on remet le bouton après un court délai (sûr même si rapide)
+  setTimeout(finish, 400); setTimeout(finish, 800);
+}
+window.refreshClassement=refreshClassement;
+
+// ★★ ACTUALISATION AUTO DOUCE (1x/min) + compte à rebours visible ───────────────────
+//   L'athlète sait quand la prochaine maj aura lieu → il n'a pas besoin de spammer le
+//   bouton (économie de clics = économie de données). ÉCONOMIE : l'auto ne tourne QUE si
+//   la page est visible (écran allumé). Téléphone rangé / onglet caché → rien ne part.
+var _AUTO_SEC=60, _autoLeft=_AUTO_SEC;
+function _tickCountdown(){
+  var el=document.getElementById('refresh-countdown');
+  if(document.hidden){ if(el) el.textContent='en pause (écran éteint)'; return; }
+  _autoLeft--;
+  if(_autoLeft<=0){
+    _autoLeft=_AUTO_SEC;
+    refreshClassement();                 // lecture ponctuelle, une fois
+    if(el) el.textContent='mise à jour…';
+    return;
+  }
+  if(el) el.textContent='prochaine dans '+_autoLeft+'s';
+}
+setInterval(_tickCountdown, 1000);
+// Quand l'athlète revient sur la page (rallume l'écran), on relance le cycle proprement.
+document.addEventListener('visibilitychange',function(){
+  if(!document.hidden){ _autoLeft=_AUTO_SEC; var el=document.getElementById('refresh-countdown'); if(el) el.textContent='prochaine dans '+_autoLeft+'s'; }
+});
+// Après un clic manuel sur Actualiser, on remet le compteur à zéro (évite double maj).
+(function(){ var _orig=refreshClassement; window.refreshClassement=function(){ _autoLeft=_AUTO_SEC; return _orig.apply(this,arguments); }; })();
 
 var CHEF_MODE = false; // activé par mot de passe admin
 
@@ -1534,11 +1589,11 @@ function debouncedRender(ms){
     debouncedRender(300); // léger debounce heats seulement
   }
 
-  function _attachHeats(){
-    heatsRef.on('child_changed',onHeatChange);
-    heatsRef.on('child_added',function(snap){if(!HEATS[snap.key])onHeatChange(snap);});
-    heatsRef.on('child_removed',onHeatChange);
-  }
+  // ★★ BANDE PASSANTE MINI : plus d'écoute permanente sur "heats". La page charge une fois
+  //   (voir .once ci-dessous) et ne se rafraîchit qu'au bouton "🔄 Actualiser". Un athlète
+  //   qui laisse la page ouverte ne consomme donc plus RIEN tant qu'il n'actualise pas.
+  //   (Les écoutes temps réel restent coupées, fonction volontairement neutralisée.)
+  function _attachHeats(){ /* no-op : lecture ponctuelle seulement */ }
   // ★ ÉCONOMIE : exposer de quoi couper/resynchroniser au passage en arrière-plan.
   window.__clsHeats = { ref:heatsRef, detach:function(){ try{ heatsRef.off(); }catch(e){} }, resync:function(){
     db.ref('classementLite').once('value',function(snap){
@@ -1607,10 +1662,9 @@ function debouncedRender(ms){
   //   on expose de quoi COUPER les écouteurs quand l'onglet passe en arrière-plan,
   //   et les RÉ-ATTACHER (avec une lecture de rattrapage) au retour. Un QR laissé
   //   ouvert dans un onglet en veille cesse alors de consommer des données.
-  function _attachScores(){
-    ref.on('child_changed',onScoreChange);
-    ref.on('child_added',function(snap){ if(!SCORES[snap.key]) onScoreChange(snap); });
-  }
+  // ★★ BANDE PASSANTE MINI : plus d'écoute permanente sur "scores" non plus. Chargement
+  //   ponctuel + bouton Actualiser. (Fonction volontairement neutralisée.)
+  function _attachScores(){ /* no-op : lecture ponctuelle seulement */ }
   function _detachScores(){ try{ ref.off(); }catch(e){} }
   window.__clsScores = { ref:ref, attach:_attachScores, detach:_detachScores, resync:function(){
     ref.once('value',function(snap){
