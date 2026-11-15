@@ -16167,7 +16167,7 @@ function toggleDarkMode(){
   }
 })();;
 
-// ★ BADGE DE VERSION (diagnostic cache) : si tu vois "build v45" en bas à gauche,
+// ★ BADGE DE VERSION (diagnostic cache) : si tu vois "build v46" en bas à gauche,
 //   tu es bien sur le nouveau fichier. Sinon, c'est que ton navigateur/site sert l'ancien.
 (function(){
   try{
@@ -16175,12 +16175,12 @@ function toggleDarkMode(){
       if(!document.body){ setTimeout(add,150); return; }
       if(document.getElementById('__delta_build_tag')) return;
       var b=document.createElement('div'); b.id='__delta_build_tag';
-      b.textContent='build v45';
+      b.textContent='build v46';
       b.style.cssText='position:fixed;bottom:4px;left:4px;z-index:2147483647;background:rgba(220,38,38,.92);color:#fff;font:700 10px/1 system-ui,-apple-system,sans-serif;padding:3px 7px;border-radius:6px;pointer-events:none;letter-spacing:.5px;box-shadow:0 2px 8px rgba(0,0,0,.3)';
       document.body.appendChild(b);
     }
     add();
-    try{ console.log('%cDELTA — build v45 chargé ('+new Date().toISOString()+')','background:#DC2626;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold'); }catch(e){}
+    try{ console.log('%cDELTA — build v46 chargé ('+new Date().toISOString()+')','background:#DC2626;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold'); }catch(e){}
   }catch(e){}
 })();
 
@@ -21303,13 +21303,28 @@ function publishPlanningPublic(heatsArr){
       var hid='h'+(h.globalNum||1);
       var wn=''; try{ var w=fbGetWod(h); wn=(h.wodInfo&&h.wodInfo.nom)||h.wodNom||h.wod||(w&&w.nom)||'WOD'; }catch(e){ wn=(h.wodInfo&&h.wodInfo.nom)||h.wodNom||'WOD'; }
       var lite={ j:h.catJour||h.jour||1, cid:String(h.catId||h.catName||''), cn:h.catName||h.catNom||'', cc:h.catCouleur||'#4DA6FF', z:h.catZone||h.zone||1, ho:h.horaires||{}, w:wn, gn:h.globalNum||0, chn:h.catHeatNum||h.wodHeatNum||0, nb:h.nbHeatsTotal||h.wodHeatTotal||0, ln:{} };
-      var lanes=h.lanes||h.slots||{};
-      Object.keys(lanes).forEach(function(k){
-        var l=lanes[k]; if(!l||!l.teamName) return;
-        var o={t:l.teamName};
-        if(l.isGuest){ o.g=1; if(l.teamCatId)o.tci=l.teamCatId; if(l.teamCatName)o.tcn=l.teamCatName; if(l.teamCatColor)o.tcc=l.teamCatColor; }
-        lite.ln[k]=o;
-      });
+      // ★★ FIX : dans HEATS_RESULT les équipes sont dans h.slots (ARRAY) avec {ligne, team},
+      //   pas dans h.lanes. On lit comme syncHeatsToFirebase (safeTeamName + laneTeamCategoryMeta).
+      //   On garde un repli sur h.lanes (objet {teamName}) au cas où la source serait déjà étendue.
+      if(Array.isArray(h.slots)){
+        h.slots.forEach(function(s){
+          if(!s||!s.ligne||!s.team) return;
+          var nm=''; try{ nm=safeTeamName(s.team); }catch(e){ nm=(s.team&&(s.team.nom||s.team.name))||''; }
+          if(!nm) return;
+          var o={t:nm};
+          var meta=null; try{ meta=laneTeamCategoryMeta(s.team,h); }catch(e){}
+          if(meta && meta.isGuest){ o.g=1; if(meta.teamCatId)o.tci=meta.teamCatId; if(meta.teamCatName)o.tcn=meta.teamCatName; if(meta.teamCatColor)o.tcc=meta.teamCatColor; }
+          lite.ln[String(s.ligne)]=o;
+        });
+      } else {
+        var lanes=h.lanes||{};
+        Object.keys(lanes).forEach(function(k){
+          var l=lanes[k]; if(!l||!l.teamName) return;
+          var o={t:l.teamName};
+          if(l.isGuest){ o.g=1; if(l.teamCatId)o.tci=l.teamCatId; if(l.teamCatName)o.tcn=l.teamCatName; if(l.teamCatColor)o.tcc=l.teamCatColor; }
+          lite.ln[k]=o;
+        });
+      }
       pub[hid]=lite;
     });
     // ★ Sécurité : ne JAMAIS publier un planning_public sans aucune équipe (sinon le QR
