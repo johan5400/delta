@@ -123,7 +123,8 @@ body{min-height:100vh;overflow-x:hidden}
   <div class="controls">
     <div class="search-box">
       <span class="ico">&#128269;</span>
-      <input type="text" id="search" placeholder="Cherche ton equipe..." autocomplete="off">
+      <input type="text" id="search" list="teamsList" placeholder="Choisis ou cherche ton equipe..." autocomplete="off">
+      <datalist id="teamsList"></datalist>
       <button class="clear" id="clearBtn" onclick="clearSearch()">&#10005;</button>
     </div>
     <div class="ctrl-row">
@@ -188,10 +189,28 @@ function _expandPlanningPublic(pub){
   return out;
 }
 function _afterPlanningLoaded(ic){
-  buildFilters(); render();
+  buildFilters(); _fillTeamsList(); render();
   var now=new Date();
   document.getElementById('lastUpdate').textContent='Mis a jour a '+now.getHours()+':'+(now.getMinutes()<10?'0':'')+now.getMinutes();
   if(ic) setTimeout(function(){ic.style.transform='';},450);
+}
+// ★ Remplit la liste déroulante avec TOUTES les équipes (triées A→Z, sans doublon).
+//   L'athlète peut cliquer le champ et choisir son équipe sans la taper.
+function _fillTeamsList(){
+  var dl=document.getElementById('teamsList'); if(!dl) return;
+  var seen={}, names=[];
+  Object.keys(_allHeats).forEach(function(hid){
+    var h=_allHeats[hid]; if(!h) return;
+    var lanes=h.lanes||h.slots||{};
+    Object.keys(lanes).forEach(function(ln){
+      var l=lanes[ln]; if(!l||!l.teamName) return;
+      var nm=String(l.teamName).trim(); if(!nm) return;
+      var key=nm.toLowerCase(); if(seen[key]) return;
+      seen[key]=1; names.push(nm);
+    });
+  });
+  names.sort(function(a,b){return a.localeCompare(b,'fr',{sensitivity:'base'});});
+  dl.innerHTML=names.map(function(n){return '<option value="'+esc(n)+'"></option>';}).join('');
 }
 function _planErr(){
   document.getElementById('content').innerHTML='<div class="state"><div class="em">&#9888;&#65039;</div><div class="ttl">Connexion impossible</div><div>Reessaie dans un instant</div></div>';
@@ -318,12 +337,15 @@ function buildFilters(){
 function setDay(d){_dayFilter=d;buildFilters();render();}
 function setCat(c){_catFilter=c;buildFilters();render();}
 function clearSearch(){_searchTerm='';document.getElementById('search').value='';document.getElementById('clearBtn').classList.remove('show');_updateMyPdfBtn();render();}
-document.getElementById('search').addEventListener('input',function(e){
+function _onSearchChanged(e){
   _searchTerm=e.target.value.trim().toLowerCase();
   document.getElementById('clearBtn').classList.toggle('show',!!_searchTerm);
   _updateMyPdfBtn();
   render();
-});
+}
+document.getElementById('search').addEventListener('input',_onSearchChanged);
+// ★ 'change' = sélection d'une équipe dans la liste déroulante (fiable sur mobile).
+document.getElementById('search').addEventListener('change',_onSearchChanged);
 // ★ Le bouton "Mon planning PDF" n'apparaît que quand on cherche une équipe.
 function _updateMyPdfBtn(){
   var b=document.getElementById('myPdfBtn');
