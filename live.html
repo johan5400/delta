@@ -190,6 +190,83 @@ body.hicontrast.hicontrast-max .np-team:nth-child(odd) .np-lane,body.hicontrast.
    restent, c'est du branding). Le « Reprise dans X » reste lisible (déjà renforcé). */
 body.hicontrast.hicontrast-max #sponsors-overlay{background:#000!important}
 body.hicontrast.hicontrast-max #sp-ov-glow{display:none!important}
+
+/* ★★★ MODE PLEIN SOLEIL (body.sun) — lisibilité MAX dehors + look moderne ───────────────
+   Pensé pour un écran/vidéoprojecteur en plein jour : noir profond, blanc pur, gros blocs
+   nets, zéro lueur. Plus grand et plus épuré que le mode contraste : on met en avant
+   RANG / NOM / SCORE et on efface le bruit (chips, mini-badges, pastilles) visible de loin. */
+body.sun{--bg:#000000;--ink:#FFFFFF;--ink2:#D4DCE8;--ink3:#7B8A9E;
+  --ok:#17F9A8;--err:#FF4B66;--warn:#FFC53D;--gold:#FFD84D;--blue:#54B6FF;--purple:#C08BFF;background:#000}
+body.sun,body.sun .zone-body,body.sun .zone-col,body.sun .zone-idle,
+body.sun .chrono-band,body.sun .teams-band,body.sun #morning-cd,body.sun .wod-hdr{background:#000!important}
+/* tuer toutes lueurs/ombres/halos (ça bave au soleil) */
+body.sun *{text-shadow:none!important;box-shadow:none!important}
+body.sun .zone-body::before,body.sun .tc.lead::before,body.sun .tc.lead::after,
+body.sun .chrono-band::before,body.sun .chrono-band::after{display:none!important;background:none!important;animation:none!important}
+body.sun .topbar{background:#000!important;border-bottom:1px solid rgba(255,255,255,.4)}
+body.sun .zone-col:first-child{border-right:3px solid rgba(255,255,255,.28)}
+/* ── CHRONO géant ── */
+body.sun .chrono-band{border-bottom:3px solid rgba(255,255,255,.22)!important;padding:10px 8px 8px!important}
+body.sun .chrono-val{color:#FFFFFF!important;-webkit-text-fill-color:#FFFFFF!important;filter:none!important;
+  font-size:clamp(96px,19vw,460px)!important;font-weight:900!important;letter-spacing:-4px!important}
+body.sun .chrono-val.run,body.sun .chrono-val.warn,body.sun .chrono-val.coup{color:#FFC53D!important;-webkit-text-fill-color:#FFC53D!important}
+body.sun .chrono-val.hot{color:#FF4B66!important;-webkit-text-fill-color:#FF4B66!important}
+body.sun .chrono-val.fin,body.sun .chrono-val.ok{color:#17F9A8!important;-webkit-text-fill-color:#17F9A8!important}
+body.sun .chrono-val.ih{color:#54B6FF!important;-webkit-text-fill-color:#54B6FF!important}
+body.sun .chrono-val.idle{color:#5A6A80!important;-webkit-text-fill-color:#5A6A80!important}
+body.sun .chrono-lbl{color:#D4DCE8!important;font-size:clamp(13px,1.6vw,28px)!important;letter-spacing:6px!important}
+body.sun .chrono-round{color:#17F9A8!important}
+/* ── WOD header ── */
+body.sun .wod-hdr{border-bottom:2px solid rgba(255,255,255,.22)!important}
+body.sun .wod-nom{color:#FFF!important;font-size:clamp(26px,4vw,66px)!important;letter-spacing:3px!important}
+body.sun .wod-cat{color:#D4DCE8!important;font-weight:900!important}
+body.sun .tag{font-weight:900!important}
+body.sun .tag.z1{background:#001B33!important;color:#54B6FF!important;border:1.5px solid #54B6FF!important}
+body.sun .tag.z2{background:#002417!important;color:#17F9A8!important;border:1.5px solid #17F9A8!important}
+body.sun .tag.live{background:#2A0410!important;color:#FF4B66!important;border:1.5px solid #FF4B66!important}
+body.sun .tag.ht,body.sun .tag.done,body.sun .tag.pending{background:#111!important;color:#D4DCE8!important;border:1px solid rgba(255,255,255,.3)!important}
+/* ── CARTES équipe : plus hautes, plus d'air, RANG en bloc plein ── */
+body.sun .teams-band{padding:10px 12px 12px!important;gap:10px!important}
+body.sun .tc{background:#0A0A0A!important;border:2px solid rgba(255,255,255,.45)!important;border-left:none!important;
+  border-radius:12px!important;padding:14px 20px!important}
+body.sun .tc.r1{border-color:#FFD84D!important}
+body.sun .tc.r2{border-color:#C4CBD8!important}
+body.sun .tc.r3{border-color:#E0914A!important}
+body.sun .tc.lead{border:3px solid #17F9A8!important;background:#001A10!important}
+body.sun .tc.ok{border:2px solid #17F9A8!important}
+body.sun .tm{gap:18px!important}
+/* RANG : gros bloc carré plein, chiffre foncé dessus = repérable de très loin */
+body.sun .rk{font-size:clamp(26px,2.8vw,48px)!important;font-weight:900!important;color:#000!important;
+  min-width:clamp(44px,3.4vw,64px)!important;height:clamp(44px,3.4vw,64px)!important;
+  display:flex!important;align-items:center!important;justify-content:center!important;
+  background:#FFFFFF!important;border-radius:10px!important;flex-shrink:0!important}
+body.sun .rk.r1{background:#FFD84D!important;color:#000!important}
+body.sun .rk.r2{background:#C4CBD8!important;color:#000!important}
+body.sun .rk.r3{background:#E0914A!important;color:#000!important}
+/* NOM : massif, blanc pur */
+body.sun .tn{color:#FFFFFF!important;-webkit-text-fill-color:#FFFFFF!important;
+  font-size:clamp(22px,2.6vw,42px)!important;font-weight:900!important;letter-spacing:.5px!important}
+/* SCORE : géant à droite */
+body.sun .tsc{font-size:clamp(22px,2.6vw,44px)!important;font-weight:900!important}
+body.sun .tsc.lv{color:#FFC53D!important}
+body.sun .tsc.vl{color:#17F9A8!important}
+body.sun .tsc.nd{color:#7B8A9E!important}
+body.sun .crown{filter:none!important}
+/* ── ÉPURATION : on retire de loin le bruit secondaire (pastilles de mouvement, mini-badges,
+   barre d'essais). On garde l'info qui compte : rang + nom + score + l'écart leader. */
+body.sun .chips,body.sun .attempts,body.sun .mov-row,body.sun .pbar{display:none!important}
+body.sun .mini{display:none!important}
+body.sun .mini.gap,body.sun .mini.lead{display:inline-flex!important;font-size:clamp(14px,1.5vw,24px)!important;font-weight:900!important;
+  background:#000!important;border:1.5px solid currentColor!important;padding:4px 10px!important}
+body.sun .mini.gap{color:#FFC53D!important}
+body.sun .mini.lead{color:#17F9A8!important}
+body.sun .tmeta{gap:10px!important;margin-top:6px!important}
+/* overlays / bannières */
+body.sun .pod-overlay{background:#000!important}
+body.sun .live-msg-banner{background:#001B33!important;color:#FFF!important;border-bottom:2px solid #54B6FF!important}
+body.sun #sponsors-overlay{background:#000!important}
+body.sun #sp-ov-glow{display:none!important}
+
 html{height:100%;overflow:hidden}
 body{height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-family:var(--fc);display:flex;flex-direction:column}
 .topbar{
