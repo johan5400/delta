@@ -21222,6 +21222,25 @@ var _CLASSLITE_WOD_FIELDS = ['nom','name','type','scoreType','scoreFinale','scor
 // Champs d'une lane utiles au classement (nom d'équipe + catégorie effective + invité) :
 var _CLASSLITE_LANE_FIELDS = ['teamName','teamId','scores','score',
   'hostCatId','hostCatName','teamCatId','teamCatName','isGuest','catId','catName'];
+// ★★ Champs d'un SCORE réellement lus par classement.html (affichage + tri + fusion).
+//   Liste établie en analysant tous les sc.* / mergeScore / indexScore de classement.html.
+//   Tout le reste (brouillons, logs, timers internes, drapeaux d'UI) est retiré du nœud léger.
+var _CLASSLITE_SCORE_FIELDS = ['teamName','heat','lane','heatNum','laneNum','status',
+  'reps','load','dist','distance','ergoVal','ergoUnit','finalTime','timecap',
+  'tiebreak','tiebreaks','barresCL','clLoad','clOut','dbOut','ecValues','emomTotalReps',
+  'stephCals','stephReps','noReps','judgeOk','judgeName','judgePrenom','_editBy',
+  'finishTs','ts','attempts','_priority','_src','tkValidated'];
+function _slimScore(sc){
+  if(!sc || typeof sc!=='object') return sc;
+  var o={};
+  _CLASSLITE_SCORE_FIELDS.forEach(function(k){ if(sc[k]!==undefined) o[k]=sc[k]; });
+  return o;
+}
+function _slimScoresMap(scores){
+  var out={};
+  Object.keys(scores||{}).forEach(function(k){ out[k]=_slimScore(scores[k]); });
+  return out;
+}
 function _slimWodInfo(wi){
   var o={}; wi=wi||{};
   _CLASSLITE_WOD_FIELDS.forEach(function(k){ if(wi[k]!==undefined) o[k]=wi[k]; });
@@ -21261,8 +21280,8 @@ function _slimHeatForClass(h){
   } else if(Array.isArray(L)){
     nh.lanes=L.map(_slimLane);
   }
-  // scores imbriqués éventuels (certains heats portent h.scores)
-  if(h.scores) nh.scores=h.scores;
+  // scores imbriqués éventuels (certains heats portent h.scores) → filtrés aussi
+  if(h.scores) nh.scores=_slimScoresMap(h.scores);
   return _stripUndef(nh);   // ★ nettoie les undefined (sinon Firebase rejette l'écriture)
 }
 var _classLiteBusy=false, _classLiteLast=0, _classLitePending=null;
@@ -21283,7 +21302,10 @@ function publishClassementLite(){
       var heats=res[0].val()||{}, scores=res[1].val()||{};
       var liteHeats={};
       Object.keys(heats).forEach(function(hid){ liteHeats[hid]=_slimHeatForClass(heats[hid]); });
-      return _db.ref('classementLite').set({ heats:liteHeats, scores:scores, at:Date.now() });
+      // ★★ scores filtrés (seuls les champs utiles au classement) → gros gain de poids,
+      //    et c'est désormais la SEULE source lue par les spectateurs (plus de double lecture).
+      var liteScores=_stripUndef(_slimScoresMap(scores));
+      return _db.ref('classementLite').set({ heats:liteHeats, scores:liteScores, at:Date.now() });
     })
     .then(function(){ _classLiteBusy=false; })
     .catch(function(e){ _classLiteBusy=false; try{console.warn('publishClassementLite:',e&&e.message);}catch(_){} });

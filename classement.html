@@ -1598,7 +1598,15 @@ function debouncedRender(ms){
   window.__clsHeats = { ref:heatsRef, detach:function(){ try{ heatsRef.off(); }catch(e){} }, resync:function(){
     db.ref('classementLite').once('value',function(snap){
       var lite=snap.val();
-      if(lite && lite.heats && Object.keys(lite.heats).length){ HEATS=lite.heats||{}; }
+      if(lite && lite.heats && Object.keys(lite.heats).length){
+        HEATS=lite.heats||{};
+        // ★★ ré-indexe aussi les scores du nœud léger (le bouton Actualiser ne relit donc
+        //    QU'UNE seule fois classementLite, jamais le gros nœud "scores").
+        if(lite.scores && typeof lite.scores==='object'){
+          window.__SCORES_FROM_LITE=true;
+          if(typeof window.__indexScores==='function') window.__indexScores(lite.scores);
+        }
+      }
       checkHeatDone(HEATS); updateStamp(); render(); _attachHeats();
     }, function(){
       // ★ ANTI-PSCHITT : même si la relecture légère échoue, on retente heats, et
@@ -1611,6 +1619,7 @@ function debouncedRender(ms){
   function startHeatsFallback(){
     // Ancien comportement : lecture complète de "heats" + écoute fine.
     window.__CLASS_SRC='full';
+    window.__SCORES_FROM_LITE=false; // ★ repli : les scores viennent du gros nœud "scores"
     heatsRef.once('value',function(snap){
       HEATS=snap.val()||{};
       checkHeatDone(HEATS);
@@ -1618,6 +1627,8 @@ function debouncedRender(ms){
       render();
       _attachHeats();
     });
+    // ★ charge les scores complets (le nœud léger n'était pas disponible)
+    try{ if(window.__clsScores && window.__clsScores.loadFull){ window.__clsScores.loadFull(); } }catch(e){}
   }
 
   // 1) Tenter le nœud léger (une seule lecture, bien plus petite).
@@ -1626,6 +1637,18 @@ function debouncedRender(ms){
     if(lite && lite.heats && Object.keys(lite.heats).length){
       HEATS=lite.heats||{};
       window.__CLASS_SRC='LITE';
+      // ★★ BANDE PASSANTE : si le nœud léger embarque AUSSI les scores (filtrés), on les
+      //    utilise directement → plus besoin de télécharger le gros nœud "scores" à côté.
+      //    On signale au bloc scores de NE PAS relire "scores" (sauf repli).
+      if(lite.scores && typeof lite.scores==='object' && Object.keys(lite.scores).length){
+        window.__SCORES_FROM_LITE=true;
+        if(typeof window.__indexScores==='function') window.__indexScores(lite.scores);
+      } else {
+        // ★ Nœud léger SANS scores (ancienne version d'admin) → repli : on charge le
+        //   gros nœud "scores" une fois, sinon le classement resterait vide.
+        window.__SCORES_FROM_LITE=false;
+        try{ if(window.__clsScores && window.__clsScores.loadFull){ window.__clsScores.loadFull(); } }catch(e){}
+      }
       checkHeatDone(HEATS);
       updateStamp();
       render();
@@ -1652,35 +1675,42 @@ function debouncedRender(ms){
     if(flatNum && flatNum!==k) SCORES[flatNum]=mergeScore(SCORES[flatNum],sc);
   }
 
-  function onScoreChange(snap){
-    indexScore(snap.key, snap.val());
+  // ★★ BANDE PASSANTE : indexe une map de scores DÉJÀ en mémoire (venue du nœud léger
+  //    "classementLite.scores"). Permet de NE PAS télécharger le gros nœud "scores".
+  //    Exposée globalement pour que le bloc classementLite l'appelle.
+  function indexScoresMap(map){
+    SCORES={};
+    Object.keys(map||{}).forEach(function(k){ indexScore(k, map[k]); });
     updateStamp();
-    debouncedRender(150); // évite N renders/seconde pendant un heat live
   }
+  window.__indexScores=indexScoresMap;
 
-  // ★ ÉCONOMIE DE DONNÉES (page aussi consultée par QR sur beaucoup de téléphones) :
-  //   on expose de quoi COUPER les écouteurs quand l'onglet passe en arrière-plan,
-  //   et les RÉ-ATTACHER (avec une lecture de rattrapage) au retour. Un QR laissé
-  //   ouvert dans un onglet en veille cesse alors de consommer des données.
-  // ★★ BANDE PASSANTE MINI : plus d'écoute permanente sur "scores" non plus. Chargement
-  //   ponctuel + bouton Actualiser. (Fonction volontairement neutralisée.)
   function _attachScores(){ /* no-op : lecture ponctuelle seulement */ }
   function _detachScores(){ try{ ref.off(); }catch(e){} }
-  window.__clsScores = { ref:ref, attach:_attachScores, detach:_detachScores, resync:function(){
+  // Lecture COMPLÈTE du nœud "scores" (repli : uniquement si le nœud léger n'a pas
+  // fourni les scores — vieille compét, admin pas à jour, ou échec de lecture lite).
+  function loadFull(){
     ref.once('value',function(snap){
-      var raw=snap.val()||{}; SCORES={};
+      var raw=snap.val()||{};
+      SCORES={};
       Object.keys(raw).forEach(function(k){ indexScore(k, raw[k]); });
-      updateStamp(); render(); _attachScores();
-    }, function(){ _attachScores(); });   // ★ ANTI-PSCHITT : échec de relecture → on ré-attache quand même
+      updateStamp();
+      render();
+      _attachScores();
+    }, function(){ _attachScores(); });
+  }
+  window.__clsScores = { ref:ref, attach:_attachScores, detach:_detachScores, loadFull:loadFull, resync:function(){
+    // ★ Si les scores viennent du nœud léger, Actualiser relit classementLite (via
+    //   __clsHeats.resync) qui ré-indexe les scores → on NE relit PAS le gros nœud ici.
+    if(window.__SCORES_FROM_LITE){ return; }
+    loadFull();
   }};
-  ref.once('value',function(snap){
-    var raw=snap.val()||{};
-    SCORES={};
-    Object.keys(raw).forEach(function(k){ indexScore(k, raw[k]); });
-    updateStamp();
-    render();
-    _attachScores();
-  });
+  // ★★ Plus de lecture automatique ici : c'est le bloc classementLite qui décide
+  //    (scores du nœud léger, sinon loadFull en repli). Si pour une raison quelconque
+  //    classementLite n'a rien déclenché après un court délai, on charge en repli.
+  setTimeout(function(){
+    if(!window.__SCORES_FROM_LITE && (!SCORES || !Object.keys(SCORES).length)){ loadFull(); }
+  }, 2500);
 })();
 
 /* ★ ÉCONOMIE : suspendre les écouteurs quand la page est en arrière-plan (onglet caché
