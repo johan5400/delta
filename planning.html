@@ -428,6 +428,16 @@ function downloadMyPlanning(){
   });
   var evName=''; try{ var t=document.querySelector('.hero-title, .brand-title, h1'); evName=t?t.textContent.trim():''; }catch(e){}
   var dateStr=new Date().toLocaleDateString('fr-FR');
+  // ★ QR codes planning + classement : l'athlète garde son PDF papier et scanne pour
+  //   suivre le live. URLs dérivées de la page courante (même dossier GitHub Pages).
+  var _base=(location.origin+location.pathname).replace(/[^\/]*$/,''); // dossier courant, sans le nom de fichier
+  var _planUrl=_base+'planning.html';
+  var _clsUrl=_base+'classement.html';
+  function _qr(u){ return 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&margin=0&data='+encodeURIComponent(u); }
+  var _qrBlock='<div class="qrs">'
+    + '<div class="qr"><img src="'+_qr(_planUrl)+'" alt="QR planning"><div class="qrl">📋 Planning</div></div>'
+    + '<div class="qr"><img src="'+_qr(_clsUrl)+'" alt="QR classement"><div class="qrl">🏆 Classement</div></div>'
+    + '</div>';
   var html='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Planning - '+esc(teamName)+'</title><style>'
     + 'body{font-family:"Segoe UI",system-ui,Arial,sans-serif;color:#15161A;margin:0;padding:24px}'
     + '.head{border-bottom:4px solid '+catColor+';padding-bottom:14px;margin-bottom:18px}'
@@ -440,11 +450,18 @@ function downloadMyPlanning(){
     + 'td.t{font-weight:900;color:'+catColor+';font-family:ui-monospace,monospace}'
     + 'td.c{text-align:center;font-weight:700}'
     + '.dayrow td{background:#F3F4F6;font-weight:900;font-size:12px;letter-spacing:1px;color:#555;padding:7px 10px}'
-    + '.foot{margin-top:20px;font-size:11px;color:#999;text-align:center}'
-    + '@media print{@page{margin:14mm}}'
+    + '.foot{margin-top:14px;font-size:11px;color:#999;text-align:center}'
+    + '.qrs{margin-top:26px;display:flex;justify-content:center;gap:40px;flex-wrap:wrap}'
+    + '.qr{text-align:center}'
+    + '.qr img{width:120px;height:120px;display:block;border:1px solid #eee;border-radius:8px;padding:6px;background:#fff}'
+    + '.qrl{margin-top:6px;font-size:12px;font-weight:800;color:'+catColor+';letter-spacing:.5px}'
+    + '.qrh{text-align:center;font-size:11px;color:#888;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-top:26px}'
+    + '@media print{@page{margin:14mm} .qr img{-webkit-print-color-adjust:exact;print-color-adjust:exact}}'
     + '</style></head><body>'
     + '<div class="head">'+(evName?'<div class="ev">'+esc(evName)+'</div>':'')+'<div class="team">'+esc(teamName)+'</div>'+(catName?'<span class="cat">'+esc(catName)+'</span>':'')+'</div>'
     + '<table><thead><tr><th>Heure</th><th>WOD</th><th>Zone</th><th>Lane</th><th>Heat</th></tr></thead><tbody>'+rows+'</tbody></table>'
+    + '<div class="qrh">📱 Scanne pour suivre en direct</div>'
+    + _qrBlock
     + '<div class="foot">'+passages.length+' passage(s) · édité le '+dateStr+'</div></body></html>';
   var w=window.open('','_blank');
   if(!w){ alert('Autorise les pop-ups pour télécharger le PDF.'); return; }
