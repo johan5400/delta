@@ -252,6 +252,12 @@ body.sun .tsc{font-size:calc(clamp(20px,2.4vw,42px) * var(--den,1))!important;fo
 body.sun .tsc.lv{color:#FFC53D!important}
 body.sun .tsc.vl{color:#17F9A8!important}
 body.sun .tsc.nd{color:#7B8A9E!important}
+/* ★ ÉCART AU 1er bien lisible de loin : badge net (retard = orange, leader = vert) */
+body.sun .gap-badge{display:inline-block!important;font-size:calc(clamp(15px,1.5vw,26px) * var(--den,1))!important;
+  font-weight:900!important;padding:2px 10px!important;border-radius:7px!important;margin-top:5px!important;
+  text-shadow:none!important;letter-spacing:.5px!important;line-height:1.15!important}
+body.sun .gap-badge.gap{color:#FFC53D!important;background:rgba(255,197,61,.14)!important;border:1.5px solid rgba(255,197,61,.55)!important}
+body.sun .gap-badge.lead{color:#17F9A8!important;background:rgba(23,249,168,.12)!important;border:1.5px solid rgba(23,249,168,.5)!important}
 body.sun .crown{filter:none!important}
 /* ── ÉPURATION : on retire de loin le bruit secondaire (pastilles de mouvement, mini-badges,
    barre d'essais). On garde l'info qui compte : rang + nom + score + l'écart leader. */
@@ -2479,6 +2485,101 @@ function gapText(row,lead,w,st){
   var dr3=Math.max(0,liveReps(lead.sc)-liveReps(row.sc));
   return dr3>0?'- '+dr3+' reps':'ÉGALITÉ';
 }
+// ════════════════════════════════════════════════════════════════════════════
+// ★★★ SCÉNOGRAPHIE FLUIDE — animations d'affichage des résultats (CSS/JS local,
+//     AUCUNE donnée Firebase en plus). Trois briques :
+//     1) setBandHtml(el, html, opts) : réécrit une colonne en animant
+//        - le GLISSEMENT des cartes qui changent de place (FLIP), en live
+//        - une CASCADE d'apparition (classement général final de catégorie)
+//        - un FONDU d'entrée doux entre deux phases différentes
+//     2) le respect de prefers-reduced-motion
+//     3) garde-fou : si le navigateur ne supporte pas, on retombe sur innerHTML sec.
+// ════════════════════════════════════════════════════════════════════════════
+var _REDUCED_MOTION = false;
+try{ _REDUCED_MOTION = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches; }catch(e){}
+
+function setBandHtml(el, html, opts){
+  opts = opts || {};
+  if(!el){ return; }
+  if(_REDUCED_MOTION){ el.innerHTML = html; return; }
+
+  // 1) snapshot des positions actuelles des cartes (par équipe) pour le FLIP
+  var firstTops = {};
+  try{
+    var prev = el.querySelectorAll('.tc[data-team],.p-row[data-team]');
+    for(var i=0;i<prev.length;i++){
+      var t = prev[i].getAttribute('data-team');
+      firstTops[t] = prev[i].getBoundingClientRect().top;
+    }
+  }catch(e){}
+
+  var hadContent = !!(el.dataset && el.dataset.bandKey);
+  var sameView = hadContent && el.dataset.bandKey === (opts.viewKey||'');
+
+  // 2) écrire le nouveau contenu
+  el.innerHTML = html;
+  if(el.dataset){ el.dataset.bandKey = opts.viewKey||''; }
+
+  var cards;
+  try{ cards = el.querySelectorAll('.tc[data-team],.p-row[data-team]'); }catch(e){ return; }
+  if(!cards || !cards.length){ return; }
+
+  // 3a) CASCADE d'apparition : à l'arrivée sur une nouvelle vue (ex. classement général
+  //     final de catégorie), les cartes entrent une par une du bas vers le haut.
+  if(opts.cascade){
+    var n = cards.length;
+    for(var c=0;c<n;c++){
+      var card = cards[c];
+      // dernier (bas) en premier → suspense jusqu'au 1er
+      var delay = (n-1-c) * (opts.cascadeStep||70);
+      card.style.opacity = '0';
+      card.style.transform = 'translateY(18px) scale(.985)';
+      card.style.transition = 'none';
+      (function(cd, dl){
+        requestAnimationFrame(function(){
+          cd.style.transition = 'opacity .5s ease '+dl+'ms, transform .55s cubic-bezier(.22,.8,.3,1) '+dl+'ms';
+          cd.style.opacity = '';
+          cd.style.transform = '';
+          // nettoie les styles inline une fois fini pour ne pas gêner le FLIP suivant
+          setTimeout(function(){ cd.style.transition=''; }, dl+650);
+        });
+      })(card, delay);
+    }
+    return;
+  }
+
+  // 3b) FONDU doux quand on change de vue (phase différente) sans cascade
+  if(!sameView && opts.fade){
+    el.style.opacity = '0';
+    el.style.transition = 'none';
+    requestAnimationFrame(function(){
+      el.style.transition = 'opacity .35s ease';
+      el.style.opacity = '';
+      setTimeout(function(){ el.style.transition=''; }, 400);
+    });
+    return;
+  }
+
+  // 3c) FLIP : même vue, le classement a pu se réordonner → les cartes GLISSENT
+  //     de leur ancienne position vers la nouvelle.
+  for(var k=0;k<cards.length;k++){
+    var cc = cards[k];
+    var team = cc.getAttribute('data-team');
+    if(firstTops[team]==null) continue;           // nouvelle carte → pas de glissement
+    var dy = firstTops[team] - cc.getBoundingClientRect().top;
+    if(!dy) continue;
+    cc.style.transform = 'translateY('+dy+'px)';
+    cc.style.transition = 'none';
+    (function(card2){
+      requestAnimationFrame(function(){
+        card2.style.transition = 'transform .55s cubic-bezier(.22,.8,.3,1)';
+        card2.style.transform = '';
+        setTimeout(function(){ card2.style.transition=''; card2.style.transform=''; }, 620);
+      });
+    })(cc);
+  }
+}
+
 function renderRankCards(rows,w,st,showLiveChips,h,catId,catLeader){
   if(!rows.length)return '<div style="display:flex;align-items:center;justify-content:center;flex:1;font-family:var(--ff);font-size:clamp(18px,2.5vw,32px);letter-spacing:2px;color:var(--ink3)">AUCUN CLASSEMENT</div>';
   var lead=rows[0]||null;
@@ -2824,7 +2925,7 @@ function renderRankCards(rows,w,st,showLiveChips,h,catId,catLeader){
     //   Pendant live/pre/timecap : classement dynamique → on garde un chiffre lisible.
     var _isFinal = (st==='done');
     var _rkBadge = _isFinal ? (MEDALS[i]||String(i+1)) : String(i+1);
-    return _catSep+'<div class="tc'+(i<3?' r'+(i+1):'')+(val?' ok':'')+(i===0?' lead':'')+'">'
+    return _catSep+'<div class="tc'+(i<3?' r'+(i+1):'')+(val?' ok':'')+(i===0?' lead':'')+'" data-team="'+esc(e.team||('row'+i))+'">'
       +'<div class="tm">'
         +'<div class="rk'+(i<3?' r'+(i+1):'')+(_isFinal?' final':' dyn')+'">'+_rkBadge+'</div>'
         +'<div class="tcol">'
@@ -2840,7 +2941,7 @@ function renderRankCards(rows,w,st,showLiveChips,h,catId,catLeader){
             var tbStr=tbs.map(function(t,i){return (tbs.length>1?'TB'+(i+1)+' ':'')+fmt(t);}).join(' · ');
             return '<div style="font-size:.55em;color:#FF8A00;font-family:var(--fm);font-weight:900;letter-spacing:.5px;margin-top:2px;line-height:1;text-shadow:0 0 8px rgba(255,138,0,.4)">🎯 '+tbStr+'</div>';
           })()
-          +((i>0&&repGap&&gapCls==='gap')?'<div style="font-size:1.18em;color:rgba(255,140,0,.98);font-family:var(--fm);text-align:right;font-weight:900;margin-top:3px;letter-spacing:.5px">'+repGap+'</div>':(i===0&&repGap?'<div style="font-size:1.05em;color:#4ADE80;font-family:var(--fm);text-align:right;font-weight:900;margin-top:3px;letter-spacing:.5px;text-shadow:0 0 8px rgba(74,222,128,.4)">'+repGap+'</div>':''))
+          +((i>0&&repGap&&gapCls==='gap')?'<div class="gap-badge gap" style="font-size:1.18em;color:rgba(255,140,0,.98);font-family:var(--fm);text-align:right;font-weight:900;margin-top:3px;letter-spacing:.5px">'+repGap+'</div>':(i===0&&repGap?'<div class="gap-badge lead" style="font-size:1.05em;color:#4ADE80;font-family:var(--fm);text-align:right;font-weight:900;margin-top:3px;letter-spacing:.5px;text-shadow:0 0 8px rgba(74,222,128,.4)">'+repGap+'</div>':''))
         +'</div>'
       +'</div>'
       +chipsHtml
@@ -2939,12 +3040,13 @@ function renderZone(zone){
   // Anti-rebuild : si DOM déjà construit pour ce heat/état
   if(_dh[zone]===dKey){
     if(!ihOn){
-      // Hors IH : juste refresh les scores
+      // Hors IH : juste refresh les scores — ★ les cartes GLISSENT quand le classement
+      //   live se réordonne (FLIP), au lieu de sauter. viewKey stable = heat en cours.
       var tb=document.getElementById('tband-'+zone);
       var hFull=Object.assign({},h,{startTimestamp:h.startTimestamp||(HEATS[hid]&&HEATS[hid].startTimestamp)||0});
-      if(tb) tb.innerHTML=renderRankCards(
+      if(tb) setBandHtml(tb, renderRankCards(
         rankHeatEntries(hid,h,w),w,st,st==='live'||st==='pre',hFull,catId,catLeader
-      );
+      ), { viewKey:'live|'+zone+'|'+hid });
     }
     // Pendant IH : ne rien toucher, le _teamIv gère le tband
     startClock(zone,hid,h,w);
@@ -3270,14 +3372,19 @@ function startTeamBandIH(zone,ihTarget,doneHid,doneH,doneW,catId,catLeader){
       //   Résultats propres en cartes (renderRankCards INCHANGÉ → le rendu des
       //   mouvements/avancement ne change pas). Le compte à rebours inter-heat
       //   est déjà affiché en haut par le bandeau chrono de la zone.
-      el2.innerHTML=''
+      setBandHtml(el2, ''
         +'<div class="p-title">🏁 RÉSULTATS'+(doneH.catName?(' · '+esc(doneH.catName)):'')+'</div>'
         +'<div class="p-sub">'+esc(doneW.nom||'WOD')
         +' · Heat '+(doneH.catHeatNum||'—')+' / '+(doneH.nbHeatsTotal||'—')+'</div>'
-        +renderRankCards(heatRows,doneW,'done',false,HEATS[doneHid]||doneH,catId,catLeader);
+        +renderRankCards(heatRows,doneW,'done',false,HEATS[doneHid]||doneH,catId,catLeader),
+        { viewKey:'results|'+zone+'|'+doneHid, fade:true });
     } else if(phase==='wod'){
       syncHeader('wod');
-      el2.innerHTML=renderWodHtml(doneH);
+      // ★★ CLASSEMENT GÉNÉRAL FINAL DE CATÉGORIE (dernier heat) : révélation en CASCADE
+      //    (du dernier au 1er) → moment fort et fluide. Une seule fois à l'entrée de la phase.
+      var _wodKey='wod|'+zone+'|'+(doneH.catId||doneH.catName||'');
+      var _wodFirst=!(el2.dataset && el2.dataset.bandKey===_wodKey);
+      setBandHtml(el2, renderWodHtml(doneH), { viewKey:_wodKey, cascade:_wodFirst, cascadeStep:70 });
     } else {
       syncHeader('next');
       // preview prochain heat
@@ -3806,7 +3913,7 @@ function renderWodHtml(h){
         else if(_d==='down'){ _tCls='down'; _tSym='▼'; }
         else if(_d==='same'){ _tCls='same'; _tSym='▬'; } }
       var trendHtml='<div class="p-trend '+_tCls+'"><span class="tri">'+_tSym+'</span></div>';
-      html+='<div class="'+rowCls+'"'+op+'>'+trendHtml+'<div class="p-rk">'+(i+1)+'</div><div class="p-nm">'+esc(t.t)+'</div>'+ptsHtml+'</div>';
+      html+='<div class="'+rowCls+'"'+op+' data-team="'+esc(t.t||('g'+i))+'">'+trendHtml+'<div class="p-rk">'+(i+1)+'</div><div class="p-nm">'+esc(t.t)+'</div>'+ptsHtml+'</div>';
     });
   });
   html+='</div>';
