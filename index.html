@@ -16256,6 +16256,9 @@ function renderSynMain(){
 
   var jours = _synDay===0 ? [1,2] : [_synDay];
   var html = '';
+  // ── Wrapper sombre autonome (le synoptique est sombre, le reste de l'app reste clair)
+  html += '<div style="background:linear-gradient(160deg,#0E1420 0%,#111A2B 100%);border:1px solid rgba(255,255,255,.07);border-radius:18px;padding:22px 22px 10px;color:#E6ECF5;box-shadow:0 10px 40px rgba(0,0,0,.35)">';
+  var _synWrapLen = html.length; // pour détecter "aucun jour rendu" (affichage seulement)
 
   jours.forEach(function(jour){
     var dayHeats = heats.filter(function(h){ return (h.catJour||1)===jour; });
@@ -16272,12 +16275,12 @@ function renderSynMain(){
     });
     var hasTime = tMin<9999;
 
-    html += '<div style="margin-bottom:32px">';
+    html += '<div style="margin-bottom:34px">';
 
     // ── En-tête jour ──
-    html += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">'
-      + '<span style="background:var(--blue);color:#fff;border-radius:8px;padding:5px 16px;font-size:13px;font-weight:900;letter-spacing:1px">📅 JOUR '+jour+'</span>'
-      + (hasTime?'<span style="font-size:12px;color:var(--ink3);font-weight:700">'+minToTimeStr(tMin)+' – '+minToTimeStr(tMax)+'</span>':'')
+    html += '<div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">'
+      + '<span style="display:inline-flex;align-items:center;gap:7px;background:linear-gradient(135deg,#2563EB,#60A5FA);color:#fff;border-radius:11px;padding:8px 18px;font-size:14px;font-weight:900;letter-spacing:1.5px;box-shadow:0 4px 16px rgba(59,130,246,.45)">📅 JOUR '+jour+'</span>'
+      + (hasTime?'<span style="display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);color:#93A4BC;border-radius:999px;padding:6px 14px;font-size:12px;font-weight:700">🕐 '+minToTimeStr(tMin)+' – '+minToTimeStr(tMax)+'</span>':'')
       + '</div>';
 
     var dayWods = WODS.filter(function(w){
@@ -16289,20 +16292,20 @@ function renderSynMain(){
       return String(a.nom||'').localeCompare(String(b.nom||''));
     });
     if(dayWods.length){
-      html += '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">';
+      html += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">';
       dayWods.forEach(function(wod){
         var zoneNum = parseInt(wod.zone,10)||1;
-        var zoneColor = zoneNum===1 ? '#1E88E5' : '#16A34A';
-        var zoneBg = zoneNum===1 ? '#EFF6FF' : '#F0FDF4';
+        var zoneColor = zoneNum===1 ? '#60A5FA' : '#4ADE80';
+        var zoneBg = zoneNum===1 ? 'rgba(59,130,246,.12)' : 'rgba(34,197,94,.12)';
         var wodHeats = dayHeats.filter(function(h){
           if(h.wodId != null && String(h.wodId)===String(wod.id)) return true;
           return h.wodNom && String(h.wodNom)===String(wod.nom||'');
         });
-        html += '<span style="display:inline-flex;align-items:center;gap:6px;background:'+zoneBg+';color:'+zoneColor+';border:1px solid '+zoneColor+'33;border-radius:999px;padding:4px 10px;font-size:10px;font-weight:900">'
-          + '<span>WOD</span>'
-          + '<span>'+escHtml(wod.nom||'WOD')+'</span>'
-          + '<span style="background:'+zoneColor+'18;border-radius:999px;padding:1px 7px">Z'+zoneNum+'</span>'
-          + '<span style="color:#64748B;font-weight:800">'+wodHeats.length+' heat'+(wodHeats.length>1?'s':'')+'</span>'
+        html += '<span style="display:inline-flex;align-items:center;gap:7px;background:'+zoneBg+';color:'+zoneColor+';border:1px solid '+zoneColor+'3a;border-radius:999px;padding:6px 12px;font-size:11px;font-weight:800;box-shadow:0 0 14px '+zoneColor+'22">'
+          + '<span style="opacity:.6;font-weight:700;letter-spacing:.5px">WOD</span>'
+          + '<span style="color:#E6ECF5;font-weight:900">'+escHtml(wod.nom||'WOD')+'</span>'
+          + '<span style="background:'+zoneColor+'22;border:1px solid '+zoneColor+'44;border-radius:999px;padding:1px 8px;font-weight:900">Z'+zoneNum+'</span>'
+          + '<span style="color:#93A4BC;font-weight:800">'+wodHeats.length+' heat'+(wodHeats.length>1?'s':'')+'</span>'
           + '</span>';
       });
       html += '</div>';
@@ -16358,12 +16361,14 @@ function renderSynMain(){
       });
       Object.keys(catWods).forEach(function(c){ catWods[c].sort(function(a,b){return a.tMin-b.tMin;}); });
 
-      html += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">';
+      var zGlow = zone===1?'rgba(59,130,246,.5)':'rgba(34,197,94,.5)';
+      var zGrad = zone===1?'linear-gradient(135deg,#2563EB,#60A5FA)':'linear-gradient(135deg,#16A34A,#4ADE80)';
+      html += '<div style="display:flex;align-items:center;gap:9px;margin-bottom:9px">';
       // Label zone
-      html += '<div style="flex-shrink:0;background:linear-gradient(135deg,'+zColor+','+zColor2+');color:#fff;border-radius:6px;padding:4px 8px;font-size:10px;font-weight:900;letter-spacing:1px;min-width:28px;text-align:center">Z'+zone+'</div>';
+      html += '<div style="flex-shrink:0;background:'+zGrad+';color:#fff;border-radius:9px;padding:7px 10px;font-size:11px;font-weight:900;letter-spacing:1px;min-width:34px;text-align:center;box-shadow:0 0 14px '+zGlow+'">Z'+zone+'</div>';
 
       // Barre proportionnelle
-      html += '<div style="flex:1;position:relative;height:36px;background:#F1F5F9;border-radius:8px;overflow:hidden;border:1px solid #E2E8F0">';
+      html += '<div style="flex:1;position:relative;height:44px;background:#0B1018;border-radius:11px;overflow:hidden;border:1px solid rgba(255,255,255,.07);box-shadow:inset 0 1px 6px rgba(0,0,0,.5)">';
 
       wodOrder.forEach(function(wid,_wi){
         var w = wodBlocs[wid];
@@ -16388,13 +16393,13 @@ function renderSynMain(){
         });
         var _pauseTxt=_pauseLines.length?('\n— Pause avant prochain WOD —\n'+_pauseLines.join('\n')):'';
 
-        html += '<div style="position:absolute;left:'+pL+'%;width:'+pW+'%;top:3px;bottom:3px;'
-          +'background:'+w.col+';border-radius:6px;overflow:hidden;'
-          +'box-shadow:0 1px 4px '+w.col+'55;border:1.5px solid rgba(255,255,255,.4)"'
+        html += '<div style="position:absolute;left:'+pL+'%;width:'+pW+'%;top:4px;bottom:4px;'
+          +'background:linear-gradient(135deg,'+w.col+'ee,'+w.col+'b0);border-radius:8px;overflow:hidden;'
+          +'box-shadow:0 2px 10px '+w.col+'66, inset 0 1px 0 rgba(255,255,255,.25);border:1px solid rgba(255,255,255,.18)"'
           +' title="'+w.nom+' · '+hStart+'→'+hEnd+' · '+w.heats.length+'H'+_pauseTxt+'">'
-          +'<div style="padding:0 6px;height:100%;display:flex;flex-direction:column;justify-content:center;overflow:hidden">'
-          +'<div style="font-size:9px;font-weight:900;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2">'+w.nom+'</div>'
-          +'<div style="font-size:8px;color:rgba(255,255,255,.85);white-space:nowrap">'+hStart+'→'+hEnd+'</div>'
+          +'<div style="padding:0 8px;height:100%;display:flex;flex-direction:column;justify-content:center;overflow:hidden">'
+          +'<div style="font-size:11px;font-weight:900;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.25;text-shadow:0 1px 2px rgba(0,0,0,.4)">'+w.nom+'</div>'
+          +'<div style="font-size:10px;color:rgba(255,255,255,.9);white-space:nowrap;font-weight:600">'+hStart+'→'+hEnd+'</div>'
           +'</div></div>';
       });
 
@@ -16402,10 +16407,10 @@ function renderSynMain(){
     });
 
     // Séparateur
-    html += '<div style="height:1px;background:var(--brd2);margin:10px 0 14px"></div>';
+    html += '<div style="height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.12),transparent);margin:16px 0 18px"></div>';
 
     // ── DÉTAIL : Z1 et Z2 côte à côte ──
-    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">';
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">';
     [1,2].forEach(function(zone){
       var zHeats = dayHeats
         .filter(function(h){ return (h.catZone||1)===zone; })
@@ -16417,16 +16422,16 @@ function renderSynMain(){
         });
       if(!zHeats.length){ html += '<div></div>'; return; }
 
-      var zColor  = zone===1?'#1565C0':'#15803D';
-      var zColor2 = zone===1?'#1E88E5':'#16A34A';
-      var zBrd    = zone===1?'#BFDBFE':'#BBF7D0';
+      var zColor  = zone===1?'#3B82F6':'#22C55E';
+      var zColor2 = zone===1?'#60A5FA':'#4ADE80';
+      var zBrd    = zone===1?'rgba(59,130,246,.28)':'rgba(34,197,94,.28)';
 
       html += '<div>';
       // Titre zone
-      html += '<div style="font-size:11px;font-weight:900;color:'+zColor2+';letter-spacing:1px;margin-bottom:6px;text-transform:uppercase">Zone '+zone+'</div>';
+      html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><span style="width:9px;height:9px;border-radius:50%;background:'+zColor2+';box-shadow:0 0 10px '+zColor2+'">&nbsp;</span><span style="font-size:12px;font-weight:900;color:'+zColor2+';letter-spacing:1.5px;text-transform:uppercase">Zone '+zone+'</span></div>';
 
       // Cartes heats
-      html += '<div style="display:flex;flex-direction:column;gap:5px">';
+      html += '<div style="display:flex;flex-direction:column;gap:8px">';
       zHeats.forEach(function(h){
         var wid=String(h.wodId||'');
         var hor=h.horaires&&h.horaires[wid]?h.horaires[wid]:(h.horaires&&Object.values(h.horaires)[0]||null);
@@ -16435,20 +16440,20 @@ function renderSynMain(){
         var teams=(h.slots||[]).filter(function(s){return !s.empty&&s.team;});
         var col=h.catCouleur||zColor2;
 
-        html += '<div style="background:#fff;border:1.5px solid '+zBrd+';border-left:4px solid '+col+';border-radius:8px;padding:8px 10px">'
+        html += '<div style="background:linear-gradient(160deg,#1A2332,#161F2E);border:1px solid rgba(255,255,255,.07);border-left:4px solid '+col+';border-radius:11px;padding:11px 13px;box-shadow:0 2px 10px rgba(0,0,0,.25)">'
           // Ligne 1 : heure + catégorie + heat
-          +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;flex-wrap:wrap">'
-          +'<span style="font-size:14px;font-weight:900;color:'+zColor2+';font-family:monospace">'+heureStr+'</span>'
-          +(heureFin?'<span style="font-size:9px;color:#94A3B8">→'+heureFin+'</span>':'')
-          +'<span style="background:'+col+';color:#fff;border-radius:4px;padding:1px 7px;font-size:9px;font-weight:900">'+h.catNom+'</span>'
-          +'<span style="font-size:9px;color:#64748B;font-weight:700">H'+getHeatDisplayNum(h)+'/'+getHeatDisplayTotal(h)+'</span>'
-          +'<span style="font-size:9px;color:#94A3B8;margin-left:auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:80px">'+h.wodNom+'</span>'
+          +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap">'
+          +'<span style="font-size:17px;font-weight:900;color:'+zColor2+';font-family:ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.5px">'+heureStr+'</span>'
+          +(heureFin?'<span style="font-size:10px;color:#64748B;font-weight:600">→'+heureFin+'</span>':'')
+          +'<span style="background:'+col+';color:#fff;border-radius:6px;padding:2px 9px;font-size:10px;font-weight:900;box-shadow:0 0 12px '+col+'66">'+h.catNom+'</span>'
+          +'<span style="font-size:10px;color:#93A4BC;font-weight:800;background:rgba(255,255,255,.06);border-radius:5px;padding:2px 7px">H'+getHeatDisplayNum(h)+'/'+getHeatDisplayTotal(h)+'</span>'
+          +'<span style="font-size:10px;color:#64748B;margin-left:auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:90px;font-weight:600">'+h.wodNom+'</span>'
           +'</div>'
           // Ligne 2 : équipes
-          +'<div style="display:flex;flex-wrap:wrap;gap:3px">'
+          +'<div style="display:flex;flex-wrap:wrap;gap:5px">'
           +teams.map(function(s){
             var tn=typeof s.team==='string'?s.team:(s.team&&(s.team.nom||s.team.name))||'—';
-            return '<span style="font-size:9px;background:'+col+'14;border:1px solid '+col+'30;border-radius:4px;padding:1px 5px;color:var(--ink);font-weight:700">L'+s.ligne+' '+tn+'</span>';
+            return '<span style="font-size:10px;background:'+col+'22;border:1px solid '+col+'44;border-radius:6px;padding:2px 7px;color:#E6ECF5;font-weight:700"><span style="color:'+col+';font-weight:900">L'+s.ligne+'</span> '+tn+'</span>';
           }).join('')
           +'</div>'
           +'</div>';
@@ -16459,7 +16464,8 @@ function renderSynMain(){
     html += '</div>'; // fin jour
   });
 
-  el.innerHTML = html || '<div class="sh-empty"><div class="sh-empty-icon">🗓</div><div class="sh-empty-title">Aucun heat pour ce filtre</div></div>';
+  html += '</div>'; // fin wrapper sombre
+  el.innerHTML = (html.length > _synWrapLen+6) ? html : '<div class="sh-empty"><div class="sh-empty-icon">🗓</div><div class="sh-empty-title">Aucun heat pour ce filtre</div></div>';
 }
 
 // ── KPIs ──────────────────────────────────────────────────────────
@@ -16499,18 +16505,21 @@ function renderSynKpis(){
     {icon:'👤', label:'Bénévoles',  val:nbJuges,    color:'#0288D1', bg:'#E0F7FA'},
     {icon:'⏱',  label:'Durée totale',val:dureeStr, color:'#B71C1C', bg:'#FFF5F5'},
   ];
-  el.innerHTML = kpis.map(function(k, i){
-    var gradients = [
-      'linear-gradient(135deg,#1565C0,#1E88E5)',
-      'linear-gradient(135deg,#5B21B6,#7C3AED)',
-      'linear-gradient(135deg,#C2410C,#EA580C)',
-      'linear-gradient(135deg,#166534,#16A34A)',
-      'linear-gradient(135deg,#0369A1,#0EA5E9)',
-      'linear-gradient(135deg,#991B1B,#DC2626)',
-    ];
-    var grad = gradients[i % gradients.length];
-    return '<div style="position:relative;overflow:hidden;background:'+grad+';border-radius:16px;padding:18px 14px 14px;color:#fff;box-shadow:0 4px 20px rgba(0,0,0,.18);cursor:default">'      + '<div style="position:absolute;right:-8px;bottom:-8px;font-size:52px;opacity:.12;line-height:1;pointer-events:none;user-select:none">'+k.icon+'</div>'      + '<div style="font-size:11px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;opacity:.7;margin-bottom:6px">'+k.label+'</div>'      + '<div style="font-size:38px;font-weight:900;line-height:1;letter-spacing:-1px">'+k.val+'</div>'      + '<div style="margin-top:8px;height:2px;background:rgba(255,255,255,.2);border-radius:1px">'      +   '<div style="height:100%;width:60%;background:rgba(255,255,255,.6);border-radius:1px"></div>'      + '</div>'      + '</div>';
+  // Accent lumineux par tuile (couleur de la valeur + glow), posé sur fond sombre
+  var accents = ['#60A5FA','#A78BFA','#FB923C','#4ADE80','#38BDF8','#F87171'];
+  var tiles = kpis.map(function(k, i){
+    var ac = accents[i % accents.length];
+    return '<div style="position:relative;overflow:hidden;background:linear-gradient(160deg,#1A2332,#141C2A);border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:16px 15px 14px;color:#E6ECF5;box-shadow:0 4px 18px rgba(0,0,0,.3), 0 0 20px '+ac+'1f;cursor:default">'
+      + '<div style="position:absolute;right:-6px;bottom:-10px;font-size:50px;line-height:1;opacity:.14;pointer-events:none;user-select:none">'+k.icon+'</div>'
+      + '<div style="font-size:11px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:#93A4BC;margin-bottom:8px">'+k.label+'</div>'
+      + '<div style="font-size:38px;font-weight:900;line-height:1;letter-spacing:-1px;color:'+ac+';text-shadow:0 0 18px '+ac+'55">'+k.val+'</div>'
+      + '<div style="margin-top:10px;height:3px;background:rgba(255,255,255,.07);border-radius:2px;overflow:hidden">'
+      +   '<div style="height:100%;width:60%;background:linear-gradient(90deg,'+ac+','+ac+'66);border-radius:2px;box-shadow:0 0 8px '+ac+'88"></div>'
+      + '</div>'
+      + '</div>';
   }).join('');
+  // Wrapper sombre autonome : grille interne de tuiles sur fond anthracite
+  el.innerHTML = '<div style="background:linear-gradient(160deg,#0E1420 0%,#111A2B 100%);border:1px solid rgba(255,255,255,.07);border-radius:18px;padding:16px;box-shadow:0 10px 40px rgba(0,0,0,.35);display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px">'+tiles+'</div>';
 }
 
 // ── ZONES CÔTE À CÔTE ─────────────────────────────────────────────
