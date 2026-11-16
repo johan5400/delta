@@ -61,13 +61,17 @@ html,body{background:#E8ECF4!important;color:var(--ink)!important;}
 ══════════════════════════════════════════════════ */
 #lock-screen{
   position:fixed;inset:0;z-index:9999;
-  display:flex;align-items:center;justify-content:center;
+  /* ★ ANTI-FLASH : masqué par défaut. L'ouverture est automatique (mot de passe
+     transparent), donc l'écran de connexion ne doit jamais clignoter au démarrage.
+     Il n'est réaffiché (.show) que si l'ouverture auto échoue (cas rare). */
+  display:none;align-items:center;justify-content:center;
   background:
     radial-gradient(ellipse 80% 60% at 50% -10%,rgba(29,109,181,.25) 0%,transparent 68%),
     radial-gradient(ellipse 50% 40% at 85% 100%,rgba(232,66,26,.12) 0%,transparent 60%),
     #0C1726;
   overflow:hidden;
 }
+#lock-screen.show{display:flex;}
 #lock-screen::before{
   content:'';position:absolute;inset:0;
   background:
@@ -16189,26 +16193,31 @@ function toggleDarkMode(){
 //   jusqu'à ce que ça tienne (au cas où l'app le ré-affiche au démarrage).
 //   (Pour remettre le mot de passe : supprimer ce seul bloc.)
 (function(){
-  function isLocked(){ var ls=document.getElementById('lock-screen'); if(!ls) return false; try{ return getComputedStyle(ls).display!=='none'; }catch(e){ return ls.style.display!=='none'; } }
+  // ★ ANTI-FLASH : le lock-screen est masqué par défaut (CSS). On déverrouille et on
+  //   lance l'app TOUT DE SUITE, sans jamais afficher l'écran de connexion. Il n'est
+  //   réaffiché (.show) qu'en dernier recours si l'init échoue vraiment.
+  var opened=false;
   function forceOpen(){
+    if(opened) return true;
     try{
       if(typeof SESSION_MODE!=='undefined') SESSION_MODE='admin';
-      var ls=document.getElementById('lock-screen'); if(ls){ ls.classList.add('hidden'); ls.style.display='none'; ls.style.visibility='hidden'; }
+      var ls=document.getElementById('lock-screen'); if(ls){ ls.classList.remove('show'); ls.classList.add('hidden'); ls.style.display='none'; ls.style.visibility='hidden'; }
       var app=document.getElementById('app'); if(app){ app.style.display='block'; app.style.visibility='visible'; }
-      if(typeof init==='function' && !window.__deltaInited){ window.__deltaInited=true; try{ init(); }catch(e){ console.error('[auto-open] init:',e); } }
-    }catch(e){ console.error('[auto-open] forceOpen:',e); }
+      if(typeof init==='function' && !window.__deltaInited){ window.__deltaInited=true; init(); }
+      opened=true;
+      return true;
+    }catch(e){ console.error('[auto-open] forceOpen:',e); return false; }
+  }
+  function showLock(){
+    // dernier recours : l'ouverture auto a échoué → on montre l'écran pour saisie manuelle
+    var ls=document.getElementById('lock-screen'); if(ls){ ls.classList.remove('hidden'); ls.classList.add('show'); ls.style.display='flex'; ls.style.visibility='visible'; }
   }
   var tries=0;
   function tick(){
     tries++;
-    if(isLocked()){
-      try{
-        var inp=document.getElementById('lock-input');
-        if(inp){ inp.value='Mirage2000D'; window._lockVal='Mirage2000D'; if(typeof checkPassword==='function') checkPassword(); }
-      }catch(e){}
-      if(isLocked()) forceOpen();
-    }
-    if(isLocked() && tries<30) setTimeout(tick, 400); // insiste jusqu'à ~12s
+    if(forceOpen()) return;              // succès → rien d'autre à faire, aucun flash
+    if(tries<20) setTimeout(tick, 300);  // réessaie ~6s
+    else showLock();                      // abandon → écran manuel
   }
   if(document.readyState==='loading') window.addEventListener('DOMContentLoaded', tick); else tick();
 })();
