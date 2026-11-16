@@ -205,10 +205,10 @@ body.sun .zone-body::before,body.sun .tc.lead::before,body.sun .tc.lead::after,
 body.sun .chrono-band::before,body.sun .chrono-band::after{display:none!important;background:none!important;animation:none!important}
 body.sun .topbar{background:#000!important;border-bottom:1px solid rgba(255,255,255,.4)}
 body.sun .zone-col:first-child{border-right:3px solid rgba(255,255,255,.28)}
-/* ── CHRONO géant ── */
-body.sun .chrono-band{border-bottom:3px solid rgba(255,255,255,.22)!important;padding:10px 8px 8px!important}
+/* ── CHRONO grand mais pas envahissant (laisse la place aux équipes) ── */
+body.sun .chrono-band{border-bottom:3px solid rgba(255,255,255,.22)!important;padding:6px 8px 4px!important}
 body.sun .chrono-val{color:#FFFFFF!important;-webkit-text-fill-color:#FFFFFF!important;filter:none!important;
-  font-size:clamp(96px,19vw,460px)!important;font-weight:900!important;letter-spacing:-4px!important}
+  font-size:clamp(72px,12vw,300px)!important;font-weight:900!important;letter-spacing:-4px!important;line-height:.95!important}
 body.sun .chrono-val.run,body.sun .chrono-val.warn,body.sun .chrono-val.coup{color:#FFC53D!important;-webkit-text-fill-color:#FFC53D!important}
 body.sun .chrono-val.hot{color:#FF4B66!important;-webkit-text-fill-color:#FF4B66!important}
 body.sun .chrono-val.fin,body.sun .chrono-val.ok{color:#17F9A8!important;-webkit-text-fill-color:#17F9A8!important}
@@ -225,29 +225,30 @@ body.sun .tag.z1{background:#001B33!important;color:#54B6FF!important;border:1.5
 body.sun .tag.z2{background:#002417!important;color:#17F9A8!important;border:1.5px solid #17F9A8!important}
 body.sun .tag.live{background:#2A0410!important;color:#FF4B66!important;border:1.5px solid #FF4B66!important}
 body.sun .tag.ht,body.sun .tag.done,body.sun .tag.pending{background:#111!important;color:#D4DCE8!important;border:1px solid rgba(255,255,255,.3)!important}
-/* ── CARTES équipe : plus hautes, plus d'air, RANG en bloc plein ── */
-body.sun .teams-band{padding:10px 12px 12px!important;gap:10px!important}
+/* ── CARTES équipe : compactes mais ultra-lisibles. RANG en bloc plein.
+   Les tailles s'adaptent via --den (densité) posée par JF selon le nb d'équipes. ── */
+body.sun .teams-band{padding:8px 12px 10px!important;gap:calc(8px * var(--den,1))!important}
 body.sun .tc{background:#0A0A0A!important;border:2px solid rgba(255,255,255,.45)!important;border-left:none!important;
-  border-radius:12px!important;padding:14px 20px!important}
+  border-radius:11px!important;padding:calc(11px * var(--den,1)) 18px!important}
 body.sun .tc.r1{border-color:#FFD84D!important}
 body.sun .tc.r2{border-color:#C4CBD8!important}
 body.sun .tc.r3{border-color:#E0914A!important}
 body.sun .tc.lead{border:3px solid #17F9A8!important;background:#001A10!important}
 body.sun .tc.ok{border:2px solid #17F9A8!important}
-body.sun .tm{gap:18px!important}
+body.sun .tm{gap:16px!important}
 /* RANG : gros bloc carré plein, chiffre foncé dessus = repérable de très loin */
-body.sun .rk{font-size:clamp(26px,2.8vw,48px)!important;font-weight:900!important;color:#000!important;
-  min-width:clamp(44px,3.4vw,64px)!important;height:clamp(44px,3.4vw,64px)!important;
+body.sun .rk{font-size:calc(clamp(22px,2.4vw,42px) * var(--den,1))!important;font-weight:900!important;color:#000!important;
+  min-width:calc(clamp(40px,3vw,58px) * var(--den,1))!important;height:calc(clamp(40px,3vw,58px) * var(--den,1))!important;
   display:flex!important;align-items:center!important;justify-content:center!important;
-  background:#FFFFFF!important;border-radius:10px!important;flex-shrink:0!important}
+  background:#FFFFFF!important;border-radius:9px!important;flex-shrink:0!important}
 body.sun .rk.r1{background:#FFD84D!important;color:#000!important}
 body.sun .rk.r2{background:#C4CBD8!important;color:#000!important}
 body.sun .rk.r3{background:#E0914A!important;color:#000!important}
 /* NOM : massif, blanc pur */
 body.sun .tn{color:#FFFFFF!important;-webkit-text-fill-color:#FFFFFF!important;
-  font-size:clamp(22px,2.6vw,42px)!important;font-weight:900!important;letter-spacing:.5px!important}
+  font-size:calc(clamp(20px,2.4vw,40px) * var(--den,1))!important;font-weight:900!important;letter-spacing:.5px!important}
 /* SCORE : géant à droite */
-body.sun .tsc{font-size:clamp(22px,2.6vw,44px)!important;font-weight:900!important}
+body.sun .tsc{font-size:calc(clamp(20px,2.4vw,42px) * var(--den,1))!important;font-weight:900!important}
 body.sun .tsc.lv{color:#FFC53D!important}
 body.sun .tsc.vl{color:#17F9A8!important}
 body.sun .tsc.nd{color:#7B8A9E!important}
@@ -895,7 +896,8 @@ body{height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-fami
     <button id="v2" class="vbtn" onclick="setView('zone2')">← Z2</button>
     <button id="v1" class="vbtn" onclick="setView('zone1')">Z1 →</button>
     <button id="vfs" class="vbtn fs-btn" onclick="toggleFullscreen()">⛶ Grand écran</button>
-    <button id="vbg" class="vbtn" onclick="toggleLiveBg()">☀️ Fond blanc</button>
+    <button id="vsun" class="vbtn" onclick="toggleSun()">☀️ Plein soleil</button>
+    <button id="vbg" class="vbtn" onclick="toggleLiveBg()" style="display:none">☀️ Fond blanc</button>
     <button id="vhc" class="vbtn" onclick="toggleHiContrast()">🔆 Contraste</button>
   </div>
   <span id="clk">--:--:--</span>
@@ -3413,22 +3415,59 @@ function toggleFullscreen(){
 
 // ★ OPTION FOND BLANC : bascule clair / sombre (le choix reste tant que la page est ouverte)
 function toggleLiveBg(){
-  document.body.classList.remove('hicontrast','hicontrast-max'); // exclusif avec le mode contraste
+  document.body.classList.remove('hicontrast','hicontrast-max','sun'); // exclusif
   var hcb=document.getElementById('vhc'); if(hcb){ hcb.textContent='🔆 Contraste'; hcb.classList.remove('on'); }
+  var sb=document.getElementById('vsun'); if(sb){ sb.textContent='☀️ Plein soleil'; sb.classList.remove('on'); }
   var light=document.body.classList.toggle('light');
   var btn=document.getElementById('vbg');
   if(btn){
     btn.textContent = light ? '🌙 Fond sombre' : '☀️ Fond blanc';
     btn.classList.toggle('on', light);
   }
+  _saveLiveMode();
+}
+
+// ★★ MODE PLEIN SOLEIL : bascule on/off (fond noir + gros blocs lisibles dehors).
+//    Exclusif avec les autres modes. Le choix est mémorisé (localStorage).
+function toggleSun(){
+  document.body.classList.remove('light','hicontrast','hicontrast-max'); // exclusif
+  var lb=document.getElementById('vbg'); if(lb){ lb.textContent='☀️ Fond blanc'; lb.classList.remove('on'); }
+  var hcb=document.getElementById('vhc'); if(hcb){ hcb.textContent='🔆 Contraste'; hcb.classList.remove('on'); }
+  var on=document.body.classList.toggle('sun');
+  var btn=document.getElementById('vsun');
+  if(btn){ btn.textContent = on ? '🌙 Mode normal' : '☀️ Plein soleil'; btn.classList.toggle('on', on); }
+  _saveLiveMode();
+}
+
+// ★ Mémorisation du mode d'affichage (sun / contraste / fond blanc) entre les ouvertures.
+function _saveLiveMode(){
+  try{
+    var b=document.body, m='normal';
+    if(b.classList.contains('sun')) m='sun';
+    else if(b.classList.contains('hicontrast-max')) m='extreme';
+    else if(b.classList.contains('hicontrast')) m='contrast';
+    else if(b.classList.contains('light')) m='light';
+    localStorage.setItem('boxcrew_live_mode', m);
+  }catch(e){}
+}
+function _restoreLiveMode(){
+  try{
+    var m=localStorage.getItem('boxcrew_live_mode'); if(!m||m==='normal') return;
+    var b=document.body;
+    if(m==='sun'){ b.classList.add('sun'); var s=document.getElementById('vsun'); if(s){s.textContent='🌙 Mode normal';s.classList.add('on');} }
+    else if(m==='extreme'){ b.classList.add('hicontrast','hicontrast-max'); var h=document.getElementById('vhc'); if(h){h.textContent='🔆🔆 Extrême';h.classList.add('on');} }
+    else if(m==='contrast'){ b.classList.add('hicontrast'); var h2=document.getElementById('vhc'); if(h2){h2.textContent='🔆 Contraste';h2.classList.add('on');} }
+    else if(m==='light'){ b.classList.add('light'); var l=document.getElementById('vbg'); if(l){l.textContent='🌙 Fond sombre';l.classList.add('on');} }
+  }catch(e){}
 }
 
 // ★ MODE CONTRASTE en 3 crans (demande chef) : Normal → Contraste → Extrême → Normal.
 //   Contraste = fond noir + accents vifs. Extrême = tout blanc pur + bordures épaisses
 //   (on ne garde que le vert leader/validé). Exclusif avec le fond blanc.
 function toggleHiContrast(){
-  document.body.classList.remove('light'); // exclusif avec le fond blanc
+  document.body.classList.remove('light','sun'); // exclusif avec fond blanc + plein soleil
   var lb=document.getElementById('vbg'); if(lb){ lb.textContent='☀️ Fond blanc'; lb.classList.remove('on'); }
+  var sb=document.getElementById('vsun'); if(sb){ sb.textContent='☀️ Plein soleil'; sb.classList.remove('on'); }
   var b=document.body;
   var hc=b.classList.contains('hicontrast'), mx=b.classList.contains('hicontrast-max');
   if(!hc){ b.classList.add('hicontrast'); b.classList.remove('hicontrast-max'); }      // normal → contraste
@@ -3440,6 +3479,7 @@ function toggleHiContrast(){
     else if(b.classList.contains('hicontrast')){ btn.textContent='🔆 Contraste'; btn.classList.add('on'); }
     else { btn.textContent='🌗 Normal'; btn.classList.remove('on'); }
   }
+  _saveLiveMode();
 }
 
 // ════ PODIUM ════
@@ -4182,6 +4222,10 @@ if(db){
   });
 }
 
+// ★ Restaure le mode d'affichage mémorisé (plein soleil / contraste / fond blanc) au chargement.
+if(document.readyState==='loading'){ window.addEventListener('DOMContentLoaded',_restoreLiveMode); }
+else { try{ _restoreLiveMode(); }catch(e){} }
+
 setInterval(function(){var n=new Date(),el=document.getElementById('clk');if(el)el.textContent=p2(n.getHours())+':'+p2(n.getMinutes())+':'+p2(n.getSeconds());},1000);
 setInterval(scheduleRender,5000);
 
@@ -4234,9 +4278,28 @@ setInterval(scheduleRender,5000);
       if(hidden === 0){ more.remove(); }
     }
   }
+  // ★★ MODE PLEIN SOLEIL : adapte la densité des cartes au nombre d'équipes pour que
+  //    TOUTE la liste tienne à l'écran (pas de scroll perdu sur un affichage public).
+  function fitSun(){
+    if(!document.body.classList.contains('sun')) return;
+    var bands = document.querySelectorAll('.teams-band');
+    for(var i=0;i<bands.length;i++){
+      var band = bands[i];
+      var cards = band.querySelectorAll('.tc');
+      // repart d'une densité neutre pour mesurer la hauteur naturelle
+      band.style.removeProperty('--den');
+      if(!cards.length){ continue; }
+      var g = 0, den = 1;
+      // réduit la densité tant que le contenu dépasse la hauteur visible
+      while(band.scrollHeight > band.clientHeight + 2 && den > 0.55 && g < 24){
+        den -= 0.05; band.style.setProperty('--den', den.toFixed(2)); g++;
+      }
+    }
+  }
   function fitAll(){
     var noms = document.querySelectorAll('.wod-nom'); for(var i=0;i<noms.length;i++) fitNom(noms[i]);
     var rows = document.querySelectorAll('.mov-row'); for(var j=0;j<rows.length;j++) fitMov(rows[j]);
+    fitSun();
   }
   var raf = null;
   function schedule(){ if(raf) return; raf = requestAnimationFrame(function(){ raf = null; fitAll(); }); }
