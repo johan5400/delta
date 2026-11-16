@@ -247,6 +247,11 @@ body.sun .rk.r3{background:#E0914A!important;color:#000!important}
 /* NOM : massif, blanc pur */
 body.sun .tn{color:#FFFFFF!important;-webkit-text-fill-color:#FFFFFF!important;
   font-size:calc(clamp(20px,2.4vw,40px) * var(--den,1))!important;font-weight:900!important;letter-spacing:.5px!important}
+/* badges lane + leader bien lisibles en plein soleil */
+body.sun .lane-badge{color:#54B6FF!important;background:#001B33!important;border:1.5px solid #54B6FF!important;
+  font-size:calc(clamp(13px,1.4vw,22px) * var(--den,1))!important;padding:1px 9px!important;margin-right:11px!important}
+body.sun .leader-badge{color:#000!important;background:#FFD84D!important;box-shadow:none!important;
+  font-size:calc(clamp(12px,1.25vw,19px) * var(--den,1))!important;padding:2px 11px!important;margin-left:12px!important}
 /* SCORE : géant à droite */
 body.sun .tsc{font-size:calc(clamp(20px,2.4vw,42px) * var(--den,1))!important;font-weight:900!important}
 body.sun .tsc.lv{color:#FFC53D!important}
@@ -458,6 +463,17 @@ body{height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-fami
 .tsc.lv{color:#FFB020}.tsc.vl{color:#00E5A0}.tsc.nd{color:var(--ink3)}
 .crown{display:inline-block;font-size:clamp(16px,1.8vw,26px);margin-left:6px;vertical-align:middle;
   filter:drop-shadow(0 0 8px rgba(255,209,102,.6))}
+/* ★ Badge numéro de LIGNE (lane) — pour repérer quelle ligne physique mène en live */
+.lane-badge{display:inline-flex;align-items:center;justify-content:center;vertical-align:middle;
+  font-family:var(--fm);font-weight:900;font-size:clamp(11px,1.25vw,18px);letter-spacing:.5px;
+  color:#9FC2FF;background:rgba(45,156,255,.16);border:1px solid rgba(45,156,255,.45);
+  border-radius:5px;padding:1px 7px;margin-right:9px;line-height:1.25}
+/* ★ Badge LEADER GÉNÉRAL — sur l'équipe en tête du classement général de la catégorie */
+.leader-badge{display:inline-flex;align-items:center;vertical-align:middle;
+  font-family:var(--fm);font-weight:900;font-size:clamp(10px,1.1vw,16px);letter-spacing:1px;
+  color:#0E1726;background:linear-gradient(135deg,#FFE27A,#FFC53D);
+  border-radius:5px;padding:2px 9px;margin-left:10px;line-height:1.25;
+  box-shadow:0 0 10px rgba(255,197,61,.45)}
 .mini{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:4px;
   font-family:var(--fm);font-size:clamp(12px,1.4vw,20px);font-weight:700;
   border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.03);color:var(--ink2)}
@@ -2929,7 +2945,11 @@ function renderRankCards(rows,w,st,showLiveChips,h,catId,catLeader){
       +'<div class="tm">'
         +'<div class="rk'+(i<3?' r'+(i+1):'')+(_isFinal?' final':' dyn')+'">'+_rkBadge+'</div>'
         +'<div class="tcol">'
-          +'<div class="tn">'+esc(e.team)+((isCatLeader&&i>0)?'<span class="crown">&#x1F451;</span>':'')+'</div>'
+          +'<div class="tn">'
+            +((st==='live'||st==='pre')&&e.ln?'<span class="lane-badge">L'+(String(e.ln).replace(/\D/g,'')||e.ln)+'</span>':'')
+            +esc(e.team)
+            +(isCatLeader?'<span class="leader-badge">LEADER</span>':'')
+          +'</div>'
           +(gapBadge?'<div class="tmeta">'+gapBadge+'</div>':'')
         +'</div>'  
         +'<div style="flex-shrink:0;text-align:right;min-width:80px">'
