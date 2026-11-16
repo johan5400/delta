@@ -63,6 +63,58 @@ body.light #morning-cd{background:#FFFFFF!important}
 body.light .chrono-band{background:#F7F9FC!important}
 body.light .rank-card,body.light .rc{background:#F7F9FC!important;border-color:rgba(0,0,0,.08)!important}
 body.light .live-msg-banner{color:#0E1726!important}
+/* ★★ MODE JOUR — LISIBILITÉ PLEIN SOLEIL (corrige les textes clairs qui disparaissaient
+   sur fond blanc). Noms d'équipe et chrono en NOIR épais, accents SATURÉS et FONCÉS,
+   cartes à fond clair franc, aucune lueur/dégradé délavant. */
+body.light{color:#0E1726}
+/* on coupe toutes les lueurs/ombres (elles bavent et délavent au soleil) */
+body.light .zone-body::before,body.light .tc.lead::before,body.light .tc.lead::after,
+body.light .chrono-band::before,body.light .chrono-band::after{display:none!important;background:none!important}
+body.light *{text-shadow:none!important;box-shadow:none!important}
+/* chrono : chiffres NOIRS épais (plus de blanc invisible) */
+body.light .chrono-val{color:#0E1726!important;filter:none!important;-webkit-text-fill-color:#0E1726!important}
+body.light .chrono-val.run,body.light .chrono-val.warn,body.light .chrono-val.coup{color:#B45309!important;-webkit-text-fill-color:#B45309!important} /* orange foncé */
+body.light .chrono-val.hot{color:#C01030!important;-webkit-text-fill-color:#C01030!important}   /* rouge foncé */
+body.light .chrono-val.fin,body.light .chrono-val.ok{color:#047857!important;-webkit-text-fill-color:#047857!important} /* vert foncé */
+body.light .chrono-val.ih{color:#1F6FD6!important;-webkit-text-fill-color:#1F6FD6!important}
+body.light .chrono-val.idle{color:#9AA7BC!important;-webkit-text-fill-color:#9AA7BC!important}
+body.light .chrono-lbl{color:#5A6B82!important}
+/* cartes équipe : fond clair net + bordure gauche franche */
+body.light .tc{background:#FFFFFF!important;border:1px solid rgba(0,0,0,.08)!important;border-left:5px solid #9AA7BC!important}
+body.light .tc.r1{background:#FFF8E6!important;border-left-color:#C99700!important}
+body.light .tc.r2{background:#F3F5F9!important;border-left-color:#8A97A8!important}
+body.light .tc.r3{background:#FBEFE3!important;border-left-color:#B5651D!important}
+body.light .tc.lead{background:#E9FBF3!important;border-left-color:#047857!important}
+body.light .tc.ok{background:#F0FBF6!important;border-left-color:#047857!important}
+/* NOMS d'équipe en NOIR (c'était LE bug : ils restaient blancs) */
+body.light .tn,body.light .tnm{color:#0E1726!important;-webkit-text-fill-color:#0E1726!important}
+body.light .rk{color:#C99700!important}
+body.light .rk.r1{color:#B8860B!important}body.light .rk.r2{color:#6B7684!important}body.light .rk.r3{color:#B5651D!important}
+/* scores : couleurs foncées lisibles */
+body.light .tsc{color:#0E1726!important}
+body.light .tsc.lv{color:#B45309!important}   /* en cours = orange foncé */
+body.light .tsc.vl{color:#047857!important}   /* validé = vert foncé */
+body.light .tsc.nd{color:#9AA7BC!important}
+/* mouvements / chips / mini-badges : fond clair + texte foncé */
+body.light .mov-q{color:#0E1726!important}
+body.light .mov-n{color:#5A6B82!important}
+body.light .mini{background:#F3F5F9!important;border-color:rgba(0,0,0,.10)!important;color:#5A6B82!important}
+body.light .mini.gap{color:#B45309!important;background:#FFF4E5!important;border-color:rgba(180,83,9,.3)!important}
+body.light .mini.lead{color:#047857!important;background:#E9FBF3!important;border-color:rgba(4,120,87,.3)!important}
+body.light .mini.eta{color:#1F6FD6!important;background:#EAF2FD!important;border-color:rgba(31,111,214,.3)!important}
+body.light .chip{background:#F3F5F9!important;border-color:rgba(0,0,0,.10)!important;color:#5A6B82!important}
+body.light .chip.d{color:#047857!important;background:#E9FBF3!important;border-color:rgba(4,120,87,.35)!important}
+body.light .chip.a{color:#B45309!important;background:#FFF4E5!important;border-color:rgba(180,83,9,.35)!important}
+/* WOD header + titre en foncé */
+body.light .wod-hdr{background:#F3F6FA!important;border-bottom:1px solid rgba(0,0,0,.08)!important}
+body.light .wod-nom{color:#0E1726!important}
+body.light .wod-cat{color:#5A6B82!important}
+body.light .teams-band{background:#FFFFFF!important}
+/* tags : versions claires lisibles */
+body.light .tag.z1{background:#EAF2FD!important;color:#1F6FD6!important;border-color:rgba(31,111,214,.35)!important}
+body.light .tag.z2{background:#E6F7EF!important;color:#047857!important;border-color:rgba(4,120,87,.35)!important}
+body.light .tag.live{background:#FDE8EC!important;color:#C01030!important;border-color:rgba(192,16,48,.35)!important}
+body.light .tag.ht,body.light .tag.done,body.light .tag.pending{background:#EEF1F5!important;color:#5A6B82!important}
 /* ★ MODE CONTRASTE (bouton 🔆) : lisibilité MAXIMALE au vidéoprojecteur en plein jour.
    Noir ABSOLU partout + texte blanc/accents vifs. On tue le voile « aurora », les dégradés
    des cartes et toutes les lueurs : c'est ça qui délave sous la lumière du jour. */
