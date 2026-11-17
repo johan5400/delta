@@ -95,6 +95,46 @@ body{min-height:100vh;overflow-x:hidden}
 .spinner{width:42px;height:42px;border:4px solid var(--brd2);border-top-color:var(--fire);border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 18px}
 @keyframes spin{to{transform:rotate(360deg)}}
 .last-update{text-align:center;font-size:11px;color:var(--ink3);margin-top:8px;font-weight:600}
+/* ===== TEMPS RÉEL : bandeau "prochain passage" + états de heat (100% client) ===== */
+#nextBanner{margin:0 0 18px;display:none}
+#nextBanner.show{display:block;animation:slideUp .35s cubic-bezier(.22,1,.36,1) backwards}
+.nb-card{border-radius:16px;padding:14px 16px;border:1.5px solid var(--brd2);background:linear-gradient(135deg,var(--card2),var(--card));position:relative;overflow:hidden}
+.nb-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:5px}
+.nb-card .nb-kicker{font-size:11px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:var(--ink3);display:flex;align-items:center;gap:7px}
+.nb-card .nb-main{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-top:7px}
+.nb-card .nb-count{font-family:var(--fm);font-size:clamp(30px,9vw,42px);font-weight:800;line-height:1;letter-spacing:-.5px}
+.nb-card .nb-count .nb-unit{font-family:var(--fb);font-size:15px;font-weight:800;color:var(--ink2);letter-spacing:0;margin-left:3px}
+.nb-card .nb-at{font-size:13px;font-weight:700;color:var(--ink2)}
+.nb-card .nb-detail{margin-top:9px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;font-weight:700;color:var(--ink)}
+.nb-card .nb-detail .nb-wod{font-family:var(--ff);font-size:19px;letter-spacing:1px;color:var(--ink)}
+.nb-card .nb-detail .nb-tag{background:var(--card3);color:var(--ink2);padding:3px 10px;border-radius:7px;font-size:11px;font-weight:800;letter-spacing:.5px}
+/* à venir (défaut) → ambre/feu */
+.nb-card.nb-soon::before{background:linear-gradient(var(--ember),var(--fire))}
+.nb-card.nb-soon .nb-count{color:var(--gold)}
+.nb-card.nb-soon .nb-kicker{color:var(--ember)}
+/* en ce moment → rouge pulsé */
+.nb-card.nb-live{border-color:rgba(255,87,34,.55);background:linear-gradient(135deg,rgba(255,87,34,.16),rgba(255,87,34,.04))}
+.nb-card.nb-live::before{background:var(--fire);box-shadow:0 0 16px var(--fire)}
+.nb-card.nb-live .nb-kicker{color:var(--fire)}
+.nb-card.nb-live .nb-count{color:var(--fire)}
+.nb-card.nb-live .nb-livedot{width:10px;height:10px;border-radius:50%;background:var(--fire);box-shadow:0 0 10px var(--fire);animation:pulse 1.4s infinite;display:inline-block}
+/* terminés → vert sobre */
+.nb-card.nb-done::before{background:var(--ok)}
+.nb-card.nb-done .nb-kicker{color:var(--ok)}
+.nb-card.nb-done .nb-count{font-size:22px;color:var(--ink)}
+/* invitation à choisir / hors plage → neutre */
+.nb-card.nb-info::before{background:var(--ink3)}
+.nb-card.nb-info .nb-count{font-size:20px;color:var(--ink2)}
+.nb-est{font-size:11px;color:var(--ink3);font-weight:600;margin-top:8px;display:flex;align-items:center;gap:5px}
+/* ---- badge EN COURS + états dans la grille ---- */
+.heat-bar{position:relative}
+.hb-live{background:linear-gradient(90deg,rgba(255,87,34,.22),var(--card2))!important;border-color:rgba(255,87,34,.45)!important;box-shadow:0 0 0 1px rgba(255,87,34,.25),0 6px 20px rgba(255,87,34,.14)}
+.hb-badge{display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:900;letter-spacing:1px;color:#fff;background:var(--fire);padding:3px 9px;border-radius:7px;text-transform:uppercase;white-space:nowrap;box-shadow:0 0 12px rgba(255,87,34,.5)}
+.hb-badge .lv{width:6px;height:6px;border-radius:50%;background:#fff;animation:pulse 1.4s infinite}
+.hb-badge.hb-next{background:var(--card3);color:var(--gold);box-shadow:none;border:1px solid rgba(255,176,32,.4)}
+.heat-group.is-past{opacity:.5}
+.heat-group.is-past .heat-bar{filter:saturate(.6)}
+.heat-group.is-past .hb-done{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:800;letter-spacing:.5px;color:var(--ink3);background:var(--card3);padding:2px 8px;border-radius:7px;text-transform:uppercase}
 @media print{
   @page{margin:1cm}
   .bg-glow,.controls,.btn,.hero-badge,.hero .tagline,.last-update{display:none!important}
@@ -149,6 +189,7 @@ body{min-height:100vh;overflow-x:hidden}
     </div>
     <div class="cat-filters" id="catFilters"></div>
   </div>
+  <div id="nextBanner" aria-live="polite"></div>
   <div id="content">
     <div class="state"><div class="spinner"></div><div class="ttl">Chargement...</div></div>
   </div>
@@ -172,6 +213,84 @@ function startMinuteFromHeat(h){
   var keys=Object.keys(horaires);
   for(var i=0;i<keys.length;i++){var item=horaires[keys[i]];if(item&&item.debut!=null){var mins=parseInt(item.debut,10);if(isFinite(mins))return mins;}}
   return null;
+}
+// ★ TEMPS RÉEL — minute de FIN d'un heat (miroir de startMinuteFromHeat, lit .fin).
+//   Les horaires publiés contiennent {debut,fin} par WOD (cf. index.html). AUCUNE lecture
+//   Firebase : on travaille sur les données DÉJÀ en mémoire (_allHeats).
+function endMinuteFromHeat(h){
+  if(!h) return null;
+  if(h.estimatedEndMin!=null){var e=parseInt(h.estimatedEndMin,10);if(isFinite(e))return e;}
+  var horaires=h.horaires||{};
+  var wodId=(h.wodId!=null&&h.wodId!=='')?String(h.wodId):((h.wodInfo&&h.wodInfo.id!=null)?String(h.wodInfo.id):'');
+  if(wodId && horaires[wodId] && horaires[wodId].fin!=null){var exact=parseInt(horaires[wodId].fin,10);if(isFinite(exact))return exact;}
+  var keys=Object.keys(horaires);
+  for(var i=0;i<keys.length;i++){var item=horaires[keys[i]];if(item&&item.fin!=null){var mins=parseInt(item.fin,10);if(isFinite(mins))return mins;}}
+  // repli : pas de .fin → on estime une durée de heat par défaut après le début
+  var st=startMinuteFromHeat(h);
+  return (st==null)?null:st+_DEFAULT_HEAT_MIN;
+}
+// ═══════════════ HORLOGE TEMPS RÉEL (100% local, 0 appel réseau) ═══════════════
+// Les horaires sont stockés en MINUTES DANS LA JOURNÉE (ex: 845 = 14:05) + un n° de jour.
+// La page planning_public NE contient PAS de date calendaire ni d'offset serveur : on se
+// base donc sur l'heure LOCALE du téléphone. _MOCK_NOW_MS permet aux tests d'injecter l'heure.
+var _DEFAULT_HEAT_MIN=6;            // durée de repli si un heat n'a pas de .fin
+var _MOCK_NOW_MS=null;              // override test uniquement (window.__setMockNow)
+var _TICK_MS=20000;                 // rafraîchissement local du "dans X min"
+var _liveTimer=null;
+function _nowMs(){ return (_MOCK_NOW_MS!=null)?_MOCK_NOW_MS:Date.now(); }
+function nowMinuteOfDay(){ var d=new Date(_nowMs()); return d.getHours()*60+d.getMinutes()+d.getSeconds()/60; }
+function _fmtDelta(mins){                // "~23 min", "~1 h 05", "<1 min"
+  mins=Math.round(mins);
+  if(mins<=0) return 'maintenant';
+  if(mins<60) return '~'+mins+' min';
+  var h=Math.floor(mins/60),mn=mins%60;
+  return '~'+h+' h'+(mn>0?' '+(mn<10?'0':'')+mn:'');
+}
+// Jours présents dans le planning (triés).
+function _planningDays(){
+  var set={};
+  Object.keys(_allHeats).forEach(function(hid){var h=_allHeats[hid];if(!h)return;var j=parseInt(h.catJour||h.jour||1,10)||1;set[j]=true;});
+  return Object.keys(set).map(function(x){return parseInt(x,10);}).sort(function(a,b){return a-b;});
+}
+// ★ Comme la page n'a pas la DATE de la compét, on détermine le "jour pertinent" (celui sur
+//   lequel appliquer EN COURS / terminé) à partir de l'heure courante :
+//   - le jour qui a un heat en cours [debut,fin[  → ce jour ;
+//   - sinon le 1er jour qui a encore un heat à venir aujourd'hui → ce jour ;
+//   - sinon (tout est passé pour l'heure courante) → le dernier jour.
+//   Évite de marquer tous les heats du J1 comme "terminés" si on ouvre la page le matin du J2
+//   (chaque jour est évalué contre la même heure du téléphone, qui est l'heure du jour réel).
+function _liveDayContext(){
+  var now=nowMinuteOfDay(), days=_planningDays();
+  if(!days.length) return null;
+  var liveDay=null, nextDay=null;
+  days.forEach(function(j){
+    Object.keys(_allHeats).forEach(function(hid){
+      var h=_allHeats[hid]; if(!h) return;
+      if((parseInt(h.catJour||h.jour||1,10)||1)!==j) return;
+      var s=startMinuteFromHeat(h), e=endMinuteFromHeat(h);
+      if(s==null) return;
+      if(e==null) e=s+_DEFAULT_HEAT_MIN;
+      if(now>=s&&now<e){ if(liveDay==null) liveDay=j; }
+      if(now<s){ if(nextDay==null) nextDay=j; }
+    });
+  });
+  return liveDay!=null?liveDay:(nextDay!=null?nextDay:days[days.length-1]);
+}
+// État temporel d'un heat pour un jour-contexte donné : 'live' | 'past' | 'future'.
+//   - jour < jour-contexte  → 'past'   (définitivement terminé : on a dépassé ce jour)
+//   - jour > jour-contexte  → 'future' (pas encore : aucun marquage trompeur)
+//   - jour === jour-contexte → comparaison [debut,fin[ à l'heure courante
+function _heatTimeState(h, ctxDay){
+  if(!h) return 'future';
+  var j=parseInt(h.catJour||h.jour||1,10)||1;
+  if(ctxDay!=null && j<ctxDay) return 'past';
+  if(ctxDay!=null && j>ctxDay) return 'future';
+  var s=startMinuteFromHeat(h); if(s==null) return 'future';
+  var e=endMinuteFromHeat(h); if(e==null) e=s+_DEFAULT_HEAT_MIN;
+  var now=nowMinuteOfDay();
+  if(now<s) return 'future';
+  if(now>=e) return 'past';
+  return 'live';
 }
 // ★★ BANDE PASSANTE : convertit le nœud léger "planning_public" (~18 Ko, champs courts)
 //   vers le format complet attendu par render()/buildFilters(). On ne touche qu'ici.
@@ -471,6 +590,148 @@ function downloadMyPlanning(){
 }
 window.downloadMyPlanning=downloadMyPlanning;
 function heatGlobalNum(hid,h){var n=parseInt(h.globalNum||h.catHeatNum||String(hid).replace(/\D/g,''),10);return isNaN(n)?0:n;}
+// ═══════════════ BANDEAU "PROCHAIN PASSAGE" (équipe sélectionnée) ═══════════════
+// Réutilise EXACTEMENT la logique de correspondance d'équipe de downloadMyPlanning()/render()
+// (_searchTerm vs teamName), sur les données déjà chargées. 0 appel Firebase.
+function _myPassages(){
+  if(!_searchTerm) return [];
+  var out=[];
+  Object.keys(_allHeats).forEach(function(hid){
+    var h=_allHeats[hid]; if(!h) return;
+    var lanes=h.lanes||h.slots||{};
+    Object.keys(lanes).forEach(function(ln){
+      var l=lanes[ln]; if(!l||!l.teamName) return;
+      if(l.teamName.toLowerCase().indexOf(_searchTerm)<0) return;
+      out.push({
+        jour:parseInt(h.catJour||h.jour||1,10)||1,
+        startMin:startMinuteFromHeat(h),
+        endMin:endMinuteFromHeat(h),
+        zone:h.catZone||h.zone||1,
+        lane:ln,
+        wod:(h.wodInfo&&h.wodInfo.nom)||h.wodNom||h.wod||'WOD'
+      });
+    });
+  });
+  out=out.filter(function(p){return p.startMin!=null;});
+  out.sort(function(a,b){ if(a.jour!==b.jour)return a.jour-b.jour; return a.startMin-b.startMin; });
+  return out;
+}
+// Minute "absolue" sur l'axe multi-jours : (jour-1)*1440 + minute. Permet de comparer des
+// passages de jours différents à l'heure courante du jour-contexte pertinent.
+function _absMin(jour, minOfDay, ctxDay){ return ((jour-(ctxDay||jour)))*1440 + minOfDay; }
+function _renderBanner(){
+  var el=document.getElementById('nextBanner'); if(!el) return;
+  // pas d'équipe choisie → petite invitation (le badge EN COURS de la grille suffit).
+  if(!_searchTerm){
+    el.className='show';
+    el.innerHTML='<div class="nb-card nb-info"><div class="nb-kicker">👥 Ton planning perso</div>'
+      +'<div class="nb-main"><span class="nb-count">Choisis ton équipe</span></div>'
+      +'<div class="nb-detail" style="color:var(--ink2);font-weight:600">Sélectionne-la dans la liste pour voir ton prochain passage en direct.</div></div>';
+    return;
+  }
+  var ps=_myPassages();
+  if(!ps.length){ el.className=''; el.innerHTML=''; return; }
+  var ctx=_liveDayContext();
+  var now=nowMinuteOfDay();
+  // passage EN COURS pour cette équipe (dans le jour-contexte) ?
+  var liveP=null;
+  for(var i=0;i<ps.length;i++){var p=ps[i];var e=p.endMin==null?p.startMin+_DEFAULT_HEAT_MIN:p.endMin;
+    if(p.jour===ctx && now>=p.startMin && now<e){ liveP=p; break; }}
+  // prochain passage à venir (jour-contexte d'abord, sinon jours suivants).
+  var nextP=null, bestAbs=Infinity;
+  ps.forEach(function(p){
+    var ref=(p.jour<ctx)? -1 : _absMin(p.jour,p.startMin,ctx);   // jours passés exclus
+    if(p.jour<ctx) return;
+    if(p.jour===ctx && now>=p.startMin) return;                  // déjà commencé/fini aujourd'hui
+    if(ref<bestAbs){ bestAbs=ref; nextP=p; }
+  });
+  var tagHtml=function(p){
+    return '<span class="nb-wod">'+esc(p.wod)+'</span>'
+      +'<span class="nb-tag">Zone '+esc(p.zone)+'</span>'
+      +'<span class="nb-tag">Lane '+esc(p.lane)+'</span>'
+      +(p.jour!==ctx?'<span class="nb-tag">Jour '+p.jour+'</span>':'');
+  };
+  var est='<div class="nb-est">⚠️ Horaires estimatifs (prévisionnels, susceptibles d\'être décalés)</div>';
+  el.className='show';
+  if(liveP){
+    el.innerHTML='<div class="nb-card nb-live"><div class="nb-kicker"><span class="nb-livedot"></span> En ce moment</div>'
+      +'<div class="nb-main"><span class="nb-count" style="font-size:26px">🔴 C\'EST À TOI</span></div>'
+      +'<div class="nb-detail">'+tagHtml(liveP)+'</div>'
+      +'<div class="nb-est">Jusqu\'à ~'+fmtMin(liveP.endMin)+' (estimatif)</div></div>';
+    return;
+  }
+  if(nextP){
+    var delta=_absMin(nextP.jour,nextP.startMin,ctx)-now;   // minutes jusqu'au départ
+    var kicker, countInner;
+    // Avant le tout début de la journée-contexte : phrasé "la compét commence à…"
+    var firstStart=_firstStartOfDay(ctx);
+    var beforeStart=(nextP.jour===ctx && firstStart!=null && now<firstStart && nextP.startMin===firstStart);
+    if(beforeStart){
+      kicker='⏱️ Avant le début';
+      countInner='<span class="nb-count">'+_fmtDelta(delta)+'<span class="nb-unit">avant le 1er heat</span></span>'
+        +'<span class="nb-at">(départ à '+fmtMin(nextP.startMin)+')</span>';
+    } else {
+      kicker='⏱️ Prochain passage';
+      countInner='<span class="nb-count" id="nbCount">'+_fmtDelta(delta)+'<span class="nb-unit">restantes</span></span>'
+        +'<span class="nb-at">(à '+fmtMin(nextP.startMin)+')</span>';
+    }
+    el.innerHTML='<div class="nb-card nb-soon"><div class="nb-kicker">'+kicker+'</div>'
+      +'<div class="nb-main">'+countInner+'</div>'
+      +'<div class="nb-detail">'+tagHtml(nextP)+'</div>'+est+'</div>';
+    return;
+  }
+  // plus aucun passage à venir → tout terminé.
+  el.innerHTML='<div class="nb-card nb-done"><div class="nb-kicker">✅ Terminé</div>'
+    +'<div class="nb-main"><span class="nb-count">Tous tes passages sont terminés</span></div>'
+    +'<div class="nb-detail" style="color:var(--ink2);font-weight:600">Bravo &mdash; rendez-vous sur le classement en direct !</div></div>';
+}
+// 1er heat (minute de début) d'un jour donné, tous WOD/zones confondus.
+function _firstStartOfDay(jour){
+  var min=null;
+  Object.keys(_allHeats).forEach(function(hid){
+    var h=_allHeats[hid]; if(!h) return;
+    if((parseInt(h.catJour||h.jour||1,10)||1)!==jour) return;
+    var s=startMinuteFromHeat(h); if(s==null) return;
+    if(min==null||s<min) min=s;
+  });
+  return min;
+}
+// ═══════════════ TICK LOCAL (setInterval) — met à jour SANS re-render ni réseau ═══════════════
+// Recalcule le "dans X min" (bandeau) et réapplique les états EN COURS/terminé aux .heat-group
+// déjà présents dans le DOM. AUCUNE lecture Firebase ici : pur calcul sur _allHeats + horloge.
+function _applyGridStates(){
+  var ctx=_liveDayContext();
+  var groups=document.querySelectorAll('#content .heat-group[data-hid]');
+  for(var i=0;i<groups.length;i++){
+    var g=groups[i], hid=g.getAttribute('data-hid'), h=_allHeats[hid];
+    if(!h){ continue; }
+    var st=_heatTimeState(h, ctx);
+    var bar=g.querySelector('.heat-bar'); if(!bar) continue;
+    g.classList.toggle('is-past', st==='past');
+    bar.classList.toggle('hb-live', st==='live');
+    // (ré)insère/retire les pastilles d'état sans toucher au reste de la barre
+    var old=bar.querySelector('.hb-badge,.hb-done'); if(old) old.remove();
+    if(st==='live'){
+      var b=document.createElement('span'); b.className='hb-badge';
+      b.innerHTML='<span class="lv"></span> En cours';
+      bar.insertBefore(b, bar.firstChild);
+    } else if(st==='past'){
+      var d=document.createElement('span'); d.className='hb-done'; d.textContent='✓ Terminé';
+      var nE=bar.querySelector('.hnum'); if(nE) bar.insertBefore(d, nE); else bar.appendChild(d);
+    }
+  }
+}
+function _tickLive(){
+  try{ _renderBanner(); }catch(e){}
+  try{ _applyGridStates(); }catch(e){}
+}
+function _startLiveTimer(){
+  if(_liveTimer) return;                 // un seul interval, jamais dupliqué
+  _liveTimer=setInterval(_tickLive, _TICK_MS);
+}
+// Hook de test : injecte l'heure courante en ms puis rafraîchit (sans toucher au réseau).
+window.__setMockNow=function(ms){ _MOCK_NOW_MS=ms; _tickLive(); };
+window.__clearMockNow=function(){ _MOCK_NOW_MS=null; _tickLive(); };
 function render(){
   var content=document.getElementById('content'),list=[];
   Object.keys(_allHeats).forEach(function(hid){
@@ -500,10 +761,13 @@ function render(){
   });
   if(!list.length){
     content.innerHTML='<div class="state"><div class="em">&#128269;</div><div class="ttl">Aucun resultat</div><div>'+(_searchTerm?'Aucune equipe ne correspond':'Pas de heat pour ce filtre')+'</div></div>';
+    _renderBanner();        // ★ le bandeau reste utile même si le filtre jour ne montre rien
+    _startLiveTimer();
     return;
   }
   var byDay={};
   list.forEach(function(it){(byDay[it.jour]=byDay[it.jour]||[]).push(it);});
+  var _ctxDay=_liveDayContext();   // ★ jour pertinent pour EN COURS / terminé (0 réseau)
   var html='';
   Object.keys(byDay).map(function(x){return parseInt(x,10);}).sort(function(a,b){return a-b;}).forEach(function(j){
     var heats=byDay[j];
@@ -512,8 +776,14 @@ function render(){
     heats.forEach(function(ht){
       di++;
       var heatNumLbl=(ht.catHeatNum&&ht.nbHeats)?('H'+ht.catHeatNum+'/'+ht.nbHeats):(ht.globalNum?('#'+ht.globalNum):'');
-      html+='<div class="heat-group" style="animation-delay:'+(Math.min(di*0.03,0.4))+'s">';
-      html+='<div class="heat-bar"><span class="htime">'+fmtMin(ht.startMin)+'</span><span class="hzone">Zone '+esc(ht.zone)+'</span><span class="hwod">'+esc(ht.wod)+'</span><span class="hnum">'+heatNumLbl+'</span></div>';
+      // ★ état temporel initial (correct dès le 1er paint, avant le 1er tick)
+      var st=_heatTimeState(_allHeats[ht.hid], _ctxDay);
+      var grpCls='heat-group'+(st==='past'?' is-past':'');
+      var barCls='heat-bar'+(st==='live'?' hb-live':'');
+      var liveBadge=(st==='live')?'<span class="hb-badge"><span class="lv"></span> En cours</span>':'';
+      var doneBadge=(st==='past')?'<span class="hb-done">✓ Terminé</span>':'';
+      html+='<div class="'+grpCls+'" data-hid="'+esc(ht.hid)+'" data-jour="'+j+'" style="animation-delay:'+(Math.min(di*0.03,0.4))+'s">';
+      html+='<div class="'+barCls+'">'+liveBadge+'<span class="htime">'+fmtMin(ht.startMin)+'</span><span class="hzone">Zone '+esc(ht.zone)+'</span><span class="hwod">'+esc(ht.wod)+'</span>'+doneBadge+'<span class="hnum">'+heatNumLbl+'</span></div>';
       html+='<div class="lanes">';
       ht.lanes.forEach(function(l){
         var hit=_searchTerm&&l.team.toLowerCase().indexOf(_searchTerm)>=0;
@@ -524,6 +794,8 @@ function render(){
     html+='</div>';
   });
   content.innerHTML=html;
+  _renderBanner();        // ★ bandeau prochain passage (équipe sélectionnée)
+  _startLiveTimer();      // ★ démarre (une seule fois) le rafraîchissement local 20 s
   if(_searchTerm){var fh=content.querySelector('.lane.hit');if(fh)fh.scrollIntoView({behavior:'smooth',block:'center'});}
 }
 loadPlanning();
