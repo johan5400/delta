@@ -21361,7 +21361,10 @@ function publishClassementLite(){
       // ★★ scores filtrés (seuls les champs utiles au classement) → gros gain de poids,
       //    et c'est désormais la SEULE source lue par les spectateurs (plus de double lecture).
       var liteScores=_stripUndef(_slimScoresMap(scores));
-      return _db.ref('classementLite').set({ heats:liteHeats, scores:liteScores, at:Date.now() });
+      // ★★ BANDE PASSANTE : champ "v" (version) lu SEUL par classement.html (quelques octets)
+      //    pour décider s'il doit re-télécharger le gros nœud ou servir son cache localStorage.
+      //    Calqué sur planning_public/v. On change v à chaque publication (Date.now()).
+      return _db.ref('classementLite').set({ heats:liteHeats, scores:liteScores, v:Date.now(), at:Date.now() });
     })
     .then(function(){ _classLiteBusy=false; })
     .catch(function(e){ _classLiteBusy=false; try{console.warn('publishClassementLite:',e&&e.message);}catch(_){} });

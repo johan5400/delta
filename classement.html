@@ -1573,6 +1573,24 @@ function debouncedRender(ms){
   _renderTimer=setTimeout(render, ms||1200);
 }
 
+/* ── CACHE VERSIONNÉ du classement (calqué sur planning.html) ──────────────────
+   ★★ BANDE PASSANTE : on ne re-télécharge le gros nœud "classementLite" (~40 Ko) QUE si
+      la version "classementLite/v" a changé. Sinon on reconstruit l'affichage depuis le
+      cache localStorage (quelques octets lus). Absorbe aussi les pics de reconnexion
+      (wifi qui remonte pour des centaines de spectateurs) et l'auto-refresh 1x/min.
+   Filet : pas de champ "v" (vieil admin), cache vide, ou lecture en échec → lecture
+      complète comme avant. JAMAIS d'écran vide. Ne JAMAIS cacher un classement vide. */
+var _CLASS_CACHE_KEY='boxcrew_classement_cache_v1';
+function _clsReadCache(){
+  try{ var raw=localStorage.getItem(_CLASS_CACHE_KEY); return raw?JSON.parse(raw):null; }catch(e){ return null; }
+}
+function _clsWriteCache(v, lite){
+  // ★ NE JAMAIS cacher un classement vide (sinon on resservirait du vide en boucle).
+  if(!lite || !lite.heats || !Object.keys(lite.heats).length) return;
+  try{ localStorage.setItem(_CLASS_CACHE_KEY, JSON.stringify({v:v, lite:lite})); }catch(e){}
+}
+function _clsCacheHasData(c){ return !!(c && c.lite && c.lite.heats && Object.keys(c.lite.heats).length>0); }
+
 /* ── Listeners fins heats ──
    ★ BANDE PASSANTE : on lit en PRIORITÉ le nœud léger "classementLite" (~40 Ko),
    publié par l'admin, au lieu du gros nœud "heats" (~230 Ko) qui embarque les
@@ -1594,26 +1612,88 @@ function debouncedRender(ms){
   //   qui laisse la page ouverte ne consomme donc plus RIEN tant qu'il n'actualise pas.
   //   (Les écoutes temps réel restent coupées, fonction volontairement neutralisée.)
   function _attachHeats(){ /* no-op : lecture ponctuelle seulement */ }
-  // ★ ÉCONOMIE : exposer de quoi couper/resynchroniser au passage en arrière-plan.
-  window.__clsHeats = { ref:heatsRef, detach:function(){ try{ heatsRef.off(); }catch(e){} }, resync:function(){
+
+  // ★★ Applique un objet "lite" (venu du gros nœud OU du cache) : remplit HEATS, indexe les
+  //    scores embarqués, rafraîchit l'affichage. Logique identique à l'ancienne lecture
+  //    initiale (y compris le repli "lite sans scores" → loadFull). Ne change RIEN au calcul.
+  function _applyLite(lite){
+    HEATS=lite.heats||{};
+    window.__CLASS_SRC='LITE';
+    if(lite.scores && typeof lite.scores==='object' && Object.keys(lite.scores).length){
+      window.__SCORES_FROM_LITE=true;
+      if(typeof window.__indexScores==='function') window.__indexScores(lite.scores);
+    } else {
+      // ★ Nœud léger SANS scores (ancienne version d'admin) → repli : on charge le
+      //   gros nœud "scores" une fois, sinon le classement resterait vide.
+      window.__SCORES_FROM_LITE=false;
+      try{ if(window.__clsScores && window.__clsScores.loadFull){ window.__clsScores.loadFull(); } }catch(e){}
+    }
+    checkHeatDone(HEATS);
+    updateStamp();
+    render();
+    _attachHeats();
+  }
+
+  // ★★ CHARGEMENT VERSIONNÉ (cache-aware). Lit d'abord SEULEMENT "classementLite/v" (quelques
+  //    octets). Si v == cache.v ET cache valide → sert le cache (0 Ko sur le gros nœud).
+  //    Sinon → lit "classementLite" complet, l'applique, réécrit le cache {v, lite}.
+  //    Filets : v absent / cache vide / lecture échouée → lecture complète (jamais d'écran vide).
+  var _lastSeenV=null;
+  function _loadFullLite(){
     db.ref('classementLite').once('value',function(snap){
       var lite=snap.val();
       if(lite && lite.heats && Object.keys(lite.heats).length){
-        HEATS=lite.heats||{};
-        // ★★ ré-indexe aussi les scores du nœud léger (le bouton Actualiser ne relit donc
-        //    QU'UNE seule fois classementLite, jamais le gros nœud "scores").
-        if(lite.scores && typeof lite.scores==='object'){
-          window.__SCORES_FROM_LITE=true;
-          if(typeof window.__indexScores==='function') window.__indexScores(lite.scores);
-        }
+        _applyLite(lite);
+        // ★ met le cache à jour (seulement si on a une version ET des données)
+        var v=(lite.v!=null)?lite.v:_lastSeenV;
+        if(v!=null) _clsWriteCache(v, {heats:lite.heats, scores:lite.scores||{}});
+      } else {
+        // Nœud léger absent (vieille compét / admin pas à jour) → repli sûr.
+        startHeatsFallback();
       }
-      checkHeatDone(HEATS); updateStamp(); render(); _attachHeats();
     }, function(){
-      // ★ ANTI-PSCHITT : même si la relecture légère échoue, on retente heats, et
-      //   SURTOUT on ré-attache les écouteurs quoi qu'il arrive (sinon écran figé).
-      heatsRef.once('value',function(s){ HEATS=s.val()||{}; checkHeatDone(HEATS); updateStamp(); render(); _attachHeats(); },
-                    function(){ _attachHeats(); });   // échec total → on ré-attache quand même
+      // ★ ANTI-PSCHITT : lecture du gros nœud échouée → on sert le cache s'il existe,
+      //   sinon repli complet "heats". Jamais figé.
+      var c=_clsReadCache();
+      if(_clsCacheHasData(c)){ _applyLite(c.lite); }
+      else startHeatsFallback();
     });
+  }
+  function _loadClassVersioned(){
+    // 1) Lire UNIQUEMENT la version (quelques octets).
+    db.ref('classementLite/v').once('value',function(vs){
+      var v=vs.val();
+      _lastSeenV=v;
+      var c=_clsReadCache();
+      if(v==null){
+        // ★ Pas de champ v (vieil admin) → on NE peut pas comparer : si le cache a des
+        //   données on les affiche d'abord (évite l'écran vide / 0 Ko), sinon lecture complète.
+        if(_clsCacheHasData(c)){ _applyLite(c.lite); }
+        else { _loadFullLite(); }
+        return;
+      }
+      // 2) Version inchangée ET cache valide → on sert le cache, pas de gros nœud (0 Ko).
+      if(_clsCacheHasData(c) && String(c.v)===String(v)){
+        _applyLite(c.lite);
+        return;
+      }
+      // 3) Version changée, ou pas de cache, ou cache vide → lecture complète + réécriture cache.
+      _loadFullLite();
+    }, function(){
+      // ★ Lecture de la version échouée (hors ligne au boot) : on sert le cache si on l'a,
+      //   sinon on tente la lecture complète (qui a elle-même ses propres replis).
+      var c=_clsReadCache();
+      if(_clsCacheHasData(c)){ _applyLite(c.lite); }
+      else { _loadFullLite(); }
+    });
+  }
+
+  // ★ ÉCONOMIE : exposer de quoi couper/resynchroniser au passage en arrière-plan.
+  //   resync passe DÉSORMAIS par le chargement versionné → le bouton "Actualiser",
+  //   l'auto-refresh 1x/min, le retour d'arrière-plan et la reconnexion ne re-téléchargent
+  //   le gros nœud QUE si la version a changé (sinon quelques octets + cache).
+  window.__clsHeats = { ref:heatsRef, detach:function(){ try{ heatsRef.off(); }catch(e){} }, resync:function(){
+    _loadClassVersioned();
   }};
 
   function startHeatsFallback(){
@@ -1631,35 +1711,8 @@ function debouncedRender(ms){
     try{ if(window.__clsScores && window.__clsScores.loadFull){ window.__clsScores.loadFull(); } }catch(e){}
   }
 
-  // 1) Tenter le nœud léger (une seule lecture, bien plus petite).
-  db.ref('classementLite').once('value',function(snap){
-    var lite=snap.val();
-    if(lite && lite.heats && Object.keys(lite.heats).length){
-      HEATS=lite.heats||{};
-      window.__CLASS_SRC='LITE';
-      // ★★ BANDE PASSANTE : si le nœud léger embarque AUSSI les scores (filtrés), on les
-      //    utilise directement → plus besoin de télécharger le gros nœud "scores" à côté.
-      //    On signale au bloc scores de NE PAS relire "scores" (sauf repli).
-      if(lite.scores && typeof lite.scores==='object' && Object.keys(lite.scores).length){
-        window.__SCORES_FROM_LITE=true;
-        if(typeof window.__indexScores==='function') window.__indexScores(lite.scores);
-      } else {
-        // ★ Nœud léger SANS scores (ancienne version d'admin) → repli : on charge le
-        //   gros nœud "scores" une fois, sinon le classement resterait vide.
-        window.__SCORES_FROM_LITE=false;
-        try{ if(window.__clsScores && window.__clsScores.loadFull){ window.__clsScores.loadFull(); } }catch(e){}
-      }
-      checkHeatDone(HEATS);
-      updateStamp();
-      render();
-      // Mises à jour live : on écoute les CHANGEMENTS de structure sur "heats"
-      // (statut d'un heat, etc.) en child_* — léger, pas de retéléchargement global.
-      _attachHeats();
-    } else {
-      // Nœud léger absent (vieille compét / admin pas à jour) → repli sûr.
-      startHeatsFallback();
-    }
-  }, function(){ startHeatsFallback(); }); // erreur de lecture → repli
+  // 1) Chargement initial : versionné (cache-aware).
+  _loadClassVersioned();
 })();
 
 /* ── Listeners scores ── */
