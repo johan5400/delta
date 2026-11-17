@@ -16364,44 +16364,23 @@ function renderSynMain(){
       var zGlow = zone===1?'rgba(59,130,246,.5)':'rgba(34,197,94,.5)';
       var zGrad = zone===1?'linear-gradient(135deg,#2563EB,#60A5FA)':'linear-gradient(135deg,#16A34A,#4ADE80)';
 
-      // ── Graduations horaires : heures rondes entre tMin et tMax (affichage seulement) ──
-      var _ruleMarks=''; var _trackTicks='';
-      var _firstHour = Math.ceil(tMin/60)*60;      // première heure pleine >= tMin (minutes)
-      var _lastHour  = Math.floor(tMax/60)*60;     // dernière heure pleine <= tMax (minutes)
-      for(var _t=_firstHour; _t<=_lastHour; _t+=60){
-        var _p=(_t-tMin)/span*100;
-        var _edge = _p<1?'left:0;transform:none':(_p>99?'right:0;left:auto;transform:none':('left:'+_p+'%;transform:translateX(-50%)'));
-        _ruleMarks += '<div style="position:absolute;'+_edge+';top:0;display:flex;flex-direction:column;align-items:center;white-space:nowrap">'
-          + '<span style="font-size:11px;font-weight:800;color:#93A4BC;letter-spacing:.3px">'+minToTimeStr(_t)+'</span>'
-          + '<span style="width:1px;height:6px;background:rgba(255,255,255,.22);margin-top:2px"></span>'
-          + '</div>';
-        // repère vertical discret dans la piste pour situer l'heure sur toute la plage
-        _trackTicks += '<div style="position:absolute;left:'+_p+'%;top:0;bottom:0;width:1px;background:rgba(255,255,255,.07);pointer-events:none"></div>';
-      }
+      // ── FRISE : enchaînement chronologique WOD → COUPURE → WOD (par zone) ──
+      // Liste de lecture ordonnée (affichage seulement : wodBlocs/wodOrder restent intacts).
+      var _seq = wodOrder.filter(function(wid){ return wodBlocs[wid].tMin!==9999; })
+        .slice().sort(function(a,b){ return wodBlocs[a].tMin - wodBlocs[b].tMin; });
 
-      html += '<div style="display:flex;align-items:stretch;gap:9px;margin-bottom:9px">';
+      html += '<div style="display:flex;align-items:stretch;gap:9px;margin-bottom:11px">';
       // Label zone
-      html += '<div style="flex-shrink:0;align-self:flex-end;background:'+zGrad+';color:#fff;border-radius:9px;padding:7px 10px;font-size:11px;font-weight:900;letter-spacing:1px;min-width:34px;text-align:center;box-shadow:0 0 14px '+zGlow+'">Z'+zone+'</div>';
+      html += '<div style="flex-shrink:0;align-self:center;background:'+zGrad+';color:#fff;border-radius:9px;padding:7px 10px;font-size:11px;font-weight:900;letter-spacing:1px;min-width:34px;text-align:center;box-shadow:0 0 14px '+zGlow+'">Z'+zone+'</div>';
 
-      // Colonne règle + piste (même largeur → les % coïncident)
-      html += '<div style="flex:1;min-width:0">';
-      // Règle de graduations (au-dessus de la piste)
-      html += '<div style="position:relative;height:20px;margin-bottom:3px">'+_ruleMarks+'</div>';
+      // Frise : rangée de blocs qui s'enchaînent ; léger scroll horizontal si trop large
+      html += '<div style="flex:1;min-width:0;overflow-x:auto;padding-bottom:2px">';
+      html += '<div style="display:flex;align-items:stretch;flex-wrap:wrap;gap:0;row-gap:8px">';
 
-      // Barre proportionnelle
-      html += '<div style="position:relative;height:44px;background:#0B1018;border-radius:11px;overflow:hidden;border:1px solid rgba(255,255,255,.07);box-shadow:inset 0 1px 6px rgba(0,0,0,.5)">';
-      html += _trackTicks; // graduations verticales discrètes
-
-      wodOrder.forEach(function(wid,_wi){
+      _seq.forEach(function(wid,_i){
         var w = wodBlocs[wid];
-        if(w.tMin===9999) return;
-        var pL = (w.tMin-tMin)/span*100;
-        var pW = Math.max((w.tMax-w.tMin)/span*100, 4);
         var hStart = minToTimeStr(w.tMin);
         var hEnd   = minToTimeStr(w.tMax);
-        // Lisibilité : n'afficher le texte interne que si le segment est assez large.
-        var _showHours = pW>=9;   // heures début→fin seulement si place suffisante
-        var _showName  = pW>=4.5; // nom seulement au-delà des tout petits segments
         // ★ SURVOL PAR CATÉGORIE : pour chaque catégorie présente sur ce WOD, pause vers
         //   SON prochain WOD (fin de ce WOD pour la catégorie → début du suivant pour elle).
         var _catsHere={}; w.heats.forEach(function(h){ _catsHere[h.catNom||h.catName||'—']=true; });
@@ -16418,18 +16397,50 @@ function renderSynMain(){
         });
         var _pauseTxt=_pauseLines.length?('\n— Pause avant prochain WOD —\n'+_pauseLines.join('\n')):'';
 
-        html += '<div style="position:absolute;left:'+pL+'%;width:'+pW+'%;top:4px;bottom:4px;'
-          +'background:linear-gradient(135deg,'+w.col+'ee,'+w.col+'b0);border-radius:8px;overflow:hidden;'
-          +'box-shadow:0 2px 10px '+w.col+'66, inset 0 1px 0 rgba(255,255,255,.25);border:1px solid rgba(255,255,255,.18)"'
+        // ── Bloc WOD ──
+        html += '<div style="flex:0 0 auto;align-self:center;background:linear-gradient(135deg,'+w.col+'ee,'+w.col+'b4);'
+          +'border-radius:11px;border:1px solid rgba(255,255,255,.2);box-shadow:0 3px 14px '+w.col+'55, inset 0 1px 0 rgba(255,255,255,.28);'
+          +'padding:9px 13px;min-width:120px"'
           +' title="'+w.nom+' · '+hStart+'→'+hEnd+' · '+w.heats.length+'H'+_pauseTxt+'">'
-          +'<div style="padding:0 8px;height:100%;display:flex;flex-direction:column;justify-content:center;overflow:hidden">'
-          +(_showName?'<div style="font-size:12px;font-weight:900;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2;text-shadow:0 1px 2px rgba(0,0,0,.45)">'+w.nom+'</div>':'')
-          +(_showHours?'<div style="font-size:11px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:700;letter-spacing:.2px;text-shadow:0 1px 2px rgba(0,0,0,.4)">'+hStart+'→'+hEnd+'</div>':'')
-          +'</div></div>';
+          +'<div style="font-size:13px;font-weight:900;color:#fff;white-space:nowrap;line-height:1.15;text-shadow:0 1px 2px rgba(0,0,0,.45)">'+w.nom+'</div>'
+          +'<div style="display:flex;align-items:center;gap:7px;margin-top:3px">'
+          +'<span style="font-size:11px;color:#fff;font-weight:700;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;white-space:nowrap;text-shadow:0 1px 2px rgba(0,0,0,.4)">'+hStart+'→'+hEnd+'</span>'
+          +'<span style="font-size:10px;font-weight:800;color:#fff;background:rgba(0,0,0,.22);border-radius:999px;padding:1px 7px;white-space:nowrap">'+w.heats.length+'H</span>'
+          +'</div>'
+          +'</div>';
+
+        // ── Connecteur + éventuel bloc COUPURE vers le WOD suivant ──
+        if(_i+1<_seq.length){
+          var _next = wodBlocs[_seq[_i+1]];
+          var _gap  = _next.tMin - w.tMax; // pause de zone entre ce WOD et le suivant
+          if(_gap>0){
+            // Bloc PAUSE distinct (sombre, hachuré, icône ⏸)
+            html += '<div style="flex:0 0 auto;align-self:center;display:flex;align-items:center;color:#64748B;font-weight:900;font-size:14px;padding:0 5px">→</div>';
+            html += '<div style="flex:0 0 auto;align-self:center;display:flex;flex-direction:column;align-items:center;justify-content:center;'
+              +'background:repeating-linear-gradient(135deg,#131B29,#131B29 6px,#0E1420 6px,#0E1420 12px);'
+              +'border:1px dashed rgba(148,164,188,.4);border-radius:10px;padding:7px 11px;min-width:76px"'
+              +' title="Coupure de '+_gap+' min entre '+w.nom+' ('+hEnd+') et '+_next.nom+' ('+minToTimeStr(_next.tMin)+')">'
+              +'<span style="font-size:11px;font-weight:900;color:#F59E0B;white-space:nowrap">⏸ PAUSE</span>'
+              +'<span style="font-size:12px;font-weight:900;color:#E6ECF5;white-space:nowrap">'+_gap+' min</span>'
+              +'</div>';
+            html += '<div style="flex:0 0 auto;align-self:center;display:flex;align-items:center;color:#64748B;font-weight:900;font-size:14px;padding:0 5px">→</div>';
+          } else {
+            // Enchaîné (ou chevauchement) : connecteur discret "enchaîné"
+            html += '<div style="flex:0 0 auto;align-self:center;display:flex;align-items:center;gap:5px;color:#4ADE80;padding:0 9px;white-space:nowrap">'
+              +'<span style="font-weight:900;font-size:14px">→</span>'
+              +'<span style="font-size:10px;font-weight:800;letter-spacing:.3px;text-transform:uppercase;opacity:.9">enchaîné</span>'
+              +'<span style="font-weight:900;font-size:14px">→</span>'
+              +'</div>';
+          }
+        }
       });
 
-      html += '</div>'; // fin piste
-      html += '</div>'; // fin colonne règle+piste
+      if(!_seq.length){
+        html += '<div style="color:#64748B;font-size:11px;font-weight:600;padding:8px 2px">Aucun horaire</div>';
+      }
+
+      html += '</div>'; // fin frise flex
+      html += '</div>'; // fin conteneur scroll
       html += '</div>'; // fin ligne zone (flex)
     });
 
