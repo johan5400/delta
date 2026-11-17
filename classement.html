@@ -140,6 +140,78 @@ body{display:flex;flex-direction:column}
 
 .empty{padding:30px;text-align:center;font-family:var(--fc);font-size:14px;letter-spacing:2px;color:var(--muted2)}
 
+/* ═══ RECHERCHE D'ÉQUIPE (temporaire, ne mémorise rien) ═══════════════════════════
+   Pur DOM : filtre/surligne les lignes déjà rendues. Aucun appel Firebase. */
+.search-wrap{position:relative;display:flex;align-items:center;gap:8px}
+.search-ico{position:absolute;left:14px;top:50%;transform:translateY(-50%);font-size:16px;pointer-events:none;opacity:.7}
+#team-search{
+  flex:1;width:100%;
+  /* font-size 16px minimum : empêche le zoom auto iOS au focus */
+  font-size:16px;font-family:var(--fb);font-weight:600;
+  color:var(--ink);background:rgba(255,255,255,.05);
+  border:1.5px solid var(--brd2);border-radius:14px;
+  padding:14px 44px 14px 42px;
+  -webkit-appearance:none;appearance:none;outline:none;transition:border-color .15s,background .15s;
+}
+#team-search::placeholder{color:var(--ink3);font-weight:600}
+#team-search:focus{border-color:var(--accent);background:rgba(255,255,255,.07)}
+.search-clear{
+  position:absolute;right:8px;top:50%;transform:translateY(-50%);
+  width:32px;height:32px;border:none;border-radius:50%;
+  background:rgba(255,255,255,.08);color:var(--ink2);
+  font-size:18px;font-weight:800;line-height:1;cursor:pointer;
+  display:none;align-items:center;justify-content:center;transition:background .15s;
+}
+.search-clear:hover,.search-clear:active{background:rgba(255,87,34,.25);color:#fff}
+.search-wrap.has-q .search-clear{display:flex}
+.search-note{font-size:11px;font-weight:700;color:var(--ink2);padding:2px 2px 0;min-height:14px;letter-spacing:.3px}
+.search-note .hitnum{color:var(--accent2)}
+.search-note .miss{color:var(--warn)}
+
+/* État recherche active : on atténue le reste pour faire ressortir les résultats */
+.searching .srch-dim{opacity:.32;filter:saturate(.6);transition:opacity .2s}
+/* Surlignage RECHERCHE (temporaire) : glow orange marque, bord vif */
+.srch-hit{
+  position:relative;z-index:1;
+  outline:2px solid var(--accent) !important;outline-offset:-2px;
+  border-radius:12px;
+  box-shadow:0 0 0 4px rgba(255,87,34,.18),0 6px 20px rgba(255,87,34,.22) !important;
+  animation:srch-pulse 1.1s ease-in-out 2;
+}
+@keyframes srch-pulse{0%,100%{box-shadow:0 0 0 4px rgba(255,87,34,.18),0 6px 20px rgba(255,87,34,.22)}50%{box-shadow:0 0 0 7px rgba(255,87,34,.30),0 6px 26px rgba(255,87,34,.35)}}
+
+/* ═══ ÉPINGLE « MON ÉQUIPE » (persistant, localStorage) ═══════════════════════════
+   Style VOLONTAIREMENT différent de la recherche : liseré doré + ruban + étoile pleine. */
+.pin-star{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:30px;height:30px;flex-shrink:0;margin-left:4px;
+  border:none;background:transparent;cursor:pointer;
+  font-size:19px;line-height:1;opacity:.45;
+  transition:transform .12s,opacity .15s;filter:grayscale(1);
+}
+.pin-star:hover,.pin-star:active{opacity:.9;transform:scale(1.18);filter:grayscale(.3)}
+.pin-star.on{opacity:1;filter:none;animation:pin-pop .3s ease}
+@keyframes pin-pop{0%{transform:scale(.6)}60%{transform:scale(1.25)}100%{transform:scale(1)}}
+/* Ligne épinglée (survit aux re-rendus via le hook post-render) */
+.mine-row{
+  position:relative;z-index:2;
+  border-left:4px solid var(--gold) !important;
+  box-shadow:0 0 0 1.5px rgba(255,209,102,.5),0 4px 18px rgba(255,209,102,.16) !important;
+  background:linear-gradient(135deg,rgba(255,209,102,.14),rgba(255,138,0,.05)) !important;
+}
+/* Petit ruban « MON ÉQUIPE » */
+.mine-tag{
+  display:inline-block;margin-left:6px;vertical-align:middle;
+  font-family:var(--fc);font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;
+  color:#1d324c;background:linear-gradient(135deg,var(--gold),var(--amber));
+  border-radius:5px;padding:2px 7px;box-shadow:0 1px 4px rgba(255,176,32,.4);
+}
+/* Dans le tableau "Par équipe" : la cellule sticky gauche porte le liseré */
+td.mine-cell{
+  border-left:4px solid var(--gold) !important;
+  box-shadow:inset 0 0 0 1.5px rgba(255,209,102,.4) !important;
+}
+
 @media(max-width:860px){
   .podium{grid-template-columns:1fr}
   .row{grid-template-columns:30px minmax(0,1fr) auto}
@@ -197,6 +269,17 @@ body{display:flex;flex-direction:column}
   <div class="cat-nav" id="zone-nav"></div>
   <div class="cat-nav" id="cat-nav"></div>
   <div class="wod-nav" id="wod-nav"></div>
+  <!-- ★ RECHERCHE D'ÉQUIPE : 100% côté client, filtre le DOM déjà rendu (0 appel Firebase).
+       Trouve une équipe dans N'IMPORTE QUELLE catégorie (bascule auto si besoin). -->
+  <div class="search-wrap" id="search-wrap">
+    <span class="search-ico" aria-hidden="true">🔎</span>
+    <input id="team-search" type="search" inputmode="search" autocomplete="off"
+           autocorrect="off" autocapitalize="off" spellcheck="false"
+           placeholder="Rechercher une équipe (toutes catégories)…"
+           aria-label="Rechercher une équipe">
+    <button class="search-clear" id="search-clear" type="button" aria-label="Effacer la recherche">×</button>
+  </div>
+  <div class="search-note" id="search-note" aria-live="polite"></div>
   <div class="main-card" id="main-card">
     <div class="empty">Connexion Firebase…</div>
   </div>
@@ -217,6 +300,14 @@ var _off=0;
 if(db) db.ref('.info/serverTimeOffset').on('value',function(s){_off=s.val()||0;});
 function now(){return Date.now()+_off;}
 var HEATS={},SCORES={},SEL_ZONE='all',SEL_CAT=null,SEL_WOD='__total__',SEL_VIEW='teams',LAST_UPDATE='--:--:--';
+
+/* ★ Stub hissé : étoile « mon équipe » injectée par les fonctions de rendu. La vraie
+   implémentation (bloc recherche/épingle en bas) écrase window.myTeamMark au chargement.
+   Ce stub garantit qu'un render() très précoce ne plante pas si le bloc n'a pas encore tourné. */
+function myTeamMark(_n){ return ''; }
+/* Échappement pour une VALEUR D'ATTRIBUT entre guillemets doubles (data-team="...") :
+   &<> + le guillemet double, pour qu'un nom d'équipe contenant " ne casse pas l'attribut. */
+function escA(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
 /* ===== DÉTAIL PAR ÉQUIPE (litige) — lecture seule ===== */
 function _sdEsc(x){return String(x==null?'':x).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
@@ -999,12 +1090,12 @@ function renderByTeam(catName){
 
     html+='<tr style="border-bottom:1px solid rgba(255,255,255,.04)">';
 
-    // Cellule équipe sticky
-    html+='<td style="position:sticky;left:0;z-index:1;padding:12px 14px;border-right:2px solid rgba(255,255,255,.1);background:'+rowBgTd+';'+borderLeft+';vertical-align:middle">'
+    // Cellule équipe sticky (data-team : hook recherche/épingle, 0 impact calcul)
+    html+='<td data-team="'+escA(teamName)+'" data-teamcell="1" style="position:sticky;left:0;z-index:1;padding:12px 14px;border-right:2px solid rgba(255,255,255,.1);background:'+rowBgTd+';'+borderLeft+';vertical-align:middle">'
       +'<div style="display:flex;align-items:center;gap:8px">'
       +'<span style="font-family:var(--ff);font-size:'+(tIdx<3?'22':'16')+'px;width:26px;text-align:center;flex-shrink:0">'+medal+'</span>'
-      +'<div>'
-        +'<div style="font-family:var(--fc);font-size:16px;font-weight:800;color:#fff;line-height:1.2">'+escH(teamName)+'</div>'
+      +'<div style="min-width:0">'
+        +'<div style="font-family:var(--fc);font-size:16px;font-weight:800;color:#fff;line-height:1.2;display:flex;align-items:center;flex-wrap:wrap">'+escH(teamName)+myTeamMark(teamName)+'</div>'
         +'<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px">'
           +'<span style="font-size:9px;font-weight:800;border-radius:4px;padding:1px 6px;background:rgba(255,255,255,.07);color:var(--ink2)">'+String(tIdx+1)+'e / '+nbTeams+'</span>'
           +(podStr?'<span style="font-size:9px;font-weight:700;border-radius:4px;padding:1px 6px;background:rgba(255,255,255,.05);color:var(--ink2)">'+podStr.trim()+'</span>':'')
@@ -1151,10 +1242,10 @@ function renderTotal(catName){
         +'<span style="background:rgba(255,255,255,.08);border-radius:4px;padding:1px 5px;font-size:10px;color:var(--muted2)">'+posStr+'</span>'
         +'</div>';
     });
-    html+='<div class="row '+(i===0?'p1':i===1?'p2':i===2?'p3':'')+'">'
+    html+='<div class="row '+(i===0?'p1':i===1?'p2':i===2?'p3':'')+'" data-team="'+escA(t.teamName)+'">'
       +'<div class="pos">'+(MEDALS[i]||'<span style="font-family:var(--fm);font-size:14px">'+String(i+1)+'</span>')+'</div>'
       +'<div class="team" style="flex:1;min-width:0">'
-        +'<div class="nm">'+escH(t.teamName)+'</div>'
+        +'<div class="nm" style="display:flex;align-items:center;flex-wrap:wrap">'+escH(t.teamName)+myTeamMark(t.teamName)+'</div>'
         +'<div style="display:flex;flex-wrap:wrap;gap:2px;margin-top:5px">'+wodDetail+'</div>'
       +'</div>'
       +'<div class="score">'+t.total+'<span style="font-size:10px;font-weight:500;color:var(--muted)"> pts</span></div>'
@@ -1315,7 +1406,7 @@ function renderSingle(catName,wodName){
     }
     var tieBadge=t2&&t2.tied?'<span style="font-size:9px;background:rgba(255,215,0,.1);color:var(--gold);border-radius:4px;padding:1px 5px;margin-left:4px">⚖ '+escH(t2.tieReason||'')+'</span>':'';
     var scoreStr=r.val!==null?scoreDisplay(r.sc,r.wod,r.h,r.heat):'—';
-    html+='<div class="row '+(i===0?'p1':i===1?'p2':i===2?'p3':'')+'"><div class="pos">'+(MEDALS[i]||String(i+1))+'</div><div class="team"><div class="nm">'+escH(r.teamName)+podBadge+tieBadge+'</div><div class="sb">'+escH(scoreStr)+(t2?' · Général : '+t2.total+' pts':'')+'</div></div><div class="pts">'+(t2?t2.total+'<span style="font-size:9px;color:var(--ink2)"> pts</span>':scoreStr)+'</div></div>';
+    html+='<div class="row '+(i===0?'p1':i===1?'p2':i===2?'p3':'')+'" data-team="'+escA(r.teamName)+'"><div class="pos">'+(MEDALS[i]||String(i+1))+'</div><div class="team"><div class="nm" style="display:flex;align-items:center;flex-wrap:wrap">'+escH(r.teamName)+myTeamMark(r.teamName)+podBadge+tieBadge+'</div><div class="sb">'+escH(scoreStr)+(t2?' · Général : '+t2.total+' pts':'')+'</div></div><div class="pts">'+(t2?t2.total+'<span style="font-size:9px;color:var(--ink2)"> pts</span>':scoreStr)+'</div></div>';
   });
   html+='</div>';
   return html;
@@ -1832,6 +1923,302 @@ function toggleFS(){
   if(!document.fullscreenElement)document.documentElement.requestFullscreen().catch(function(){});
   else document.exitFullscreen().catch(function(){});
 }
+
+/* ══════════════════════════════════════════════════════════════════════════════════
+   ★★ RECHERCHE D'ÉQUIPE + ÉPINGLE « MON ÉQUIPE »  —  100 % CÔTÉ CLIENT
+   ──────────────────────────────────────────────────────────────────────────────────
+   CONTRAINTE : zéro bande passante ajoutée. Ce bloc ne touche JAMAIS à `db` ni à aucune
+   ref Firebase. Il opère uniquement sur :
+     • l'objet HEATS déjà chargé en mémoire (pour savoir dans quelle catégorie est une
+       équipe → permet la recherche multi-catégories et l'auto-sélection de l'épingle) ;
+     • le DOM déjà rendu par render() (surlignage + scroll) ;
+     • localStorage (épingle persistante uniquement — la recherche ne mémorise rien).
+   Il ne modifie AUCUN calcul de classement : il ajoute par-dessus via un hook post-render.
+   ════════════════════════════════════════════════════════════════════════════════ */
+(function(){
+
+  /* ── Normalisation : minuscules + sans accents (recherche tolérante) ───────────── */
+  function norm(s){
+    return String(s==null?'':s)
+      .toLowerCase()
+      .normalize('NFD').replace(/[̀-ͯ]/g,'') // enlève les diacritiques
+      .replace(/\s+/g,' ').trim();
+  }
+
+  /* ── localStorage ENVELOPPÉ (mode privé / quota / indispo → jamais de crash) ────── */
+  var PIN_KEY='boxcrew_classement_pinned_v1';
+  var _PIN=null;          // nom exact de l'équipe épinglée (ou null)
+  function _loadPin(){
+    try{ var v=localStorage.getItem(PIN_KEY); _PIN=(v&&v.length)?v:null; }
+    catch(e){ _PIN=null; }
+    return _PIN;
+  }
+  function _savePin(name){
+    _PIN=(name&&name.length)?name:null;
+    try{
+      if(_PIN) localStorage.setItem(PIN_KEY,_PIN);
+      else localStorage.removeItem(PIN_KEY);
+    }catch(e){ /* indispo : l'épingle reste valable pour la session en cours */ }
+  }
+  _loadPin();
+
+  /* ── Index équipe → {cat, zone} construit depuis HEATS (DÉJÀ en mémoire) ─────────
+     Permet de retrouver la catégorie d'une équipe cherchée / épinglée sans aucune
+     lecture réseau. Reconstruit à la volée (HEATS peut avoir changé après refresh). */
+  function teamIndex(){
+    var idx={}; // normName -> {team, cat, zone}
+    try{
+      Object.keys(HEATS||{}).forEach(function(hid){
+        var h=HEATS[hid]; if(!h) return;
+        var lanes=h.lanes||{};
+        Object.keys(lanes).forEach(function(ln){
+          var lane=lanes[ln]; if(!lane||!lane.teamName) return;
+          var team=lane.teamName;
+          var cat=(typeof laneEffCatName==='function')?laneEffCatName(lane,h):(h.catName||'');
+          var zone=(typeof heatZone==='function')?heatZone(h):null;
+          var k=norm(team);
+          if(!idx[k]) idx[k]={team:team, cat:cat, zone:zone};
+        });
+      });
+    }catch(e){}
+    return idx;
+  }
+
+  /* Catégorie (+zone) d'une équipe épinglée, pour l'auto-sélection. */
+  function catOfTeam(name){
+    var idx=teamIndex(); var hit=idx[norm(name)];
+    return hit?{cat:hit.cat, zone:hit.zone}:null;
+  }
+
+  /* ════════ ÉPINGLE : étoile + ruban (appelé DANS les fonctions de rendu) ════════
+     Exposé en global : myTeamMark(teamName) → HTML de l'étoile (+ ruban si épinglée). */
+  window.myTeamMark=function(teamName){
+    var on=(_PIN!=null && norm(_PIN)===norm(teamName));
+    var safe=(typeof escQ==='function')?escQ(teamName):String(teamName).replace(/'/g,"\\'");
+    var star='<button type="button" class="pin-star'+(on?' on':'')+'" title="'
+      +(on?'Retirer mon équipe':'Épingler comme mon équipe')
+      +'" aria-label="'+(on?'Retirer mon équipe':'Épingler comme mon équipe')
+      +'" aria-pressed="'+(on?'true':'false')
+      +'" onclick="event.stopPropagation();__pinToggle(this,\''+safe+'\')">'+(on?'⭐':'☆')+'</button>';
+    var tag=on?'<span class="mine-tag">Mon équipe</span>':'';
+    return star+tag;
+  };
+
+  /* ── Toggle épingle (clic sur l'étoile) ─────────────────────────────────────────
+     UNE seule équipe à la fois : épingler une autre remplace la précédente. */
+  window.__pinToggle=function(btn, teamName){
+    var already=(_PIN!=null && norm(_PIN)===norm(teamName));
+    _savePin(already?null:teamName);
+    // Re-render pour ré-appliquer étoiles/ruban partout, puis surlignage + scroll.
+    if(typeof render==='function') render();
+    if(!already){
+      // On vient d'épingler → basculer sur sa catégorie si on ne la voit pas, puis scroll.
+      focusMine(true);
+    }
+  };
+
+  /* ════════ SURLIGNAGE « MON ÉQUIPE » (ré-appliqué après CHAQUE render) ════════ */
+  function applyMine(){
+    var card=document.getElementById('main-card'); if(!card) return;
+    // nettoyage
+    card.querySelectorAll('.mine-row').forEach(function(el){el.classList.remove('mine-row');});
+    card.querySelectorAll('td.mine-cell').forEach(function(el){el.classList.remove('mine-cell');});
+    if(_PIN==null) return;
+    var pn=norm(_PIN);
+    card.querySelectorAll('[data-team]').forEach(function(el){
+      if(norm(el.getAttribute('data-team'))!==pn) return;
+      if(el.tagName==='TD') el.classList.add('mine-cell');   // tableau "Par équipe"
+      else el.classList.add('mine-row');                     // lignes .row
+    });
+  }
+
+  /* Trouve l'élément DOM de l'équipe épinglée dans la vue courante (ou null). */
+  function mineEl(){
+    if(_PIN==null) return null;
+    var card=document.getElementById('main-card'); if(!card) return null;
+    var pn=norm(_PIN), found=null;
+    card.querySelectorAll('[data-team]').forEach(function(el){
+      if(!found && norm(el.getAttribute('data-team'))===pn) found=el;
+    });
+    return found;
+  }
+
+  function smoothScrollTo(el){
+    if(!el) return;
+    try{ el.scrollIntoView({behavior:'smooth', block:'center'}); }
+    catch(e){ try{ el.scrollIntoView(); }catch(e2){} }
+  }
+
+  /* Amène « mon équipe » à l'écran : bascule de catégorie si nécessaire, puis scroll.
+     switchCat=true → autorisé à changer SEL_CAT/SEL_ZONE (via selectCat qui re-render). */
+  var _scrollMinePending=false;
+  function focusMine(switchCat){
+    if(_PIN==null) return;
+    var el=mineEl();
+    if(el){ smoothScrollTo(el); return; }
+    if(!switchCat) return;
+    // Pas dans la vue courante → trouver sa catégorie et y aller.
+    var loc=catOfTeam(_PIN);
+    if(!loc||!loc.cat) return;
+    _scrollMinePending=true; // le hook post-render scrollera une fois la cat affichée
+    try{
+      if(loc.zone && typeof selectZone==='function' && String(SEL_ZONE)!=='all' && String(SEL_ZONE)!==String(loc.zone)){
+        SEL_ZONE=String(loc.zone); // rester cohérent sans masquer l'équipe
+      }
+    }catch(e){}
+    if(typeof selectCat==='function') selectCat(loc.cat); // re-render sur la bonne cat
+  }
+
+  /* ════════════════════════ RECHERCHE (ne mémorise rien) ════════════════════════ */
+  var _query='';            // requête courante (brute)
+  var _searchPending=false; // demande de scroll après bascule de catégorie
+
+  function clearSearchDom(){
+    var card=document.getElementById('main-card'); if(!card) return;
+    card.classList.remove('searching');
+    card.querySelectorAll('.srch-hit').forEach(function(el){el.classList.remove('srch-hit');});
+    card.querySelectorAll('.srch-dim').forEach(function(el){el.classList.remove('srch-dim');});
+  }
+
+  /* Applique le surlignage de recherche sur le DOM courant. Retourne le nb de hits visibles. */
+  function applySearchDom(){
+    var card=document.getElementById('main-card'); if(!card) return 0;
+    clearSearchDom();
+    var q=norm(_query);
+    if(!q) return 0;
+    var rows=card.querySelectorAll('[data-team]');
+    var hits=0, first=null;
+    rows.forEach(function(el){
+      var match=norm(el.getAttribute('data-team')).indexOf(q)>=0;
+      if(match){
+        el.classList.add('srch-hit');
+        hits++; if(!first) first=el;
+      } else {
+        el.classList.add('srch-dim');
+      }
+    });
+    if(hits>0) card.classList.add('searching');
+    if(first && _searchPending){ _searchPending=false; smoothScrollTo(first); }
+    else if(first){ smoothScrollTo(first); }
+    return hits;
+  }
+
+  function setNote(html){ var n=document.getElementById('search-note'); if(n) n.innerHTML=html||''; }
+
+  /* Pilote la recherche : compte les correspondances TOUTES catégories, bascule si
+     l'équipe trouvée est ailleurs, met à jour la note d'aide. */
+  function runSearch(){
+    var wrap=document.getElementById('search-wrap');
+    if(wrap) wrap.classList.toggle('has-q', _query.trim().length>0);
+    var q=norm(_query);
+    if(!q){ clearSearchDom(); setNote(''); return; }
+
+    // 1) Compter les correspondances dans TOUTES les catégories (via l'index mémoire).
+    var idx=teamIndex();
+    var matches=[];
+    Object.keys(idx).forEach(function(k){ if(k.indexOf(q)>=0) matches.push(idx[k]); });
+
+    if(!matches.length){ clearSearchDom(); setNote('<span class="miss">Aucune équipe trouvée</span>'); return; }
+
+    // 2) Y a-t-il déjà un hit dans la catégorie affichée ?
+    var here=applySearchDom();
+    if(here>0){
+      var others=matches.length-here;
+      setNote('<span class="hitnum">'+here+'</span> équipe'+(here>1?'s':'')+' ici'
+        +(others>0?' · <span class="hitnum">'+others+'</span> dans d\'autres catégories':''));
+      return;
+    }
+
+    // 3) Rien d'affiché mais ça existe ailleurs → basculer sur la catégorie du 1er match.
+    var target=matches[0];
+    if(target && target.cat){
+      _searchPending=true;
+      try{
+        if(target.zone && String(SEL_ZONE)!=='all' && String(SEL_ZONE)!==String(target.zone)){
+          SEL_ZONE=String(target.zone);
+        }
+      }catch(e){}
+      if(typeof selectCat==='function'){
+        selectCat(target.cat); // re-render → le hook post-render relance applySearchDom()
+      }
+      setNote('<span class="hitnum">'+matches.length+'</span> résultat'+(matches.length>1?'s':'')
+        +' · catégorie « '+ (typeof escH==='function'?escH(target.cat):target.cat) +' »');
+    }
+  }
+
+  function clearSearch(){
+    _query=''; _searchPending=false;
+    var input=document.getElementById('team-search'); if(input) input.value='';
+    var wrap=document.getElementById('search-wrap'); if(wrap) wrap.classList.remove('has-q');
+    clearSearchDom(); setNote('');
+  }
+
+  /* ════════ HOOK POST-RENDER : ré-applique épingle + recherche après CHAQUE render ════
+     C'est LE point clé : render() réécrit #main-card (auto-refresh 1x/min, bouton
+     Actualiser, bascule de catégorie…). On enveloppe render pour ré-appliquer nos
+     surlignages à chaque fois, sans toucher à son code interne. */
+  function afterRender(){
+    try{ applyMine(); }catch(e){}
+    try{
+      if(_query.trim()) applySearchDom();
+      else clearSearchDom();
+    }catch(e){}
+    // Scroll différé « mon équipe » après une bascule de catégorie déclenchée par l'épingle.
+    if(_scrollMinePending){
+      _scrollMinePending=false;
+      var me=mineEl(); if(me) smoothScrollTo(me);
+    }
+  }
+  if(typeof window.render==='function'){
+    var _origRender=window.render;
+    window.render=function(){
+      var r=_origRender.apply(this, arguments);
+      afterRender();
+      return r;
+    };
+  }
+
+  /* ════════ CÂBLAGE UI ════════ */
+  function wire(){
+    var input=document.getElementById('team-search');
+    var clearBtn=document.getElementById('search-clear');
+    if(input){
+      input.addEventListener('input', function(){ _query=input.value; runSearch(); });
+      input.addEventListener('search', function(){ _query=input.value; if(!_query) clearSearch(); else runSearch(); });
+      input.addEventListener('keydown', function(e){ if(e.key==='Escape'){ clearSearch(); input.blur(); } });
+    }
+    if(clearBtn){ clearBtn.addEventListener('click', function(){ clearSearch(); if(input) input.focus(); }); }
+
+    /* Au premier rendu réel (données chargées) : ré-appliquer l'épingle + l'amener à
+       l'écran (bascule de catégorie auto + scroll). On attend que #main-card soit peuplé. */
+    var tries=0, repainted=false;
+    (function waitAndFocus(){
+      tries++;
+      var card=document.getElementById('main-card');
+      var ready=card && !card.querySelector('.empty') && card.querySelector('[data-team]');
+      if(ready){
+        // ★ ROBUSTESSE ORDRE DE CHARGEMENT : si un render() a eu lieu AVANT que ce bloc ne
+        //   définisse le vrai myTeamMark (ex. lecture Firebase synchrone / cache immédiat),
+        //   les étoiles ne sont pas encore injectées. On force UN render() (via le vrai
+        //   myTeamMark + le wrap qui appelle afterRender) pour peindre étoiles + épingle.
+        if(!repainted && typeof render==='function' && document.querySelector('#main-card .pin-star')===null){
+          repainted=true; render();
+          setTimeout(waitAndFocus, 60); return;
+        }
+        applyMine();
+        if(_PIN!=null) focusMine(true);
+        return;
+      }
+      if(tries<60) setTimeout(waitAndFocus, 250); // ~15 s max d'attente au boot
+    })();
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', wire);
+  else wire();
+
+  /* Petit hook de diagnostic/tests (lecture seule). */
+  window.__clsTeamTools={ getPin:function(){return _PIN;}, norm:norm, index:teamIndex };
+
+})();
 
 /* ★ Badge de version (diagnostic cache) + indicateur de source de données.
    "LITE" = lit le nœud léger (bande passante réduite) ; "full" = repli sur heats. */
