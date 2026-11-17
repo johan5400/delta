@@ -69,6 +69,7 @@ body{display:flex;flex-direction:column;min-height:100vh}
 .spinner{width:30px;height:30px;border:3px solid rgba(255,255,255,.1);border-top-color:var(--accent);border-radius:50%;animation:spin 1s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 </style>
+<script>if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js').catch(function(){});}</script>
 </head>
 <body>
 
@@ -260,7 +261,105 @@ function _histStamp(){
   var stamp = document.getElementById('history-stamp');
   if(stamp){ try{ stamp.textContent = 'Màj ' + new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}); }catch(e){} }
 }
-function loadHistory(){
+/* ──────────────────────────────────────────────────────────────────────────
+   ★★ CACHE VERSIONNÉ (calqué EXACTEMENT sur classement.html, lignes ~1576-1716).
+   history.html n'affiche QUE les heats terminés → il n'a besoin que du nœud léger
+   "classementLite" (heats allégés + scores + version "v"), PAS des gros nœuds
+   "heats" (~257 Ko) et "scores". On lit D'ABORD "classementLite/v" seul (quelques
+   octets) : si v == version en cache localStorage ET cache non-vide → on sert le
+   cache (0 Ko sur le gros nœud). Sinon → on lit "classementLite" complet une fois,
+   on l'applique, on réécrit le cache {v, lite}.
+   FILETS (jamais d'écran vide) : "classementLite/v" absent, OU "classementLite"
+   vide/absent, OU lecture en échec → repli sur l'ANCIEN comportement (_loadHistoryLegacy :
+   lecture heats + scores complets + écoute incrémentale). Ne JAMAIS cacher un résultat vide.
+   ────────────────────────────────────────────────────────────────────────── */
+var _HIST_CACHE_KEY = 'boxcrew_history_cache_v1';
+function _histReadCache(){
+  try{ var raw = localStorage.getItem(_HIST_CACHE_KEY); return raw ? JSON.parse(raw) : null; }catch(e){ return null; }
+}
+function _histWriteCache(v, lite){
+  // ★ NE JAMAIS cacher un résultat vide (sinon on resservirait du vide en boucle).
+  if(!lite || !lite.heats || !Object.keys(lite.heats).length) return;
+  try{ localStorage.setItem(_HIST_CACHE_KEY, JSON.stringify({v:v, lite:lite})); }catch(e){}
+}
+function _histCacheHasData(c){ return !!(c && c.lite && c.lite.heats && Object.keys(c.lite.heats).length>0); }
+
+// ★★ Applique un objet "lite" (venu du gros nœud OU du cache) : remplit HEATS, ré-indexe
+//    les scores embarqués (même indexScore que les listeners), rafraîchit l'affichage.
+//    Ne ré-attache PAS les écouteurs des gros nœuds (économie de bande passante : la
+//    resync passe par le version-check, comme sur classement.html).
+function _applyHistLite(lite){
+  _histDetach();                       // coupe toute écoute "heats/scores" résiduelle
+  HEATS = lite.heats || {};
+  SCORES = {};
+  var sc = lite.scores || {};
+  Object.keys(sc).forEach(function(k){ indexScore(k, sc[k]); });
+  render();
+  _histStamp();
+}
+
+// ★★ Lecture COMPLÈTE du nœud léger "classementLite" (une seule fois), puis réécriture
+//    du cache. Repli sûr si le nœud léger est absent/vide (vieille compét, admin pas à
+//    jour) → ancien comportement heats+scores.
+function _loadHistFull(_v){
+  var btn = document.getElementById('history-refresh');
+  db.ref('classementLite').once('value').then(function(snap){
+    var lite = snap.val();
+    if(lite && lite.heats && Object.keys(lite.heats).length){
+      _applyHistLite(lite);
+      var v = (lite.v!=null) ? lite.v : _v;
+      if(v!=null) _histWriteCache(v, {heats:lite.heats, scores:lite.scores||{}});
+      if(btn){ btn.disabled = false; btn.textContent = '↻ Actualiser'; }
+    } else {
+      // Nœud léger absent/vide → repli complet (lecture heats + scores).
+      _loadHistoryLegacy();
+    }
+  }).catch(function(){
+    // ★ ANTI-PSCHITT : lecture du gros nœud échouée → on sert le cache s'il existe,
+    //   sinon repli complet "heats+scores". Jamais figé.
+    var c = _histReadCache();
+    if(_histCacheHasData(c)){ _applyHistLite(c.lite); if(btn){ btn.disabled = false; btn.textContent = '↻ Actualiser'; } }
+    else { _loadHistoryLegacy(); }
+  });
+}
+
+// ★★ CHARGEMENT VERSIONNÉ (cache-aware). Lit d'abord SEULEMENT "classementLite/v"
+//    (quelques octets). Si v == cache.v ET cache valide → sert le cache (0 Ko sur le
+//    gros nœud). Sinon → lecture complète + réécriture cache. Filets partout → jamais vide.
+function _loadHistVersioned(){
+  var btn = document.getElementById('history-refresh');
+  if(btn){ btn.disabled = true; btn.textContent = '⏳...'; }
+  _histDetach();
+  db.ref('classementLite/v').once('value').then(function(vs){
+    var v = vs.val();
+    var c = _histReadCache();
+    if(v==null){
+      // Pas de champ v (vieil admin) : on ne peut pas comparer → cache si dispo, sinon complet.
+      if(_histCacheHasData(c)){ _applyHistLite(c.lite); if(btn){ btn.disabled = false; btn.textContent = '↻ Actualiser'; } }
+      else { _loadHistFull(null); }
+      return;
+    }
+    // Version inchangée ET cache valide → on sert le cache, PAS de gros nœud (0 Ko).
+    if(_histCacheHasData(c) && String(c.v)===String(v)){
+      _applyHistLite(c.lite);
+      if(btn){ btn.disabled = false; btn.textContent = '↻ Actualiser'; }
+      return;
+    }
+    // Version changée / pas de cache / cache vide → lecture complète + réécriture cache.
+    _loadHistFull(v);
+  }).catch(function(){
+    // ★ Lecture de la version échouée (hors ligne au boot) : cache si dispo, sinon
+    //   lecture complète (qui a ses propres filets, dont le repli heats+scores).
+    var c = _histReadCache();
+    if(_histCacheHasData(c)){ _applyHistLite(c.lite); if(btn){ btn.disabled = false; btn.textContent = '↻ Actualiser'; } }
+    else { _loadHistFull(null); }
+  });
+}
+
+// ★ FILET DE SÉCURITÉ (ancien comportement) : lecture COMPLÈTE heats + scores + écoute
+//   incrémentale si la page est visible. Utilisé UNIQUEMENT quand le nœud léger
+//   "classementLite" est indisponible (absent/vide/en échec).
+function _loadHistoryLegacy(){
   var btn = document.getElementById('history-refresh');
   if(btn){ btn.disabled = true; btn.textContent = '⏳...'; }
   _histDetach();
@@ -282,12 +381,19 @@ function loadHistory(){
     if(btn){ btn.disabled = false; btn.textContent = '↻ Réessayer'; }
   });
 }
+
+// ★ Point d'entrée public UNIQUE (bouton « Actualiser », chargement initial, resync).
+//   Passe DÉSORMAIS par le chargement versionné → ne re-télécharge le gros nœud QUE si
+//   la version a changé (sinon quelques octets + cache). Exposé en global pour le bouton.
+function loadHistory(){ _loadHistVersioned(); }
+window.loadHistory = loadHistory;
+
 loadHistory();
 
-// Couper l'écoute quand l'onglet est caché, resynchroniser au retour.
+// Couper l'écoute quand l'onglet est caché, resynchroniser (versionné) au retour.
 document.addEventListener('visibilitychange', function(){
   if(document.hidden){ _histDetach(); }
-  else { loadHistory(); }   // resync propre au retour (1 lecture + ré-attache)
+  else { loadHistory(); }   // resync versionnée au retour (quelques octets si inchangé)
 });
 
 // ★ ANTI-PSCHITT : resynchroniser une fois à chaque reconnexion Firebase (page visible).
