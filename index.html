@@ -1918,12 +1918,32 @@ function checkPassword(){
       <button onclick="fullFirebaseBackup()" style="padding:11px 20px;background:linear-gradient(135deg,#00B87A,#00E5A0);border:none;border-radius:10px;color:#04231A;font-size:13px;font-weight:900;cursor:pointer;box-shadow:0 2px 12px rgba(0,229,160,.25)">💾 Sauvegarder la base</button>
       <button onclick="document.getElementById('full-fb-restore-input').click()" style="padding:11px 20px;background:rgba(255,138,0,.12);border:1.5px solid rgba(255,138,0,.5);border-radius:10px;color:#FF8A00;font-size:13px;font-weight:900;cursor:pointer">🚨 Import de secours…</button>
       <input type="file" id="full-fb-restore-input" accept="application/json,.json" style="display:none" onchange="fullFirebaseRestore(event)">
+      <!-- ♻️ Restauration d'un instantané AUTO de scores (discret, additif, ne touche que scores/) -->
+      <button onclick="openScoreRestoreModal()" title="Restaurer les scores depuis une sauvegarde automatique (ne touche pas les heats ni les horaires)" style="padding:9px 15px;background:rgba(148,163,184,.10);border:1px solid rgba(148,163,184,.35);border-radius:10px;color:#94A3B8;font-size:12px;font-weight:700;cursor:pointer">♻️ Restaurer un instantané</button>
     </div>
     <div style="font-size:10px;color:#64748B;margin-top:10px;line-height:1.6">
       ⚠️ L'import de secours <b>écrase tout ce qui est en ligne</b> — à n'utiliser que si la base est corrompue.
-      Une confirmation et le mot <code style="color:#FF8A00">RESTAURER</code> sont demandés.
+      Une confirmation et le mot <code style="color:#FF8A00">RESTAURER</code> sont demandés.<br>
+      ♻️ <b>Restaurer un instantané</b> ne remet <b>que les scores</b> à une sauvegarde automatique (les heats, horaires et le planning ne bougent pas).
     </div>
   </div>
+
+  <!-- ══ MODALE : RESTAURER UN INSTANTANÉ DE SCORES (lecture de backups/, écriture scores/ seule) ══ -->
+  <div class="modal-bg" id="score-restore-modal">
+    <div class="modal" style="max-width:560px">
+      <h2 style="color:#0F1C2E">♻️ Restaurer un instantané de scores
+        <button class="modal-close" onclick="closeModal('score-restore-modal')" aria-label="Fermer">×</button>
+      </h2>
+      <div style="font-size:12px;color:#475569;line-height:1.6;margin-bottom:14px">
+        Choisis une sauvegarde automatique. Elle remet <b>uniquement les scores</b> à l'état de ce moment-là.
+        Les <b>heats, horaires et le planning ne sont pas touchés</b>. Avant d'écraser, une sauvegarde de sécurité des scores actuels est créée automatiquement.
+      </div>
+      <div id="score-restore-list" style="display:flex;flex-direction:column;gap:9px;max-height:46vh;overflow-y:auto;margin-bottom:6px">
+        <div style="text-align:center;color:#94A3B8;font-size:12px;padding:22px 0">⏳ Lecture des sauvegardes…</div>
+      </div>
+    </div>
+  </div>
+
   <div class="print-header"><h2 id="print-jour-title"></h2><p id="print-jour-sub"></p></div>
   <div id="jourj-notes-banner" style="display:none;background:#fff8e1;border-left:4px solid #F9A825;border-radius:7px;padding:10px 14px;margin-bottom:10px;font-size:12px;color:#555"></div>
   <div class="no-print" style="display:flex;gap:7px;margin-bottom:12px;flex-wrap:wrap;align-items:center">
@@ -21770,6 +21790,145 @@ function fullFirebaseRestore(ev){
     });
   };
   reader.readAsText(file);
+}
+
+/* ══════════════════════════════════════════════════════════
+   RESTAURATION D'UN INSTANTANÉ DE SCORES (UI discrète)
+   ──────────────────────────────────────────────────────────
+   S'appuie sur le filet de sécurité auto (nœud `backups/<ts>`).
+   • Lit `backups/` en LECTURE SEULE pour lister les snapshots.
+   • Restaure UNIQUEMENT `scores/` (set) depuis le snapshot choisi.
+     → ne touche JAMAIS heats/, statuts, horaires, planning.
+   • Avant d'écraser, crée un snapshot de sécurité des scores
+     COURANTS (via _writeScoreSnapshot) → la restauration est
+     elle-même annulable.
+   • Confirmation forte : il faut taper RESTAURER (comme
+     fullFirebaseRestore / fbClear). Aucun clic involontaire ne
+     peut déclencher l'écrasement.
+   • Après succès : republie le classement public
+     (publishClassementLite + renderClassementTK) pour que les
+     spectateurs voient les scores restaurés. Le planning n'est
+     pas republié (on ne restaure que les scores).
+   • 100% try/catch. Purement additif.
+   ══════════════════════════════════════════════════════════ */
+
+// Ouvre la modale et peuple la liste des snapshots (du + récent au + ancien).
+function openScoreRestoreModal(){
+  var listEl=document.getElementById('score-restore-list');
+  try{ openModal('score-restore-modal'); }catch(_e){}
+  if(listEl) listEl.innerHTML='<div style="text-align:center;color:#94A3B8;font-size:12px;padding:22px 0">⏳ Lecture des sauvegardes…</div>';
+  var _db=_getFbDbForBackup();
+  if(!_db||typeof _db.ref!=='function'){
+    if(listEl) listEl.innerHTML='<div style="text-align:center;color:#EF4444;font-size:12px;padding:22px 0">Firebase non connecté.</div>';
+    return;
+  }
+  _db.ref(SCORE_BACKUP_NODE).once('value').then(function(snap){
+    try{
+      var all=snap.val();
+      var keys=(all&&typeof all==='object')?Object.keys(all):[];
+      if(!keys.length){
+        if(listEl) listEl.innerHTML='<div style="text-align:center;color:#64748B;font-size:13px;font-weight:700;padding:26px 0">📭 Aucune sauvegarde disponible</div>';
+        return;
+      }
+      // Tri : clés = timestamps ms → du PLUS RÉCENT au plus ancien.
+      keys.sort(function(a,b){ return (parseInt(b,10)||0)-(parseInt(a,10)||0); });
+      var html='';
+      keys.forEach(function(k){
+        var s=all[k]||{};
+        var meta=s.meta||{};
+        var when=s.atHuman||( s.at? (function(){ try{return new Date(s.at).toLocaleString('fr-FR');}catch(_e){return String(s.at);} })() : k);
+        var nb=(meta.nbScores!=null?meta.nbScores:'?');
+        var hd=(meta.heatsDone!=null && meta.heatsDone>=0)?(' — '+meta.heatsDone+' heat'+(meta.heatsDone>1?'s':'')+' terminé'+(meta.heatsDone>1?'s':'')):'';
+        html+='<div style="border:1px solid #E2E8F0;border-radius:11px;padding:11px 13px;display:flex;align-items:center;gap:12px;background:#F8FAFC">'
+            + '<div style="flex:1;min-width:0">'
+            +   '<div style="font-size:13px;font-weight:800;color:#0F1C2E">🕐 '+_escH(when)+'</div>'
+            +   '<div style="font-size:11px;color:#64748B;margin-top:2px">'+nb+' score'+((nb!==1&&nb!=='?')?'s':'')+hd+'</div>'
+            + '</div>'
+            + '<button onclick="confirmRestoreScoreSnapshot(\''+k+'\')" style="padding:8px 13px;background:#0F1C2E;border:none;border-radius:9px;color:#fff;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap">Restaurer celui-ci</button>'
+            + '</div>';
+      });
+      if(listEl) listEl.innerHTML=html;
+    }catch(e2){
+      if(listEl) listEl.innerHTML='<div style="text-align:center;color:#EF4444;font-size:12px;padding:22px 0">Erreur de lecture : '+_escH(e2&&e2.message?e2.message:String(e2))+'</div>';
+    }
+  }).catch(function(err){
+    if(listEl) listEl.innerHTML='<div style="text-align:center;color:#EF4444;font-size:12px;padding:22px 0">Lecture des sauvegardes échouée : '+_escH(err&&err.message?err.message:String(err))+'</div>';
+  });
+}
+window.openScoreRestoreModal=openScoreRestoreModal;
+
+// Petit échappement HTML (les dates/textes viennent de Firebase).
+function _escH(s){
+  return String(s==null?'':s).replace(/[&<>"']/g,function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+  });
+}
+
+// Garde-fou FORT : relit le snapshot choisi, affiche ce qui va se passer,
+// puis exige de taper RESTAURER avant toute écriture.
+function confirmRestoreScoreSnapshot(ts){
+  var _db=_getFbDbForBackup();
+  if(!_db||typeof _db.ref!=='function'){ toast('Firebase non connecté','#FF3B5C',4000); return; }
+  _db.ref(SCORE_BACKUP_NODE+'/'+ts).once('value').then(function(snap){
+    var s=snap.val();
+    if(!s || typeof s!=='object' || !s.scores || typeof s.scores!=='object'){
+      toast('❌ Sauvegarde illisible ou vide','#FF3B5C',5000); return;
+    }
+    var when=s.atHuman||( s.at? (function(){ try{return new Date(s.at).toLocaleString('fr-FR');}catch(_e){return String(s.at);} })() : ts);
+    var nb=(s.meta&&s.meta.nbScores!=null)?s.meta.nbScores:Object.keys(s.scores).length;
+    var ok1=confirm('♻️ RESTAURER LES SCORES\n\n'
+      +'Tu vas REMPLACER les scores actuels par la sauvegarde du :\n'
+      +when+'\n'
+      +'('+nb+' score'+(nb>1?'s':'')+')\n\n'
+      +'• Les scores actuels seront ÉCRASÉS.\n'
+      +'• Les heats, horaires et le planning NE bougent PAS.\n'
+      +'• Une sauvegarde de sécurité des scores actuels est créée avant (annulable).\n\n'
+      +'Continuer ?');
+    if(!ok1){ toast('Restauration annulée','#94A3B8',3000); return; }
+    var mot=prompt('Dernière confirmation.\n\nTape le mot RESTAURER (en majuscules) pour remplacer les scores par la sauvegarde du '+when+' :');
+    if(mot!=='RESTAURER'){ toast('Restauration annulée (mot incorrect)','#94A3B8',4000); return; }
+    _doRestoreScoreSnapshot(_db, ts, s, when, nb);
+  }).catch(function(err){
+    toast('Lecture de la sauvegarde échouée : '+(err&&err.message?err.message:err),'#FF3B5C',6000);
+  });
+}
+window.confirmRestoreScoreSnapshot=confirmRestoreScoreSnapshot;
+
+// Exécute la restauration : (1) snapshot de sécurité des scores COURANTS,
+// (2) scores/.set(snapshot.scores), (3) republication du classement.
+// Rien d'autre n'est écrit (pas de heats/, pas de statuts, pas de planning).
+function _doRestoreScoreSnapshot(_db, ts, snapshot, when, nb){
+  toast('⏳ Sauvegarde de sécurité puis restauration…','#4DA6FF',4000);
+  // (1) Snapshot de sécurité de l'état COURANT avant d'écraser (restauration annulable).
+  //     On lit scores/ maintenant et on l'écrit sous backups/<now> via la logique existante.
+  var _now=Date.now();
+  _db.ref('scores').once('value').then(function(curSnap){
+    var curScores=curSnap.val()||{};
+    var curNb=Object.keys(curScores).length;
+    try{
+      if(curNb>0 && typeof _writeScoreSnapshot==='function'){
+        // heatsDone=-1 : on ne bloque pas la restauration pour lire les heats ; meta best-effort.
+        // sig null : ne touche pas _scoreBackupLastSig (le filet auto garde sa propre logique).
+        _writeScoreSnapshot(_db, _now, curScores, curNb, -1, null);
+      }
+    }catch(_e){ /* snapshot de sécurité best-effort — n'empêche jamais la restauration */ }
+
+    // (2) RESTAURATION : remplace intégralement le nœud scores/ par le contenu sauvegardé.
+    return _db.ref('scores').set(snapshot.scores);
+  }).then(function(){
+    toast('✅ Scores restaurés depuis la sauvegarde du '+when,'#00E5A0',6000);
+    try{ closeModal('score-restore-modal'); }catch(_e){}
+    // (3) Republier le classement public (spectateurs / QR) + rafraîchir l'admin.
+    //     On NE republie PAS le planning : on n'a restauré que les scores, pas les horaires.
+    try{ if(typeof publishClassementLite==='function') publishClassementLite(); }catch(e){ console.warn('republication classementLite:',e&&e.message); }
+    try{ if(typeof renderClassementTK==='function') renderClassementTK(); }catch(e){ console.warn('refresh classement admin:',e&&e.message); }
+  }).catch(function(err){
+    // Échec de la restauration (ou de la lecture) → message clair, pas de crash.
+    //   La sauvegarde de sécurité a (au pire) déjà été tentée ; scores/ n'est écrasé
+    //   que si .set a réussi, donc pas d'état à moitié écrit côté scores.
+    toast('❌ Restauration échouée : '+(err&&err.message?err.message:err),'#FF3B5C',7000);
+    console.warn('[restore scores] échec', err);
+  });
 }
 
 
