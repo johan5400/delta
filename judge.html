@@ -125,6 +125,16 @@
   --ff:'Bebas Neue',sans-serif;--fc:'Barlow Condensed',sans-serif;
   --fb:'Outfit',sans-serif;--fm:'JetBrains Mono',monospace;
   --sat:env(safe-area-inset-top,0px);--sab:env(safe-area-inset-bottom,0px);
+  /* ★ PASSE VISUELLE v2 — tokens de cohérence (rayons, ombres, bordures).
+     But : des finitions pro et un rythme régulier, SANS changer l'ergonomie ni la logique.
+     L'accent lime (--lime) nomme la couleur forte de l'appli juge, déjà utilisée en dur. */
+  --lime:#C6FF4A;--lime2:#B6FF3C;--lime-deep:#123008;
+  --r-xs:8px;--r-sm:10px;--r-md:13px;--r-lg:16px;--r-xl:20px;--r-pill:999px;
+  --sh-1:0 2px 10px rgba(0,0,0,.22);
+  --sh-2:0 10px 30px rgba(0,0,0,.30);
+  --sh-lime:0 8px 30px rgba(182,255,60,.4);
+  --hair:1px solid rgba(255,255,255,.10);
+  --hair-soft:1px solid rgba(255,255,255,.06);
 }
 html,body{height:100%;overflow:hidden;color:var(--ink);font-family:var(--fb)}
 body{
@@ -194,16 +204,17 @@ body{
 .fmt-ergo{background:rgba(176,110,255,.1);color:var(--purple);border:1px solid rgba(176,110,255,.22)}
 .fmt-open{background:rgba(255,209,102,.1);color:var(--gold);border:1px solid rgba(255,209,102,.22)}
 
-/* ATTENTE */
-#s-wait{align-items:center;justify-content:center;gap:16px;padding:24px 20px;background:radial-gradient(ellipse at 50% 30%,rgba(77,166,255,.06) 0%,transparent 60%),var(--bg)}
-.w-ico{font-size:60px;animation:blink 2s infinite}
-.w-title{font-family:var(--ff);font-size:30px;letter-spacing:4px}
-.w-sub{font-family:var(--fc);font-size:11px;font-weight:700;letter-spacing:1px;color:var(--ink2);text-align:center}
-.w-info{background:var(--s1);border:1px solid var(--brd2);border-radius:14px;padding:14px 18px;width:100%;max-width:330px}
-.w-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--brd)}
+/* ATTENTE — passe visuelle : plus aéré, carte d'info plus lisible (libellés remontés de
+   --mid terne vers --ink2, meilleur rythme de lignes), accent discret. */
+#s-wait{align-items:center;justify-content:center;gap:15px;padding:24px 20px;background:radial-gradient(ellipse at 50% 28%,rgba(77,166,255,.08) 0%,transparent 58%),var(--bg)}
+.w-ico{font-size:58px;animation:blink 2.4s ease infinite}
+.w-title{font-family:var(--ff);font-size:32px;letter-spacing:4px;color:#F2F5FA;line-height:1}
+.w-sub{font-family:var(--fc);font-size:12px;font-weight:700;letter-spacing:.6px;color:var(--ink2);text-align:center}
+.w-info{background:linear-gradient(170deg,var(--s1),rgba(27,30,61,.75));border:var(--hair);border-radius:var(--r-lg);padding:6px 18px;width:100%;max-width:340px;box-shadow:var(--sh-1)}
+.w-row{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:9px 0;border-bottom:var(--hair-soft)}
 .w-row:last-child{border-bottom:none}
-.w-lbl{font-family:var(--fc);font-size:9px;font-weight:800;letter-spacing:1.5px;color:var(--mid);text-transform:uppercase}
-.w-val{font-family:var(--fc);font-size:12px;font-weight:800;color:var(--ink)}
+.w-lbl{font-family:var(--fc);font-size:10px;font-weight:800;letter-spacing:1.2px;color:#7E8DA8;text-transform:uppercase;flex-shrink:0}
+.w-val{font-family:var(--fc);font-size:13px;font-weight:800;color:#EAEEF5;text-align:right}
 
 /* PRE */
 #s-pre{align-items:center;justify-content:center;gap:12px;padding:calc(var(--sat) + 18px) 16px 18px;background:radial-gradient(ellipse at 60% 20%,rgba(255,176,32,.06) 0%,transparent 55%),var(--bg)}
@@ -229,18 +240,46 @@ body{
 
 /* JUGE HEADER */
 #s-judge{overflow:hidden;position:relative}
-.j-hdr{background:linear-gradient(160deg,var(--s1),var(--s2));border-bottom:1px solid var(--brd);padding:10px 13px;flex-shrink:0;padding-top:calc(var(--sat) + 10px)}
-.j-hdr-r1{display:flex;align-items:center;gap:8px;margin-bottom:5px}
+/* ★ PASSE VISUELLE : header plus net. Léger halo d'accent sur le bord bas pour poser
+   l'identité sans charger ; fond un peu plus profond pour détacher le contenu. */
+.j-hdr{background:linear-gradient(160deg,var(--s1),var(--s2));border-bottom:var(--hair);box-shadow:inset 0 -1px 0 rgba(198,255,74,.08),0 2px 12px rgba(0,0,0,.22);padding:9px 13px 10px;flex-shrink:0;padding-top:calc(var(--sat) + 9px)}
+.j-hdr-r1{display:flex;align-items:center;gap:7px;margin-bottom:7px}
 .j-heat-lbl{font-family:var(--fc);font-size:10px;font-weight:800;letter-spacing:2px;color:var(--ember);text-transform:uppercase;flex-shrink:0}
-.j-team{font-family:var(--fc);font-size:clamp(17px,5.2vw,26px);font-weight:900;color:var(--ink);flex:1;min-width:0;line-height:1.15;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;word-break:break-word;hyphens:auto}
-/* ★ LISIBILITÉ : le n° de ligne est l'info "ne te trompe pas d'athlète" — avant 9px gris terne.
-   Désormais gros, fond vif (vert acidulé = couleur forte de l'appli), texte foncé = lisible plein soleil. */
-.j-lane{font-family:var(--fc);font-size:clamp(15px,4.6vw,22px);font-weight:900;line-height:1;padding:5px 12px;border-radius:8px;background:#C6FF4A;color:#14263a;border:1px solid rgba(0,0,0,.15);box-shadow:0 2px 10px rgba(198,255,74,.35);flex-shrink:0;letter-spacing:.5px}
-.j-hdr-r2{display:flex;align-items:center;gap:8px}
-.j-wod-lbl{font-family:var(--fc);font-size:11px;font-weight:600;color:var(--ink2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.j-fmt{font-family:var(--fc);font-size:8px;font-weight:800;padding:2px 7px;border-radius:4px;background:rgba(255,87,34,.1);color:var(--fire);border:1px solid rgba(255,87,34,.2);text-transform:uppercase;flex-shrink:0}
-.j-timer{font-family:var(--fm);font-size:clamp(18px,4.5vw,24px);font-weight:900;margin-left:auto;flex-shrink:0}
+.j-team{font-family:var(--fc);font-size:clamp(18px,5.4vw,27px);font-weight:900;color:var(--ink);flex:1;min-width:0;line-height:1.12;letter-spacing:.2px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;word-break:break-word;hyphens:auto}
+/* ★ LISIBILITÉ : le n° de ligne est l'info "ne te trompe pas d'athlète" — gros, fond vif
+   (vert acidulé = couleur forte de l'appli), texte foncé = lisible plein soleil. */
+.j-lane{font-family:var(--fc);font-size:clamp(16px,4.8vw,23px);font-weight:900;line-height:1;padding:6px 13px;border-radius:var(--r-sm);background:linear-gradient(135deg,var(--lime),var(--lime2));color:#13260a;border:1px solid rgba(0,0,0,.18);box-shadow:0 3px 12px rgba(198,255,74,.4);flex-shrink:0;letter-spacing:.5px}
+/* ★ PASSE VISUELLE : les actions du header (WOD / Absente) deviennent des "ghost chips"
+   cohérents — même hauteur, même rayon, même graisse — pour qu'ils ne volent pas la vedette
+   au nom d'équipe et à la ligne. Les couleurs sémantiques (orange = absente) restent lisibles. */
+.jh-chip{display:inline-flex;align-items:center;gap:5px;height:34px;padding:0 12px;border-radius:var(--r-sm);
+  font-family:var(--fc);font-size:11px;font-weight:800;letter-spacing:.4px;cursor:pointer;flex-shrink:0;
+  white-space:nowrap;line-height:1;transition:transform .08s,background .15s,border-color .15s;
+  background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.16);color:rgba(255,255,255,.86)}
+.jh-chip:active{transform:scale(.95);background:rgba(255,255,255,.1)}
+.jh-chip.is-warn{background:rgba(255,138,0,.13);border-color:rgba(255,138,0,.42);color:#FF9E40}
+.jh-chip.is-warn:active{background:rgba(255,138,0,.2)}
+/* ★ PASSE VISUELLE : r2 = "ligne de statut". Fin trait au-dessus pour la séparer de r1,
+   WOD un peu plus lisible, chip format et timer harmonisés (rayon, graisse). */
+.j-hdr-r2{display:flex;align-items:center;gap:7px;padding-top:7px;border-top:var(--hair-soft)}
+.j-wod-lbl{font-family:var(--fc);font-size:11px;font-weight:700;color:#A9B7CE;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;letter-spacing:.2px}
+.j-fmt{font-family:var(--fc);font-size:9px;font-weight:800;padding:3px 8px;border-radius:var(--r-xs);background:rgba(255,87,34,.12);color:var(--fire);border:1px solid rgba(255,87,34,.26);text-transform:uppercase;letter-spacing:.6px;flex-shrink:0}
+.j-timer{font-family:var(--fm);font-size:clamp(18px,4.5vw,24px);font-weight:900;margin-left:auto;flex-shrink:0;font-variant-numeric:tabular-nums;letter-spacing:.5px}
 .j-timer.ok{color:var(--ok)}.j-timer.warn{color:var(--warn)}.j-timer.danger{color:var(--err);animation:blink .5s infinite}
+/* ★ VOYANT DE CONNEXION PERMANENT — pastille + libellé, toujours dans le header.
+   Fond plein et texte foncé = lisible plein soleil. Transition douce sur bascule d'état. */
+.j-conn{display:inline-flex;align-items:center;gap:6px;flex-shrink:0;
+  padding:4px 10px;border-radius:999px;font-family:var(--fc);font-size:11px;font-weight:900;
+  letter-spacing:.6px;line-height:1;text-transform:uppercase;
+  border:1px solid transparent;transition:background .25s,color .25s,border-color .25s}
+.j-conn .conn-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;
+  background:currentColor;box-shadow:0 0 7px currentColor;transition:background .25s}
+.j-conn.is-online{background:rgba(0,229,160,.14);color:#00E5A0;border-color:rgba(0,229,160,.4)}
+.j-conn.is-offline{background:rgba(255,59,92,.16);color:#FF5C78;border-color:rgba(255,59,92,.5);animation:blink 1.1s ease infinite}
+/* ★ Compteur de scores en attente (file offline) — orange, discret, n'apparaît que si N>0 */
+.j-queue{display:inline-flex;align-items:center;gap:3px;flex-shrink:0;
+  padding:4px 9px;border-radius:999px;font-family:var(--fm);font-size:12px;font-weight:900;
+  line-height:1;background:rgba(255,138,0,.16);color:#FFB020;border:1px solid rgba(255,138,0,.45)}
 .judge-lock{display:none;align-items:center;justify-content:center;gap:10px;padding:12px 16px;background:linear-gradient(135deg,rgba(255,176,32,.16),rgba(255,138,0,.12));border-bottom:1px solid rgba(255,176,32,.26);color:#ffe3a3;font-family:var(--fc);font-size:14px;font-weight:900;letter-spacing:1.2px;text-transform:uppercase;line-height:1.35;text-align:center}
 .judge-lock.show{display:flex}
 .judge-lock strong{color:#FFE3A3}
@@ -271,13 +310,32 @@ body{
 .emom-rnd-chip{font-family:var(--fm);font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;background:var(--s3);color:var(--ink2);border:1px solid var(--brd)}
 .emom-rnd-chip.current{background:rgba(0,229,160,.1);color:var(--ok);border-color:rgba(0,229,160,.25)}
 
-/* COMPTEUR CENTRAL */
-.j-counter{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:6px 14px 4px;cursor:pointer;user-select:none;touch-action:manipulation;background:radial-gradient(circle at 50% 42%,rgba(182,255,60,.07) 0%,transparent 65%)}
-.j-lbl{font-family:var(--fc);font-size:9px;font-weight:800;letter-spacing:4px;color:rgba(255,255,255,.22);text-transform:uppercase;margin-bottom:2px}
-.j-num{font-family:var(--ff);font-size:clamp(80px,29vw,158px);font-weight:900;font-style:normal;line-height:1;padding:0 8px;color:#C6FF4A;text-shadow:0 4px 26px rgba(182,255,60,.35);transition:transform .1s cubic-bezier(.34,1.8,.5,1)}
+/* COMPTEUR CENTRAL — le roi de l'écran. Passe visuelle : halo plus propre, rythme
+   vertical net (label discret → chiffre immense → total → mouvement), lisibilité max.
+   La taille reste identique (clamp 80→158px) : on ne rétrécit RIEN. */
+.j-counter{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:6px 14px 4px;cursor:pointer;user-select:none;touch-action:manipulation;background:radial-gradient(circle at 50% 44%,rgba(182,255,60,.09) 0%,transparent 62%)}
+.j-lbl{font-family:var(--fc);font-size:9px;font-weight:800;letter-spacing:4px;color:rgba(255,255,255,.3);text-transform:uppercase;margin-bottom:4px}
+.j-num{font-family:var(--ff);font-size:clamp(80px,29vw,158px);font-weight:900;font-style:normal;line-height:.92;padding:0 8px;color:var(--lime);text-shadow:0 0 1px rgba(198,255,74,.6),0 6px 30px rgba(182,255,60,.4);font-variant-numeric:tabular-nums;transition:transform .1s cubic-bezier(.34,1.8,.5,1)}
 .j-num.pop{animation:pop .15s ease,glow-fire 3s ease infinite}
-/* ★ NOM MOUVEMENT — très grand */
-.j-move-name{font-family:var(--ff);font-size:clamp(28px,9vw,56px);font-weight:900;letter-spacing:2px;color:var(--ink);margin-top:4px;text-align:center;line-height:1;text-transform:uppercase;animation:move-flash .22s ease}
+/* total courant — discret mais net, juste sous le grand chiffre */
+#j-total{font-variant-numeric:tabular-nums}
+/* ★ NOM MOUVEMENT — très grand, lisible, légèrement en retrait sous le compteur */
+.j-move-name{font-family:var(--ff);font-size:clamp(28px,9vw,56px);font-weight:900;letter-spacing:2px;color:#F2F5FA;margin-top:6px;text-align:center;line-height:1;text-transform:uppercase;animation:move-flash .22s ease}
+/* ★ BANDE "TU COMPTES : X" — rappel contextuel, lisible plein soleil, discrète au repos.
+   Flash de couleur 1s au changement de mouvement (classe .flash). */
+.j-counting{display:flex;align-items:center;justify-content:center;gap:10px;flex-shrink:0;
+  padding:7px 14px;margin:2px 8px 0;border-radius:var(--r-md);
+  background:rgba(198,255,74,.08);border:1px solid rgba(198,255,74,.18);
+  box-shadow:inset 0 1px 0 rgba(198,255,74,.08);
+  transition:background .4s,border-color .4s}
+.j-counting .jc-kick{font-family:var(--fc);font-size:10px;font-weight:800;letter-spacing:2.5px;
+  text-transform:uppercase;color:rgba(255,255,255,.45);flex-shrink:0}
+.j-counting .jc-move{font-family:var(--ff);font-size:clamp(17px,5vw,26px);font-weight:900;
+  letter-spacing:1.5px;color:#C6FF4A;text-transform:uppercase;line-height:1;
+  text-shadow:0 1px 10px rgba(198,255,74,.3)}
+@keyframes jc-flash{0%{background:rgba(198,255,74,.34);border-color:rgba(198,255,74,.7)}
+  100%{background:rgba(198,255,74,.07);border-color:rgba(198,255,74,.16)}}
+.j-counting.flash{animation:jc-flash 1s ease}
 .j-target{font-family:var(--fm);font-size:clamp(22px,7vw,34px);font-weight:900;color:rgba(255,255,255,.85);margin-top:6px;letter-spacing:.5px}
 .j-norep{font-family:var(--fc);font-size:11px;font-weight:800;color:var(--err);background:rgba(255,59,92,.1);border:1px solid rgba(255,59,92,.22);padding:4px 12px;border-radius:7px;margin-top:8px}
 
@@ -295,23 +353,45 @@ body{
 .j-move-meta .j-norep{margin-top:0}
 
 /* BOUTONS */
-.j-btns{display:flex;gap:8px;padding:10px 12px;flex-shrink:0;border-top:1px solid var(--brd);padding-bottom:calc(var(--sab) + 10px)}
-.btn-rep{flex:1;padding:clamp(24px,7vh,52px) 8px;border:none;border-radius:clamp(16px,4vw,24px);background:linear-gradient(135deg,#B6FF3C,#84E86B);color:#123008;font-family:var(--ff);font-size:clamp(48px,12vw,72px);letter-spacing:2px;font-weight:900;cursor:pointer;box-shadow:0 8px 30px rgba(182,255,60,.4);touch-action:manipulation;transition:transform .1s cubic-bezier(.34,1.56,.64,1),box-shadow .1s}
-.btn-rep:active{transform:scale(.94);box-shadow:0 2px 8px rgba(255,87,34,.2)}
-/* ★ REP-1 (rep invalide) — compact, à côté du +REP, valable pour TOUS les WOD comptés */
-.btn-repminus{flex:0 0 clamp(64px,20vw,110px);padding:14px 6px;border:1px solid rgba(255,59,92,.5);border-radius:clamp(12px,3vw,20px);background:rgba(255,59,92,.12);color:#FF6B85;font-family:var(--ff);font-size:clamp(16px,4.5vw,26px);letter-spacing:1px;font-weight:900;cursor:pointer;touch-action:manipulation;line-height:1.05;transition:transform .07s}
-.btn-repminus:active{transform:scale(.94)}
-.btn-repminus .rm-sub{display:block;font-size:.42em;letter-spacing:.5px;opacity:.8;margin-top:3px;font-family:var(--fc);font-weight:700}
-.btn-kp{flex:0 0 clamp(56px,17vw,96px);padding:14px 6px;border:1px solid rgba(255,176,32,.5);border-radius:clamp(12px,3vw,20px);background:rgba(255,176,32,.12);color:#FFB020;font-family:var(--ff);font-size:clamp(20px,5vw,30px);cursor:pointer;touch-action:manipulation;line-height:1.05;transition:transform .07s}
-.btn-kp:active{transform:scale(.94)}
-.btn-kp .rm-sub{display:block;font-size:.4em;letter-spacing:.5px;opacity:.85;margin-top:3px;font-family:var(--fc);font-weight:700}
+.j-btns{display:flex;gap:7px;padding:10px 12px;flex-shrink:0;border-top:var(--hair);background:linear-gradient(180deg,transparent,rgba(0,0,0,.14));padding-bottom:calc(var(--sab) + 10px);align-items:stretch}
+/* ★ +REP = cible ultra-dominante. margin-left crée une DEAD-ZONE nette entre le groupe
+   gauche (−REP / ⌨, actions risquées) et le gros +REP → on ne retire plus une rep ni
+   on n'ouvre plus le pavé par erreur en comptant au pouce. Un fin séparateur vertical
+   (border-left) matérialise la frontière, discret mais lisible. */
+/* ★ +REP = cible ultra-dominante. Passe visuelle : dégradé lime plus riche, bord lumineux
+   interne (profondeur), état pressé cohérent (ombre lime, plus l'orange parasite). Taille,
+   dead-zone (margin-left) et séparateur conservés À L'IDENTIQUE. */
+.btn-rep{flex:1;margin-left:clamp(16px,5vw,30px);padding:clamp(24px,7vh,52px) 8px;border:none;border-left:2px solid rgba(255,255,255,.09);border-radius:clamp(16px,4vw,24px);background:linear-gradient(145deg,#C6FF4A,#8FEA5E);color:var(--lime-deep);font-family:var(--ff);font-size:clamp(50px,13vw,78px);letter-spacing:2px;font-weight:900;cursor:pointer;box-shadow:var(--sh-lime),inset 0 2px 0 rgba(255,255,255,.4),inset 0 -3px 10px rgba(18,48,8,.18);touch-action:manipulation;transition:transform .1s cubic-bezier(.34,1.56,.64,1),box-shadow .1s}
+.btn-rep:active{transform:scale(.94);box-shadow:0 2px 10px rgba(143,234,94,.35),inset 0 2px 6px rgba(18,48,8,.25)}
+/* ★ REP-1 (rep invalide) — compact, en retrait, action mineure/prudence. Finitions alignées. */
+.btn-repminus{flex:0 0 clamp(58px,18vw,100px);padding:14px 6px;border:1px solid rgba(255,59,92,.5);border-radius:clamp(12px,3vw,20px);background:linear-gradient(160deg,rgba(255,59,92,.16),rgba(255,59,92,.09));color:#FF7389;font-family:var(--ff);font-size:clamp(15px,4.2vw,24px);letter-spacing:1px;font-weight:900;cursor:pointer;touch-action:manipulation;line-height:1.05;transition:transform .07s,background .12s;box-shadow:inset 0 1px 0 rgba(255,255,255,.07)}
+.btn-repminus:active{transform:scale(.94);background:rgba(255,59,92,.22)}
+.btn-repminus .rm-sub{display:block;font-size:.42em;letter-spacing:.5px;opacity:.82;margin-top:3px;font-family:var(--fc);font-weight:700}
+.btn-kp{flex:0 0 clamp(50px,15vw,88px);padding:14px 6px;border:1px solid rgba(255,176,32,.5);border-radius:clamp(12px,3vw,20px);background:linear-gradient(160deg,rgba(255,176,32,.16),rgba(255,176,32,.09));color:#FFB836;font-family:var(--ff);font-size:clamp(19px,4.6vw,28px);cursor:pointer;touch-action:manipulation;line-height:1.05;transition:transform .07s,background .12s;box-shadow:inset 0 1px 0 rgba(255,255,255,.07)}
+.btn-kp:active{transform:scale(.94);background:rgba(255,176,32,.22)}
+.btn-kp .rm-sub{display:block;font-size:.4em;letter-spacing:.5px;opacity:.88;margin-top:3px;font-family:var(--fc);font-weight:700}
+/* ★ PROGRESSION "X / Y" du mouvement courant — sous le gros compteur, lisible plein soleil,
+   mais le gros chiffre reste le roi. Pastille sobre aux tokens du thème (accent lime). */
+#j-progress{display:none;margin-top:3px;font-family:var(--fm);font-size:min(5vw,20px);font-weight:900;letter-spacing:.5px;color:var(--lime);line-height:1;text-shadow:0 1px 6px rgba(182,255,60,.28)}
+#j-progress .jp-cur{color:var(--lime)}
+#j-progress .jp-sep{color:rgba(255,255,255,.4);margin:0 2px;font-weight:800}
+#j-progress .jp-tgt{color:rgba(255,255,255,.62)}
+#j-progress .jp-lbl{font-family:var(--fc);font-size:.52em;font-weight:800;letter-spacing:1.5px;color:rgba(198,255,74,.6);margin-left:5px;text-transform:uppercase}
+#j-progress.jp-done{color:#00E5A0}
+#j-progress.jp-done .jp-cur{color:#00E5A0}
 .btn-tb{flex:1;padding:20px 6px;border:1px solid rgba(255,209,102,.22);border-radius:14px;background:rgba(255,209,102,.06);color:var(--gold);font-family:var(--ff);font-size:13px;cursor:pointer;touch-action:manipulation;line-height:1.2}
 .btn-tb:active{transform:scale(.95)}
 .btn-tb.done{background:rgba(0,229,160,.1);color:var(--ok);border-color:rgba(0,229,160,.28)}
-/* ★ SÉCURITÉ FAUX CLIC : le bouton Valider était collé (margin bas 0) au-dessus de la zone
-   de comptage cliquable → risque de valider par erreur en visant une rep. On ajoute un vrai
-   espace sous le bouton pour séparer nettement "valider" de "compter". */
-.btn-validate{width:calc(100% - 24px);margin:8px 12px 14px;padding:15px;border:none;border-radius:14px;background:linear-gradient(135deg,#1e344e,var(--ok));color:#14263a;font-family:var(--ff);font-size:20px;letter-spacing:3px;cursor:pointer;touch-action:manipulation;font-weight:900;box-shadow:0 4px 18px rgba(0,229,160,.18)}
+/* ★ SÉCURITÉ FAUX CLIC : le bouton Valider garde un vrai espace sous lui pour le séparer
+   nettement de la zone de comptage (anti-faux-clic). Passe visuelle : dégradé vert propre
+   (plus le diagonal bleu→vert terne), bord lumineux subtil, état pressé net. Action forte
+   et distincte, mais calme (ce n'est PAS la cible principale du pouce — +REP l'est). */
+.btn-validate{width:calc(100% - 24px);margin:8px 12px 14px;padding:17px;border:none;border-radius:var(--r-md);
+  background:linear-gradient(135deg,#00C98D,var(--ok));color:#06231a;font-family:var(--ff);font-size:20px;
+  letter-spacing:3px;cursor:pointer;touch-action:manipulation;font-weight:900;
+  box-shadow:0 6px 20px rgba(0,229,160,.26),inset 0 1px 0 rgba(255,255,255,.3);
+  transition:transform .09s,box-shadow .09s}
+.btn-validate:active{transform:scale(.98);box-shadow:0 2px 8px rgba(0,229,160,.2),inset 0 1px 0 rgba(255,255,255,.2)}
 @keyframes valPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.03)}}
 .is-disabled{opacity:.38 !important;filter:grayscale(.18);cursor:not-allowed !important;box-shadow:none !important}
 .j-counter.is-disabled{pointer-events:none;opacity:.45;filter:saturate(.7)}
@@ -368,17 +448,38 @@ body.brief-mode #s-judge{display:none!important}
 .ml-inp{flex:1;padding:12px 14px;border-radius:10px;border:1px solid var(--brd2);background:var(--s2);color:var(--ink);font-family:var(--fm);font-size:22px;font-weight:700;outline:none;text-align:center}
 .ml-inp:focus{border-color:rgba(255,87,34,.5)}
 
-/* DONE */
-#s-done{align-items:center;justify-content:center;gap:14px;background:radial-gradient(ellipse at 50% 40%,rgba(0,229,160,.08) 0%,var(--bg) 65%)}
-.done-ico{font-size:66px}
-.done-title{font-family:var(--ff);font-size:34px;letter-spacing:4px}
-.done-score{font-family:var(--fm);font-size:54px;font-weight:900;color:var(--ok);text-align:center}
-.done-meta{font-family:var(--fc);font-size:12px;font-weight:600;color:var(--ink2);text-align:center;line-height:1.8}
+/* DONE — moment de confiance. Passe visuelle : badge check net (plus l'emoji brut),
+   "SCORE VALIDÉ" + score + confirmation en héros, info prochain heat secondaire. */
+#s-done{align-items:center;justify-content:center;gap:11px;padding:20px 18px calc(var(--sab) + 18px);background:radial-gradient(ellipse at 50% 38%,rgba(0,229,160,.1) 0%,var(--bg) 60%)}
+/* ★ Badge de validation en CSS — anneau vert + coche dessinée, premium et net */
+.done-ico{width:84px;height:84px;border-radius:var(--r-pill);display:flex;align-items:center;justify-content:center;
+  font-size:0;background:radial-gradient(circle at 50% 38%,rgba(0,229,160,.28),rgba(0,229,160,.1));
+  border:2px solid rgba(0,229,160,.5);box-shadow:0 8px 28px rgba(0,229,160,.3),inset 0 1px 0 rgba(255,255,255,.14);position:relative}
+.done-ico::after{content:'';position:absolute;width:30px;height:16px;border-left:5px solid var(--ok);border-bottom:5px solid var(--ok);
+  border-radius:1px;transform:translateY(-3px) rotate(-45deg)}
+.done-title{font-family:var(--ff);font-size:34px;letter-spacing:4px;color:#F2F5FA;line-height:1}
+.done-score{font-family:var(--fm);font-size:54px;font-weight:900;color:var(--ok);text-align:center;line-height:1;letter-spacing:.5px;text-shadow:0 2px 20px rgba(0,229,160,.28)}
+.done-meta{font-family:var(--fc);font-size:12px;font-weight:700;color:var(--ink2);text-align:center;line-height:1.7;letter-spacing:.3px}
 .done-tb{font-family:var(--fc);font-size:11px;font-weight:700;color:var(--gold);background:rgba(255,209,102,.08);border:1px solid rgba(255,209,102,.15);padding:5px 16px;border-radius:8px}
+/* ★ Confirmation d'envoi RÉELLE — pastille pilotée par l'état du .set() Firebase.
+   Contrasté et lisible plein soleil. Transition douce quand l'état change. */
+.done-confirm{display:inline-flex;align-items:center;gap:8px;max-width:310px;
+  padding:9px 16px;border-radius:var(--r-pill);font-family:var(--fc);font-size:13px;font-weight:800;
+  text-align:center;line-height:1.3;letter-spacing:.3px;
+  border:1px solid transparent;transition:background .3s,color .3s,border-color .3s}
+.done-confirm .dc-ico{font-size:15px;flex-shrink:0;line-height:1}
+/* pending = envoi en cours (neutre) */
+.done-confirm[data-state="pending"]{background:rgba(255,255,255,.06);color:var(--ink2);border-color:rgba(255,255,255,.12)}
+/* confirmed = serveur a accusé réception (vert) */
+.done-confirm[data-state="confirmed"]{background:rgba(0,229,160,.14);color:#00E5A0;border-color:rgba(0,229,160,.4)}
+/* waiting = en file offline (orange) */
+.done-confirm[data-state="waiting"]{background:rgba(255,138,0,.16);color:#FFC061;border-color:rgba(255,138,0,.5)}
 .btn-again{padding:14px 30px;background:linear-gradient(135deg,var(--fire),var(--ember));border:none;border-radius:14px;color:#fff;font-family:var(--ff);font-size:20px;letter-spacing:3px;cursor:pointer;margin-top:4px;box-shadow:0 4px 20px rgba(255,87,34,.35)}
-.judge-next-card{width:100%;max-width:380px;background:linear-gradient(135deg,rgba(255,176,32,.14),rgba(255,138,0,.09) 55%,rgba(37,62,92,.92));border:2px solid rgba(255,176,32,.34);border-radius:18px;padding:18px 18px;box-shadow:0 14px 34px rgba(0,0,0,.28)}
-.judge-next-title{font-family:var(--ff);font-size:32px;letter-spacing:2px;color:#fff3cf;text-align:center;line-height:1}
-.judge-next-body{font-family:var(--fc);font-size:18px;font-weight:800;color:#fff;text-align:center;line-height:1.45;margin-top:10px}
+/* Carte consigne — passe visuelle : le MESSAGE (body) devient le héros, le titre un
+   eyebrow discret. Un liseré orange à gauche ancre "c'est une consigne" sans crier. */
+.judge-next-card{width:100%;max-width:380px;background:linear-gradient(135deg,rgba(255,176,32,.12),rgba(255,138,0,.07) 55%,rgba(37,62,92,.9));border:1px solid rgba(255,176,32,.32);border-left:4px solid rgba(255,176,32,.6);border-radius:var(--r-lg);padding:15px 18px;box-shadow:var(--sh-2)}
+.judge-next-title{font-family:var(--fc);font-size:11px;font-weight:800;letter-spacing:2px;color:#FFCF8A;text-transform:uppercase;text-align:left;line-height:1}
+.judge-next-body{font-family:var(--fc);font-size:19px;font-weight:800;color:#fff;text-align:left;line-height:1.4;margin-top:8px}
 #j-prestart-overlay{display:none;position:absolute;inset:0;z-index:30;align-items:center;justify-content:center;flex-direction:column;gap:8px;background:radial-gradient(ellipse at 50% 40%,rgba(20,27,38,.88) 0%,rgba(13,20,31,.96) 70%)}
 /* ── Écran consigne fin de heat ── */
 #s-next{align-items:stretch;justify-content:flex-start;padding:0;overflow-y:auto}
@@ -446,6 +547,15 @@ body.brief-mode #s-judge{display:none!important}
   animation:j-tk-shine 2.2s ease-in-out infinite;will-change:opacity
 }
 @keyframes j-tk-shine{0%,100%{opacity:.3}50%{opacity:.85}}
+/* ★ PASSE VISUELLE : les CTA d'alerte du header (TK, SAISIR SCORE) deviennent des chips
+   d'alerte compacts et cohérents — vivifs et bien visibles, mais sans déborder du header
+   sur 390px (avant : padding XXL → sortie de l'écran). On conserve le shimmer bleu du TK. */
+.jh-alert{margin-left:auto;display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 14px;
+  border-radius:var(--r-sm);font-family:var(--fc);font-size:14px;font-weight:900;letter-spacing:.6px;
+  line-height:1;cursor:pointer;flex-shrink:0;white-space:nowrap;transition:transform .08s}
+.jh-alert:active{transform:scale(.95)}
+.jh-alert.is-tk{background:rgba(77,166,255,.22);border:2px solid rgba(77,166,255,.7);color:var(--blue);animation:tkFlash 1.8s ease infinite}
+.jh-alert.is-score{background:rgba(0,229,160,.2);border:2px solid var(--ok);color:var(--ok)}
 
 /* Header juge : léger glow orange en bas pour ancrer */
 .j-hdr{position:relative}
@@ -631,23 +741,28 @@ setTimeout(h,6000);/* filet anti-blocage : le splash ne reste jamais coincé */}
     <div class="j-hdr-r1">
       <span class="j-heat-lbl" id="j-heat">—</span>
       <span class="j-team" id="j-team">—</span>
-      <button onclick="toggleWodRecall()" id="j-wod-recall"
-        style="background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.22);color:rgba(255,255,255,.82);border-radius:8px;padding:6px 11px;font-size:11px;font-weight:800;cursor:pointer;flex-shrink:0;white-space:nowrap;font-family:var(--fc)"
+      <button onclick="toggleWodRecall()" id="j-wod-recall" class="jh-chip"
         title="Rappel du WOD (mouvements et tours)">📋 WOD</button>
       <span class="j-lane" id="j-lane">L—</span>
-      <button onclick="markTeamAbsent()" id="btn-team-absent"
-        style="background:rgba(245,138,0,.15);border:1px solid rgba(245,138,0,.4);color:#FF8A00;border-radius:8px;padding:6px 10px;font-size:10px;font-weight:800;cursor:pointer;flex-shrink:0;white-space:nowrap"
+      <button onclick="markTeamAbsent()" id="btn-team-absent" class="jh-chip is-warn"
         title="L'équipe de cette ligne ne s'est pas présentée">🚫 Absente</button>
-      <button onclick="callTK()" id="btn-call-tk"
-        style="display:none;margin-left:auto;background:rgba(77,166,255,.25);border:2.5px solid rgba(77,166,255,.7);color:var(--blue);border-radius:12px;padding:10px 18px;font-size:16px;font-weight:900;cursor:pointer;letter-spacing:.5px;flex-shrink:0;animation:tkFlash 1.8s ease infinite"
+      <button onclick="callTK()" id="btn-call-tk" class="jh-alert is-tk" style="display:none"
         title="Appeler le Timekeeper">📞 TK</button>
       <!-- ★ FILET DE SÉCURITÉ amrapsteph : ouvrir la saisie du score (cals/distance bike) à la main
            si l'ouverture auto a raté. Affiché seulement quand le temps est écoulé. -->
-      <button onclick="forceAmrapStephCal()" id="btn-force-score"
-        style="display:none;margin-left:auto;background:rgba(0,229,160,.2);border:2.5px solid var(--ok);color:var(--ok);border-radius:12px;padding:10px 18px;font-size:15px;font-weight:900;cursor:pointer;letter-spacing:.5px;flex-shrink:0"
+      <button onclick="forceAmrapStephCal()" id="btn-force-score" class="jh-alert is-score" style="display:none"
         title="Saisir le score du bike (fin de WOD)">📊 SAISIR SCORE</button>
     </div>
     <div class="j-hdr-r2">
+      <!-- ★ VOYANT DE CONNEXION PERMANENT — toujours visible, lisible au soleil.
+           Vert "Live" = connecté, rouge "Hors-ligne" = coupé. Piloté par la logique
+           existante (_setOnlineState via .info/connected). Le compteur "⏳ N" n'apparaît
+           que si des scores sont en attente d'envoi (_offlineQueue.length>0). -->
+      <span class="j-conn is-online" id="conn-pill-judge">
+        <span class="conn-dot" id="conn-dot-judge"></span>
+        <span class="conn-txt" id="conn-txt-judge">Live</span>
+      </span>
+      <span class="j-queue" id="conn-queue-judge" style="display:none" title="Scores en attente d'envoi — ils partiront tout seuls">⏳ <span id="conn-queue-n">0</span></span>
       <span class="j-wod-lbl" id="j-wod">—</span>
       <span class="j-fmt" id="j-fmt">—</span>
       <span class="j-timer ok" id="j-timer">00:00</span>
@@ -673,6 +788,13 @@ setTimeout(h,6000);/* filet anti-blocage : le splash ne reste jamais coincé */}
   <!-- Zone REPS / AMRAP / EMOM -->
   <div id="j-reps-zone" style="display:flex;flex-direction:column;flex:1;overflow:hidden;position:relative">
     <button class="btn-validate" onclick="validate()">✅ VALIDER LE SCORE</button>
+    <!-- ★ RAPPEL CONTEXTUEL "TU COMPTES : X" — zéro hésitation pour le juge.
+         Nom du mouvement courant, flash 1s au changement. Masqué si pas de mouvement
+         clair (chrono pur). Alimenté par updateDisplay(). -->
+    <div class="j-counting" id="j-counting" style="display:none">
+      <span class="jc-kick">Tu comptes</span>
+      <span class="jc-move" id="j-counting-move">—</span>
+    </div>
     <div id="j-round-history" style="display:none;flex-wrap:wrap;gap:5px;padding:6px 12px;border-bottom:1px solid var(--brd);flex-shrink:0"></div>
     <!-- ★ ÉCRAN REPOS — s'affiche par-dessus le compteur en phase REST -->
     <div id="j-rest-screen" style="background:radial-gradient(circle at 50% 35%,#141a17,#050706);position:absolute;inset:0;z-index:40;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:20px">
@@ -688,6 +810,10 @@ setTimeout(h,6000);/* filet anti-blocage : le splash ne reste jamais coincé */}
     <div class="j-counter" id="j-counter" onclick="addRep()">
       <div class="j-lbl" id="j-lbl">Mouvement en cours</div>
       <div class="j-num" id="j-num">0</div>
+      <!-- ★ PROGRESSION "X / Y" : le juge voit où en est l'athlète sur le mouvement courant.
+           moveReps / m.q, affiché seulement si le mouvement a une cible de reps (m.q>0) et
+           n'est pas une saisie spéciale (ergo libre / somme équipier). Alimenté par updateDisplay(). -->
+      <div id="j-progress"></div>
       <div id="j-total" style="font-family:var(--fm);font-size:min(4.5vw,18px);font-weight:800;color:rgba(255,255,255,.45);letter-spacing:1px;margin-top:2px;min-height:18px"></div>
       <div class="j-move-name" id="j-move">—</div>
     </div>
@@ -715,12 +841,12 @@ setTimeout(h,6000);/* filet anti-blocage : le splash ne reste jamais coincé */}
   <!-- ★ Pavé de saisie directe du total (WOD long : taper 72 d'un coup) -->
   <div id="rep-keypad" style="display:none;position:fixed;inset:0;z-index:9000;background:rgba(4,6,8,.93);align-items:center;justify-content:center;padding:20px" onclick="if(event.target===this)closeRepKeypad()">
     <div style="background:#0d1219;border:1px solid #1e2a38;border-radius:18px;padding:20px;width:100%;max-width:340px;text-align:center;box-shadow:0 18px 50px rgba(0,0,0,.55)">
-      <div style="font-family:var(--fc);font-size:13px;font-weight:800;color:var(--mid);letter-spacing:1px;margin-bottom:4px">TOTAL DE REPS EXACT</div>
-      <div style="font-family:var(--fc);font-size:10px;color:var(--ink2);margin-bottom:12px">Remplace le compteur par le chiffre saisi</div>
-      <input id="rep-kp-inp" type="number" min="0" inputmode="numeric" placeholder="Ex: 72" style="width:100%;padding:16px;border-radius:14px;border:1px solid rgba(255,138,0,.4);background:rgba(255,138,0,.06);color:#fff;font-family:var(--fm);font-size:42px;font-weight:800;outline:none;text-align:center" onkeydown="if(event.key==='Enter')setRepTotal()">
-      <div style="display:flex;gap:10px;margin-top:14px">
-        <button onclick="closeRepKeypad()" style="flex:1;padding:16px;border:1px solid rgba(255,255,255,.15);border-radius:12px;background:transparent;color:#8CA3BF;font-family:var(--ff);font-size:16px;letter-spacing:1px;cursor:pointer">ANNULER</button>
-        <button onclick="setRepTotal()" style="flex:2;padding:16px;border:none;border-radius:12px;background:linear-gradient(135deg,var(--fire),var(--ember));color:#fff;font-family:var(--ff);font-size:16px;letter-spacing:2px;cursor:pointer;font-weight:900">✅ OK</button>
+      <div style="font-family:var(--fc);font-size:13px;font-weight:800;color:var(--mid);letter-spacing:1px;margin-bottom:4px">TOTAL DE REPS</div>
+      <div style="font-family:var(--fc);font-size:10px;color:var(--ink2);margin-bottom:12px">Tape le total final — il remplace le compteur (n'additionne pas)</div>
+      <input id="rep-kp-inp" type="number" min="0" inputmode="numeric" placeholder="200" style="width:100%;padding:22px 16px;border-radius:16px;border:2px solid rgba(255,138,0,.55);background:rgba(255,138,0,.08);color:#fff;font-family:var(--fm);font-size:84px;font-weight:900;line-height:1;outline:none;text-align:center" onkeydown="if(event.key==='Enter')setRepTotal()">
+      <div style="display:flex;gap:10px;margin-top:16px">
+        <button onclick="closeRepKeypad()" style="flex:1;padding:20px;border:1px solid rgba(255,255,255,.15);border-radius:12px;background:transparent;color:#8CA3BF;font-family:var(--ff);font-size:16px;letter-spacing:1px;cursor:pointer">ANNULER</button>
+        <button onclick="setRepTotal()" style="flex:2;padding:20px;border:none;border-radius:12px;background:linear-gradient(135deg,var(--fire),var(--ember));color:#fff;font-family:var(--ff);font-size:20px;letter-spacing:2px;cursor:pointer;font-weight:900">✅ OK</button>
       </div>
     </div>
   </div>
@@ -798,17 +924,24 @@ setTimeout(h,6000);/* filet anti-blocage : le splash ne reste jamais coincé */}
   </div>
 <!-- DONE -->
 <div class="scr" id="s-done">
-  <!-- ★ FIX : annonce prochain heat en HAUT, grande et visible -->
-  <div id="done-next-info" style="width:100%;max-width:360px;font-size:22px;color:#fff;text-align:center;line-height:1.4;padding:18px 20px;border-radius:20px;background:linear-gradient(135deg,rgba(61,224,255,.22),rgba(155,123,255,.18),rgba(27,30,61,.95));border:2px solid rgba(61,224,255,.5);font-weight:900;letter-spacing:.5px;box-shadow:0 8px 32px rgba(61,224,255,.22);min-height:72px;display:flex;align-items:center;justify-content:center"></div>
-  <div class="done-ico">✅</div>
+  <!-- ★ Annonce prochain heat — info utile mais SECONDAIRE : le héros est la validation.
+       Bande cyan plus discrète, ancrée en haut. -->
+  <div id="done-next-info" style="width:100%;max-width:360px;font-size:15px;color:#DCF4FF;text-align:center;line-height:1.4;padding:11px 16px;border-radius:var(--r-md);background:linear-gradient(135deg,rgba(61,224,255,.16),rgba(155,123,255,.12),rgba(27,30,61,.9));border:1px solid rgba(61,224,255,.38);font-weight:800;letter-spacing:.3px;box-shadow:var(--sh-1);min-height:0;display:flex;align-items:center;justify-content:center"></div>
+  <div class="done-ico"></div>
   <div class="done-title">SCORE VALIDÉ</div>
   <div class="done-score" id="done-score">—</div>
   <div class="done-meta" id="done-meta">—</div>
   <div class="done-tb" id="done-tb" style="display:none"></div>
-  <div style="font-size:11px;color:var(--ok);text-align:center;max-width:280px;line-height:1.6;font-weight:700">✓ Score transmis au TK et au Live</div>
-  <div style="font-size:11px;color:var(--warn);text-align:center;max-width:280px;line-height:1.6;font-weight:700;margin-top:4px">⚠️ Attends le signal avant de quitter</div>
-  <button id="done-vu-btn" onclick="equipeVu()" style="margin-top:14px;padding:16px 34px;background:linear-gradient(135deg,#00c853,#00e5a0);border:none;color:#04220f;border-radius:14px;font-size:16px;font-weight:900;cursor:pointer;letter-spacing:1px;box-shadow:0 6px 22px rgba(0,229,160,.35)">👁 VU PAR L'ÉQUIPE</button>
-  <button id="done-return-btn" onclick="returnToWait()" style="margin-top:16px;padding:14px 32px;background:linear-gradient(135deg,var(--fire),var(--ember));border:none;color:#fff;border-radius:12px;font-size:15px;font-weight:800;cursor:pointer;letter-spacing:1px;box-shadow:0 4px 18px rgba(255,87,34,.35)">↩ Retour attente</button>
+  <!-- ★ CONFIRMATION RÉELLE DE L'ENVOI — pilotée par l'état effectif (voir _setDoneConfirm).
+       VERT = le serveur a accusé réception. ORANGE = en file offline, partira seul.
+       Ne plus mentir au juge : le texte reflète la réalité du .set() Firebase. -->
+  <div class="done-confirm" id="done-confirm-line" data-state="pending">
+    <span class="dc-ico" id="done-confirm-ico">⏳</span>
+    <span class="dc-txt" id="done-confirm-txt">Envoi en cours…</span>
+  </div>
+  <div style="font-size:11px;color:var(--warn);text-align:center;max-width:280px;line-height:1.55;font-weight:800;letter-spacing:.3px;margin-top:2px">⚠️ Attends le signal avant de quitter</div>
+  <button id="done-vu-btn" onclick="equipeVu()" style="margin-top:12px;padding:16px 36px;background:linear-gradient(135deg,#00C98D,#00E5A0);border:none;color:#06231a;border-radius:var(--r-md);font-family:var(--fc);font-size:16px;font-weight:900;cursor:pointer;letter-spacing:1px;box-shadow:0 6px 20px rgba(0,229,160,.3),inset 0 1px 0 rgba(255,255,255,.28)">👁 VU PAR L'ÉQUIPE</button>
+  <button id="done-return-btn" onclick="returnToWait()" style="margin-top:12px;padding:13px 30px;background:transparent;border:1px solid rgba(255,138,0,.5);color:var(--ember);border-radius:var(--r-md);font-family:var(--fc);font-size:14px;font-weight:800;cursor:pointer;letter-spacing:.8px">↩ Retour attente</button>
 </div>
 
 <!-- ★ AMRAP STEPH — saisie UNIQUE des calories de l'echobike en fin de WOD.
@@ -4203,9 +4336,55 @@ function updateDisplay(){
   var totEl=$('j-total');
   if(totEl) totEl.textContent=totalReps>0?'TOTAL : '+totalReps:'';
 
+  // ★ PROGRESSION "X / Y" du mouvement courant — le juge voit l'avancement vers la cible.
+  //   S'affiche quand le mouvement a un quota de reps (m.q>0) et compte des reps au +REP.
+  //   Masqué pour : chrono pur sans mouvement, mouvement sans cible (m.q=0, ex. AMRAP
+  //   mono-mouvement continu), et saisies spéciales (ergo libre cumulé, somme équipier) qui
+  //   n'utilisent pas le compteur +REP. Purement visuel → enveloppé dans try/catch.
+  try{
+    var progEl=$('j-progress');
+    if(progEl){
+      var _pq=(m && parseInt(m.q,10)>0) ? parseInt(m.q,10) : 0;
+      var _isEcNow = (typeof _curMoveIsEcFree==='function' && _curMoveIsEcFree());
+      var _isTeamNow = (typeof _curMoveIsTeamSum==='function' && _curMoveIsTeamSum());
+      var _isRepMove = !!(m && (m.type||'reps')==='reps' && !m.ergoFree);
+      if(_pq>0 && _isRepMove && !_isEcNow && !_isTeamNow){
+        var _cur=parseInt(moveReps,10)||0;
+        var _reached=_cur>=_pq;
+        progEl.innerHTML='<span class="jp-cur">'+_cur+'</span>'
+          +'<span class="jp-sep">/</span>'
+          +'<span class="jp-tgt">'+_pq+'</span>'
+          +'<span class="jp-lbl">reps</span>';
+        progEl.classList.toggle('jp-done', _reached);
+        progEl.style.display='block';
+      } else {
+        progEl.style.display='none';
+        progEl.classList.remove('jp-done');
+      }
+    }
+  }catch(e){}
+
   /* ★ nom mouvement animé */
   var mn=m?m.n:'—', mel=$('j-move');
   if(mel.textContent!==mn){mel.style.animation='none';void mel.offsetWidth;mel.style.animation='move-flash .22s ease';mel.textContent=mn;}
+
+  // ★ BANDE "TU COMPTES : X" — rappel contextuel. Affichée seulement s'il y a un
+  //   mouvement clair ; flash 1s au changement. Purement visuel, try/catch de sécurité.
+  try{
+    var cbox=$('j-counting'), cmove=$('j-counting-move');
+    if(cbox && cmove){
+      var _hasMove = !!(m && mn && mn!=='—');
+      if(_hasMove){
+        if(cmove.textContent!==mn){
+          cmove.textContent=mn;
+          cbox.classList.remove('flash'); void cbox.offsetWidth; cbox.classList.add('flash');
+        }
+        cbox.style.display='flex';
+      } else {
+        cbox.style.display='none';
+      }
+    }
+  }catch(e){}
 
   var infoEl=$('j-move-info');
   if(infoEl){
@@ -5094,9 +5273,11 @@ function repMinusOne(){
 function openRepKeypad(){
   if(!guardScoreEdit('Saisie bloquée')) return;
   var ov=$('rep-keypad'), inp=$('rep-kp-inp'); if(!ov||!inp) return;
-  inp.value = (typeof moveReps!=='undefined' && moveReps>0) ? moveReps : '';
+  // ★ Champ TOUJOURS vide à l'ouverture : le juge tape direct son total final (ex. 200),
+  //   sans être gêné par le compteur courant (évitait des « 640 » / totaux faux).
+  try{ inp.value=''; }catch(e){}
   ov.style.display='flex';
-  setTimeout(function(){ try{ inp.focus(); inp.select(); }catch(e){} }, 60);
+  setTimeout(function(){ try{ inp.focus(); }catch(e){} }, 60);
 }
 function closeRepKeypad(){ var ov=$('rep-keypad'); if(ov) ov.style.display='none'; }
 function setRepTotal(){
@@ -5115,7 +5296,7 @@ function setRepTotal(){
   var nel=$('j-num'); if(nel){ nel.classList.remove('pop'); void nel.offsetWidth; nel.classList.add('pop'); }
   updateDisplay(); if(typeof updateEmomDisplay==='function') updateEmomDisplay();
   if(db) pushScoreLive();
-  vib([60,30,60]); toast('✅ Total réglé : '+n+' reps','#00E5A0',1500);
+  vib([60,30,60]); toast('✅ Total = '+n+' reps','#00E5A0',1500);
   closeRepKeypad();
 }
 
@@ -5636,6 +5817,9 @@ function _judgeRestoreFromScore(sc, runTs){
     if(e3){ if(tbTs){e3.textContent='🎯 Tiebreak : '+fmtT(tbTs);e3.style.display='block';} else e3.style.display='none'; }
     // ★ RÉCAP ÉQUIPE : si le capitaine a déjà vu le score, ne pas re-proposer le bouton
     var e4=$('done-vu-btn'); if(e4) e4.style.display=(sc.vuEquipe===true)?'none':'';
+    // ★ CONFIRMATION : ce score a été relu depuis le serveur (once('value')) → il est
+    //   bel et bien enregistré. On affiche l'état confirmé (vert), pas "envoi en cours".
+    try{ _setDoneConfirm('confirmed'); }catch(e){}
     try{ _fillDoneNextInfo(); }catch(e){}
   }
   return true;
@@ -6123,11 +6307,43 @@ function _setOnlineState(up, source){
     dot.style.background = online ? '#00E5A0' : '#FF3B5C';
     dot.title = online ? 'Connecté' : 'Hors ligne';
   }
+  // ★ VOYANT PERMANENT : piloter la pastille + libellé (Live / Hors-ligne).
+  //   Purement visuel ; try/catch pour ne jamais bloquer la bascule d'état.
+  try{ _paintConnPill(online); }catch(e){}
   if(online && !was){
     _flushQueue();
   } else if(!online && was){
     if(_offlineQueue.length) toast('📴 Hors ligne — reps sauvegardés localement','#FF8A00');
   }
+}
+
+/* ★ Affichage du voyant de connexion permanent (pastille + texte "Live"/"Hors-ligne").
+   N'ajoute AUCUN listener Firebase : branché sur _setOnlineState qui existe déjà. */
+function _paintConnPill(online){
+  try{
+    var pill=document.getElementById('conn-pill-judge');
+    var txt=document.getElementById('conn-txt-judge');
+    if(pill){
+      pill.classList.toggle('is-online', !!online);
+      pill.classList.toggle('is-offline', !online);
+      pill.title = online ? 'Connecté au serveur — les scores partent en direct'
+                          : 'Hors-ligne — les scores sont sauvegardés et partiront au retour du réseau';
+    }
+    if(txt) txt.textContent = online ? 'Live' : 'Hors-ligne';
+  }catch(e){}
+}
+
+/* ★ Compteur "⏳ N" = nombre de scores en attente d'envoi (_offlineQueue).
+   Apparaît quand N>0, disparaît quand la file est vide. À appeler après chaque
+   changement de la file (enqueue / flush). Coût bande passante NUL (lecture locale). */
+function _updateQueueBadge(){
+  try{
+    var n = (_offlineQueue && _offlineQueue.length) ? _offlineQueue.length : 0;
+    var badge=document.getElementById('conn-queue-judge');
+    var nEl=document.getElementById('conn-queue-n');
+    if(nEl) nEl.textContent = n;
+    if(badge) badge.style.display = (n>0) ? 'inline-flex' : 'none';
+  }catch(e){}
 }
 
 function _saveOfflineQueue(){
@@ -6146,12 +6362,14 @@ function _enqueueScore(path,hpath,sc){
   others.push({path:path,hpath:hpath,sc:sc});
   _offlineQueue=others;
   _saveOfflineQueue();
+  try{ _updateQueueBadge(); }catch(e){} // ★ MAJ compteur "⏳ N"
 }
 function _loadOfflineQueue(){
   try{
     var saved=JSON.parse(localStorage.getItem(_LS_KEY)||'[]');
     if(saved.length){ _offlineQueue=saved; toast('📦 '+saved.length+' reps en attente de sync...','#FF8A00'); }
   }catch(e){}
+  try{ _updateQueueBadge(); }catch(e){} // ★ MAJ compteur "⏳ N" au démarrage
 }
 
 if(typeof window!=='undefined'){
@@ -6165,6 +6383,7 @@ function _flushQueue(){
   if(!db||!_offlineQueue.length) return;
   var q=_offlineQueue.slice(); _offlineQueue=[];
   localStorage.removeItem(_LS_KEY);
+  try{ _updateQueueBadge(); }catch(e){} // ★ file vidée (optimiste) → MAJ "⏳ N"
   q.forEach(function(item){
     // ★ FIX #3 (coupure FOC 2026) : au rejeu de la file, ne jamais rétrograder.
     //   Une validation (90/100) peut avoir été écrite par un autre appareil
@@ -6177,7 +6396,14 @@ function _flushQueue(){
         return item.sc;
       });
     };
-    _guardedReplay(db.ref('scores/'+item.path)).catch(function(){ _offlineQueue.push(item); _saveOfflineQueue(); });
+    _guardedReplay(db.ref('scores/'+item.path))
+      .then(function(){
+        // ★ CONFIRMATION RÉELLE : si c'était un score FINAL (priorité >=90) qui vient
+        //   d'être envoyé avec succès, et que le juge est encore sur l'écran "validé",
+        //   on passe le message en VERT "envoyé et confirmé". Purement visuel.
+        try{ if(_pr>=90) _setDoneConfirm('confirmed-synced'); }catch(e){}
+      })
+      .catch(function(){ _offlineQueue.push(item); _saveOfflineQueue(); try{ _updateQueueBadge(); }catch(e){} });
     // ★ ENCOMBREMENT : on ne rejoue plus dans heats/<hid>/scores (double-write supprimé — cf. pushScoreLive).
   });
   if(q.length) toast('📶 '+q.length+' rep(s) synchronisé(s) ✓','#00E5A0');
@@ -6440,6 +6666,35 @@ function _pushScoreLiveNow(){
   if(p1&&p1.catch) p1.catch(function(){ _enqueueScore(path,hpath,sc); });
 }
 
+/* ★ CONFIRMATION D'ENVOI (écran s-done) — met à jour le texte/couleur de la ligne
+   de confirmation selon l'état RÉEL de l'envoi. Purement visuel : n'altère RIEN de
+   la logique d'envoi/scoring/offline. Enveloppé en try/catch, dégrade proprement.
+   États :
+     'pending'          → envoi en cours (neutre)       — juste avant le .set()
+     'confirmed'        → serveur a accusé réception     — sur le .then() du .set() direct
+     'confirmed-synced' → envoyé depuis la file offline  — quand _flushQueue réussit
+     'waiting'          → en file offline (réseau coupé) — branche hors-ligne */
+var _doneConfirmState=null;
+function _setDoneConfirm(state){
+  try{
+    _doneConfirmState=state;
+    var box=document.getElementById('done-confirm-line');
+    var ico=document.getElementById('done-confirm-ico');
+    var txt=document.getElementById('done-confirm-txt');
+    if(!box) return;
+    var map={
+      'pending':         {d:'pending',   i:'⏳', t:'Envoi en cours…'},
+      'confirmed':       {d:'confirmed', i:'✓',  t:'Score confirmé par le serveur'},
+      'confirmed-synced':{d:'confirmed', i:'✓',  t:'Score envoyé et confirmé'},
+      'waiting':         {d:'waiting',   i:'⏳', t:'Score en attente de réseau — reste sur place, il partira tout seul'}
+    };
+    var m=map[state]||map.pending;
+    box.setAttribute('data-state', m.d);
+    if(ico) ico.textContent=m.i;
+    if(txt) txt.textContent=m.t;
+  }catch(e){}
+}
+
 /* Pousser score final validé — priorité maximale + blocage navigation 1.2s */
 function pushScoreFinal(scorePayload){
   if(!db||!FB_HEAT_ID||!FB_LANE) return;
@@ -6479,18 +6734,29 @@ function pushScoreFinal(scorePayload){
   if(!_isOnline){
     _enqueueScore(path,hpath,sc);
     toast('📴 Hors ligne — score final sauvegardé, envoi au retour du réseau','#FF8A00',5000);
+    try{ _setDoneConfirm('waiting'); }catch(e){} // ★ ne pas mentir : score en attente de réseau
     vib([100, 50, 200]);
     return;
   }
+  // ★ CONFIRMATION : par défaut "envoi en cours" tant que le serveur n'a pas répondu.
+  try{ _setDoneConfirm('pending'); }catch(e){}
   var _finalQueued=false;
+  var _finalConfirmed=false;
   var push=function(){
     var p1=db.ref('scores/'+path).set(sc);
     var p2=db.ref('heats/'+hpath).set(sc);
+    // ★ CONFIRMATION RÉELLE : le .then() du .set() = accusé de réception serveur.
+    //   On n'affirme "confirmé" qu'ici (une seule fois, pas de rétrogradation).
+    //   N'altère PAS l'envoi : handler purement additif.
+    if(p1&&p1.then) p1.then(function(){
+      if(!_finalConfirmed && !_finalQueued){ _finalConfirmed=true; try{ _setDoneConfirm('confirmed'); }catch(e){} }
+    });
     if(p1&&p1.catch) p1.catch(function(){
       if(!_finalQueued){
         _finalQueued=true;
         _enqueueScore(path,hpath,sc);
         toast('⚠️ Score final en attente de sync','#FF8A00',5000);
+        try{ if(!_finalConfirmed) _setDoneConfirm('waiting'); }catch(e){} // bascule honnête vers "en attente"
       }
     });
     if(p2&&p2.catch) p2.catch(function(){});
