@@ -13729,6 +13729,11 @@ function init(){
             console.warn('Firebase muet après 8s → déblocage des sauvegardes (mode local/hors-ligne)');
           }
         }, 8000);
+        // ★ FILET DE SÉCURITÉ SCORES : démarrer la sauvegarde périodique invisible
+        //   des scores (observateur passif, écrit uniquement sous backups/). Lancé ici,
+        //   au même niveau que les autres boucles, une fois que Firebase (_db) est prêt.
+        //   Idempotent (guard interne) → pas de double interval si init est rejoué.
+        try { if(typeof startScoreBackupLoop==='function') startScoreBackupLoop(); } catch(eBk){ console.warn('startScoreBackupLoop', eBk); }
         try {
           _db.ref('admin_backup').on('value', function(snap){
             var backup = snap.val();
@@ -21522,6 +21527,178 @@ function exportBackupJSON(){
    (heats, scores, statuts, juges, bénévoles, litiges, config…)
    dans un seul fichier JSON, identique à un export Firebase.
    ══════════════════════════════════════════════════════════ */
+
+/* ══════════════════════════════════════════════════════════
+   FILET DE SÉCURITÉ AUTOMATIQUE DES SCORES (invisible, additif)
+   ──────────────────────────────────────────────────────────
+   But : protéger LE TRÉSOR = le nœud `scores/`. Toutes les
+   ~60 s, on LIT `scores/` et on COPIE un instantané horodaté
+   dans un nœud DÉDIÉ `backups/<timestamp>`. On ne TOUCHE JAMAIS
+   `scores/`, `heats/`, `classement/`, etc. (observateur passif).
+
+   Garanties :
+   • Aucune UI (pas de bouton / menu / texte visible). 100% auto.
+   • Purement ADDITIF : seul `backups/` est écrit ; la seule
+     suppression autorisée porte sur `backups/` (rotation).
+   • Jamais de crash : tout est en try/catch, l'app continue.
+   • Économe : skip si scores vides, skip si rien n'a changé
+     (hash léger), snapshot = scores only (pas le gros heats),
+     rotation à N=15 snapshots max.
+   ══════════════════════════════════════════════════════════ */
+var _scoreBackupTimer   = null;   // handle du setInterval (guard anti-doublon)
+var _scoreBackupLastSig = null;   // signature du dernier snapshot écrit
+var _scoreBackupBusy    = false;  // évite le chevauchement de 2 ticks
+var SCORE_BACKUP_NODE   = 'backups';
+var SCORE_BACKUP_KEEP   = 15;     // nb de snapshots conservés (rotation)
+var SCORE_BACKUP_EVERY  = 60000;  // période en ms (60 s)
+
+/* Signature légère des scores : détecte un changement sans tout hasher.
+   On combine le nb d'entrées et un cumul rapide des champs utiles +
+   horodatages, pour attraper les éditions de valeur à nb constant. */
+function _scoreBackupSignature(scores){
+  try{
+    if(!scores || typeof scores!=='object') return '0';
+    var keys=Object.keys(scores);
+    var h=keys.length>>>0; // nb d'entrées
+    for(var i=0;i<keys.length;i++){
+      var k=keys[i], s=scores[k]; if(!s||typeof s!=='object') continue;
+      // champs qui portent la valeur d'un score + ts d'écriture
+      var v=''+(s.reps||'')+'|'+(s.finalTime||'')+'|'+(s.load||'')
+           +'|'+(s.dist||s.ergoVal||'')+'|'+(s.chrono||'')+'|'+(s.tiebreak||'')
+           +'|'+(s.ts||'')+'|'+(s.judgeOk?1:0);
+      // hash de chaîne type djb2, mélangé avec la clé
+      var str=k+'='+v, acc=5381;
+      for(var j=0;j<str.length;j++){ acc=((acc<<5)+acc+str.charCodeAt(j))|0; }
+      h=(h*33 + acc)|0;
+    }
+    return String(h>>>0)+':'+keys.length;
+  }catch(e){ return 'err:'+Date.now(); }
+}
+
+/* Un tick : lit scores/ (+ statut des heats pour la meta), et si ça a
+   changé, écrit backups/<ts> puis fait la rotation. 100% try/catch. */
+function _runScoreBackupTick(){
+  if(_scoreBackupBusy) return;            // tick précédent encore en cours
+  var _db=null;
+  try{ _db=_getFbDbForBackup(); }catch(e){ return; }
+  if(!_db || typeof _db.ref!=='function') return;  // Firebase pas prêt → skip silencieux
+  _scoreBackupBusy=true;
+  try{
+    _db.ref('scores').once('value').then(function(snap){
+      try{
+        var scores=snap.val();
+        // Ne pas sauvegarder à vide (pas encore de compét)
+        if(!scores || typeof scores!=='object' || !Object.keys(scores).length){
+          _scoreBackupBusy=false; return;
+        }
+        var sig=_scoreBackupSignature(scores);
+        // Rien n'a changé depuis le dernier snapshot → on skip (économie)
+        if(sig===_scoreBackupLastSig){ _scoreBackupBusy=false; return; }
+
+        var nbScores=Object.keys(scores).length;
+        var now=Date.now();
+
+        // Meta : nb de heats terminés (lecture seule, best-effort, jamais bloquant)
+        _db.ref('heats').once('value').then(function(hsnap){
+          var heatsDone=0;
+          try{
+            var heats=hsnap.val()||{};
+            Object.keys(heats).forEach(function(hid){
+              var st=heats[hid] && heats[hid].status;
+              if(st==='done'||st==='timecap') heatsDone++;
+            });
+          }catch(_e){}
+          _writeScoreSnapshot(_db, now, scores, nbScores, heatsDone, sig);
+        }).catch(function(){
+          // lecture heats échouée → on sauvegarde quand même les scores (le trésor)
+          _writeScoreSnapshot(_db, now, scores, nbScores, -1, sig);
+        });
+      }catch(e2){
+        console.warn('[backup scores] traitement snapshot échoué (ignoré)', e2);
+        _scoreBackupBusy=false;
+      }
+    }).catch(function(err){
+      // Lecture scores échouée (réseau/quota) → log discret, app continue
+      console.warn('[backup scores] lecture scores échouée (ignoré)', err && err.message);
+      _scoreBackupBusy=false;
+    });
+  }catch(e){
+    console.warn('[backup scores] tick échoué (ignoré)', e);
+    _scoreBackupBusy=false;
+  }
+}
+
+/* Écrit UN snapshot dans backups/<ts> puis déclenche la rotation.
+   N'écrit QUE sous backups/ — ne touche jamais les données de prod. */
+function _writeScoreSnapshot(_db, now, scores, nbScores, heatsDone, sig){
+  try{
+    var atHuman='';
+    try{ atHuman=new Date(now).toLocaleString('fr-FR'); }catch(_e){ atHuman=String(now); }
+    var snapshot={
+      at: now,
+      atHuman: atHuman,
+      scores: scores,                 // copie fidèle du nœud scores (plat, léger)
+      meta: { nbScores: nbScores, heatsDone: heatsDone }
+    };
+    // Clé = timestamp ms (triable chronologiquement par ordre de clé)
+    _db.ref(SCORE_BACKUP_NODE+'/'+now).set(snapshot).then(function(){
+      _scoreBackupLastSig=sig;        // on ne mémorise la signature qu'après succès
+      console.log('[backup scores] snapshot '+now+' écrit ('+nbScores+' scores)');
+      _rotateScoreBackups(_db);
+      _scoreBackupBusy=false;
+    }).catch(function(err){
+      // Écriture backup échouée → NE PAS planter, NE PAS toucher la prod, on réessaiera au prochain tick
+      console.warn('[backup scores] écriture backup échouée (ignoré, réessai au prochain tick)', err && err.message);
+      _scoreBackupBusy=false;
+    });
+  }catch(e){
+    console.warn('[backup scores] préparation snapshot échouée (ignoré)', e);
+    _scoreBackupBusy=false;
+  }
+}
+
+/* Rotation : ne garder que les SCORE_BACKUP_KEEP snapshots les plus
+   récents. SEULE suppression autorisée, et UNIQUEMENT sous backups/. */
+function _rotateScoreBackups(_db){
+  try{
+    _db.ref(SCORE_BACKUP_NODE).once('value').then(function(snap){
+      try{
+        var all=snap.val(); if(!all || typeof all!=='object') return;
+        var keys=Object.keys(all);
+        if(keys.length<=SCORE_BACKUP_KEEP) return;
+        // Tri chronologique : les clés sont des timestamps ms
+        keys.sort(function(a,b){ return (parseInt(a,10)||0)-(parseInt(b,10)||0); });
+        var toDelete=keys.slice(0, keys.length-SCORE_BACKUP_KEEP);
+        var updates={};
+        toDelete.forEach(function(k){ updates[SCORE_BACKUP_NODE+'/'+k]=null; });
+        // Suppression groupée, strictement sous backups/ (jamais la prod)
+        _db.ref().update(updates).then(function(){
+          console.log('[backup scores] rotation : '+toDelete.length+' ancien(s) snapshot(s) supprimé(s)');
+        }).catch(function(err){
+          console.warn('[backup scores] rotation échouée (ignoré)', err && err.message);
+        });
+      }catch(e2){ console.warn('[backup scores] rotation (lecture) échouée (ignoré)', e2); }
+    }).catch(function(err){
+      console.warn('[backup scores] rotation (ref) échouée (ignoré)', err && err.message);
+    });
+  }catch(e){ console.warn('[backup scores] rotation échouée (ignoré)', e); }
+}
+
+/* Démarre la boucle de sauvegarde. Idempotent : un seul interval même
+   si appelé plusieurs fois (guard _scoreBackupTimer). Un 1er tick est
+   lancé après un court délai pour laisser Firebase/l'auth se stabiliser. */
+function startScoreBackupLoop(){
+  try{
+    if(_scoreBackupTimer) return;   // déjà démarré → pas de doublon
+    _scoreBackupTimer=setInterval(function(){ _runScoreBackupTick(); }, SCORE_BACKUP_EVERY);
+    // Premier passage différé (ne bloque rien si Firebase pas encore prêt : le tick skip)
+    setTimeout(function(){ _runScoreBackupTick(); }, 8000);
+    console.log('[backup scores] filet de sécurité scores activé (toutes les '+(SCORE_BACKUP_EVERY/1000)+'s, '+SCORE_BACKUP_KEEP+' snapshots max)');
+  }catch(e){ console.warn('[backup scores] démarrage boucle échoué (ignoré)', e); }
+}
+// Exposer pour le hook de démarrage + un éventuel appel manuel console.
+window.startScoreBackupLoop = startScoreBackupLoop;
+
 function _getFbDbForBackup(){
   var _db=null;
   try{ if(typeof getFirebaseDbSafe==='function') _db=getFirebaseDbSafe(); }catch(e){}
