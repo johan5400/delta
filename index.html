@@ -2474,13 +2474,19 @@ function checkPassword(){
 
 <div id="guide" class="sheet">
 <div id="guide-items">
+<!-- ════════════════════════════════════════════════════════════════════
+     GUIDE OPÉRATEUR — réorganisé par parcours : AVANT · PENDANT · ENTRE J1/J2 ·
+     EN CAS DE PROBLÈME · BOUTONS À NE PAS TOUCHER. Contenu HTML uniquement.
+     Classes de style conservées (#guide .gc / .gsec / .gstep / .gci …).
+     ════════════════════════════════════════════════════════════════════ -->
 
+<!-- EN-TÊTE -->
 <div class="gh">
-  <div class="gh-title">📖 GUIDE COMPLET — FIGHTS ON CONTEST 2026</div>
+  <div class="gh-title">📖 GUIDE OPÉRATEUR — FIGHTS ON CONTEST 2026</div>
   <div class="gh-sub">
-    Suis ce guide de haut en bas la première fois. Règle d'or :
-    <strong>tu prépares tout, tu vérifies, tu cliques sur Générer &amp; Publier, et ensuite tu ne retouches plus le setup.</strong><br>
-    Ce guide couvre toutes les fonctionnalités : WOD Z1+Z2, inversion de zone, standards par catégorie, équipes invitées, inter-heat &amp; coupure synchronisés, chrono fluide, classement par catégorie d'origine.
+    Lis-le une fois de haut en bas avant ta première compèt. La règle d'or :
+    <strong>tu prépares tout, tu vérifies, tu cliques une seule fois sur « 🚀 Générer &amp; Publier », puis tu ne touches plus au setup.</strong><br>
+    Le guide est rangé par moment : <strong>avant</strong> la compèt (préparation), <strong>pendant</strong> (jour J), <strong>le soir / entre J1 et J2</strong>, <strong>en cas de problème</strong>, et enfin <strong>les boutons à ne jamais toucher</strong> pendant l'événement.
   </div>
 </div>
 
@@ -2488,88 +2494,141 @@ function checkPassword(){
 <div class="gtoc">
   <div class="gtoc-title">📋 Sommaire</div>
   <div class="gtoc-grid">
-    <a href="#g1">1 · La règle d'or</a>
-    <a href="#gnew" style="font-weight:900;color:#2E7D32">★ Nouveautés &amp; améliorations (à lire en priorité)</a>
-    <a href="#g2">2 · L'ordre exact à suivre</a>
-    <a href="#g3">3 · Accueil</a>
-    <a href="#g4">4 · Config</a>
-    <a href="#g5">5 · WODs — inter-heat, coupure, Z1+Z2, inversion, standards</a>
-    <a href="#g6">6 · Catégories — équipes, heats, zone</a>
-    <a href="#g7">7 · Équipes invitées dans un heat</a>
-    <a href="#g8">8 · Bénévoles</a>
-    <a href="#g9">9 · Planning + Planning juge</a>
-    <a href="#g10">10 · Générer &amp; Publier</a>
-    <a href="#g11">11 · Scorecards</a>
-    <a href="#g12">12 · Écrans Jour J — TK, Live, Juge, Classement</a>
-    <a href="#g13">13 · Chrono — comment il fonctionne</a>
-    <a href="#g14">14 · Classement — fonctionnement &amp; équipes invitées</a>
-    <a href="#g15">15 · Après génération : ce que tu peux encore toucher</a>
-    <a href="#g16">16 · Jour J</a>
-    <a href="#gj1j2" style="font-weight:800;color:#1E88E5">🌙 Coupure J1 → J2</a>
-    <a href="#g17">17 · Si ça merde</a>
+    <a href="#g-regle" style="font-weight:900;color:#B71C1C">⭐ La règle d'or</a>
+    <a href="#g-new" style="font-weight:900;color:#2E7D32">🆕 Les nouveautés — à lire en priorité</a>
+    <a href="#g-avant" style="font-weight:800;color:#1565C0">① AVANT LA COMPÈT — préparer</a>
+    <a href="#g-ordre" style="padding-left:14px">· L'ordre exact à suivre</a>
+    <a href="#g-config" style="padding-left:14px">· Config &amp; Accueil</a>
+    <a href="#g-wods" style="padding-left:14px">· WODs (inter-heat, coupure, Z1+Z2, zones, standards)</a>
+    <a href="#g-cats" style="padding-left:14px">· Catégories, équipes &amp; équipes invitées</a>
+    <a href="#g-benevoles" style="padding-left:14px">· Bénévoles &amp; juges</a>
+    <a href="#g-planning" style="padding-left:14px">· Planning &amp; vérification</a>
+    <a href="#g-publier" style="padding-left:14px">· Générer &amp; Publier</a>
+    <a href="#g-scorecards" style="padding-left:14px">· Scorecards</a>
+    <a href="#g-pendant" style="font-weight:800;color:#E65100">② PENDANT LA COMPÈT — exploiter</a>
+    <a href="#g-jourj" style="padding-left:14px">· Le minimum le jour J</a>
+    <a href="#g-ecrans" style="padding-left:14px">· Les écrans (TK, Live, Juge, Classement, Speaker)</a>
+    <a href="#g-juge" style="padding-left:14px">· Appli juge — ce que voient tes juges</a>
+    <a href="#g-tk" style="padding-left:14px">· TK — le poste de pilotage</a>
+    <a href="#g-spectateurs" style="padding-left:14px">· Pages spectateurs (recherche, « mon équipe », prochain passage)</a>
+    <a href="#g-classement" style="padding-left:14px">· Classement &amp; correction de score</a>
+    <a href="#g-chrono" style="padding-left:14px">· Chrono — comment il marche</a>
+    <a href="#g-soir" style="font-weight:800;color:#1E88E5">③ LE SOIR / ENTRE J1 ET J2</a>
+    <a href="#g-probleme" style="font-weight:800;color:#C62828">④ EN CAS DE PROBLÈME</a>
+    <a href="#g-restore" style="padding-left:14px">· Restaurer les scores (instantané)</a>
+    <a href="#g-faq" style="padding-left:14px">· Questions fréquentes</a>
+    <a href="#g-stop" style="font-weight:900;color:#B71C1C">⛔ LES BOUTONS À NE PAS TOUCHER</a>
+    <a href="#g-checklist" style="font-weight:800">✅ Checklist finale</a>
   </div>
 </div>
 
-<!-- 1 RÈGLE D'OR -->
-<div class="gsec" id="g1">
-  <div class="gsec-hdr"><div class="gnum red">1</div><div><div class="gsec-title">La règle d'or</div><div class="gsec-sub">Le principe le plus important</div></div></div>
+<!-- ═══════════════ LA RÈGLE D'OR ═══════════════ -->
+<div class="gsec" id="g-regle">
+  <div class="gsec-hdr"><div class="gnum red">⭐</div><div><div class="gsec-title">La règle d'or</div><div class="gsec-sub">Le seul principe à retenir absolument</div></div></div>
   <div class="gc err">
-    <div class="gc-title">🚨 Ce que tu dois retenir</div>
+    <div class="gc-title">🚨 Prépare → Vérifie → Génère → Ne touche plus</div>
     <div class="gc-body">
-      <strong>Avant génération</strong> : tu remplis les onglets de préparation.<br>
-      <strong>Au moment clé</strong> : tu cliques sur <code>🚀 Générer &amp; Publier</code>.<br>
-      <strong>Après génération</strong> : tu ne reviens plus trifouiller <strong>Config</strong>, <strong>WODs</strong>, <strong>Catégories</strong> ou <strong>Bénévoles</strong>, sauf vrai bug ou oubli grave.<br><br>
-      Une fois généré, on ne reconfigure plus. On utilise seulement les écrans de lecture, d'impression, de QR et de suivi Jour J.
+      <strong>1. Avant</strong> : tu remplis tranquillement Config, WODs, Catégories, Bénévoles.<br>
+      <strong>2. Tu vérifies</strong> dans le Planning que tout est cohérent.<br>
+      <strong>3. Au moment clé</strong> : tu cliques <code>🚀 Générer &amp; Publier</code>.<br>
+      <strong>4. Après</strong> : tu ne retournes plus trifouiller le setup (Config, WODs, Catégories, Bénévoles). Tu utilises seulement les écrans de lecture, d'impression, de QR et de suivi.
     </div>
   </div>
   <div class="gc warn">
-    <div class="gc-title">⚠️ Pourquoi c'est important</div>
+    <div class="gc-title">⚠️ Pourquoi c'est si important</div>
     <div class="gc-body">
-      Si tu modifies le setup après génération, tu risques de décaler les heats, les horaires, les juges, les QR ou les affectations. Prépare d'abord, génère ensuite, arrête de toucher.
+      Modifier le setup <strong>après</strong> la génération peut décaler les heats, les horaires, les juges, les QR et les affectations. La compétition repose sur ce qui a été publié. <strong>Prépare d'abord, génère ensuite, puis arrête de toucher.</strong>
     </div>
   </div>
 </div>
 
-<!-- 2 ORDRE -->
-<div class="gsec" id="g2">
-  <div class="gsec-hdr"><div class="gnum orange">2</div><div><div class="gsec-title">L'ordre exact à suivre</div><div class="gsec-sub">Tu peux suivre ça les yeux fermés</div></div></div>
-  <div class="gsteps">
-    <div class="gstep ok"><div class="gsn ok">1</div><div><div class="gst">Accueil</div><div class="gsd">Vérifie que le projet est le bon. Tableau de bord général.</div></div></div>
-    <div class="gstep ok"><div class="gsn ok">2</div><div><div class="gst">Config</div><div class="gsd">Nom, dates, lieu, horaires, options générales.</div></div></div>
-    <div class="gstep ok"><div class="gsn ok">3</div><div><div class="gst">WODs</div><div class="gsd">Crée chaque WOD : jour, zone, format, durée, mouvements, inter-heat, coupure, standards par catégorie.</div></div></div>
-    <div class="gstep ok"><div class="gsn ok">4</div><div><div class="gst">Catégories</div><div class="gsd">Crée les catégories, ajoute les équipes, règle les heats et l'ordre par WOD.</div></div></div>
-    <div class="gstep ok"><div class="gsn ok">5</div><div><div class="gst">Bénévoles</div><div class="gsd">Ajoute les juges avec leurs jours, créneaux et zones.</div></div></div>
-    <div class="gstep ok"><div class="gsn ok">6</div><div><div class="gst">Planning + Planning juge</div><div class="gsd">Vérifie visuellement que tout est cohérent. Corrige avant de publier.</div></div></div>
-    <div class="gstep crit"><div class="gsn crit">7</div><div><div class="gst">Générer &amp; Publier</div><div class="gsd">Quand tout est bon : <code>🚀 Générer &amp; Publier</code>. Ensuite tu ne retouches plus le setup.</div></div></div>
-  </div>
-</div>
+<!-- ═══════════════ NOUVEAUTÉS ═══════════════ -->
+<div class="gsec" id="g-new">
+  <div class="gsec-hdr"><div class="gnum green">🆕</div><div><div class="gsec-title">Les nouveautés</div><div class="gsec-sub">Ce qui a été ajouté récemment — à lire en priorité</div></div></div>
 
-<!-- 3 ACCUEIL -->
-<div class="gsec" id="g3">
-  <div class="gsec-hdr"><div class="gnum blue">3</div><div><div class="gsec-title">Accueil</div><div class="gsec-sub">Tableau de bord général</div></div></div>
-  <div class="gc info">
-    <div class="gc-title">À quoi sert l'accueil</div>
-    <div class="gc-body">
-      Tableau de bord : nombre de bénévoles, WODs, heats, rappels rapides. Tu vérifies ici que tu n'as pas oublié une grosse brique avant de continuer.
-    </div>
-  </div>
   <div class="gc ok">
-    <div class="gc-title">Ce que tu vérifies</div>
+    <div class="gc-title">💾 Tes scores sont protégés — sauvegarde automatique + restauration</div>
+    <div class="gc-body">
+      L'app enregistre <strong>automatiquement</strong> des instantanés de tous les scores en arrière-plan (tu n'as rien à faire, c'est invisible).<br><br>
+      <div class="gcl">
+        <div class="gci"><div class="gcb2"></div><div class="gct2">En cas de pépin (fausse manip, score qui a sauté), ouvre <strong>🎯 Jour J</strong> et clique sur le bouton discret <strong>« ♻️ Restaurer un instantané »</strong>, juste à côté de l'<strong>Import de secours</strong>.</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2">Il te propose la liste des sauvegardes automatiques : tu choisis le bon moment, et il <strong>remet uniquement les scores</strong> à cet état-là.</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Les heats, les horaires et le planning ne bougent pas.</strong> Avant d'écraser, une sauvegarde de sécurité des scores actuels est créée toute seule.</div></div>
+      </div>
+      <br>C'est le filet de sécurité principal : <strong>on ne perd plus les scores.</strong> Voir aussi la section « En cas de problème ».
+    </div>
+  </div>
+
+  <div class="gc tip">
+    <div class="gc-title">⚖️ Appli juge améliorée — plus claire, plus sûre</div>
     <div class="gc-body">
       <div class="gcl">
-        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Le nom de l'événement</strong> est le bon.</div></div>
-        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Les dates et le lieu</strong> ont été remplis.</div></div>
-        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Les compteurs</strong> montent quand tu ajoutes WODs, catégories et bénévoles.</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Voyant de connexion toujours visible</strong> : pastille verte <strong>« Live »</strong> = connecté / rouge <strong>« Hors-ligne »</strong> = réseau coupé. Le juge sait en un coup d'œil s'il est en ligne.</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Confirmation de validation en couleur</strong> : <strong style="color:#2E7D32">vert = score confirmé</strong> sur le cloud, <strong style="color:#E65100">orange = en attente réseau</strong> (il partira tout seul dès que ça revient). Plus de doute « est-ce que c'est bien parti ? ».</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Pavé « total »</strong> pour les WOD longs : un champ <strong>vide</strong>, gros chiffres, qui <strong>remplace</strong> le compteur (il n'additionne pas). Le juge tape le total final d'un coup, sans cliquer 200 fois.</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Progression « X / Y reps »</strong> affichée sous le gros compteur : le juge voit où en est l'athlète sur le mouvement en cours.</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Boutons mieux espacés</strong> : moins de fausses manips sous le stress et au soleil.</div></div>
+      </div>
+      <br><strong>Consigne simple à donner aux juges</strong> : rescanner leur QR le matin, après la pause et après chaque coupure. Entre deux heats d'un même bloc, ils gardent juste la page ouverte.
+    </div>
+  </div>
+
+  <div class="gc tip">
+    <div class="gc-title">📱 Pages spectateurs — plus utiles pour le public</div>
+    <div class="gc-body">
+      <div class="gcl">
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Classement</strong> : une <strong>recherche d'équipe</strong> (toutes catégories) et une <strong>épingle « mon équipe »</strong> ⭐ pour la retrouver tout de suite et la garder en évidence. 100 % côté public — <strong>zéro appel Firebase en plus</strong>.</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Planning</strong> : « <strong>prochain passage dans X min</strong> » pour l'équipe choisie, et un badge <strong>EN COURS</strong> sur le heat en direct. Le public suit sans te demander.</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="gc info">
+    <div class="gc-title">Et aussi…</div>
+    <div class="gc-body">
+      <div class="gcl">
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Classement au barème CrossFit Team</strong> : 1<sup>er</sup> = 100 pts, 2<sup>e</sup> = 95, 3<sup>e</sup> = 90… <strong>plus de points = meilleur</strong>. Identique partout (admin, classement public, podium).</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Anti-perte de score côté juge</strong> : si le wifi lâche en plein heat, les reps sont mises en file et renvoyées à la reconnexion.</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Alerte scores manquants sur le TK</strong> : en fin de heat, « ⚠️ X scores manquants » ou « ✅ Tous les scores validés ». Tu ne clôtures jamais avec un trou.</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>ETA fin de journée</strong> sur le TK : heure de fin estimée qui se cale sur ton avance / ton retard.</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Gestion des absences</strong> (juge absent / équipe absente) avec réaffectation automatique des lignes orphelines.</div></div>
       </div>
     </div>
   </div>
 </div>
 
-<!-- 4 CONFIG -->
-<div class="gsec" id="g4">
-  <div class="gsec-hdr"><div class="gnum blue">4</div><div><div class="gsec-title">Config</div><div class="gsec-sub">Tu poses la base de l'événement</div></div></div>
+<!-- ════════════════════════════════════════════════════════════════════
+     ① AVANT LA COMPÈT
+     ════════════════════════════════════════════════════════════════════ -->
+<div class="gsec" id="g-avant">
+  <div class="gsec-hdr"><div class="gnum blue">①</div><div><div class="gsec-title">Avant la compèt — préparer</div><div class="gsec-sub">Tout ce qui se fait au calme, avant le jour J</div></div></div>
   <div class="gc info">
-    <div class="gc-title">Remplis dans l'ordre</div>
+    <div class="gc-title">L'idée</div>
+    <div class="gc-body">
+      Cette partie te fait remplir l'app dans le bon ordre, vérifier, puis publier. Une fois publié, tu passes à la partie « Pendant la compèt ».
+    </div>
+  </div>
+</div>
+
+<!-- L'ordre -->
+<div class="gsec" id="g-ordre">
+  <div class="gsec-hdr"><div class="gnum orange">1</div><div><div class="gsec-title">L'ordre exact à suivre</div><div class="gsec-sub">Tu peux le suivre les yeux fermés</div></div></div>
+  <div class="gsteps">
+    <div class="gstep ok"><div class="gsn ok">1</div><div><div class="gst">Accueil</div><div class="gsd">Vérifie que le projet est le bon (tableau de bord général).</div></div></div>
+    <div class="gstep ok"><div class="gsn ok">2</div><div><div class="gst">Config</div><div class="gsd">Nom, dates J1/J2, lieu, horaires de chaque jour.</div></div></div>
+    <div class="gstep ok"><div class="gsn ok">3</div><div><div class="gst">WODs</div><div class="gsd">Chaque WOD : jour, zone, format, durée, mouvements, inter-heat, coupure, standards par catégorie.</div></div></div>
+    <div class="gstep ok"><div class="gsn ok">4</div><div><div class="gst">Catégories</div><div class="gsd">Crée les catégories, ajoute les équipes, règle les heats et l'ordre de passage par WOD.</div></div></div>
+    <div class="gstep ok"><div class="gsn ok">5</div><div><div class="gst">Bénévoles</div><div class="gsd">Ajoute les juges avec leurs jours, créneaux et zones.</div></div></div>
+    <div class="gstep ok"><div class="gsn ok">6</div><div><div class="gst">Planning + Planning juge</div><div class="gsd">Vérifie visuellement que tout est cohérent. Corrige avant de publier.</div></div></div>
+    <div class="gstep crit"><div class="gsn crit">7</div><div><div class="gst">Générer &amp; Publier</div><div class="gsd">Quand tout est bon : <code>🚀 Générer &amp; Publier</code>. Ensuite, tu ne retouches plus le setup.</div></div></div>
+  </div>
+</div>
+
+<!-- Config & Accueil -->
+<div class="gsec" id="g-config">
+  <div class="gsec-hdr"><div class="gnum blue">2</div><div><div class="gsec-title">Config &amp; Accueil</div><div class="gsec-sub">Tu poses la base de l'événement</div></div></div>
+  <div class="gc info">
+    <div class="gc-title">Dans Config, remplis dans l'ordre</div>
     <div class="gc-body">
       <div class="gcl">
         <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Nom de l'événement.</strong></div></div>
@@ -2579,11 +2638,21 @@ function checkPassword(){
       </div>
     </div>
   </div>
+  <div class="gc ok">
+    <div class="gc-title">Sur l'Accueil, vérifie vite</div>
+    <div class="gc-body">
+      <div class="gcl">
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Le nom de l'événement</strong> est le bon.</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Les dates et le lieu</strong> sont remplis.</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Les compteurs</strong> (WODs, catégories, bénévoles) montent bien quand tu ajoutes des éléments.</div></div>
+      </div>
+    </div>
+  </div>
 </div>
 
-<!-- 5 WODS -->
-<div class="gsec" id="g5">
-  <div class="gsec-hdr"><div class="gnum purple">5</div><div><div class="gsec-title">WODs</div><div class="gsec-sub">Inter-heat · Coupure · Z1+Z2 · Inversion de zone · Standards par catégorie</div></div></div>
+<!-- WODs -->
+<div class="gsec" id="g-wods">
+  <div class="gsec-hdr"><div class="gnum purple">3</div><div><div class="gsec-title">WODs</div><div class="gsec-sub">Inter-heat · Coupure · Z1+Z2 · Inversion de zone · Standards</div></div></div>
 
   <div class="gc info">
     <div class="gc-title">Un WOD = une fiche propre</div>
@@ -2601,145 +2670,102 @@ function checkPassword(){
   </div>
 
   <div class="gc tip">
-    <div class="gc-title">🔁 Inter-heat vs ✂️ Coupure après — quelle différence ?</div>
+    <div class="gc-title">🔁 Inter-heat vs ✂️ Coupure après — la différence</div>
     <div class="gc-body">
-      Ce sont deux temporisations distinctes qui gèrent deux situations différentes :<br><br>
-      <strong>Inter-heat</strong> — pause entre deux heats <em>du même WOD</em>.<br>
-      Ex : tu définis 3 min → après chaque heat du WOD, les deux zones attendent 3 min avant de lancer le heat suivant du même WOD.<br>
-      Chaque zone gère son inter-heat indépendamment : si Zone 1 a 3 heats et Zone 2 en a 3 aussi, chacune enchaîne à son propre rythme.<br><br>
-      <strong>Coupure après</strong> — pause avant de passer au <em>WOD suivant</em>.<br>
-      Ex : tu définis 5 min → quand une zone finit son dernier heat de ce WOD, elle attend. Mais comme Zone 1 peut avoir moins de heats que Zone 2 (ou l'inverse), le système <strong>synchronise automatiquement les deux zones</strong> : la zone qui finit en premier attend la seconde, puis <em>les deux démarrent le chrono de 5 min en même temps</em> et passent au WOD suivant simultanément.<br><br>
-      <strong>Résumé :</strong>
-      <div class="gcl">
+      Deux temporisations distinctes, deux rôles différents :<br><br>
+      <strong>Inter-heat</strong> — pause entre deux heats <em>du même WOD</em>. Chaque zone gère son inter-heat <strong>indépendamment</strong>, à son rythme.<br><br>
+      <strong>Coupure après</strong> — pause avant de passer au <em>WOD suivant</em>. C'est elle qui <strong>synchronise les deux zones</strong> : la zone qui finit en premier attend l'autre, puis les deux lancent la coupure en même temps et passent au WOD suivant simultanément.
+      <div class="gcl" style="margin-top:8px">
         <div class="gci"><div class="gcb2"></div><div class="gct2"><code>interHeat</code> → entre heats du même WOD, chaque zone indépendante.</div></div>
-        <div class="gci"><div class="gcb2"></div><div class="gct2"><code>coupureApres</code> → transition vers le WOD suivant, les deux zones <strong>synchronisées</strong>.</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><code>coupureApres</code> → transition vers le WOD suivant, les deux zones <strong>resynchronisées</strong>.</div></div>
       </div>
+      <strong>Sans coupure, les zones ne se resynchronisent pas.</strong> La coupure est la clé du « je clique une fois, ça s'enchaîne tout seul ».
     </div>
   </div>
 
   <div class="gc tip">
-    <div class="gc-title">🟣 WOD en Z1+Z2 — comment ça fonctionne</div>
+    <div class="gc-title">🟣 WOD en Z1+Z2 — en parallèle sur les deux zones</div>
     <div class="gc-body">
-      Si tu choisis la zone <strong>Z1+Z2</strong>, le WOD tourne <strong>en parallèle sur les deux zones en même temps</strong>.<br><br>
+      Avec la zone <strong>Z1+Z2</strong>, le WOD tourne <strong>en même temps</strong> sur les deux zones :
       <div class="gcl">
-        <div class="gci"><div class="gcb2"></div><div class="gct2">Les catégories affectées à la <strong>Zone 1</strong> passent en Zone 1.</div></div>
-        <div class="gci"><div class="gcb2"></div><div class="gct2">Les catégories affectées à la <strong>Zone 2</strong> passent en Zone 2.</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2">Les catégories de <strong>Zone 1</strong> passent en Zone 1, celles de <strong>Zone 2</strong> en Zone 2.</div></div>
         <div class="gci"><div class="gcb2"></div><div class="gct2">Les deux zones démarrent <strong>au même horaire</strong> et avancent indépendamment.</div></div>
         <div class="gci"><div class="gcb2"></div><div class="gct2">Le planning affiche les heats Z1 et Z2 <strong>côte à côte</strong>, pas à la suite.</div></div>
         <div class="gci"><div class="gcb2"></div><div class="gct2">La <strong>coupure</strong> les resynchronise au départ du WOD suivant.</div></div>
       </div>
-      <br>
-      <strong>Important :</strong> chaque catégorie doit avoir sa <strong>zone définie</strong> (1 ou 2) dans l'onglet Catégories.
+      <strong>Important :</strong> chaque catégorie doit avoir sa <strong>zone (1 ou 2) définie</strong> dans l'onglet Catégories, sinon tout se retrouve en Zone 1 et se suit.
     </div>
   </div>
 
   <div class="gc tip">
     <div class="gc-title">⇄ Inverser la zone d'une catégorie sur un WOD</div>
     <div class="gc-body">
-      Utile quand un matériel (les bikes, par exemple) n'est installé que d'un seul côté. Tu peux faire passer une catégorie précise dans <strong>l'autre zone pour ce WOD-là uniquement</strong>.<br><br>
+      Utile quand un matériel (les bikes, par exemple) n'est installé que d'un côté. Tu fais passer une catégorie précise dans <strong>l'autre zone, pour ce WOD-là uniquement</strong> :
       <div class="gcl">
-        <div class="gci"><div class="gcb2"></div><div class="gct2">Clique sur <strong>⇄ Z</strong> à côté du WOD dans le synoptique.</div></div>
-        <div class="gci"><div class="gcb2"></div><div class="gct2">Clique <strong>⇄ Inverser</strong> sur la catégorie → elle bascule dans l'autre zone, les autres ne bougent pas.</div></div>
-        <div class="gci"><div class="gcb2"></div><div class="gct2">Badge vert <strong>INVERSÉE</strong> confirmé. Les heats sont recalculés automatiquement.</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2">Clique <strong>⇄ Z</strong> à côté du WOD dans le synoptique.</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2">Clique <strong>⇄ Inverser</strong> sur la catégorie → elle bascule, les autres ne bougent pas. Badge vert <strong>INVERSÉE</strong>, heats recalculés.</div></div>
         <div class="gci"><div class="gcb2"></div><div class="gct2">Pour annuler : bouton <strong>↩ Annuler</strong> sur la catégorie.</div></div>
       </div>
-      <br>
-      Ce n'est pas la catégorie entière qui change de zone — seulement son passage sur <strong>ce WOD précis</strong>.
     </div>
   </div>
 
   <div class="gc tip">
     <div class="gc-title">📋 Standards par catégorie — mouvements adaptés sur les scorecards</div>
     <div class="gc-body">
-      Dans chaque fiche WOD, une section <strong>Standards par catégorie</strong> apparaît automatiquement.<br><br>
-      Elle permet de saisir les mouvements <strong>spécifiques à chaque catégorie</strong> : charges, versions scalées, mouvements alternatifs…<br>
-      Ces standards s'affichent directement sur la <strong>scorecard papier</strong> de chaque équipe. Le juge voit exactement ce qu'il doit vérifier.<br><br>
-      <strong>Mise à jour en temps réel :</strong> dès que tu tapes, la preview scorecard dans <strong>🎯 Jour J → Scorecards</strong> se rafraîchit instantanément.
+      Dans chaque fiche WOD, une section <strong>Standards par catégorie</strong> permet de saisir les mouvements <strong>spécifiques à chaque catégorie</strong> (charges, versions scalées, mouvements alternatifs).<br>
+      Ils s'affichent directement sur la <strong>scorecard papier</strong> de chaque équipe — le juge voit exactement ce qu'il doit vérifier. La preview (dans 🎯 Jour J → Scorecards) se rafraîchit en direct dès que tu tapes.
     </div>
   </div>
 </div>
 
-<!-- 6 CATÉGORIES -->
-<div class="gsec" id="g6">
-  <div class="gsec-hdr"><div class="gnum fire">6</div><div><div class="gsec-title">Catégories</div><div class="gsec-sub">Équipes · Heats · Zone · Couleur · Ordre de passage</div></div></div>
+<!-- Catégories -->
+<div class="gsec" id="g-cats">
+  <div class="gsec-hdr"><div class="gnum fire">4</div><div><div class="gsec-title">Catégories, équipes &amp; équipes invitées</div><div class="gsec-sub">Équipes · Heats · Zone · Couleur · Ordre de passage</div></div></div>
 
   <div class="gc info">
     <div class="gc-title">Dans cet onglet, tu fais 4 choses</div>
     <div class="gc-body">
       <div class="gcl">
         <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Créer la catégorie</strong> : nom, couleur, zone (1 ou 2), nombre de lanes, nombre de heats.</div></div>
-        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Ajouter les équipes</strong> : une par une ou en collage de liste.</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Ajouter les équipes</strong> : une par une, ou en collant une liste (une par ligne).</div></div>
         <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Vérifier le découpage en heats.</strong></div></div>
-        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Régler l'ordre de passage par WOD</strong> avec le drag and drop.</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Régler l'ordre de passage par WOD</strong> (drag and drop).</div></div>
       </div>
     </div>
   </div>
 
   <div class="gc tip">
-    <div class="gc-title">🎨 Couleur de la catégorie</div>
+    <div class="gc-title">🎨 La couleur de la catégorie sert partout</div>
     <div class="gc-body">
-      La couleur est utilisée <strong>partout</strong> : planning, badges, scorecards, live, TK.<br>
-      Sur les scorecards, la bordure, le header et les lignes de signature reprennent cette couleur. Si tu la changes, tout se met à jour automatiquement.
+      Planning, badges, scorecards, live, TK : tout reprend la couleur de la catégorie. Sur les scorecards, bordure, header et lignes de signature l'utilisent. Si tu la changes, tout se met à jour.
+    </div>
+  </div>
+
+  <div class="gc info">
+    <div class="gc-title">👥 Équipes invitées dans un heat</div>
+    <div class="gc-body">
+      Une équipe invitée, c'est une équipe d'une catégorie A qui vient occuper une <strong>lane libre</strong> dans un heat d'une catégorie B.<br><br>
+      <div class="gcl">
+        <div class="gci"><div class="gcb2"></div><div class="gct2">Quand un heat a des lanes libres, un menu <em>« Inviter une autre catégorie »</em> apparaît → ses équipes se placent automatiquement.</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2">Les invitées portent un <strong>badge « 👥 NomCatégorie »</strong> et la couleur de leur catégorie d'origine. Le <strong>✕</strong> les retire.</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Classement</strong> : le score d'une invitée compte dans <strong>sa propre catégorie d'origine</strong>, jamais dans celle du heat hôte — partout (admin, classement public, podium).</div></div>
+      </div>
     </div>
   </div>
 
   <div class="gc warn">
-    <div class="gc-title">Point critique</div>
+    <div class="gc-title">⚠️ Point critique</div>
     <div class="gc-body">
       Si l'ordre des catégories par WOD est mauvais ici, le planning sera mauvais après génération. <strong>Prends le temps de vérifier le drag and drop avant de générer.</strong>
     </div>
   </div>
 </div>
 
-<!-- 7 ÉQUIPES INVITÉES -->
-<div class="gsec" id="g7">
-  <div class="gsec-hdr"><div class="gnum teal">7</div><div><div class="gsec-title">Équipes invitées dans un heat</div><div class="gsec-sub">Faire passer une équipe d'une autre catégorie dans un heat</div></div></div>
-
+<!-- Bénévoles -->
+<div class="gsec" id="g-benevoles">
+  <div class="gsec-hdr"><div class="gnum teal">5</div><div><div class="gsec-title">Bénévoles &amp; juges</div><div class="gsec-sub">Tu ajoutes les juges correctement</div></div></div>
   <div class="gc info">
-    <div class="gc-title">C'est quoi une équipe invitée</div>
-    <div class="gc-body">
-      Une équipe invitée, c'est une équipe d'une catégorie A qui passe dans un heat d'une catégorie B. Elle occupe une lane disponible dans ce heat sans appartenir à la catégorie hôte.<br><br>
-      Exemple : une équipe <strong>Masters H</strong> qui passe dans un heat <strong>Scaled Hommes</strong> parce qu'il reste une lane libre.
-    </div>
-  </div>
-
-  <div class="gc tip">
-    <div class="gc-title">Comment inviter une équipe dans un heat</div>
-    <div class="gc-body">
-      Dans l'onglet <strong>🏆 Catégories</strong>, sur la vue des heats d'une catégorie :<br><br>
-      <div class="gcl">
-        <div class="gci"><div class="gcb2"></div><div class="gct2">Quand un heat a des <strong>lanes libres</strong>, un menu déroulant <em>"Inviter une autre catégorie"</em> apparaît à côté du heat.</div></div>
-        <div class="gci"><div class="gcb2"></div><div class="gct2">Sélectionne la catégorie dont tu veux inviter des équipes → les équipes disponibles sont automatiquement placées dans les lanes libres.</div></div>
-        <div class="gci"><div class="gcb2"></div><div class="gct2">Les équipes invitées apparaissent avec un <strong>contour en pointillés</strong> et la couleur de leur catégorie d'origine.</div></div>
-        <div class="gci"><div class="gcb2"></div><div class="gct2">Pour retirer une équipe invitée : clique sur le <strong>✕</strong> à côté d'elle.</div></div>
-      </div>
-    </div>
-  </div>
-
-  <div class="gc tip">
-    <div class="gc-title">📺 Affichage sur le Live et le TK</div>
-    <div class="gc-body">
-      Sur <strong>live.html</strong> et <strong>tk9delta.html</strong>, les équipes invitées sont affichées avec un <strong>badge coloré</strong> indiquant leur catégorie d'origine :<br><br>
-      <code>Nom de l'équipe  <span style="font-size:10px;background:#1565C020;color:#1565C0;border:1px solid #1565C033;border-radius:999px;padding:1px 6px">Invitée · Masters H</span></code><br><br>
-      Le badge reprend exactement la couleur de la catégorie d'origine. Identique visuellement au badge utilisé dans le planning.
-    </div>
-  </div>
-
-  <div class="gc ok">
-    <div class="gc-title">🏆 Classement — où apparaissent les scores des invités</div>
-    <div class="gc-body">
-      Les scores d'une équipe invitée sont comptabilisés dans le classement de <strong>sa propre catégorie d'origine</strong>, pas dans celle du heat hôte.<br><br>
-      Exemple : une équipe <strong>Masters H</strong> invitée dans un heat Scaled Hommes → son score apparaît dans le classement <strong>Masters H</strong>, pas dans Scaled Hommes.<br><br>
-      Cela s'applique à la fois dans l'onglet <strong>🏆 Classement</strong> (admin) et sur <strong>classement.html</strong> (public).
-    </div>
-  </div>
-</div>
-
-<!-- 8 BÉNÉVOLES -->
-<div class="gsec" id="g8">
-  <div class="gsec-hdr"><div class="gnum teal">8</div><div><div class="gsec-title">Bénévoles</div><div class="gsec-sub">Tu ajoutes les juges correctement</div></div></div>
-  <div class="gc info">
-    <div class="gc-title">Ce qu'il faut remplir pour chaque juge</div>
+    <div class="gc-title">Pour chaque juge</div>
     <div class="gc-body">
       <div class="gcl">
         <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Prénom</strong> et <strong>nom.</strong></div></div>
@@ -2748,274 +2774,292 @@ function checkPassword(){
         <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Zone d'affectation</strong> : Zone 1 ou Zone 2.</div></div>
         <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Email</strong> si tu veux envoyer les récap mails.</div></div>
       </div>
+      <br>⚖️ Ne coche pas « Athlète » pour un juge. L'affectation des lanes se fait automatiquement ; une lane qui resterait vide est comblée s'il reste un juge dispo, sinon elle est signalée « QR secours ».
     </div>
   </div>
   <div class="gc err">
-    <div class="gc-title">À ne pas faire</div>
+    <div class="gc-title">À éviter</div>
     <div class="gc-body">
-      Ne mets pas un juge en <strong>absent</strong> sur le mauvais jour. Ne laisse pas toutes les dispos sur le même créneau si tu veux couvrir deux zones. Cet onglet décide s'il y a des trous de judging ou non.
+      Ne mets pas un juge en <strong>absent</strong> sur le mauvais jour. Ne laisse pas toutes les dispos sur le même créneau si tu veux couvrir deux zones. C'est cet onglet qui décide s'il y a des trous de judging.
     </div>
   </div>
 </div>
 
-<!-- 9 PLANNING -->
-<div class="gsec" id="g9">
-  <div class="gsec-hdr"><div class="gnum orange">9</div><div><div class="gsec-title">Planning + Planning juge</div><div class="gsec-sub">Dernière vérification avant le gros bouton</div></div></div>
+<!-- Planning -->
+<div class="gsec" id="g-planning">
+  <div class="gsec-hdr"><div class="gnum orange">6</div><div><div class="gsec-title">Planning &amp; vérification</div><div class="gsec-sub">La dernière relecture avant le gros bouton</div></div></div>
   <div class="gc info">
     <div class="gc-title">Ce que tu contrôles</div>
     <div class="gc-body">
       <div class="gcl">
-        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Les 2 jours</strong> s'affichent bien.</div></div>
-        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Tous les WODs</strong> sont présents.</div></div>
-        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>L'ordre</strong> des catégories et WODs est cohérent.</div></div>
-        <div class="gci"><div class="gcb2"></div><div class="gct2">Pour un WOD Z1+Z2 : les catégories Zone 1 et Zone 2 <strong>apparaissent au même horaire</strong>, pas à la suite.</div></div>
-        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Les équipes invitées</strong> apparaissent avec leur badge de catégorie d'origine.</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Les 2 jours</strong> s'affichent et <strong>tous les WODs</strong> sont présents.</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>L'ordre</strong> des catégories et des WODs est cohérent.</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2">WOD Z1+Z2 : les catégories Z1 et Z2 <strong>au même horaire</strong>, pas à la suite.</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Les équipes invitées</strong> ont leur badge de catégorie d'origine.</div></div>
         <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Les juges</strong> sont affectés sans trous sur les lignes utiles.</div></div>
         <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Les pauses inter-heat et coupures</strong> paraissent logiques.</div></div>
       </div>
+      <br>💡 Le <strong>🗓 Synoptique</strong> te donne la journée d'un coup d'œil : chaque journée tient sur une ligne (Zone 1 puis Zone 2), avec la frise WOD → coupure → WOD.
     </div>
   </div>
   <div class="gc warn">
-    <div class="gc-title">Si tu vois des anomalies</div>
+    <div class="gc-title">Si tu vois une anomalie</div>
     <div class="gc-body">
-      Tu ne cliques pas encore sur publier. Tu retournes dans <strong>Bénévoles</strong>, <strong>Catégories</strong> ou <strong>WODs</strong>, tu corriges, puis tu reviens contrôler.
+      Ne publie pas encore. Retourne dans <strong>Bénévoles</strong>, <strong>Catégories</strong> ou <strong>WODs</strong>, corrige, puis reviens contrôler.
     </div>
   </div>
 </div>
 
-<!-- 10 GÉNÉRER -->
-<div class="gsec" id="g10">
-  <div class="gsec-hdr"><div class="gnum red">10</div><div><div class="gsec-title">Générer &amp; Publier</div><div class="gsec-sub">Le moment où le setup devient figé</div></div></div>
+<!-- Générer & Publier -->
+<div class="gsec" id="g-publier">
+  <div class="gsec-hdr"><div class="gnum red">7</div><div><div class="gsec-title">Générer &amp; Publier</div><div class="gsec-sub">Le moment où le setup devient figé</div></div></div>
   <div class="gc err">
     <div class="gc-title">Quand cliquer</div>
     <div class="gc-body">
-      Tu cliques sur <code>🚀 Générer &amp; Publier</code> <strong>seulement quand tout est prêt.</strong><br>
-      Ce bouton génère les heats, calcule les horaires, affecte les juges et publie toutes les données sur Firebase.
+      Tu cliques <code>🚀 Générer &amp; Publier</code> <strong>seulement quand tout est prêt.</strong> Ce bouton génère les heats, calcule les horaires, affecte les juges et publie tout sur Firebase.
     </div>
   </div>
   <div class="gc ok">
     <div class="gc-title">Après le clic</div>
     <div class="gc-body">
-      Attends le message de confirmation. Si une alerte rouge de trous apparaît en haut, il manque encore des juges sur certains heats.
+      Attends le message de confirmation. Si un bandeau orange de trous apparaît dans le Classement, il manque des juges sur certains heats (ou les équipes ont changé depuis la publication) → corrige puis re-clique « Générer &amp; Publier ».
     </div>
   </div>
   <div class="gc warn">
-    <div class="gc-title">Et après ?</div>
+    <div class="gc-title">Et ensuite</div>
     <div class="gc-body">
-      <strong>Après génération, tu ne modifies plus rien dans le setup.</strong> C'est le comportement attendu.
+      <strong>Après génération, tu ne modifies plus le setup.</strong> C'est le comportement attendu. (Voir « Les boutons à ne pas toucher ».)
     </div>
   </div>
 </div>
 
-<!-- 11 SCORECARDS -->
-<div class="gsec" id="g11">
-  <div class="gsec-hdr"><div class="gnum purple">11</div><div><div class="gsec-title">Scorecards</div><div class="gsec-sub">Feuilles de score automatiques par équipe et par heat</div></div></div>
-
+<!-- Scorecards -->
+<div class="gsec" id="g-scorecards">
+  <div class="gsec-hdr"><div class="gnum purple">8</div><div><div class="gsec-title">Scorecards</div><div class="gsec-sub">Feuilles de score automatiques par équipe et par heat</div></div></div>
   <div class="gc info">
-    <div class="gc-title">C'est quoi une scorecard ici</div>
+    <div class="gc-title">C'est quoi</div>
     <div class="gc-body">
-      Une scorecard est une <strong>feuille de score pré-remplie</strong> générée automatiquement pour chaque équipe et chaque heat.<br>
-      Elle contient : nom de l'équipe, WOD, format, heure de passage, tableau des mouvements, champs de score, cases à signer.
+      Une <strong>feuille de score pré-remplie</strong> générée automatiquement pour chaque équipe et chaque heat : nom d'équipe, WOD, format, heure de passage, tableau des mouvements, champs de score, cases à signer. Elle s'adapte à la catégorie (couleur, badge catégorie, badge format, case pré-cochée, label ATHLETE / TEAM CAPTAIN, mouvements spécifiques si des standards ont été saisis).<br><br>
+      <strong>La scorecard papier signée fait foi</strong> en cas de litige.
     </div>
   </div>
-
-  <div class="gc tip">
-    <div class="gc-title">🟣 Adaptation automatique à la catégorie</div>
-    <div class="gc-body">
-      <div class="gcl">
-        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Couleur</strong> : bordure, header et lignes de signature dans la couleur de la catégorie.</div></div>
-        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Badge catégorie</strong> : RX HOMMES, SCALED FEMMES, MASTERS H 45+, TEAMS…</div></div>
-        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Badge format WOD</strong> : AMRAP, FOR TIME, EMOM, ROUNDS, MAX LOAD.</div></div>
-        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Cases à cocher</strong> : la bonne case est pré-cochée selon la catégorie.</div></div>
-        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Label de signature</strong> : ATHLETE ou TEAM CAPTAIN selon le type.</div></div>
-        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Mouvements spécifiques</strong> à la catégorie si des standards ont été saisis.</div></div>
-      </div>
-    </div>
-  </div>
-
   <div class="gc info">
-    <div class="gc-title">Comment imprimer les scorecards</div>
+    <div class="gc-title">Comment les imprimer</div>
     <div class="gc-body">
       <div class="gcl">
-        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Par WOD</strong> : onglet <strong>⏱ WODs</strong> → bouton <code>🖨️ Scorecard</code> à droite de chaque WOD.</div></div>
-        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Par heat individuel</strong> : <strong>🎯 Jour J → Scorecards</strong>, filtre par WOD → <code>🖨️ Imprimer</code>.</div></div>
-        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Toutes en une fois</strong> : bouton <code>🖨️ Imprimer toutes</code> en haut de l'onglet Scorecards.</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Par WOD</strong> : onglet <strong>⏱ WODs</strong> → <code>🖨️ Scorecard</code> à droite du WOD.</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Par heat</strong> : <strong>🎯 Jour J → Scorecards</strong>, filtre par WOD → <code>🖨️ Imprimer</code>.</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Tout l'imprimable</strong> est aussi regroupé dans l'onglet <strong>🖨️ Impression</strong> (planning, QR, scorecards, listes &amp; staff).</div></div>
       </div>
     </div>
   </div>
 </div>
 
-<!-- 12 ÉCRANS JOUR J -->
-<div class="gsec" id="g12">
-  <div class="gsec-hdr"><div class="gnum fire">12</div><div><div class="gsec-title">Écrans Jour J</div><div class="gsec-sub">TK · Live · Juge · Classement · Speaker</div></div></div>
+<!-- ════════════════════════════════════════════════════════════════════
+     ② PENDANT LA COMPÈT
+     ════════════════════════════════════════════════════════════════════ -->
+<div class="gsec" id="g-pendant">
+  <div class="gsec-hdr"><div class="gnum fire">②</div><div><div class="gsec-title">Pendant la compèt — exploiter</div><div class="gsec-sub">Le jour J, le setup ne bouge plus</div></div></div>
+  <div class="gc info">
+    <div class="gc-title">L'idée</div>
+    <div class="gc-body">
+      Tout est publié. Le jour J, tu <strong>pilotes</strong> avec le TK, tu <strong>affiches</strong> avec le Live, tes <strong>juges saisissent</strong>, et tu <strong>suis</strong> avec le Classement. Tu ne reconfigures plus rien.
+    </div>
+  </div>
+</div>
 
+<!-- Jour J -->
+<div class="gsec" id="g-jourj">
+  <div class="gsec-hdr"><div class="gnum purple">1</div><div><div class="gsec-title">Le minimum le jour J</div><div class="gsec-sub">Dans l'ordre</div></div></div>
+  <div class="gsteps">
+    <div class="gstep ok"><div class="gsn ok">1</div><div><div class="gst">Relis le planning juge</div><div class="gsd">Confirme passages, pauses et coupures dans <strong>🧑‍⚖️ Planning juge</strong>.</div></div></div>
+    <div class="gstep ok"><div class="gsn ok">2</div><div><div class="gst">Imprime si besoin</div><div class="gsd">Feuilles staff / planning via <strong>🖨️ Impression</strong>, scorecards par WOD.</div></div></div>
+    <div class="gstep ok"><div class="gsn ok">3</div><div><div class="gst">Affiche les QR</div><div class="gsd">QR juges et accès utiles dans <strong>📱 QR Codes</strong>. Garde les QR juges au PC course (un juge qui perd sa page rescanne).</div></div></div>
+    <div class="gstep ok"><div class="gsn ok">4</div><div><div class="gst">Ouvre les écrans</div><div class="gsd">TK, Live, Classement, Speaker. Le setup ne doit plus bouger.</div></div></div>
+    <div class="gstep ok"><div class="gsn ok">5</div><div><div class="gst">Lance et suis</div><div class="gsd">Sur le TK, « ▶ Lancer la journée » une fois. Live pour afficher, Classement pour suivre les scores.</div></div></div>
+  </div>
+</div>
+
+<!-- Écrans -->
+<div class="gsec" id="g-ecrans">
+  <div class="gsec-hdr"><div class="gnum blue">2</div><div><div class="gsec-title">Les écrans</div><div class="gsec-sub">TK · Live · Juge · Classement · Speaker</div></div></div>
   <div class="groles">
     <div class="grole">
       <div class="gri">🎛️</div>
-      <div class="grn">TK — tk9delta.html</div>
-      <div class="grd">Tableau de bord du timekeeper. Lance les heats, gère les chronos Z1+Z2, valide les scores, déclenche les inter-heat et coupures. Affiche les lanes avec le détail mouvement par mouvement.</div>
+      <div class="grn">TK — poste de pilotage</div>
+      <div class="grd">Lance les heats, gère les chronos Z1+Z2, valide, déclenche inter-heat et coupures. Affiche le détail des lanes.</div>
       <div class="gru">tk9delta.html</div>
     </div>
     <div class="grole">
       <div class="gri">📺</div>
-      <div class="grn">Live — live.html</div>
-      <div class="grd">Écran public affiché sur les télés. Chrono partagé en grand, scores en temps réel, classement heat et WOD. Se met à jour automatiquement.</div>
+      <div class="grn">Live — écran public (télés)</div>
+      <div class="grd">Chrono en grand, scores en temps réel, classement heat et WOD. Se met à jour tout seul. Bouton ☀️ / 🌙 pour le fond.</div>
       <div class="gru">live.html</div>
     </div>
     <div class="grole">
       <div class="gri">⚖️</div>
-      <div class="grn">Juge — judge.html</div>
-      <div class="grd">Interface du juge sur téléphone. Saisie des reps mouvement par mouvement, chrono, validation du score final.</div>
+      <div class="grn">Juge — sur téléphone</div>
+      <div class="grd">Saisie des reps, chrono, validation. Voyant de connexion, confirmation en couleur, pavé « total » (voir ci-dessous).</div>
       <div class="gru">judge.html</div>
     </div>
     <div class="grole">
       <div class="gri">🏆</div>
-      <div class="grn">Classement — classement.html</div>
-      <div class="grd">Classement public par catégorie. Se met à jour en temps réel. Les équipes invitées apparaissent dans leur catégorie d'origine.</div>
+      <div class="grn">Classement — public</div>
+      <div class="grd">Par catégorie, temps réel. Recherche d'équipe + épingle « mon équipe ». Invitées dans leur catégorie d'origine.</div>
       <div class="gru">classement.html</div>
     </div>
   </div>
-
   <div class="gc info">
-    <div class="gc-title">🎙️ Speaker — speaker.html</div>
+    <div class="gc-title">🎙️ Speaker &amp; 📊 Historique</div>
     <div class="gc-body">
-      Interface dédiée au speaker. Vue synthétique des heats en cours, scores en direct, classements WOD. Permet de commenter sans regarder le TK.
-    </div>
-  </div>
-
-  <div class="gc info">
-    <div class="gc-title">📊 Historique — history.html</div>
-    <div class="gc-body">
-      Consultation de l'historique des scores passés et des résultats WOD par WOD.
+      <strong>Speaker</strong> (speaker.html) : vue synthétique des heats en cours pour commenter sans regarder le TK ; il n'annonce que les heats du jour en cours.<br>
+      <strong>Historique</strong> (history.html) : consultation des scores et résultats WOD par WOD.
     </div>
   </div>
 </div>
 
-<!-- 13 CHRONO -->
-<div class="gsec" id="g13">
-  <div class="gsec-hdr"><div class="gnum blue">13</div><div><div class="gsec-title">Chrono — comment il fonctionne</div><div class="gsec-sub">Fluide · Synchronisé · Sans flash</div></div></div>
-
+<!-- Appli juge -->
+<div class="gsec" id="g-juge">
+  <div class="gsec-hdr"><div class="gnum teal">3</div><div><div class="gsec-title">Appli juge — ce que voient tes juges</div><div class="gsec-sub">Plus claire, plus sûre, lisible au soleil</div></div></div>
   <div class="gc ok">
-    <div class="gc-title">Chrono partagé sur le Live</div>
+    <div class="gc-title">Les repères visuels</div>
     <div class="gc-body">
-      Un seul chrono en grand s'affiche en haut du live, commun aux deux zones. Il suit automatiquement cette priorité :<br><br>
       <div class="gcl">
-        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Countdown départ</strong> : compte à rebours avant le GO.</div></div>
-        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Inter-heat / Coupure</strong> : compte à rebours entre les heats.</div></div>
-        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Heat live</strong> : temps restant (AMRAP) ou temps écoulé (ForTime), en descendant vers 0.</div></div>
-        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Heat terminé</strong> : temps final figé.</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Voyant de connexion</strong> en haut : <strong style="color:#2E7D32">Live</strong> (connecté) ou <strong style="color:#C62828">Hors-ligne</strong> (coupé). Un petit ⏳ apparaît si des scores attendent d'être envoyés.</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Validation en couleur</strong> : <strong style="color:#2E7D32">vert = score confirmé</strong> sur le cloud / <strong style="color:#E65100">orange = en attente réseau</strong> (il partira seul).</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Pavé « total »</strong> : pour un WOD long, un champ vide en gros chiffres ; le juge tape le total final — il <strong>remplace</strong> le compteur, il n'additionne pas.</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Progression « X / Y reps »</strong> sous le gros compteur, et le mouvement suivant en discret dessous.</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Boutons bien espacés</strong> → moins de fausses manips.</div></div>
       </div>
     </div>
   </div>
-
   <div class="gc tip">
-    <div class="gc-title">🔄 Anti-flash — plus de passage en --:--</div>
+    <div class="gc-title">Sécurité &amp; confort</div>
     <div class="gc-body">
-      Au démarrage d'un heat, Firebase écrit le statut <em>live</em> et le <em>startTimestamp</em> en deux opérations séparées. Pendant cette fraction de seconde, le chrono ne connaît pas encore le timestamp de départ.<br><br>
-      Le système gère ça proprement :
       <div class="gcl">
-        <div class="gci"><div class="gcb2"></div><div class="gct2">Si le startTimestamp n'est pas encore arrivé, le chrono affiche le <strong>cap du WOD</strong> (valeur de départ) plutôt que des tirets.</div></div>
-        <div class="gci"><div class="gcb2"></div><div class="gct2">Un mécanisme d'<strong>ancre</strong> mémorise la dernière valeur connue et continue le décompte virtuellement pendant jusqu'à 20 secondes si une rupture survient.</div></div>
-        <div class="gci"><div class="gcb2"></div><div class="gct2">Le TK mémorise aussi la dernière valeur affichée et ne flash jamais <code>--:--</code> quand un heat est déjà en <em>live</em>.</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Anti-perte de score</strong> : wifi coupé en plein heat → les reps sont mises en file et renvoyées à la reconnexion.</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Reprise automatique</strong> : si le tel se met en veille entre deux heats, le juge rouvre et il est remis sur son heat sans rien faire.</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Garde-fou de validation</strong> : sur AMRAP / Tabata (score qui monte jusqu'au bout), VALIDER reste grisé tant que le chrono tourne. Les formats au finish (For Time, EMOM, Rounds, charge, ergo) restent validables à la fin de l'équipe.</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Écran de saisie adapté</strong> : charge max (kg) et ergo (cal/distance) ont le bon écran.</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>🚫 Absente</strong> : si l'équipe de sa ligne ne vient pas, le juge tape dessus → il est libéré et devient renfort prioritaire. « ↩︎ Annuler » si l'équipe arrive en retard.</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>📅 Mes passages</strong> : bouton flottant listant tous les passages du juge (heure, zone, ligne, heat).</div></div>
       </div>
-    </div>
-  </div>
-
-  <div class="gc info">
-    <div class="gc-title">Synchronisation Z1 / Z2 sur le TK</div>
-    <div class="gc-body">
-      Les chronos des deux zones sont pilotés par un <strong>loop global unique</strong> qui snapshote le temps serveur à chaque tick. Les deux zones reçoivent exactement le même timestamp à chaque rafraîchissement — aucun décalage visuel entre Z1 et Z2.
+      <br><strong>La consigne à répéter aux juges</strong> : rescanner le QR le matin, après la pause et après chaque coupure. Entre les heats d'un même bloc, garder la page ouverte.
     </div>
   </div>
 </div>
 
-<!-- 14 CLASSEMENT -->
-<div class="gsec" id="g14">
-  <div class="gsec-hdr"><div class="gnum green">14</div><div><div class="gsec-title">Classement</div><div class="gsec-sub">Par catégorie d'origine · Équipes invitées bien rattachées · Temps réel</div></div></div>
-
+<!-- TK -->
+<div class="gsec" id="g-tk">
+  <div class="gsec-hdr"><div class="gnum orange">4</div><div><div class="gsec-title">TK — le poste de pilotage</div><div class="gsec-sub">Enchaîne la journée, surveille les scores</div></div></div>
   <div class="gc ok">
-    <div class="gc-title">Principe général</div>
+    <div class="gc-title">« Je clique une fois, je ne touche plus à rien »</div>
     <div class="gc-body">
-      Le classement regroupe les équipes <strong>par leur catégorie d'origine</strong>, quel que soit le heat dans lequel elles ont passé.<br><br>
-      Une équipe invitée dans un heat d'une autre catégorie <strong>apparaît dans le classement de sa propre catégorie</strong>, pas dans celle du heat hôte.
+      Pour que la journée s'enchaîne toute seule, avec les deux zones qui repartent ensemble :
+      <div class="gcl">
+        <div class="gci"><div class="gcb2"></div><div class="gct2">Sur chaque WOD, un <strong>inter-heat</strong> (ex : 1 min 30) et surtout une <strong>coupure après</strong> (ex : 4-5 min). <strong>C'est la coupure qui resynchronise les deux zones.</strong></div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2">Clique <strong>« ▶ Lancer la journée »</strong> une fois. Le mode AUTO enchaîne ; une zone en avance affiche « ⏳ Attente Zone X » puis les deux repartent ensemble.</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2">Quand les deux zones sont prêtes, un bouton violet <strong>« ⚡ Lancer Z1+Z2 ensemble »</strong> apparaît.</div></div>
+      </div>
     </div>
   </div>
-
-  <div class="gc info">
-    <div class="gc-title">Comment les points sont calculés</div>
+  <div class="gc tip">
+    <div class="gc-title">Les filets de sécurité du TK</div>
     <div class="gc-body">
-      Pour chaque WOD, les équipes sont classées par score (reps, temps, charge selon le format). La 1ère reçoit 1 point, la 2ème 2 points, etc. — <strong>le total le plus bas gagne</strong>.<br><br>
-      En cas d'égalité de score, le <strong>tiebreak</strong> départage. Les scores des heats en cours (<em>live</em>) sont pris en compte en temps réel.
+      <div class="gcl">
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Alerte scores manquants</strong> : en fin de heat, chaque zone affiche « ⚠️ X scores manquants » (avec les lignes) ou « ✅ Tous les scores validés ». Ne clôture jamais avec un trou.</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Checklist avant lancement</strong> : heats présents, WOD sur chaque heat, juge sur chaque ligne occupée. Tout vert → ça lance ; sinon une fenêtre liste les soucis avec « ▶ Lancer quand même ».</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>ETA fin de journée</strong> : heure de fin estimée, recalculée depuis maintenant, qui se cale sur ton avance / ton retard.</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Enchaînement blindé</strong> : le TK enchaîne même si son onglet passe en arrière-plan (anti-mise en veille).</div></div>
+      </div>
     </div>
   </div>
+</div>
 
+<!-- Spectateurs -->
+<div class="gsec" id="g-spectateurs">
+  <div class="gsec-hdr"><div class="gnum green">5</div><div><div class="gsec-title">Pages spectateurs</div><div class="gsec-sub">Recherche · « mon équipe » · prochain passage</div></div></div>
+  <div class="gc ok">
+    <div class="gc-title">🏆 Sur le classement public</div>
+    <div class="gc-body">
+      <div class="gcl">
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Recherche d'équipe</strong> (toutes catégories) : le public tape le nom et sa ligne ressort tout de suite.</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Épingle « mon équipe » ⭐</strong> : un clic sur l'étoile garde l'équipe en évidence, même après les mises à jour.</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2">C'est <strong>100 % côté public</strong> : recherche et épingle ne génèrent <strong>aucun appel Firebase en plus</strong> (bande passante préservée).</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="gc ok">
+    <div class="gc-title">📅 Sur le planning public</div>
+    <div class="gc-body">
+      <div class="gcl">
+        <div class="gci"><div class="gcb2"></div><div class="gct2">L'équipe choisie voit <strong>« prochain passage dans X min »</strong>, remis à jour automatiquement.</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2">Un badge <strong>EN COURS</strong> marque le heat en direct.</div></div>
+      </div>
+      <br>Le public se repère seul — moins de questions au PC course.
+    </div>
+  </div>
+</div>
+
+<!-- Classement -->
+<div class="gsec" id="g-classement">
+  <div class="gsec-hdr"><div class="gnum blue">6</div><div><div class="gsec-title">Classement &amp; correction de score</div><div class="gsec-sub">Barème CrossFit · temps réel · invitées bien rattachées</div></div></div>
+  <div class="gc ok">
+    <div class="gc-title">Comment c'est calculé</div>
+    <div class="gc-body">
+      <strong>Barème CrossFit Team</strong> : par WOD, 1<sup>er</sup> = 100 pts, 2<sup>e</sup> = 95, 3<sup>e</sup> = 90… <strong>le plus de points gagne.</strong> Le cumul donne le général. Un WOD non joué = 0 point.<br><br>
+      <div class="gcl">
+        <div class="gci"><div class="gcb2"></div><div class="gct2">Une catégorie splittée en 2 heats est classée <strong>ensemble</strong> (un seul 1<sup>er</sup> à 100 pts), jamais heat par heat.</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2">À points égaux, le <strong>tiebreak</strong> départage (puis le nombre de podiums, puis le score brut). <strong>Cohérent entre classement et podium.</strong></div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2">Une équipe <strong>invitée</strong> est comptée dans sa catégorie d'origine.</div></div>
+      </div>
+    </div>
+  </div>
   <div class="gc tip">
     <div class="gc-title">✏️ Corriger un score pendant l'événement</div>
     <div class="gc-body">
-      Dans l'onglet <strong>🏆 Classement</strong>, sélectionne la catégorie, clique sur <strong>✏️ Modifier un score</strong>, choisis l'équipe et le WOD, saisis la correction avec une raison. La modification est immédiate sur Firebase.
+      Dans <strong>🏆 Classement</strong> : <strong>✏️ Modifier un score</strong> → équipe + WOD → la correction, avec une raison. C'est immédiat sur Firebase.<br><br>
+      Le bouton <strong>« 📋 Journal des modifications de score »</strong> (en bas du Classement) garde tout l'historique : quand, quel heat/ligne, quel WOD, la raison, par qui. À garder sous la main <strong>en cas de contestation d'une équipe</strong>.
     </div>
   </div>
 </div>
 
-<!-- 15 APRÈS GÉNÉRATION -->
-<div class="gsec" id="g15">
-  <div class="gsec-hdr"><div class="gnum green">15</div><div><div class="gsec-title">Après génération : ce que tu peux encore toucher</div><div class="gsec-sub">Lecture / impression oui · reconfiguration non</div></div></div>
+<!-- Chrono -->
+<div class="gsec" id="g-chrono">
+  <div class="gsec-hdr"><div class="gnum purple">7</div><div><div class="gsec-title">Chrono — comment il marche</div><div class="gsec-sub">Fluide · synchronisé · sans flash</div></div></div>
   <div class="gc ok">
-    <div class="gc-title">Onglets que tu peux encore utiliser</div>
+    <div class="gc-title">Le chrono partagé du Live</div>
     <div class="gc-body">
+      Un seul chrono en grand, commun aux deux zones, qui suit cette priorité :
       <div class="gcl">
-        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>🧑‍⚖️ Planning juge</strong> : relire passages, pauses et coupures.</div><div class="glv lvo">OK</div></div>
-        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>🖨️ Impression</strong> : sortir les feuilles.</div><div class="glv lvo">OK</div></div>
-        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>📧 Mails</strong> : envoyer les récap.</div><div class="glv lvo">OK</div></div>
-        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>🗓 Synoptique</strong> : vérifier visuellement la journée.</div><div class="glv lvo">OK</div></div>
-        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>🎯 Jour J</strong> : exploitation le jour J, scorecards, QR.</div><div class="glv lvo">OK</div></div>
-        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>📱 QR Codes</strong> : afficher / imprimer les QR.</div><div class="glv lvo">OK</div></div>
-        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>🏆 Classement</strong> : consulter et corriger les scores.</div><div class="glv lvo">OK</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Countdown départ</strong> → <strong>Inter-heat / Coupure</strong> → <strong>Heat live</strong> → <strong>Heat terminé</strong> (temps figé).</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2">Les deux zones sont pilotées par un <strong>loop unique</strong> : même timestamp à chaque tick, aucun décalage entre Z1 et Z2.</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Anti-flash</strong> : plus de passage en <code>--:--</code> au démarrage ; si le timestamp de départ tarde, le chrono affiche le cap du WOD puis se cale en moins d'une seconde.</div></div>
       </div>
-    </div>
-  </div>
-  <div class="gc err">
-    <div class="gc-title">Onglets à ne plus modifier</div>
-    <div class="gc-body">
-      <div class="gcl">
-        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>⚙️ Config</strong></div><div class="glv lvc">STOP</div></div>
-        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>⏱ WODs</strong></div><div class="glv lvc">STOP</div></div>
-        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>🏆 Catégories</strong></div><div class="glv lvc">STOP</div></div>
-        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>👥 Bénévoles</strong></div><div class="glv lvc">STOP</div></div>
-      </div>
-      Tu n'y retournes que si tu acceptes de refaire une génération propre derrière.
     </div>
   </div>
 </div>
 
-<!-- 16 JOUR J -->
-<div class="gsec" id="g16">
-  <div class="gsec-hdr"><div class="gnum purple">16</div><div><div class="gsec-title">Jour J</div><div class="gsec-sub">Le minimum à faire le jour de la compétition</div></div></div>
-  <div class="gsteps">
-    <div class="gstep ok"><div class="gsn ok">1</div><div><div class="gst">Relis le planning juge</div><div class="gsd">Confirme passages, pauses et coupures dans <strong>🧑‍⚖️ Planning juge</strong>.</div></div></div>
-    <div class="gstep ok"><div class="gsn ok">2</div><div><div class="gst">Imprime si besoin</div><div class="gsd">Feuilles staff / planning via <strong>🖨️ Impression</strong>, scorecards par WOD.</div></div></div>
-    <div class="gstep ok"><div class="gsn ok">3</div><div><div class="gst">Affiche les QR</div><div class="gsd">QR juges et accès utiles dans <strong>📱 QR Codes</strong>.</div></div></div>
-    <div class="gstep ok"><div class="gsn ok">4</div><div><div class="gst">Ouvre les écrans d'exploitation</div><div class="gsd">TK (tk9delta.html), Live (live.html), Classement (classement.html), Speaker (speaker.html). Le setup ne doit plus bouger.</div></div></div>
-    <div class="gstep ok"><div class="gsn ok">5</div><div><div class="gst">Suis la journée</div><div class="gsd">TK pour lancer, Live pour afficher, Classement pour suivre les scores.</div></div></div>
-  </div>
-</div>
+<!-- ════════════════════════════════════════════════════════════════════
+     ③ LE SOIR / ENTRE J1 ET J2
+     ════════════════════════════════════════════════════════════════════ -->
+<div class="gsec" id="g-soir">
+  <div class="gsec-hdr"><div class="gnum blue">③</div><div><div class="gsec-title">Le soir / entre J1 et J2</div><div class="gsec-sub">3 gestes le soir, 3 gestes le matin — c'est tout</div></div></div>
 
-<!-- 17 SI ÇA MERDE -->
-<div class="gsec" id="gj1j2">
-  <div class="gsec-hdr"><div class="gnum blue">🌙</div><div><div class="gsec-title">Coupure fin J1 → reprise J2</div><div class="gsec-sub">Le soir du samedi et le matin du dimanche — 3 gestes chacun</div></div></div>
-
-  <div class="gc tip">
+  <div class="gc ok">
     <div class="gc-title">✅ D'abord, la bonne nouvelle</div>
-    <div class="gc-body">Il n'y a <strong>rien à réinitialiser</strong> entre les deux jours. Chaque heat connaît son jour, les scores du J1 restent sur Firebase toute la nuit, et le classement final cumule les deux jours tout seul. Passer au J2 = <strong>un clic</strong>.</div>
+    <div class="gc-body">
+      Il n'y a <strong>rien à réinitialiser</strong> entre les deux jours. Chaque heat connaît son jour. <strong>Les scores du J1 restent sur Firebase toute la nuit</strong> — le PC peut même être éteint le soir. Le classement final cumule les deux jours tout seul. <strong>Passer au J2 = démarrer le 1<sup>er</sup> heat du J2.</strong>
+    </div>
   </div>
 
   <div class="gc">
     <div class="gc-title">🌙 Le soir du Jour 1 — 3 gestes</div>
     <div class="gc-body">
       <div class="gcl">
-        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>1. Vérifier</strong> que tous les heats du J1 sont finis (les deux zones) et que le Classement affiche les résultats.</div></div>
-        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>2. Ne rien toucher</strong> : pas de purge, pas de vidage, pas de « ménage ».</div></div>
-        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>3. Fermer les écrans</strong> et aller dormir. C'est tout.</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>1. Vérifie</strong> que tous les heats du J1 sont finis (les deux zones) et que le Classement affiche les résultats.</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>2. Ne touche à rien</strong> : pas de purge, pas de vidage, pas de « ménage ».</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>3. Ferme les écrans</strong> et va dormir. (Tu peux même éteindre le PC — les scores sont sur le cloud.)</div></div>
       </div>
     </div>
   </div>
@@ -3024,36 +3068,125 @@ function checkPassword(){
     <div class="gc-title">☀️ Le matin du Jour 2 — 3 gestes</div>
     <div class="gc-body">
       <div class="gcl">
-        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>1. Ouvrir le TK</strong> + Ctrl&nbsp;Maj&nbsp;R, et vérifier le titre de l'onglet : « Fights on Contest 2026 » (pas HYROX).</div></div>
-        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>2. Cliquer « Jour 2 »</strong> — le TK bascule sur les heats du J2, deux zones, mode auto, décompte du matin.</div></div>
-        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>3. Contrôler le Live</strong> : les bons heats et les bonnes équipes s'affichent → laisser tourner.</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>1. Ouvre le TK</strong> + Ctrl&nbsp;Maj&nbsp;R, et vérifie le titre de l'onglet (le bon événement).</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>2. Démarre le Jour 2</strong> : lance le 1<sup>er</sup> heat du J2 — le TK bascule sur les heats du J2, deux zones, mode auto.</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>3. Contrôle le Live</strong> : les bons heats et les bonnes équipes s'affichent → laisse tourner.</div></div>
       </div>
     </div>
   </div>
 
-  <div class="gc warn">
-    <div class="gc-title">⛔ Le seul geste interdit</div>
-    <div class="gc-body"><strong>Ne jamais cliquer sur Purger</strong> — ni le soir du J1, ni le matin du J2. Ça effacerait tous les scores du Jour 1, sans retour possible.</div>
+  <div class="gc err">
+    <div class="gc-title">⛔ Le seul geste interdit entre J1 et J2</div>
+    <div class="gc-body"><strong>Ne jamais cliquer sur Purger</strong> — ni le soir du J1, ni le matin du J2. Ça effacerait tous les scores du Jour 1, sans retour. (Voir « Les boutons à ne pas toucher ».)</div>
   </div>
 </div>
 
-<div class="gsec" id="g17">
-  <div class="gsec-hdr"><div class="gnum red">17</div><div><div class="gsec-title">Si ça merde</div><div class="gsec-sub">Les réflexes utiles</div></div></div>
+<!-- ════════════════════════════════════════════════════════════════════
+     ④ EN CAS DE PROBLÈME
+     ════════════════════════════════════════════════════════════════════ -->
+<div class="gsec" id="g-probleme">
+  <div class="gsec-hdr"><div class="gnum red">④</div><div><div class="gsec-title">En cas de problème</div><div class="gsec-sub">Les bons réflexes, du plus simple au plus fort</div></div></div>
+  <div class="gc ok">
+    <div class="gc-title">Le réflexe n°1 : recharger</div>
+    <div class="gc-body">
+      Un comportement bizarre sur un écran ? <strong>Recharge avec Ctrl+F5</strong> (ou Ctrl Maj R). 9 fois sur 10, ça repart. Le chrono et les scores sont sur le cloud, rien n'est perdu.
+    </div>
+  </div>
+</div>
+
+<!-- Restaurer scores -->
+<div class="gsec" id="g-restore">
+  <div class="gsec-hdr"><div class="gnum green">♻️</div><div><div class="gsec-title">Restaurer les scores (instantané)</div><div class="gsec-sub">Le filet de sécurité si des scores ont sauté</div></div></div>
+  <div class="gc ok">
+    <div class="gc-title">Quand l'utiliser</div>
+    <div class="gc-body">
+      Si des scores semblent faux, manquants ou effacés par erreur. L'app a enregistré des <strong>instantanés automatiques</strong> en continu.
+      <div class="gcl">
+        <div class="gci"><div class="gcb2"></div><div class="gct2">Va dans <strong>🎯 Jour J</strong> → bouton discret <strong>« ♻️ Restaurer un instantané »</strong> (à côté de l'Import de secours).</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2">Choisis la sauvegarde au bon moment → elle <strong>remet uniquement les scores</strong>.</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Heats, horaires et planning ne bougent pas.</strong> Une sauvegarde de sécurité des scores actuels est créée avant d'écraser.</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="gc info">
+    <div class="gc-title">Les deux autres niveaux de sauvegarde</div>
+    <div class="gc-body">
+      <div class="gcl">
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>💾 Sauvegarder la base</strong> (dans 🎯 Jour J) : de temps en temps le samedi, télécharge un fichier avec <strong>toute la base en ligne</strong> (heats, scores, statuts, juges…). Garde ces fichiers.</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>🚨 Import de secours</strong> : réécrit <strong>toute la base</strong> à partir d'un de ces fichiers. Il <strong>écrase tout ce qui est en ligne</strong> — à n'utiliser que si la base est corrompue. Demande une confirmation et le mot <code>RESTAURER</code>.</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- FAQ -->
+<div class="gsec" id="g-faq">
+  <div class="gsec-hdr"><div class="gnum orange">?</div><div><div class="gsec-title">Questions fréquentes</div><div class="gsec-sub">Les cas qui reviennent</div></div></div>
 
   <div class="gqa"><div class="gqa-q">Je vois des trous de juges après génération</div><div class="gqa-a">Retourne dans <strong>👥 Bénévoles</strong>, corrige les jours / créneaux / zones, puis regénère proprement avant le jour J.</div></div>
   <div class="gqa"><div class="gqa-q">Le planning ne ressemble pas à ce que je veux</div><div class="gqa-a">Revois <strong>⏱ WODs</strong> et <strong>🏆 Catégories</strong>, surtout l'ordre par WOD, puis regénère.</div></div>
-  <div class="gqa"><div class="gqa-q">Les deux zones ne redémarrent pas au même moment au changement de WOD</div><div class="gqa-a">Vérifie que <strong>coupureApres</strong> est bien définie sur le WOD (pas interHeat). C'est la coupure qui synchronise les deux zones. L'inter-heat est indépendant par zone.</div></div>
-  <div class="gqa"><div class="gqa-q">Les catégories Z1+Z2 s'affichent à la suite au lieu d'être simultanées</div><div class="gqa-a">Vérifie que chaque catégorie a bien sa <strong>zone (1 ou 2) définie</strong> dans l'onglet Catégories. Si toutes sont sans zone, elles se retrouvent en Zone 1 et se suivent.</div></div>
-  <div class="gqa"><div class="gqa-q">Une équipe invitée apparaît dans le mauvais classement</div><div class="gqa-a">Normal avant la modif. Avec la version actuelle, les équipes invitées sont automatiquement rattachées à leur catégorie d'origine dans tous les classements.</div></div>
-  <div class="gqa"><div class="gqa-q">La scorecard n'affiche pas les bons mouvements pour une catégorie</div><div class="gqa-a">Va dans <strong>⏱ WODs</strong> → fiche du WOD → <strong>Standards par catégorie</strong> → corrige le textarea. La preview se met à jour en direct.</div></div>
-  <div class="gqa"><div class="gqa-q">Le chrono flash --:-- au démarrage d'un heat</div><div class="gqa-a">Ce bug est corrigé. Si tu l'observes encore, c'est une latence Firebase exceptionnelle. Le chrono devrait se stabiliser en moins d'une seconde.</div></div>
-  <div class="gqa"><div class="gqa-q">Un score est faux pendant l'événement</div><div class="gqa-a">Utilise <strong>🏆 Classement</strong> ou <strong>🎯 Jour J</strong> pour corriger. Évite de regénérer juste pour ça.</div></div>
-  <div class="gqa"><div class="gqa-q">Le site a un comportement bizarre</div><div class="gqa-a">Recharge avec <code>Ctrl+F5</code>. Si besoin, ferme et rouvre le fichier.</div></div>
+  <div class="gqa"><div class="gqa-q">Les deux zones ne repartent pas ensemble au changement de WOD</div><div class="gqa-a">Vérifie que <strong>coupureApres</strong> est bien définie sur le WOD (pas seulement l'inter-heat). C'est la coupure qui synchronise les deux zones.</div></div>
+  <div class="gqa"><div class="gqa-q">Les catégories Z1+Z2 s'affichent à la suite au lieu d'être simultanées</div><div class="gqa-a">Vérifie que chaque catégorie a bien sa <strong>zone (1 ou 2) définie</strong> dans l'onglet Catégories. Sans zone, elles se retrouvent toutes en Zone 1 et se suivent.</div></div>
+  <div class="gqa"><div class="gqa-q">Une équipe invitée apparaît dans le mauvais classement</div><div class="gqa-a">Les invitées sont automatiquement rattachées à leur catégorie d'origine dans tous les classements (classement &amp; podium).</div></div>
+  <div class="gqa"><div class="gqa-q">La scorecard n'affiche pas les bons mouvements pour une catégorie</div><div class="gqa-a">Va dans <strong>⏱ WODs</strong> → fiche du WOD → <strong>Standards par catégorie</strong> → corrige le texte. La preview se met à jour en direct.</div></div>
+  <div class="gqa"><div class="gqa-q">Un score est faux pendant l'événement</div><div class="gqa-a">Corrige via <strong>🏆 Classement → ✏️ Modifier un score</strong> (avec une raison). Évite de regénérer juste pour ça.</div></div>
+  <div class="gqa"><div class="gqa-q">Des scores ont sauté / semblent effacés</div><div class="gqa-a">Utilise <strong>♻️ Restaurer un instantané</strong> (voir la section juste au-dessus) : ça remet uniquement les scores, sans toucher aux heats ni aux horaires.</div></div>
+  <div class="gqa"><div class="gqa-q">Un écran a un comportement bizarre</div><div class="gqa-a">Recharge avec <code>Ctrl+F5</code>. Si besoin, ferme et rouvre la page. Les scores restent sur le cloud.</div></div>
+</div>
 
-  <div class="fiche" style="margin-top:14px">
+<!-- ════════════════════════════════════════════════════════════════════
+     ⛔ LES BOUTONS À NE PAS TOUCHER
+     ════════════════════════════════════════════════════════════════════ -->
+<div class="gsec" id="g-stop">
+  <div class="gsec-hdr"><div class="gnum red">⛔</div><div><div class="gsec-title">Les boutons à ne pas toucher</div><div class="gsec-sub">Pendant la compèt, ces boutons sont interdits</div></div></div>
+
+  <div class="gc err">
+    <div class="gc-title">🚀 Générer &amp; Publier — pas pendant la compèt</div>
+    <div class="gc-body">
+      On ne clique « Générer &amp; Publier » <strong>qu'avant</strong> la compétition, une fois le setup fini. Le relancer pendant l'événement régénère les heats et peut tout décaler. La seule exception : un bandeau orange te le demande explicitement (équipes modifiées) — et seulement avant que les heats concernés ne tournent.
+    </div>
+  </div>
+
+  <div class="gc err">
+    <div class="gc-title">🗑 Purger (Firebase) — jamais pendant la compèt</div>
+    <div class="gc-body">
+      Le bouton <strong>🗑 Firebase</strong> remet le cloud à zéro et y repousse ta version admin. C'est l'outil pour <strong>effacer les données de test avant</strong> la compétition.
+      <div style="margin-top:10px;padding:9px 11px;background:rgba(211,47,47,.08);border:1px solid rgba(211,47,47,.25);border-radius:8px;font-size:12px;color:#B71C1C">
+        ⚠️ <strong>La purge est irréversible et concerne tout le monde.</strong> Tous les appareils connectés verront leurs données remplacées, et <strong>tous les scores saisis sur le terrain seront perdus.</strong> Ne jamais la lancer une fois la compétition commencée.
+      </div>
+      <div style="margin-top:8px"><strong>Garde-fou intégré</strong> : double confirmation — une fenêtre liste ce qui va être effacé, puis tu dois <strong>taper le mot <code>PURGER</code></strong> exactement. Autre chose = rien ne se passe.</div>
+      <div style="margin-top:8px"><strong>Le bon réflexe</strong> : prépare, teste, puis <strong>purge une dernière fois avant le jour J</strong> pour repartir propre. Une fois lancée, on ne purge plus.</div>
+    </div>
+  </div>
+
+  <div class="gc warn">
+    <div class="gc-title">⚙️ Config · ⏱ WODs · 🏆 Catégories · 👥 Bénévoles — figés après génération</div>
+    <div class="gc-body">
+      Après « Générer &amp; Publier », n'y retourne plus <strong>sauf à accepter de refaire une génération propre derrière</strong>. Les modifier en douce décale heats, horaires, juges et QR.
+    </div>
+  </div>
+
+  <div class="gc ok">
+    <div class="gc-title">✅ Ce que tu peux utiliser sans risque pendant la compèt</div>
+    <div class="gc-body">
+      <div class="gcl">
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>🧑‍⚖️ Planning juge</strong> : relire passages, pauses, coupures.</div><div class="glv lvo">OK</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>🖨️ Impression</strong> et <strong>📱 QR Codes</strong>.</div><div class="glv lvo">OK</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>🗓 Synoptique</strong> : vérifier la journée d'un coup d'œil.</div><div class="glv lvo">OK</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>🎯 Jour J</strong> : exploitation, scorecards, QR, restauration d'instantané.</div><div class="glv lvo">OK</div></div>
+        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>🏆 Classement</strong> : consulter et corriger les scores.</div><div class="glv lvo">OK</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- CHECKLIST -->
+<div class="gsec" id="g-checklist">
+  <div class="gsec-hdr"><div class="gnum green">✅</div><div><div class="gsec-title">Checklist finale</div><div class="gsec-sub">Si tout est coché, tu peux générer tranquille</div></div></div>
+  <div class="fiche">
     <div style="text-align:center;margin-bottom:14px;padding-bottom:10px;border-bottom:2px solid #1565C0">
-      <div style="font-family:var(--ff);font-size:20px;letter-spacing:2px;color:#1565C0">CHECKLIST FINALE</div>
-      <div style="font-size:10px;color:#64748B;margin-top:4px">Si tout est coché, tu peux générer tranquille.</div>
+      <div style="font-family:var(--ff);font-size:20px;letter-spacing:2px;color:#1565C0">AVANT DE GÉNÉRER</div>
+      <div style="font-size:10px;color:#64748B;margin-top:4px">Coche au fur et à mesure.</div>
     </div>
     <div class="gcl">
       <div class="gci"><div class="gcb2"></div><div class="gct2">Config remplie (nom, dates, lieu, horaires)</div></div>
@@ -3061,190 +3194,24 @@ function checkPassword(){
       <div class="gci"><div class="gcb2"></div><div class="gct2">Inter-heat défini entre les heats du même WOD</div></div>
       <div class="gci"><div class="gcb2"></div><div class="gct2">Coupure après définie pour chaque transition WOD</div></div>
       <div class="gci"><div class="gcb2"></div><div class="gct2">Standards par catégorie remplis dans chaque WOD</div></div>
-      <div class="gci"><div class="gcb2"></div><div class="gct2">WODs Z1+Z2 : chaque catégorie a sa zone (1 ou 2) définie</div></div>
+      <div class="gci"><div class="gcb2"></div><div class="gct2">WODs Z1+Z2 : chaque catégorie a sa zone (1 ou 2)</div></div>
       <div class="gci"><div class="gcb2"></div><div class="gct2">Toutes les catégories créées avec couleur et zone</div></div>
-      <div class="gci"><div class="gcb2"></div><div class="gct2">Toutes les équipes saisies dans les bonnes catégories</div></div>
+      <div class="gci"><div class="gcb2"></div><div class="gct2">Toutes les équipes dans les bonnes catégories</div></div>
       <div class="gci"><div class="gcb2"></div><div class="gct2">Équipes invitées placées dans les lanes libres si besoin</div></div>
       <div class="gci"><div class="gcb2"></div><div class="gct2">Ordre de passage par WOD vérifié (drag and drop)</div></div>
       <div class="gci"><div class="gcb2"></div><div class="gct2">Tous les juges saisis avec jours, créneaux et zones</div></div>
-      <div class="gci"><div class="gcb2"></div><div class="gct2">Planning bénévoles vérifié — pas de trou</div></div>
+      <div class="gci"><div class="gcb2"></div><div class="gct2">Planning vérifié — pas de trou de juge</div></div>
       <div class="gci"><div class="gcb2"></div><div class="gct2">Planning juge vérifié — heats Z1+Z2 simultanés</div></div>
       <div class="gci"><div class="gcb2"></div><div class="gct2">Scorecards preview vérifiées par WOD</div></div>
+      <div class="gci"><div class="gcb2"></div><div class="gct2">Purge finale des données de test faite</div></div>
       <div class="gci"><div class="gcb2"></div><div class="gct2">Prêt à cliquer sur <strong>🚀 Générer &amp; Publier</strong></div></div>
-      <div class="gci"><div class="gcb2"></div><div class="gct2">Après le clic : tu ne touches plus au setup</div></div>
+      <div class="gci"><div class="gcb2"></div><div class="gct2">Après le clic : je ne touche plus au setup</div></div>
     </div>
     <div style="margin-top:12px;text-align:center">
       <button onclick="printGuide()" style="background:linear-gradient(135deg,#1565C0,#1E88E5);color:#fff;border:none;border-radius:8px;padding:8px 18px;font-size:11px;font-weight:800;cursor:pointer">🖨️ Imprimer ce guide</button>
     </div>
   </div>
-
-<div class="gsec" id="gnew">
-  <div class="gsec-hdr"><div class="gnum green">★</div><div><div class="gsec-title">Nouveautés &amp; améliorations</div><div class="gsec-sub">Tout ce qui a été ajouté récemment — lis ça en priorité</div></div></div>
-
-  <div class="gc tip">
-    <div class="gc-title">🆕 Juillet 2026 — derniers correctifs</div>
-    <div class="gc-body">
-      <div class="gcl">
-        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Chrono For Time réparé</strong> : un For Time « 9 min, 5 tours » affiche UN seul chrono de 9 min (TK, live et speaker). Avant, il était découpé en blocs par tour.</div></div>
-        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Countdown J1/J2 (Config)</strong> : taper « 1 » enregistre bien 1 minute. Avant, vider le champ re-sauvait 10 par-dessus la frappe.</div></div>
-        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Inter-heat en direct</strong> : modifier l'inter-heat d'un WOD se voit immédiatement sur le TK, sans republier.</div></div>
-        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Toujours un juge</strong> : si l'affectation auto laisse une lane vide alors que des juges restent disponibles, elle est comblée automatiquement. Sinon : QR secours.</div></div>
-        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Heats périmés détectés</strong> : si les équipes ont changé après la publication, un bandeau orange apparaît dans le Classement → re-cliquer « Générer &amp; Publier ».</div></div>
-        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Journal des modifs complet</strong> : chaque correction de score note l'équipe et la valeur avant → après dans la bulle historique.</div></div>
-        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Zones à l'écran</strong> : bouton ⇄ (onglet Catégories) pour choisir quelle zone s'affiche à gauche — pour coller à la salle. Par défaut : Zone 1 à droite.</div></div>
-        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Appli juge plus lisible</strong> : la progression « 3 / 12 · Tour 2 / 5 » en gros, et le mouvement suivant en discret dessous.</div></div>
-        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Pastille tour du live</strong> : sur un WOD à tours personnalisés, la pastille « Tour X/Y » suit enfin le tour réel.</div></div>
-        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Enchaînement auto blindé</strong> : le TK enchaîne les heats même si son onglet passe en arrière-plan (anti-mise en veille).</div></div>
-      </div>
-    </div>
-  </div>
-
-  <div class="gc tip">
-    <div class="gc-title">🏆 Classement au barème CrossFit (officiel)</div>
-    <div class="gc-body">
-      Le classement utilise désormais le <strong>barème CrossFit Team</strong> : 1<sup>er</sup> = 100 pts, 2<sup>e</sup> = 95, 3<sup>e</sup> = 90… et ainsi de suite. <strong>Plus de points = meilleur classement.</strong><br><br>
-      <div class="gcl">
-        <div class="gci"><div class="gcb2"></div><div class="gct2">Pour <strong>chaque WOD</strong>, tu vois : le rang (médaille), les <strong>points réels gagnés</strong>, le score brut (reps/temps) et le tiebreak.</div></div>
-        <div class="gci"><div class="gcb2"></div><div class="gct2">Le <strong>cumul des points</strong> donne le classement général.</div></div>
-        <div class="gci"><div class="gcb2"></div><div class="gct2">Un WOD non joué = 0 point. Le classement est <strong>cohérent partout</strong> : admin, page publique et podium.</div></div>
-        <div class="gci"><div class="gcb2"></div><div class="gct2">Si une catégorie est <strong>splittée en 2 heats</strong>, toutes ses équipes sont classées <strong>ensemble</strong> (pas heat par heat) — un seul 1<sup>er</sup> à 100 pts. Idem sur l'écran live.</div></div>
-      </div>
-    </div>
-  </div>
-
-  <div class="gc tip">
-    <div class="gc-title">🖨️ Centre d'impression unifié</div>
-    <div class="gc-body">
-      Tout ce qui est imprimable est <strong>regroupé dans l'onglet Impression</strong>, par catégorie :<br><br>
-      <div class="gcl">
-        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Planning</strong> : par WOD, synoptique global, planning des juges.</div></div>
-        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>QR Codes</strong> : juges, équipes/planning public, public (live+classement), juge secours.</div></div>
-        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Scorecards</strong> : feuilles de score par WOD (choix dans un menu).</div></div>
-        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Listes &amp; staff</strong> : liste bénévoles, fiche individuelle d'un juge.</div></div>
-      </div>
-      Astuce : imprime les <strong>QR juges</strong> et garde-les au PC course — si un juge perd sa page, il rescanne.
-    </div>
-  </div>
-
-  <div class="gc tip">
-    <div class="gc-title">⚖️ Côté juge — ce qui a changé</div>
-    <div class="gc-body">
-      <div class="gcl">
-        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Briefing unifié</strong> dès le 1<sup>er</sup> heat, avec <strong>qui fait quoi</strong> (Athlète A/B, A+B, relais) et <strong>comment</strong> (synchro, solo, alterné…) sous chaque mouvement.</div></div>
-        <div class="gci"><div class="gcb2"></div><div class="gct2">Bascule <strong>automatique en saisie à -25s</strong> — plus de bouton « Je suis prêt ».</div></div>
-        <div class="gci"><div class="gcb2"></div><div class="gct2">Bouton <strong>« ✓ BRIEF OK »</strong> voyant en bas du briefing.</div></div>
-        <div class="gci"><div class="gcb2"></div><div class="gct2">Bouton flottant <strong>« 📅 Mes passages »</strong> : tous les passages du juge (heure, zone, ligne, heat), accessible partout.</div></div>
-        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Reprise automatique</strong> : entre deux heats, si le tel se met en veille quelques minutes, le juge rouvre et il est <strong>remis sur son heat sans rien faire</strong>. La session tient plusieurs heures.</div></div>
-        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Consigne simple à donner aux juges</strong> : <strong>rescanner le QR le matin, après la pause et après chaque coupure</strong>. Entre les heats d'un même bloc, ils gardent juste la page ouverte. Un rappel s'affiche aussi sur leur écran d'attente.</div></div>
-        <div class="gci"><div class="gcb2"></div><div class="gct2">Bouton <strong>« 🚫 Absente »</strong> dans l'en-tête : si l'équipe de sa ligne ne se présente pas, le juge tape dessus → il est <strong>libéré</strong> et devient renfort prioritaire pour une ligne orpheline (voir « Gestion des absences » plus bas). Bouton « ↩︎ Annuler » si l'équipe arrive en retard.</div></div>
-        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Saisie charge / ergo</strong> : pour un WOD <strong>charge max</strong> (kg) ou <strong>ergo</strong> (cal/distance), le juge a maintenant le bon écran de saisie (avant : il restait bloqué en compteur de reps).</div></div>
-        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Anti-perte de score</strong> : si le wifi lâche en plein heat, les reps sont mises en file et renvoyées à la reconnexion — plus de progression perdue même si le tel se met en veille.</div></div>
-        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Garde-fou de validation</strong> : sur un <strong>AMRAP</strong> ou un <strong>Tabata</strong> (score qui monte jusqu'au bout), le juge ne peut <strong>pas valider avant la fin du chrono</strong> — le bouton VALIDER reste grisé tant que le temps tourne. Les formats au finish (For Time, EMOM, Rounds, charge, ergo) restent validables au moment où l'équipe termine.</div></div>
-        <div class="gci"><div class="gcb2"></div><div class="gct2">For Time : le bouton <strong>VALIDER s'agrandit</strong> quand les reps sont complètes ; l'écran ne se ferme plus avant la fin du heat.</div></div>
-      </div>
-    </div>
-  </div>
-
-  <div class="gc tip">
-    <div class="gc-title">⏱ Côté TK (timekeeper) — ce qui a changé</div>
-    <div class="gc-body">
-      <div class="gcl">
-        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Alerte scores manquants</strong> : en fin de heat, chaque zone affiche « ⚠️ X scores manquants » (avec les lignes) ou « ✅ Tous les scores validés ». Tu ne clôtures jamais avec un trou.</div></div>
-        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Lancement synchronisé Z1+Z2</strong> : quand les deux zones sont prêtes pour le WOD suivant, un bouton violet « ⚡ Lancer Z1+Z2 ensemble » apparaît.</div></div>
-        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Vérification avant lancement</strong> : les boutons « ▶ Lancer la journée 1/2 » passent par une checklist (heats présents, WOD sur chaque heat, <strong>juge sur chaque ligne occupée</strong>). Tout vert → ça lance direct ; sinon une fenêtre liste les soucis avec un bouton « ▶ Lancer quand même ».</div></div>
-        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>ETA fin de journée</strong> : le bandeau du TK affiche l'<strong>heure de fin estimée</strong>, calculée sur tous les heats restants depuis maintenant. Elle se <strong>cale toute seule sur ton départ réel</strong> et ton avance/retard (avec l'indicateur « Retard +X min / Avance X min / À l'heure »).</div></div>
-        <div class="gci"><div class="gcb2"></div><div class="gct2">Le <strong>cooldown de début de journée</strong> est piloté par la durée que tu règles (plus de 10 min figés).</div></div>
-      </div>
-    </div>
-  </div>
-
-  <div class="gc tip">
-    <div class="gc-title">🔄 Gestion des absences le jour J (juges &amp; équipes)</div>
-    <div class="gc-body">
-      L'app relie deux problèmes : <strong>un juge absent laisse une ligne sans juge</strong>, et <strong>une équipe absente libère un juge</strong>. Elle propose de les matcher automatiquement.<br><br>
-      <div class="gcl">
-        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Juge marqué absent</strong> (onglet Bénévoles → « absent ») : l'app ouvre un <strong>aperçu de réaffectation</strong> des lignes qu'il libère, avec qui les reprend. Tu valides → ça met à jour les écrans juges. Tu peux aussi relancer via le bouton <strong>« 🔄 Réaffecter les lignes orphelines »</strong>.</div></div>
-        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Équipe absente</strong> : le juge tape « 🚫 Absente » sur sa ligne vide → il devient <strong>renfort prioritaire</strong>. L'app l'envoie en premier sur une ligne orpheline, <strong>sans jamais piquer un juge qui a une vraie équipe</strong>.</div></div>
-        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Anti-conflit</strong> : un remplaçant n'est jamais envoyé sur deux lignes au même moment, et garde la même ligne sur tout le WOD. Les heats en cours et les scores ne sont jamais touchés. Si aucun renfort n'est libre → la ligne est signalée « QR secours ».</div></div>
-      </div>
-    </div>
-  </div>
-
-  <div class="gc tip">
-    <div class="gc-title">📋 Journal des modifications de score</div>
-    <div class="gc-body">
-      En bas de l'onglet <strong>Classement</strong>, le bouton <strong>« 📋 Journal des modifications de score »</strong> déplie l'historique de toutes les corrections : <strong>quand, quel heat/ligne, quel WOD, la raison et par qui</strong> (le plus récent en haut). À garder sous la main <strong>en cas de contestation d'une équipe</strong>.
-    </div>
-  </div>
-
-  <div class="gc tip">
-    <div class="gc-title">🎨 Affichage : équipes invitées &amp; sponsors</div>
-    <div class="gc-body">
-      <div class="gcl">
-        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Équipes invitées</strong> : quand tu invites une catégorie sur un heat (lignes libres), ses équipes sont <strong>marquées d'un badge « 👥 NomCatégorie »</strong> bien visible, pour ne pas les confondre avec la catégorie du heat. Le <strong>×</strong> les retire du heat.</div></div>
-        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>YO-TIMER = un sponsor comme un autre</strong> : dans l'onglet Sponsors, le logo YO-TIMER a sa carte « CHRONO OFFICIEL ». Le <strong>🗑</strong> le retire du live (filigrane + coupures), <strong>« ↩︎ Remettre »</strong> le réaffiche. Synchro temps réel.</div></div>
-      </div>
-    </div>
-  </div>
-
-  <div class="gc tip">
-    <div class="gc-title">📺 Écran public (live) — les nouveautés</div>
-    <div class="gc-body">
-      <div class="gcl">
-        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Essais Max Load affichés</strong> : sur un WOD <strong>charge max</strong>, l'écran public montre la suite des essais de chaque équipe sous forme de pastilles — validés en vert, la meilleure charge avec 🏆, les essais ratés barrés (ex : <code>✓85 ✓92 🏆100 105</code>). Ça se remplit en temps réel à chaque validation du juge. Sur les autres formats (AMRAP, For Time…), rien ne s'affiche : c'est réservé au Max Load.</div></div>
-        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Séparation par catégorie dans un heat mixte</strong> : quand un heat est complété par des <strong>équipes invitées</strong> d'une autre catégorie, l'écran public regroupe les lignes par catégorie, séparées par un <strong>trait de couleur portant le nom de la catégorie</strong> (la catégorie du heat d'abord, puis les invités regroupés dessous). Le public voit tout de suite qui joue dans quelle catégorie. Un heat <strong>sans invité</strong> s'affiche normalement, sans trait.</div></div>
-        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Classements justes (classement &amp; podium)</strong> : dans le <strong>classement</strong> et le <strong>podium</strong>, une équipe invitée est comptée dans <strong>sa propre catégorie d'origine</strong>, jamais dans celle du heat hôte — même si sa catégorie est répartie sur plusieurs heats, tout est rassemblé correctement. Sur l'écran public, l'invité apparaît dans le <strong>heat en direct</strong>, séparé par le trait de catégorie décrit ci-dessus.</div></div>
-        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Résistance aux coupures réseau</strong> : si la connexion abîme des données en cours de route (liste de départages ou d'essais avec un trou), les écrans <strong>ignorent le bout abîmé et continuent</strong> au lieu de planter. Les calculs restent justes.</div></div>
-      </div>
-    </div>
-  </div>
-
-  <div class="gc warn">
-    <div class="gc-title">🗑 Le bouton Purger — repartir propre après les tests</div>
-    <div class="gc-body">
-      Le bouton <strong>🗑 Firebase</strong> (dans l'admin) remet le cloud à zéro et y repousse ta version. C'est l'outil pour effacer les données de test avant la compétition.<br><br>
-      <div class="gcl">
-        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>🗑 Firebase (bouton Purger)</strong> — <strong>pour repartir propre après les tests.</strong> Quand tu as fait des saisies d'essai puis corrigé ta configuration, ce bouton <strong>efface tout le cloud et repousse ta version admin à jour</strong> à la place. C'est la façon simple de nettoyer les données de test : tu modifies ta saisie dans l'admin, tu purges, et le cloud repart sur ta version propre. <u>Quand l'utiliser</u> : <strong>avant</strong> la compétition, une fois ta config finalisée — jamais pendant.</div></div>
-        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>🗑 Firebase (purge totale)</strong> — <strong>le radical, à manier avec précaution.</strong> Il <strong>efface TOUT sur le cloud</strong> (WODs, catégories, bénévoles, heats, scores, juges, classement, statuts, system, backup) puis <strong>repousse tes données locales d'admin</strong> à la place. <u>Quand l'utiliser</u> : seulement si le cloud est <strong>dans un état incohérent</strong> (données d'un ancien événement, mélange, corruption) et que tu veux <strong>tout remettre à zéro depuis ta version admin</strong>. À faire <strong>avant</strong> la compétition, jamais pendant.</div></div>
-      </div>
-      <div style="margin-top:10px;padding:9px 11px;background:rgba(211,47,47,.08);border:1px solid rgba(211,47,47,.25);border-radius:8px;font-size:12px;color:#B71C1C">
-        ⚠️ <strong>La purge Firebase est irréversible et concerne tout le monde.</strong> Tous les appareils connectés verront leurs données remplacées par les tiennes, et <strong>tous les scores saisis sur le terrain seront perdus</strong>. Ne jamais la lancer une fois la compétition commencée.
-      </div>
-      <div style="margin-top:8px"><strong>Comment ça se passe (Firebase)</strong> : le bouton demande une <strong>double confirmation</strong> — une fenêtre qui liste ce qui va être effacé, puis tu dois <strong>taper le mot <code>PURGER</code></strong> exactement pour valider. Si tu tapes autre chose, rien ne se passe. La clé de sauvegarde (JSONBin) est préservée automatiquement. À la fin, un message confirme le nombre d'éléments traités.</div>
-      <div style="margin-top:8px"><strong>Le bon réflexe</strong> : prépare ta config tranquillement, fais tes tests, puis <strong>purge une dernière fois avant le jour J</strong> pour repartir sur des données propres. Une fois la compétition lancée, on ne purge plus.</div>
-    </div>
-  </div>
-
-  <div class="gc warn">
-    <div class="gc-title">▶️ « Je clique une fois, je ne touche plus à rien »</div>
-    <div class="gc-body">
-      Pour que la journée s'enchaîne toute seule, <strong>avec les deux zones qui repartent ensemble</strong> à chaque WOD :<br><br>
-      <div class="gcl">
-        <div class="gci"><div class="gcb2"></div><div class="gct2">Sur chaque WOD, renseigne un <strong>inter-heat</strong> (pause entre les heats du WOD, ex : 1 min 30).</div></div>
-        <div class="gci"><div class="gcb2"></div><div class="gct2">Et surtout une <strong>coupure après</strong> (transition vers le WOD suivant, ex : 4-5 min). <strong>C'est la coupure qui resynchronise les deux zones.</strong></div></div>
-        <div class="gci"><div class="gcb2"></div><div class="gct2">Sur le TK, clique <strong>« Lancer la journée »</strong> une fois. Le mode AUTO enchaîne les heats ; une zone qui finit en avance affiche « ⏳ Attente Zone X » puis les deux repartent ensemble.</div></div>
-      </div>
-      <strong>Sans coupure</strong>, les zones avancent chacune à leur rythme et ne se resynchronisent pas. La coupure est la clé.
-    </div>
-  </div>
-
-  <div class="gc tip">
-    <div class="gc-title">📺 Live &amp; affichage</div>
-    <div class="gc-body">
-      <div class="gcl">
-        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>For Time dynamique</strong> : quand la 1<sup>re</sup> équipe finit, les autres affichent « reste X reps » ; quand une équipe finit, on voit son temps et son retard sur la 1<sup>re</sup>.</div></div>
-        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Fond blanc en option</strong> (bouton ☀️ / 🌙) pour le live.</div></div>
-        <div class="gci"><div class="gcb2"></div><div class="gct2"><strong>Speaker</strong> : ne mélange plus les jours — il n'annonce que les heats du jour en cours.</div></div>
-      </div>
-    </div>
-  </div>
-
-  <div style="margin-top:12px;text-align:center">
-    <button onclick="printGuide()" style="background:linear-gradient(135deg,#1565C0,#1E88E5);color:#fff;border:none;border-radius:8px;padding:8px 18px;font-size:11px;font-weight:800;cursor:pointer">🖨️ Imprimer ce guide</button>
-  </div>
 </div>
-</div>
-
 </div>
 
 </div>
@@ -16398,9 +16365,12 @@ function renderSynMain(){
       // Label zone
       html += '<div style="flex-shrink:0;align-self:center;background:'+zGrad+';color:#fff;border-radius:9px;padding:7px 10px;font-size:11px;font-weight:900;letter-spacing:1px;min-width:34px;text-align:center;box-shadow:0 0 14px '+zGlow+'">Z'+zone+'</div>';
 
-      // Frise : rangée de blocs qui s'enchaînent ; léger scroll horizontal si trop large
+      // Frise : rangée de blocs qui s'enchaînent sur UNE SEULE LIGNE par zone.
+      //   ★ nowrap : la journée tient sur une ligne horizontale ; si ça dépasse la largeur,
+      //   le conteneur parent (overflow-x:auto) fait défiler horizontalement — jamais de
+      //   passage à la ligne qui ferait déborder la journée sur plusieurs rangées.
       html += '<div style="flex:1;min-width:0;overflow-x:auto;padding-bottom:2px">';
-      html += '<div style="display:flex;align-items:stretch;flex-wrap:wrap;gap:0;row-gap:8px">';
+      html += '<div style="display:flex;align-items:stretch;flex-wrap:nowrap;gap:0;width:max-content;max-width:none">';
 
       _seq.forEach(function(wid,_i){
         var w = wodBlocs[wid];

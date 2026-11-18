@@ -307,14 +307,28 @@ function inferFortimeSeconds(sc,wod,h,hid){
   var cap=wodCapSec(wod);
   return cap>0 ? Math.min(elapsed,cap) : elapsed;
 }
+// ★ scoreVal — COPIE FIDÈLE de classement.html (page de référence). Garantit que le podium
+//   calcule les points EXACTEMENT comme le classement (plus de « tout le monde à 100 pts »).
 function scoreVal(sc,wod,h,hid){
   if(!sc||!sc.judgeOk)return null;
+  // ★ FIX « TOUT LE MONDE À 100 PTS » (WOD non joué / validé à vide) : un score peut être
+  //   validé (judgeOk=true) mais SANS aucune valeur réelle (0 rep, 0 cal/m, 0 temps, 0 kg).
+  //   Avant : scoreVal renvoyait 0 (≠ null) → toutes ces équipes ex-æquo à 0 → même rang →
+  //   rang 1 → crossfitPts(1) = 100 chacune. On traite un score vide comme "pas de score"
+  //   (null) → 0 point pour ce WOD. Toute équipe ayant une VRAIE valeur (>0) n'est pas touchée.
+  var _hasReps =(parseInt(sc.reps,10)||0)>0 || (parseInt(sc.emomTotalReps,10)||0)>0;
+  var _hasErgo =(parseFloat(sc.ergoVal||sc.dist||sc.distance)||0)>0;
+  var _hasTime =(parseInt(sc.finalTime,10)||0)>0;
+  var _hasLoad =(parseFloat(sc.load)||0)>0 || (parseFloat(sc.clLoad)||0)>0;
+  if(!_hasReps && !_hasErgo && !_hasTime && !_hasLoad) return null;
   var type=wod.wodFormat||wod.type||'amrap';
-  // ★ AMRAP STEPH + additionner : total (reps + cals) déjà dans sc.reps.
+  // ★ CLEAN LADDER v2 : score = cumul kg (barre bonus incluse). Éliminé = cumul partiel.
+  if(type==='cleanladder') return parseFloat((sc.clLoad!=null?sc.clLoad:sc.load))||0;
+  // ★ AMRAP STEPH + additionner : le total (reps + cals) est déjà dans sc.reps → on classe dessus.
   if(String(type).toLowerCase()==='amrapsteph' && wod.stephAddReps) return parseInt(sc.reps||0,10)||0;
-  if(wod.judgeMode==='maxload'||wod.scoreFinale==='load')return parseFloat(sc.load)||0;
-  if(wod.judgeMode==='ergo')return parseFloat(sc.ergoVal||sc.dist||sc.distance)||0;
-  if(wod.scoreFinale==='dist')return parseFloat(sc.dist||sc.distance)||0;
+  var _sf=String(wod.scoreType||wod.scoreFinale||'').toLowerCase();
+  if(wod.judgeMode==='maxload'||_sf==='load')return parseFloat(sc.load)||0;
+  if(wod.judgeMode==='ergo'||_sf==='dist'||_sf==='cal')return parseFloat(sc.ergoVal||sc.dist||sc.distance)||0;
   if(type==='fortime'||wod.scoreFinale==='time'){
     // Terminé dans le temps → trier par temps (plus petit = meilleur)
     var ft=inferFortimeSeconds(sc,wod,h,hid);
@@ -325,6 +339,27 @@ function scoreVal(sc,wod,h,hid){
     return null;
   }
   return parseInt(sc.reps)||0;
+}
+
+/* ★ CLEAN LADDER v2 — départage partagé (copie fidèle de classement.html) :
+   à cumul kg égal, en course avant éliminé, puis le plus avancé (barres validées).
+   Retourne un nombre de comparaison (négatif = a devant), ou 0 si non applicable/égal. */
+function clTieBreak(a,b){
+  var wf=String((a&&a.wod&&a.wod.wodFormat)||'').toLowerCase();
+  if(wf!=='cleanladder') return 0;
+  var aElim=!!(a.sc&&a.sc.clOut), bElim=!!(b.sc&&b.sc.clOut);
+  if(aElim!==bElim) return aElim?1:-1;
+  if(!aElim && !bElim){
+    var prog=function(sc){
+      var bc=sc&&sc.barresCL; if(!bc) return 0;
+      var g=0;
+      for(var k in bc){ var o=bc[k]; var arr=o&&o.barres; if(arr){ for(var i=0;i<arr.length;i++) if(arr[i]===1) g++; } }
+      return g;
+    };
+    var d=prog(b.sc)-prog(a.sc);
+    if(d!==0) return d;
+  }
+  return 0;
 }
 
 function tbArrCl(sc){
@@ -439,6 +474,14 @@ function rankWod(catName,wodName,zone){
     if(!aOk&&bOk)return 1;
     if(!aOk&&!bOk)return String(a.teamName||"").localeCompare(String(b.teamName||""));
     if(a.val!==b.val)return b.val-a.val;
+    // ★ AMRAP STEPH : à CALS ÉGALES, départage sur le TOTAL de reps (copie de classement.html).
+    if(String(wod.wodFormat||'').toLowerCase()==='amrapsteph'){
+      var _arS=parseInt((a.sc&&a.sc.reps)||0,10)||0;
+      var _brS=parseInt((b.sc&&b.sc.reps)||0,10)||0;
+      if(_brS!==_arS) return _brS-_arS;
+    }
+    // ★ CLEAN LADDER v2 : départage (en course > éliminé, puis avancement).
+    var _clt=clTieBreak(a,b); if(_clt!==0) return _clt;
     // ★ Multi-TB en cascade
     var aTbs=tbArrCl(a.sc),bTbs=tbArrCl(b.sc);
     for(var ti=0;ti<Math.max(aTbs.length,bTbs.length);ti++){
@@ -552,31 +595,35 @@ function totalRanking(catName,zone){
     t.total=total;
   });
 
-  // Tri : PLUS de points = meilleur. Départages : podiums 🥇 > 🥈 > 🥉, puis TB, puis score brut
+  // Tri : PLUS de points = meilleur (CrossFit). ★ RÈGLE CHEF : à points égaux, le TIE-BREAK
+  //   départage AVANT les podiums. Ordre : points → TB → 🥇 > 🥈 > 🥉 → score brut → alpha.
+  //   (Aligné à l'identique sur classement.html — la page de référence.)
   var sorted=Object.values(teams).sort(function(a,b){
-    if(a.total!==b.total)return b.total-a.total; // ★ plus de points d'abord
-    // + de 1ers gagne
-    if(b.podiums.p1!==a.podiums.p1)return b.podiums.p1-a.podiums.p1;
-    if(b.podiums.p2!==a.podiums.p2)return b.podiums.p2-a.podiums.p2;
-    if(b.podiums.p3!==a.podiums.p3)return b.podiums.p3-a.podiums.p3;
-    // Meilleur tiebreak (plus petit = plus rapide)
+    if(a.total!==b.total)return b.total-a.total;
+    // Meilleur tiebreak (plus petit = plus rapide) — AVANT les podiums
     var aTB=a.bestTiebreak!==null?a.bestTiebreak:999999;
     var bTB=b.bestTiebreak!==null?b.bestTiebreak:999999;
     if(aTB!==bTB)return aTB-bTB;
-    // Plus haut score brut
+    // puis nombre de podiums 🥇 > 🥈 > 🥉
+    if(b.podiums.p1!==a.podiums.p1)return b.podiums.p1-a.podiums.p1;
+    if(b.podiums.p2!==a.podiums.p2)return b.podiums.p2-a.podiums.p2;
+    if(b.podiums.p3!==a.podiums.p3)return b.podiums.p3-a.podiums.p3;
+    // Plus haut score brut, puis alphabétique
     if(b.rawScore!==a.rawScore)return b.rawScore-a.rawScore;
     return String(a.teamName||"").localeCompare(String(b.teamName||""));
   });
 
-  // Marquer les égalités et afficher raison
+  // Marquer les égalités et afficher raison (★ TB d'abord, comme classement.html)
   sorted.forEach(function(t,i){
     if(i>0&&sorted[i-1].total===t.total){
       t.tied=true;
       var prev=sorted[i-1];
-      if(prev.podiums.p1!==t.podiums.p1)t.tieReason='🥇×'+t.podiums.p1+' vs '+prev.podiums.p1;
+      var aT=t.bestTiebreak!==null?t.bestTiebreak:999999;
+      var pT=prev.bestTiebreak!==null?prev.bestTiebreak:999999;
+      if(aT!==pT)t.tieReason='🎯 TB '+(t.bestTiebreak!==null?fmt(t.bestTiebreak):'—');
+      else if(prev.podiums.p1!==t.podiums.p1)t.tieReason='🥇×'+t.podiums.p1+' vs '+prev.podiums.p1;
       else if(prev.podiums.p2!==t.podiums.p2)t.tieReason='🥈×'+t.podiums.p2;
       else if(prev.podiums.p3!==t.podiums.p3)t.tieReason='🥉×'+t.podiums.p3;
-      else if(t.bestTiebreak!==null)t.tieReason='🎯 TB '+fmt(t.bestTiebreak);
       else if(t.rawScore!==prev.rawScore)t.tieReason='📊 '+Math.abs(t.rawScore)+' bruts';
       else t.tieReason='Alphabétique';
     }
@@ -677,10 +724,12 @@ function fillCard(pos){
   var t=CUR_RANK[pos-1];
   document.getElementById('team-'+pos).textContent = t ? t.teamName : '—';
   document.getElementById('pts-'+pos).textContent  = t ? (t.total+' pts') : '';
-  // détail médailles par WOD (top placements) — optionnel, discret
+  // détail médailles par WOD (top placements) — ★ FIX : les compteurs réels produits par
+  //   le moteur sont t.podiums.p1 / p2 / p3 (pas t.golds/silvers/bronzes, qui n'existent pas).
   var det='';
-  if(t){
-    var medals=(t.golds?('🥇'+t.golds+' '):'')+(t.silvers?('🥈'+t.silvers+' '):'')+(t.bronzes?('🥉'+t.bronzes):'');
+  if(t && t.podiums){
+    var p=t.podiums;
+    var medals=(p.p1?('🥇'+p.p1+' '):'')+(p.p2?('🥈'+p.p2+' '):'')+(p.p3?('🥉'+p.p3):'');
     det=medals.trim();
   }
   document.getElementById('det-'+pos).textContent=det;
