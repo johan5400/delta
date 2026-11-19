@@ -5824,12 +5824,60 @@ function _judgeRestoreFromScore(sc, runTs){
   }
   return true;
 }
+// ★ Priorité d'un enregistrement de score (identique à mergeScoreRecord côté TK/live).
+//   Sert à départager le nœud PLAT et le nœud IMBRIQUÉ à la reprise.
+function _scoreRecPriority(s){
+  if(!s||typeof s!=='object') return 0;
+  var p=parseInt(s._priority,10); if(isFinite(p)&&p>0) return p;
+  if((s._src==='tk'||s._src==='tkx')&&s.tkValidated) return 100;
+  if(s._src==='judge'&&s.judgeOk) return 90;
+  if(s._src==='judge') return 80;
+  if(s._src==='tk'||s._src==='tkx') return 70;
+  if(s.judgeOk) return 60;
+  return 10;
+}
+// ★ Choisit le record le plus pertinent entre le PLAT (flat) et l'IMBRIQUÉ (nested).
+//   Le PLAT doit PRIMER : c'est lui seul qui reçoit le live (ticks priorité 80) ;
+//   l'imbriqué n'est alimenté QUE par les validations (juge 90 / TK 100) et peut être
+//   périmé ou vide en plein WOD.
+//   Règles, dans l'ordre :
+//     1) Un record du RUN COURANT (runTs == runTs attendu) prime TOUJOURS sur un record
+//        d'un autre run (évite qu'une vieille validation imbriquée, prio 90, batte le live
+//        plat du run courant, prio 80 → sinon le garde-fou runTs rejetterait tout et on
+//        repartirait à zéro en perdant les reps live).
+//     2) À run égal (ou runTs inconnu des deux côtés) : priorité la plus haute gagne ;
+//        à égalité le PLAT gagne (il porte le live) ; l'imbriqué ne gagne que s'il est
+//        strictement plus prioritaire (ex. validation TK 100 pas encore répercutée au plat).
+function _pickRestoreRecord(flat, nested, runTs){
+  runTs=parseInt(runTs||0,10)||0;
+  var rt=function(s){ return (s&&typeof s==='object')?(parseInt(s.runTs||0,10)||0):0; };
+  if(runTs>0){
+    var fCur=(rt(flat)===runTs), nCur=(rt(nested)===runTs);
+    if(fCur&&!nCur) return flat;     // seul le plat appartient au run courant
+    if(nCur&&!fCur) return nested;   // seul l'imbriqué appartient au run courant
+  }
+  var pf=_scoreRecPriority(flat), pn=_scoreRecPriority(nested);
+  if(pn>pf) return nested;      // l'imbriqué est strictement plus à jour (validation)
+  return flat||nested||null;    // sinon le plat prime (live), fallback imbriqué
+}
 function _judgeRestoreThenStart(runTs){
   if(!db || !FB_HEAT_ID || !FB_LANE){ startJudgeReal(); return; }
   runTs=parseInt(runTs||HEAT_START_TS||startTs||0,10)||0;
-  db.ref('heats/'+FB_HEAT_ID+'/scores/'+FB_LANE).once('value').then(function(snap){
+  // ★★ FIX REPRISE DE LANE (perte de reps) : le live est écrit UNIQUEMENT dans le nœud
+  //   PLAT scores/<hid>_<lane> (_pushScoreLiveNow, double-write imbriqué supprimé pour la
+  //   bande passante). AVANT, la reprise lisait le nœud IMBRIQUÉ heats/<hid>/scores/<lane>,
+  //   qui n'est alimenté QUE par les validations → un juge qui reprend en plein WOD
+  //   récupérait un score PÉRIMÉ (ou rien) au lieu du live courant = perte de reps.
+  //   DÉSORMAIS on lit les DEUX (once ponctuel sur une lane = coût négligeable, aucun
+  //   listener permanent) et on prend le plus pertinent, le PLAT primant car il porte le live.
+  var _flatRef  = db.ref('scores/'+FB_HEAT_ID+'_'+FB_LANE);
+  var _nestRef  = db.ref('heats/'+FB_HEAT_ID+'/scores/'+FB_LANE);
+  var _finish=function(flat, nested){
     var restored=false;
-    try{ restored=_judgeRestoreFromScore(snap.val(), runTs); }catch(e){ console.warn('restore:', e&&e.message); }
+    try{
+      var rec=_pickRestoreRecord(flat, nested, runTs);
+      restored=_judgeRestoreFromScore(rec, runTs);
+    }catch(e){ console.warn('restore:', e&&e.message); }
     if(_scoreValidated){
       // Score déjà validé → surtout ne PAS rouvrir la saisie
       show('s-done');
@@ -5838,7 +5886,13 @@ function _judgeRestoreThenStart(runTs){
     }
     if(restored) toast('🔄 Reprise : '+totalReps+' reps · tour '+currentRound,'#FFB74D',3500);
     startJudgeReal();
-  }).catch(function(){ startJudgeReal(); });
+  };
+  // Lecture parallèle des deux nœuds ; si l'un échoue, on repart sur l'autre (fail-open).
+  Promise.all([
+    _flatRef.once('value').then(function(s){return s.val();}).catch(function(){return null;}),
+    _nestRef.once('value').then(function(s){return s.val();}).catch(function(){return null;})
+  ]).then(function(vals){ _finish(vals[0], vals[1]); })
+   .catch(function(){ startJudgeReal(); });
 }
 
 function applyRealData(data){

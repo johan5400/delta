@@ -95,6 +95,32 @@ body::before{
 .kpi-s{margin-top:4px;font-size:11px;color:var(--muted)}
 .hero{background:radial-gradient(circle at 85% 0%,rgba(255,255,255,.06),transparent 34%),linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.01)),var(--panel2);border:1px solid rgba(255,255,255,.09);border-radius:24px;padding:20px}
 .hero-grid{display:grid;grid-template-columns:minmax(0,1fr) 130px;gap:14px;align-items:center}
+/* ── CENTRE DE CONTRÔLE TK : bandeau santé + radar (salle de contrôle, sobre) ── */
+.tk-health{margin:10px 14px 0 14px;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
+.tk-health-item{background:linear-gradient(180deg,rgba(255,255,255,.035),rgba(255,255,255,.012));border:1px solid var(--line);border-radius:14px;padding:9px 11px}
+.tk-health-l{font-family:var(--ff);font-size:12px;letter-spacing:1.4px;color:var(--muted)}
+.tk-health-v{margin-top:3px;font-family:var(--fm);font-size:19px;font-weight:700;line-height:1.1}
+.tk-health-s{margin-top:2px;font-size:10px;color:var(--muted)}
+.tk-radar{margin:10px 14px 0 14px;background:linear-gradient(180deg,rgba(255,59,92,.05),rgba(255,255,255,.012)),var(--panel2);border:1px solid var(--line2);border-radius:18px;padding:12px 14px}
+.tk-radar-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.tk-radar-title{font-family:var(--ff);font-size:18px;letter-spacing:2px;color:var(--txt)}
+.tk-radar-count{font-family:var(--fm);font-size:11px;font-weight:800;padding:3px 10px;border-radius:999px}
+.tk-radar-count.ok{color:var(--ok);background:rgba(6,214,160,.12)}
+.tk-radar-count.warn{color:var(--warn);background:rgba(255,176,32,.14)}
+.tk-radar-count.crit{color:var(--err);background:rgba(255,59,92,.14)}
+.tk-radar-list{display:flex;flex-direction:column;gap:6px}
+.tk-alert{display:flex;align-items:flex-start;gap:10px;padding:8px 10px;border-radius:12px;border:1px solid var(--line);background:rgba(255,255,255,.02)}
+.tk-alert.crit{border-color:rgba(255,59,92,.4);background:rgba(255,59,92,.08)}
+.tk-alert.warn{border-color:rgba(255,176,32,.35);background:rgba(255,176,32,.07)}
+.tk-alert.info{border-color:rgba(77,166,255,.3);background:rgba(77,166,255,.06)}
+.tk-alert.ok{border-color:rgba(6,214,160,.3);background:rgba(6,214,160,.06)}
+.tk-ai{font-size:18px;line-height:1.2;flex:0 0 auto}
+.tk-ab{flex:1 1 auto;min-width:0}
+.tk-at{font-weight:800;font-size:13px;color:var(--txt)}
+.tk-ad{font-size:11.5px;color:var(--muted);margin-top:1px;line-height:1.4}
+.tk-ad b{color:var(--txt)}
+.tk-af{font-size:11px;color:var(--gold);margin-top:2px;font-weight:600}
+.tk-atime{font-family:var(--fm);font-size:10px;color:var(--muted);flex:0 0 auto;align-self:center;text-align:right;max-width:72px;word-break:break-word}
 .h-heat{font-family:var(--ff);font-size:26px;letter-spacing:2px;color:var(--fire2);text-align:center}
 .z2 .h-heat{color:var(--blue)}
 .h-cat{font-size:24px;font-weight:800;text-align:center}
@@ -190,7 +216,7 @@ body::before{
 .empty{color:var(--muted);font-family:var(--ff);letter-spacing:2px;font-size:18px;text-align:center;padding:24px}
 @media (max-width:1200px){.rank-wrap{grid-template-columns:1fr}}
 @media (max-width:980px){.top{padding:12px 14px}.spacer{display:none}.top>*{flex:0 0 auto}.top>#btn-start-day1,.top>#btn-start-day2,.top>#connState,.top>#dayState,.top>#clock,.top>.btn.danger{width:auto}}
-@media (max-width:760px){.kpis{grid-template-columns:1fr 1fr}.hero-grid{grid-template-columns:1fr}.timer{font-size:58px}.controls{grid-template-columns:1fr 1fr}.b-row{grid-template-columns:1fr}.lane-grid{grid-template-columns:1fr}.top{gap:8px}.top>#btn-start-day1,.top>#btn-start-day2,.top>.btn.danger{flex:1 1 calc(50% - 8px)}.top>#connState,.top>#dayState,.top>#clock{flex:1 1 calc(33.333% - 8px);text-align:center;justify-content:center}.program-zone-grid{grid-template-columns:1fr}.program-row{grid-template-columns:1fr;justify-items:start}.program-time{font-size:15px}}
+@media (max-width:760px){.kpis{grid-template-columns:1fr 1fr}.hero-grid{grid-template-columns:1fr}.tk-health{grid-template-columns:1fr 1fr 1fr}.timer{font-size:58px}.controls{grid-template-columns:1fr 1fr}.b-row{grid-template-columns:1fr}.lane-grid{grid-template-columns:1fr}.top{gap:8px}.top>#btn-start-day1,.top>#btn-start-day2,.top>.btn.danger{flex:1 1 calc(50% - 8px)}.top>#connState,.top>#dayState,.top>#clock{flex:1 1 calc(33.333% - 8px);text-align:center;justify-content:center}.program-zone-grid{grid-template-columns:1fr}.program-row{grid-template-columns:1fr;justify-items:start}.program-time{font-size:15px}}
 
 .metric-row{display:flex;gap:6px;flex-wrap:wrap;margin-top:7px}
 .metric{display:inline-flex;align-items:center;gap:4px;padding:4px 7px;border-radius:999px;border:1px solid var(--line2);background:rgba(255,255,255,.03);font-family:var(--fm);font-size:10px;color:var(--txt)}
@@ -389,6 +415,44 @@ body::before{
     <div class="kpi" style="display:none"><div class="kpi-l">Z1 ETA</div><div class="kpi-v" id="z1EtaBox">--:--</div><div class="kpi-s" id="z1EtaSub">Aucun heat</div></div>
     <div class="kpi" style="display:none"><div class="kpi-l">Z2 ETA</div><div class="kpi-v" id="z2EtaBox">--:--</div><div class="kpi-s" id="z2EtaSub">Aucun heat</div></div>
   </div>
+</div>
+
+<!-- ★ CENTRE DE CONTRÔLE TK — bandeau santé (lecture seule, 0 BP) -->
+<div class="tk-health" id="tkHealth">
+  <div class="tk-health-item">
+    <div class="tk-health-l">POULS SCORES</div>
+    <div class="tk-health-v" id="tkPulse">—</div>
+    <div class="tk-health-s" id="tkPulseSub">En attente</div>
+  </div>
+  <div class="tk-health-item">
+    <div class="tk-health-l">JUGES ACTIFS</div>
+    <div class="tk-health-v" id="tkJudgesActive">0 / 0</div>
+    <div class="tk-health-s" id="tkJudgesActiveSub">Actifs (fraîcheur)</div>
+  </div>
+  <div class="tk-health-item">
+    <div class="tk-health-l">SCORES SAISIS</div>
+    <div class="tk-health-v" id="tkScoreStat">0 / 0</div>
+    <div class="tk-health-s" id="tkScoreStatSub">validés / attendus</div>
+  </div>
+  <div class="tk-health-item">
+    <div class="tk-health-l">RETARD ZONE 1</div>
+    <div class="tk-health-v" id="tkZoneDelay1">—</div>
+    <div class="tk-health-s">vs planning</div>
+  </div>
+  <div class="tk-health-item">
+    <div class="tk-health-l">RETARD ZONE 2</div>
+    <div class="tk-health-v" id="tkZoneDelay2">—</div>
+    <div class="tk-health-s">vs planning</div>
+  </div>
+</div>
+
+<!-- ★ CENTRE DE CONTRÔLE TK — RADAR d'alertes (lecture seule, 0 BP) -->
+<div class="tk-radar" id="tkRadar">
+  <div class="tk-radar-hd">
+    <div class="tk-radar-title">📡 RADAR</div>
+    <div class="tk-radar-count ok" id="tkRadarCount">RAS</div>
+  </div>
+  <div class="tk-radar-list" id="tkRadarList"></div>
 </div>
 
 <div class="banner" id="urgenceBanner">
@@ -1007,7 +1071,313 @@ function updateDayOverview(){
     var nextTs=nextTsList.filter(Boolean).sort(function(a,b){ return a-b; })[0];
     g('dayNextEvent').textContent=nextTs ? ('Prochain départ ' + fmtClock(nextTs)) : 'Aucun départ';
   }
+  // ★ CENTRE DE CONTRÔLE (additif, lecture seule) : radar + bandeau santé.
+  try{ scheduleControlCenter(); }catch(e){}
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   CENTRE DE CONTRÔLE TK — Phase 1 (LECTURE SEULE, 0 bande passante ajoutée)
+   ───────────────────────────────────────────────────────────────────────────
+   Tout est calculé sur les caches DÉJÀ en place (HD via child_*, SC via child_*).
+   AUCUN nouveau listener, AUCUN read de gros nœud, AUCUNE écriture Firebase.
+   Chaque bloc est en try/catch : un calcul qui plante ne bloque jamais le TK.
+   Repris/adapté de superviseur.html (renderRadar/scoreStats/scheduleRender).
+   ─────────────────────────────────────────────────────────────────────────── */
+
+// ★ SEUILS CONSERVATEURS (le heartbeat juge n'écrit que toutes les 180s, judge.html
+//   l.6287) → NE PAS utiliser 90s pour « juge silencieux » (faux positifs garantis).
+var TK_FRESH_MS   = 240000; // juge « actif » si son dernier sc.ts < 240s (180s + marge)
+var TK_SILENT_MS  = 240000; // juge présent mais silencieux pendant le live : warn > 240s
+var TK_SILENT_CRIT_MS = 300000; // … crit > 300s
+var TK_NO_ENTRY_MS = 150000; // heat live sans aucune saisie depuis > 150s
+var TK_FEED_DEAD_MS = 300000; // flux coupé : aucun score reçu depuis > 300s
+var TK_START_LATE_MS = 300000; // heat en retard de départ : horaire dépassé de > 5 min
+var TK_ZONE_GAP_MS = 900000;  // écart entre les 2 zones > 15 min
+
+// Lecture du score d'une lane depuis les caches (jamais de read réseau).
+function tkLaneScore(hid, ln){
+  try{
+    var k=hid+'_'+ln;
+    if(SC && SC[k]) {
+      var h0=HD[hid];
+      if(h0 && h0.scores && h0.scores[ln]) return mergeScoreRecord(h0.scores[ln], SC[k]);
+      return SC[k];
+    }
+    var h=HD[hid]; if(h && h.scores && h.scores[ln]) return h.scores[ln];
+  }catch(e){}
+  return null;
+}
+// Un juge est-il affecté à cette lane (assignation planning, indépendamment de la saisie) ?
+function tkLaneHasAssignedJudge(lane){
+  if(!lane) return false;
+  if(lane.jugeId) return true;
+  if(lane.primaryJuge) return true;
+  if(lane.assignedJuges){ var a=Array.isArray(lane.assignedJuges)?lane.assignedJuges:Object.values(lane.assignedJuges); if(a && a[0] && (a[0].id||a[0])) return true; }
+  return false;
+}
+// Fraîcheur d'un score : actif si ts < TK_FRESH_MS.
+function tkScoreIsFresh(sc, nowTs){
+  if(!sc) return false;
+  var ts=parseInt(sc.ts||0,10)||0; if(ts<=0) return false;
+  return (nowTs - ts) < TK_FRESH_MS;
+}
+// Nombre de juges ACTIFS (fraîcheur) sur un heat — N'ALTÈRE PAS judgeCount (démarrage).
+function tkJudgeFreshCount(hid){
+  var h=HD[hid]||{}, total=0, active=0, now=serverNow();
+  var lanes=h.lanes||h.slots||{};
+  Object.keys(lanes).forEach(function(ln){
+    var lane=lanes[ln]; if(!lane||(!lane.teamName&&!lane.nom)) return;
+    total++;
+    var sc=tkLaneScore(hid,ln);
+    if(sc && sc.judgePrenom && tkScoreIsFresh(sc, now)) active++;
+  });
+  return {active:active, total:total};
+}
+
+// Horodatage du dernier score reçu, toutes lanes/heats confondus (sur le jour actif).
+function tkLastScoreTs(){
+  var mx=0;
+  try{
+    Object.keys(SC||{}).forEach(function(k){ var s=SC[k]; var ts=s&&parseInt(s.ts||0,10)||0; if(ts>mx) mx=ts; });
+  }catch(e){}
+  return mx;
+}
+
+// Y a-t-il une activité de journée (au moins un heat live/timecap/pre/done le jour actif) ?
+function tkDayIsActive(){
+  try{
+    return Object.keys(HD).some(function(hid){ var h=HD[hid]; if(!h||heatDay(h)!==ACTIVE_DAY) return false; var st=heatStatus(h); return st==='live'||st==='timecap'||st==='pre'||st==='done'; });
+  }catch(e){ return false; }
+}
+
+/* ── RADAR d'alertes (tri criticité, max 8), 0 BP ── */
+function tkComputeAlerts(){
+  var al=[], now=serverNow();
+  var dayActive=tkDayIsActive();
+  Object.keys(HD).forEach(function(hid){
+    var h=HD[hid]; if(!h||heatDay(h)!==ACTIVE_DAY) return;
+    var st=heatStatus(h), z=heatZone(h);
+    var lanes=h.lanes||{};
+    var lns=Object.keys(lanes);
+    // (1) Lane sans juge — crit si LIVE, warn si prochain (pre/pending)
+    if(st==='live'||st==='timecap'||st==='pre'||st==='pending'){
+      lns.forEach(function(ln){
+        var lane=lanes[ln]; if(!lane||!lane.teamName||lane.teamAbsent) return;
+        var sc=tkLaneScore(hid,ln);
+        var hasJudge=(sc&&sc.judgePrenom)||tkLaneHasAssignedJudge(lane);
+        if(!hasJudge){
+          var live=(st==='live'||st==='timecap');
+          al.push({lv:live?'crit':'warn', ic:'🚩', t:'Lane sans juge'+(live?' (LIVE)':' (à venir)'),
+            d:'Zone '+z+' · Heat '+(h.catHeatNum||h.globalNum||heatNum(hid))+' · <b>Lane '+ln+'</b> ('+esc(lane.teamName)+') a une équipe mais aucun juge.',
+            fix:'→ Assigne un juge ou un renfort', tag:live?'live':'à venir'});
+        }
+      });
+    }
+    // (2) Pendant le live : juge silencieux + heat sans saisie + flux de la lane
+    if(st==='live'||st==='timecap'){
+      var elapsed=h.startTimestamp?Math.floor((now-h.startTimestamp)/1000):0;
+      var anyEntry=false, lastHeatTs=0;
+      lns.forEach(function(ln){
+        var lane=lanes[ln]; if(!lane||!lane.teamName||lane.teamAbsent) return;
+        var sc=tkLaneScore(hid,ln);
+        if(sc && (sc.reps!=null||sc.finalTime>0||sc.load>0||sc.dist>0||sc.distance>0)) anyEntry=true;
+        if(sc && sc.ts){ var t=parseInt(sc.ts,10)||0; if(t>lastHeatTs) lastHeatTs=t; }
+        // juge présent (a saisi au moins une fois) mais silencieux
+        if(sc && sc.judgePrenom && sc.ts){
+          var age=now-(parseInt(sc.ts,10)||0);
+          if(age>TK_SILENT_MS){
+            al.push({lv: age>TK_SILENT_CRIT_MS?'crit':'warn', ic:'⚠️', t:'Juge silencieux (live)',
+              d:'<b>'+esc(sc.judgePrenom)+'</b> · Zone '+z+' · Lane '+ln+' : aucune activité depuis <b>'+Math.round(age/1000)+'s</b>.',
+              fix:'→ Vérifie son tel / envoie un renfort', tag:'silence'});
+          }
+        }
+      });
+      // heat live sans AUCUNE saisie depuis > 150s
+      if(elapsed>Math.round(TK_NO_ENTRY_MS/1000) && !anyEntry){
+        al.push({lv:'warn', ic:'⏱️', t:'Heat live sans saisie',
+          d:'Zone '+z+' · Heat '+(h.catHeatNum||h.globalNum||heatNum(hid))+' tourne depuis <b>'+fmtS(elapsed)+'</b> et <b>aucune lane</b> n\'a saisi.',
+          fix:'→ Vérifie que les juges voient le compteur', tag:fmtS(elapsed)});
+      }
+    }
+    // (3) Heat en retard de départ (pending/pre, horaire prévu dépassé de > 5 min)
+    if(st==='pending'||st==='pre'){
+      try{
+        var planTs=parseHeatClockToTs(h);
+        if(planTs && (now-planTs)>TK_START_LATE_MS){
+          al.push({lv:'warn', ic:'🕒', t:'Heat en retard de départ',
+            d:'Zone '+z+' · Heat '+(h.catHeatNum||h.globalNum||heatNum(hid))+' prévu à <b>'+fmtClock(planTs)+'</b>, dépassé de <b>'+Math.round((now-planTs)/60000)+' min</b>.',
+            fix:'→ Lance le heat ou ajuste le planning', tag:'+'+Math.round((now-planTs)/60000)+'min'});
+        }
+      }catch(e){}
+    }
+  });
+  // (4) Écart entre les 2 zones > 15 min (projection fin de chaque zone)
+  try{
+    var e1=zoneDayEndTs(1), e2=zoneDayEndTs(2);
+    if(e1 && e2){
+      var gap=Math.abs(e1-e2);
+      if(gap>TK_ZONE_GAP_MS){
+        var lateZone=(e1>e2)?1:2;
+        al.push({lv:'warn', ic:'↔️', t:'Écart entre zones',
+          d:'Projection : la Zone '+lateZone+' finit <b>'+Math.round(gap/60000)+' min</b> après l\'autre.',
+          fix:'→ Rééquilibre les juges / l\'enchaînement', tag:Math.round(gap/60000)+'min'});
+      }
+    }
+  }catch(e){}
+  // (5) Flux coupé : aucun score reçu depuis > 300s pendant un jour actif
+  try{
+    if(dayActive){
+      var last=tkLastScoreTs();
+      // n'alerter que s'il y a au moins un heat live (sinon normal : aucune saisie en attente)
+      var anyLive=Object.keys(HD).some(function(hid){var h=HD[hid]; return h&&heatDay(h)===ACTIVE_DAY&&(heatStatus(h)==='live'||heatStatus(h)==='timecap');});
+      if(anyLive && last>0 && (now-last)>TK_FEED_DEAD_MS){
+        al.push({lv:'crit', ic:'📡', t:'Flux de scores coupé',
+          d:'Aucun score reçu depuis <b>'+Math.round((now-last)/1000)+'s</b> alors qu\'un heat est en cours.',
+          fix:'→ Vérifie le réseau / les tablettes juges', tag:'coupé'});
+      }
+    }
+  }catch(e){}
+  al.sort(function(a,b){var o={crit:0,warn:1,info:2};return (o[a.lv]-o[b.lv]);});
+  return al;
+}
+
+function renderTkRadar(){
+  var box=g('tkRadarList'), cnt=g('tkRadarCount');
+  if(!box) return;
+  var al;
+  try{ al=tkComputeAlerts(); }catch(e){ al=[]; }
+  if(!al.length){
+    box.innerHTML='<div class="tk-alert ok"><div class="tk-ai">✅</div><div class="tk-ab"><div class="tk-at">Tout est sous contrôle</div><div class="tk-ad">Aucune anomalie détectée.</div></div></div>';
+    if(cnt){ cnt.textContent='RAS'; cnt.className='tk-radar-count ok'; }
+    return;
+  }
+  var nCrit=al.filter(function(a){return a.lv==='crit';}).length;
+  if(cnt){ cnt.textContent=al.length+(al.length>1?' alertes':' alerte'); cnt.className='tk-radar-count '+(nCrit?'crit':'warn'); }
+  box.innerHTML=al.slice(0,8).map(function(a){
+    return '<div class="tk-alert '+a.lv+'"><div class="tk-ai">'+a.ic+'</div>'
+      +'<div class="tk-ab"><div class="tk-at">'+esc(a.t)+'</div><div class="tk-ad">'+a.d+'</div><div class="tk-af">'+esc(a.fix)+'</div></div>'
+      +'<div class="tk-atime">'+esc(a.tag||'')+'</div></div>';
+  }).join('');
+}
+
+/* ── Bandeau santé : pouls dernier score, juges actifs, scores attendus, retard/zone ── */
+function tkScoreStats(){
+  // scores validés vs attendus (lanes occupées des heats done+timecap+live) + manquants
+  var expected=0, validated=0, missingHeats={};
+  try{
+    Object.keys(HD).forEach(function(hid){
+      var h=HD[hid]; if(!h||heatDay(h)!==ACTIVE_DAY) return;
+      var st=heatStatus(h); if(st!=='done'&&st!=='timecap'&&st!=='live') return;
+      var lanes=h.lanes||{};
+      Object.keys(lanes).forEach(function(ln){
+        var lane=lanes[ln]; if(!lane||!lane.teamName||lane.teamAbsent) return;
+        expected++;
+        var sc=tkLaneScore(hid,ln);
+        var ok=sc&&(sc.judgeOk||sc.finalTime>0||sc.reps!=null||sc.scoreFinal!=null);
+        if(ok) validated++;
+        else { var key='Z'+heatZone(h)+' H'+(h.catHeatNum||h.globalNum||heatNum(hid)); missingHeats[key]=(missingHeats[key]||0)+1; }
+      });
+    });
+  }catch(e){}
+  return {expected:expected, validated:validated, missing:Math.max(0,expected-validated), missingHeats:missingHeats};
+}
+
+// Formatte « il y a Xs » avec code couleur (vert <60s, orange <300s, rouge au-delà).
+function tkAgoColor(ms){
+  if(ms<60000) return 'var(--ok)';
+  if(ms<300000) return 'var(--warn)';
+  return 'var(--err)';
+}
+function tkFmtAgo(ms){
+  var s=Math.round(ms/1000);
+  if(s<90) return s+'s';
+  var m=Math.floor(s/60); return m+'min'+(s%60?(' '+(s%60)+'s'):'');
+}
+
+function renderTkHealth(){
+  var now=serverNow();
+  var dayActive=tkDayIsActive();
+  // Pouls : dernier score reçu il y a X s
+  try{
+    var el=g('tkPulse'), sub=g('tkPulseSub');
+    if(el){
+      var last=tkLastScoreTs();
+      if(!dayActive || !last){
+        el.textContent='—'; el.style.color='var(--muted)';
+        if(sub) sub.textContent=dayActive?'En attente de scores':'Journée inactive';
+      } else {
+        var ago=now-last;
+        el.textContent='il y a '+tkFmtAgo(ago);
+        el.style.color=tkAgoColor(ago);
+        if(sub) sub.textContent='Dernier score reçu';
+      }
+    }
+  }catch(e){}
+  // Juges actifs (fraîcheur) toutes zones — AFFICHAGE uniquement (n'altère pas le démarrage)
+  try{
+    var elA=g('tkJudgesActive'), subA=g('tkJudgesActiveSub');
+    if(elA){
+      var tot=0, act=0;
+      [1,2].forEach(function(z){
+        var hid=currentHeat(z)||((zoneState[z]&&zoneState[z].selected))||nextHeat(z);
+        if(hid){ var fc=tkJudgeFreshCount(hid); tot+=fc.total; act+=fc.active; }
+      });
+      elA.textContent=act+' / '+tot;
+      elA.style.color=(tot>0&&act<tot)?'var(--warn)':(tot>0?'var(--ok)':'var(--muted)');
+      if(subA) subA.textContent='Actifs (fraîcheur < 240s)';
+    }
+  }catch(e){}
+  // Scores validés / attendus + manquants
+  try{
+    var elS=g('tkScoreStat'), subS=g('tkScoreStatSub');
+    if(elS){
+      var ss=tkScoreStats();
+      var pct=ss.expected?Math.round(ss.validated/ss.expected*100):100;
+      elS.textContent=ss.validated+' / '+ss.expected;
+      elS.style.color=ss.missing>0?'var(--warn)':'var(--ok)';
+      if(subS) subS.textContent=ss.missing>0?(ss.missing+' manquant'+(ss.missing>1?'s':'')+' · '+pct+'%'):('tout est là · '+pct+'%');
+    }
+  }catch(e){}
+  // Retard / avance PAR ZONE (en plus du global déjà présent dans le hero)
+  try{
+    [1,2].forEach(function(z){
+      var elZ=g('tkZoneDelay'+z);
+      if(!elZ) return;
+      var endTs=zoneDayEndTs(z);
+      if(!endTs){ elZ.textContent='—'; elZ.style.color='var(--muted)'; return; }
+      // Référence planifiée de la zone : dernier heat programmé de la zone + durée estimée
+      var plannedEnds=[];
+      Object.keys(HD).forEach(function(hid){
+        var h=HD[hid]; if(!h||heatDay(h)!==ACTIVE_DAY||heatZone(h)!==String(z)) return;
+        var s=parseHeatClockToTs(h); if(s) plannedEnds.push(s+ (typeof heatEstimatedDurationSec==='function'?heatEstimatedDurationSec(h):600)*1000);
+      });
+      var plannedEnd=plannedEnds.length?Math.max.apply(null,plannedEnds):null;
+      if(plannedEnd){
+        var dmin=Math.round((endTs-plannedEnd)/60000);
+        elZ.textContent=dmin>0?('+'+dmin+' min'):dmin<0?('−'+Math.abs(dmin)+' min'):'à l\'heure';
+        elZ.style.color=dmin>3?'var(--err)':dmin>0?'var(--warn)':'var(--ok)';
+      } else {
+        elZ.textContent=fmtClock(endTs); elZ.style.color='var(--muted)';
+      }
+    });
+  }catch(e){}
+}
+
+// Rendu complet du centre de contrôle (radar + santé). Debounce ~120ms.
+function renderTkControlCenter(){
+  try{ renderTkRadar(); }catch(e){}
+  try{ renderTkHealth(); }catch(e){}
+}
+var _tkCcTimer=null;
+function scheduleControlCenter(){
+  if(_tkCcTimer) return;
+  _tkCcTimer=setTimeout(function(){ _tkCcTimer=null; renderTkControlCenter(); }, 120);
+}
+// Tick local (NE LIT RIEN sur le réseau) : rafraîchit les « il y a Xs » toutes les 5s.
+if(typeof window!=='undefined' && !window._tkCcTick){
+  window._tkCcTick=setInterval(function(){ try{ renderTkHealth(); }catch(e){} }, 5000);
+}
+
 function esc(s){return String(s||'').replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
 function heatNum(hid){return parseInt(String(hid).replace(/\D/g,''),10)||0;}
 function heatDay(h){return parseInt(h&&(h.catJour||h.jour||1),10)||1;}
