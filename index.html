@@ -4697,6 +4697,17 @@ function _pfCatOwnTeams(cat){
   var teams=(cat&&(cat.teams||cat.equipes))||[];
   return teams.filter(function(t){ return t && !t.invitedOut; });
 }
+// Nombre RÉEL d'équipes propres d'une catégorie, invitées-sortantes COMPRISES.
+// Une équipe `invitedOut` n'est PAS perdue : elle joue dans une autre catégorie
+// en invitée (cf. generateHeats l.9871 qui la compte comme placée). Elle ne doit
+// donc JAMAIS faire croire que la catégorie est « sans équipe ».
+function _pfCatRealTeamCount(cat){
+  try{
+    var teams=(cat&&(cat.teams||cat.equipes))||[];
+    // équipes propres (pas des invitées entrantes isGuest) : présentes OU parties en invitation
+    return teams.filter(function(t){ return t && !t.isGuest; }).length;
+  }catch(e){ return 0; }
+}
 
 /**
  * runPreflightCheck() — cœur du vérificateur.
@@ -4758,11 +4769,15 @@ function runPreflightCheck(){
       try{
         var nom=(cat&&cat.nom)||'(sans nom)';
         var teams=_pfCatOwnTeams(cat);
-        // 3a. Catégorie sans aucune équipe → ERREUR (sauf si elle n'accueille que des invités)
+        // 3a. Catégorie sans aucune équipe → ERREUR (sauf si elle n'accueille que des invités).
+        //   ★ FIX faux positif : on compte les équipes RÉELLES (invitées-sortantes comprises),
+        //   sinon une catégorie dont les équipes jouent en invitation ailleurs était signalée
+        //   « sans équipe » à tort (cas des catégories J1+2 « Rx F-F » / « Rx H-F »).
+        var realCount=_pfCatRealTeamCount(cat);
         var guestsIn=((cat&&cat.teams)||[]).filter(function(t){return t&&t.isGuest&&t.ligne!=null&&t.heatNum!=null;});
-        if(teams.length===0 && guestsIn.length===0){
+        if(realCount===0 && guestsIn.length===0){
           E('Catégorie sans équipe : « '+nom+' »','Cette catégorie n\'a aucune équipe. Elle ne générera aucun heat.','Catégories');
-        } else if(teams.length===1){
+        } else if(realCount===1){
           // 3b. Une seule équipe → ALERTE (souvent un oubli, mais parfois voulu)
           W('Catégorie à 1 seule équipe : « '+nom+' »','La catégorie « '+nom+' » ne contient qu\'une équipe — vérifie que c\'est voulu.','Catégories');
         }
