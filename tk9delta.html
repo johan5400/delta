@@ -796,7 +796,7 @@ function _broadcastTabUpdate(type, payload){
 
 function g(id){return document.getElementById(id);}
 function p2(n){return String(n).padStart(2,'0');}
-function fmtS(s){s=Math.max(0,Math.floor(s||0));return Math.floor(s/60)+':'+p2(s%60);}
+function fmtS(s){s=Number(s)||0;if(!isFinite(s))s=0;s=Math.max(0,Math.floor(s));if(s>359999)s=359999;return Math.floor(s/60)+':'+p2(s%60);}
 
 function fmtClock(ts){
   if(!ts || !isFinite(ts)) return '--:--';
@@ -971,6 +971,11 @@ function progressInfoForWod(wod, sc){
   }
   return {done:done,total:total};
 }
+// ★ BLINDAGE CHRONO : startTimestamp FINI uniquement (un nœud corrompu peut valoir
+//   une chaîne non numérique "x" → NaN propagé dans les ETA/retard → projection de
+//   journée faussée et affichage aberrant). Renvoie 0 (= « pas de départ valide »)
+//   si absent/non fini, ce qui fait retomber sur la branche durée pleine/pending.
+function _tkStartTs(h){ var t=parseInt(h&&h.startTimestamp,10); return isFinite(t)&&t>0 ? t : 0; }
 function zoneEtaMeta(zone){
   var live=currentHeat(zone), next=nextHeat(zone), selected=zoneSelectedHeat(zone);
   var hid=live||selected||next;
@@ -982,9 +987,10 @@ function zoneEtaMeta(zone){
   out.judges=jc.on+' / '+jc.total;
 
   var st=heatStatus(h), wod=h.wodInfo||{};
-  if(st==='live' && h.startTimestamp){
+  var _sts=_tkStartTs(h);
+  if(st==='live' && _sts){
     var cap=wodCapSec(wod);
-    out.endTs=serverNow() + Math.max(0, cap>0 ? cap - Math.floor((serverNow()-h.startTimestamp)/1000) : heatEstimatedDurationSec(h));
+    out.endTs=serverNow() + Math.max(0, cap>0 ? cap - Math.floor((serverNow()-_sts)/1000) : heatEstimatedDurationSec(h));
     out.label='Heat en cours';
     out.nextTs=out.endTs + wodTransitionSec(wod)*1000;
   } else if(st==='timecap'){
@@ -1019,9 +1025,14 @@ function zoneDayEndTs(zone){
     any=true;
     var wod=h.wodInfo||{};
     var capS=wodCapSec(wod); if(!(capS>0)) capS=600; // défaut 10 min si pas de cap
+    // ★ BLINDAGE : une duree corrompue (ex. ms au lieu de s) donnerait un cap aberrant
+    //   → projection de fin de journée absurde. Borne la projection à 6 h (jamais atteint
+    //   par un vrai WOD) ; n'affecte en rien le chrono live, uniquement l'ETA.
+    if(capS>21600) capS=21600;
     var trans=wodTransitionSec(wod)||0;
-    if(st==='live' && h.startTimestamp){
-      var rem=Math.max(0, capS - Math.floor((serverNow()-h.startTimestamp)/1000));
+    var _stsD=_tkStartTs(h);
+    if(st==='live' && _stsD){
+      var rem=Math.max(0, capS - Math.floor((serverNow()-_stsD)/1000));
       cursor += rem*1000 + trans*1000;
     } else if(st==='timecap'){
       cursor += trans*1000; // temps écoulé, reste la clôture/transition
@@ -1518,7 +1529,11 @@ function mergeScoreRecord(a,b){
   if(!b)return a||{};
   function pri(s){
     if(!s)return 0;
-    if(s._priority)return s._priority;
+    // ★ BLINDAGE : _priority doit être un nombre FINI. Un enregistrement corrompu
+    //   ("abc"/Infinity/NaN) fausserait la comparaison de priorité (pa>pb) et pourrait
+    //   faire gagner le mauvais score dans le merge → on normalise avant de l'utiliser.
+    var _p=parseInt(s._priority,10);
+    if(isFinite(_p)&&_p>0)return _p;
     if((s._src==='tk'||s._src==='tkx')&&s.tkValidated)return 100;
     if((s._src==='judge')&&s.judgeOk)return 90;
     if(s._src==='judge')return 80;
