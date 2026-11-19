@@ -9430,6 +9430,178 @@ function syncCategoriesToFirebase(){
   try { db.ref('categories').set(catsObj); } catch(e){}
 }
 
+// ════════════════════════════════════════════════════════════════════════
+// SYNCHRO ADMIN↔ADMIN (admin_backup) — bidirectionnelle, rapide, anti-écrasement
+// ────────────────────────────────────────────────────────────────────────
+// Problème corrigé : deux postes admin (chef & Johan) partagent le nœud
+// admin_backup (wods, categories, benevoles — PAS les scores). Avant :
+//   • émission throttlée à 4s + déclenchée 5s après l'action → 9s de latence ;
+//   • garde-fou "benevoles vide" bloquait TOUTE la publication (même wods) ;
+//   • réception appliquait TOUJOURS l'état reçu → un vieux autoSave d'un poste
+//     pouvait écraser la publication fraîche de l'autre (last-write-wins périmé) ;
+//   • pas de rattrapage après veille/perte de connexion.
+// Solution :
+//   • savedAt = horloge SERVEUR (ServerValue.TIMESTAMP) → ordre cohérent entre
+//     postes malgré des horloges locales divergentes.
+//   • Écriture via TRANSACTION Firebase : ne commit QUE si savedAt entrant >
+//     savedAt existant ⇒ deux écritures concurrentes résolues côté serveur,
+//     jamais d'écrasement d'un état plus récent. La transaction PRÉSERVE les
+//     benevoles distants quand les nôtres sont vides (garde-fou assoupli :
+//     wods/categories partent toujours, benevoles jamais effacés par du vide).
+//   • Réception : on ignore un backup dont savedAt <= au dernier déjà appliqué
+//     (anti-périmé) et on marque _applyingRemote pendant applyState (anti-echo :
+//     l'application d'un état distant ne redéclenche pas d'écriture).
+//   • Debounce court (400ms) au lieu de 4s ; « Générer & Publier » force un
+//     envoi immédiat sans debounce.
+//   • Rattrapage sur visibilitychange / online / reconnexion (.info/connected).
+// Tout est fail-safe (try/catch) : en cas d'échec, on dégrade vers un .set()
+// simple (comportement d'avant), jamais de blocage.
+// ════════════════════════════════════════════════════════════════════════
+
+// Décalage horloge serveur (résolu une fois Firebase prêt). serverNow() renvoie
+// un timestamp aligné sur le serveur, utilisable AVANT une écriture pour comparer.
+window._fbServerOffset = window._fbServerOffset || 0;
+window._applyingRemote = window._applyingRemote || false;   // vrai pendant l'application d'un état distant
+window._lastAppliedSavedAt = window._lastAppliedSavedAt || 0; // savedAt du dernier backup appliqué/écrit
+window._lastPushedSig = window._lastPushedSig || '';          // signature du dernier contenu poussé/reçu (anti-echo)
+function _fbServerNow(){ try{ return Date.now() + (window._fbServerOffset||0); }catch(e){ return Date.now(); } }
+function _getAdminBackupDb(){
+  try{ return (typeof LS_FB_DB!=='undefined'&&LS_FB_DB)||window.db||(typeof db!=='undefined'?db:null)||null; }catch(e){ return null; }
+}
+// Signature stable du contenu synchronisé (pour détecter un vrai changement et
+// éviter le ping-pong). On ne hashe QUE wods+categories+benevoles.
+function _adminBackupSig(wods, cats, bens){
+  try{
+    return JSON.stringify({
+      w:(wods||[]).map(function(w){ return [w&&w.id, w&&w.nom, w&&w.zone, w&&w.ordreZone, w&&w.duree, w&&w.wodFormat, (w&&w.mouvements||w&&w.movements||[]).length]; }),
+      c:(cats||[]).map(function(c){ return [c&&c.id, c&&c.nom, c&&c.zone, c&&c.jour, c&&c.ordre, (c&&(c.teams||c.equipes)||[]).length]; }),
+      b:(bens||[]).map(function(b){ return [b&&b.id, b&&b.prenom, b&&b.role, b&&b.slot, b&&b.slotJ1, b&&b.slotJ2, b&&b.zoneAssign]; })
+    });
+  }catch(e){ return String(Date.now()); } // fallback : toujours "différent"
+}
+
+// Abonnement au décalage d'horloge serveur (idempotent).
+function _ensureServerOffsetSub(){
+  if(window._fbOffsetSubbed) return;
+  var _db=_getAdminBackupDb();
+  if(!_db || typeof _db.ref!=='function') return;
+  try{
+    _db.ref('.info/serverTimeOffset').on('value', function(snap){
+      var off=snap.val();
+      if(typeof off==='number' && isFinite(off)) window._fbServerOffset=off;
+    });
+    window._fbOffsetSubbed=true;
+  }catch(e){}
+}
+
+// ── ÉCRITURE CENTRALE de admin_backup (transaction anti-écrasement) ──────
+// opts.force  : ignore le garde anti-echo "contenu identique" (utilisé par
+//               « Générer & Publier » et la sauvegarde manuelle).
+// opts.immediate : écrit tout de suite (sans passer par le debounce).
+// opts.extra  : champs additionnels à fusionner (ex: {manual:true, ev:{…}}).
+function pushAdminBackup(opts){
+  opts=opts||{};
+  try{
+    // Ne pas réécrire ce qu'on vient de recevoir (anti-echo), sauf force.
+    if(window._applyingRemote && !opts.force) return;
+    var _db=_getAdminBackupDb();
+    if(!_db || typeof _db.ref!=='function') return;
+
+    var localWods=(typeof WODS!=='undefined'&&WODS)||[];
+    var localCats=(typeof CATEGORIES!=='undefined'&&CATEGORIES)||[];
+    var localBens=(typeof BENEVOLES!=='undefined'&&BENEVOLES)||[];
+    var sig=_adminBackupSig(localWods, localCats, localBens);
+    // Si le contenu est identique au dernier état poussé/reçu → rien à faire
+    // (empêche toute boucle d'écritures). « force » passe outre.
+    if(!opts.force && sig===window._lastPushedSig) return;
+
+    var serverNow=_fbServerNow();
+    var ref=_db.ref('admin_backup');
+    var haveBens = !!(localBens && localBens.length);
+
+    // TRANSACTION : ne commit que si notre savedAt (serveur) est plus récent que
+    // l'existant. Préserve les benevoles distants quand les nôtres sont vides.
+    ref.transaction(function(current){
+      var curSaved = (current && typeof current.savedAt==='number') ? current.savedAt : 0;
+      // Notre horodatage = max(serverNow, curSaved+1) pour garantir la monotonie
+      // même si l'offset local est légèrement en retard sur le dernier écrit.
+      var mySaved = Math.max(serverNow, curSaved + 1);
+      // Si l'existant est STRICTEMENT plus récent que notre horloge serveur
+      // estimée ET que notre contenu n'est pas forcé, on n'écrase pas : on
+      // renvoie undefined pour ABANDONNER la transaction (garde l'état distant).
+      if(current && curSaved > serverNow && !opts.force){
+        return; // abort : l'autre poste a publié plus récemment
+      }
+      var next = {
+        wods: localWods,
+        categories: localCats,
+        // Garde-fou benevoles assoupli : si on n'a pas de bénévoles, on
+        // CONSERVE ceux déjà en base (jamais d'effacement par du vide).
+        benevoles: haveBens ? localBens : ((current && current.benevoles) || []),
+        savedAt: mySaved,
+        version: 'delta'
+      };
+      if(opts.extra && typeof opts.extra==='object'){
+        try{ for(var k in opts.extra){ if(Object.prototype.hasOwnProperty.call(opts.extra,k)) next[k]=opts.extra[k]; } }catch(e){}
+      }
+      return next;
+    }, function(err, committed, snap){
+      if(err){
+        // Échec transaction → dégradation fail-safe : set() simple (comportement
+        // d'avant), mais TOUJOURS en préservant les benevoles distants si vides.
+        try{
+          var payload={ wods:localWods, categories:localCats, benevoles:localBens, savedAt:_fbServerNow(), version:'delta' };
+          if(!haveBens) delete payload.benevoles; // ne pas écraser par du vide
+          if(opts.extra){ for(var k2 in opts.extra){ if(Object.prototype.hasOwnProperty.call(opts.extra,k2)) payload[k2]=opts.extra[k2]; } }
+          ref.update(payload);
+        }catch(e2){}
+        return;
+      }
+      if(committed){
+        try{
+          var v=snap&&snap.val();
+          if(v && typeof v.savedAt==='number') window._lastAppliedSavedAt=Math.max(window._lastAppliedSavedAt||0, v.savedAt);
+          window._lastPushedSig=sig;
+          // Re-baser la signature après l'enrichissement éventuel des données
+          //   (certaines fonctions complètent les bénévoles — slotJ1/J2, zoneAssign —
+          //   APRÈS la capture de "sig"). Sans ce re-calcul différé, un autoSave à
+          //   vide ultérieur verrait une signature différente et repartirait une
+          //   fois "pour rien". On converge donc vers 0 écriture quand rien ne change.
+          _refreshPushedSigSoon();
+        }catch(e3){}
+      }
+      // Non committé = un état plus récent existait : c'est le comportement voulu
+      // (anti-écrasement). Le listener nous enverra cet état plus récent.
+    }, false); // applyLocally=false : pas d'event local parasite
+  }catch(e){ /* fail-safe : ne jamais bloquer */ }
+}
+window.pushAdminBackup=pushAdminBackup;
+
+// Re-calcule _lastPushedSig depuis l'état LOCAL courant, un court instant plus
+//   tard, pour absorber les enrichissements asynchrones des données (bénévoles
+//   complétés, teams↔equipes des catégories). Idempotent et sans écriture réseau.
+var _refreshSigTimer=null;
+function _refreshPushedSigSoon(){
+  try{
+    if(_refreshSigTimer) clearTimeout(_refreshSigTimer);
+    _refreshSigTimer=setTimeout(function(){
+      try{
+        if(window._applyingRemote) return;
+        window._lastPushedSig=_adminBackupSig((typeof WODS!=='undefined'&&WODS)||[], (typeof CATEGORIES!=='undefined'&&CATEGORIES)||[], (typeof BENEVOLES!=='undefined'&&BENEVOLES)||[]);
+      }catch(e){}
+    }, 700);
+  }catch(e){}
+}
+
+// Debounce court pour grouper les frappes (400ms) sans la latence de 9s d'avant.
+var _adminBackupDebTimer=null;
+function scheduleAdminBackup(){
+  try{
+    if(_adminBackupDebTimer) clearTimeout(_adminBackupDebTimer);
+    _adminBackupDebTimer=setTimeout(function(){ pushAdminBackup({}); }, 400);
+  }catch(e){ try{ pushAdminBackup({}); }catch(e2){} }
+}
+window.scheduleAdminBackup=scheduleAdminBackup;
 
 function autoSave(){
   try{
@@ -9458,28 +9630,13 @@ function autoSave(){
     syncWodsToFirebase();
     syncCategoriesToFirebase();
     scheduleJudgeAssignmentsSync();
-    // Cloud backup Firebase — ~toutes les 5s (avant : 5 min) pour que le chef voie les
-    //   modifs de données (équipes, WODs, catégories) en quasi temps réel. admin_backup est
-    //   petit (pas les scores) → sans impact sur la stabilité en compèt.
-    var now=Date.now();
-    if(!window._lastFbBackup||now-window._lastFbBackup>4000){
-      window._lastFbBackup=now;
-      var _db2=(typeof LS_FB_DB!=='undefined'&&LS_FB_DB)||window.db||null;
-      if(_db2&&typeof _db2.ref==='function'){
-        try{
-          // ★ GARDE-FOU ANTI-EFFACEMENT : ne JAMAIS écraser le backup Firebase avec une
-          //   liste de bénévoles vide. Sans ça, une ouverture avec état local vide (avant
-          //   que Firebase ait répondu) pouvait écraser admin_backup par du vide et faire
-          //   disparaître tous les bénévoles. Si BENEVOLES est vide, on ne touche pas au backup.
-          if(BENEVOLES && BENEVOLES.length){
-            _db2.ref('admin_backup').set({
-              wods:WODS||[], categories:CATEGORIES||[], benevoles:BENEVOLES||[],
-              savedAt:now, version:'delta'
-            });
-          }
-        }catch(e2){}
-      }
-    }
+    // Cloud backup Firebase admin↔admin — passe désormais par la synchro
+    //   centralisée (transaction anti-écrasement + horloge serveur + garde-fou
+    //   benevoles assoupli). Debounce court (~400ms) au lieu de l'ancien throttle
+    //   4s : les modifs (WODs, catégories, équipes) arrivent chez l'autre poste
+    //   en quasi temps réel, SANS écraser une publication plus récente, et SANS
+    //   bloquer wods/categories quand la liste bénévoles est momentanément vide.
+    scheduleAdminBackup();
     var ind=document.getElementById("save-indicator");
     if(ind){var t=new Date().toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"});ind.innerHTML='<span style="color:#06D6A0;font-size:10px;font-weight:700;">✓ '+t+'</span>';setTimeout(function(){ind.innerHTML='';},4000);}
   }catch(e){}
@@ -14294,53 +14451,141 @@ function init(){
         //   au même niveau que les autres boucles, une fois que Firebase (_db) est prêt.
         //   Idempotent (guard interne) → pas de double interval si init est rejoué.
         try { if(typeof startScoreBackupLoop==='function') startScoreBackupLoop(); } catch(eBk){ console.warn('startScoreBackupLoop', eBk); }
-        try {
-          _db.ref('admin_backup').on('value', function(snap){
-            var backup = snap.val();
-            window._deltaBackupLoadedOnce = true; // le 1er retour Firebase a eu lieu
+        // Aligner l'horloge sur le serveur (pour l'ordonnancement anti-écrasement).
+        try { if(typeof _ensureServerOffsetSub==='function') _ensureServerOffsetSub(); } catch(eOff){}
+
+        // ── Application d'un backup reçu (listener temps réel OU rattrapage) ──
+        // Garde ANTI-PÉRIMÉ : on n'applique un backup que si son savedAt est
+        //   STRICTEMENT plus récent que le dernier déjà appliqué/écrit. Un vieil
+        //   autoSave de l'autre poste (ou un echo) est donc ignoré → pas d'écrasement
+        //   d'un état plus récent, pas de retour en arrière visuel.
+        // Garde ANTI-ECHO : _applyingRemote=true pendant applyState+render ⇒ un
+        //   autoSave déclenché par ces rendus ne repoussera pas vers Firebase
+        //   (voir pushAdminBackup). Évite le ping-pong entre les deux PC.
+        window._applyAdminBackup = function(backup, srcLabel){
+          try{
+            window._deltaBackupLoadedOnce = true; // un retour Firebase a eu lieu
             if(!backup || typeof backup !== 'object') return;
 
-            // Normaliser benevoles (peut être objet {k:v} ou tableau)
+            // Normaliser benevoles / categories / wods (peuvent être objets {k:v})
             if(backup.benevoles && !Array.isArray(backup.benevoles) && typeof backup.benevoles === 'object'){
               backup.benevoles = Object.keys(backup.benevoles).map(function(k){ return backup.benevoles[k]; }).filter(Boolean);
             }
-            // ★ FIX CRITIQUE (perte bénévoles) : si le backup Firebase ne contient PAS de
-            //   bénévoles (vide/absent) mais qu'on en a déjà en mémoire, on retire la clé du
-            //   backup avant applyState pour ne pas écraser la liste courante par du vide.
-            //   (applyState est déjà protégé, ceci est une sécurité supplémentaire.)
-            if((!backup.benevoles || !backup.benevoles.length) && (BENEVOLES||[]).length){
-              delete backup.benevoles;
-            }
-            // Normaliser categories (idem)
             if(backup.categories && !Array.isArray(backup.categories) && typeof backup.categories === 'object'){
               backup.categories = Object.keys(backup.categories).map(function(k){ return backup.categories[k]; }).filter(Boolean);
             }
-            // Normaliser wods (idem)
             if(backup.wods && !Array.isArray(backup.wods) && typeof backup.wods === 'object'){
               backup.wods = Object.keys(backup.wods).map(function(k){ return backup.wods[k]; }).filter(Boolean);
             }
 
-            try { applyState(backup); } catch(e){ console.warn('applyState (backup) échoué', e); }
-            try { if(typeof normalizeWodOrdreZone==='function') normalizeWodOrdreZone(); } catch(e){}
+            // ── GARDE ANTI-PÉRIMÉ (anti-écrasement par un état plus ancien) ──
+            var inSaved = (typeof backup.savedAt==='number') ? backup.savedAt : 0;
+            var inSig = _adminBackupSig(backup.wods, backup.categories, backup.benevoles);
+            // Si c'est le contenu qu'on a nous-même poussé en dernier → ignorer
+            //   (echo de notre propre écriture, rien de neuf).
+            if(inSig === window._lastPushedSig){
+              window._lastAppliedSavedAt = Math.max(window._lastAppliedSavedAt||0, inSaved);
+              return;
+            }
+            // Si savedAt n'est pas plus récent que le dernier appliqué ET que le
+            //   contenu est déjà celui connu → périmé, on ignore.
+            if(inSaved && window._lastAppliedSavedAt && inSaved <= window._lastAppliedSavedAt && inSig === window._lastAppliedSig){
+              return;
+            }
 
-            // Rafraîchir TOUS les affichages qui dépendent de ces données
-            try { if(typeof renderWodsList==='function') renderWodsList(); } catch(e){}
-            try { if(typeof renderProgWodsList==='function') renderProgWodsList(); } catch(e){}
-            try { if(typeof renderCategories==='function') renderCategories(); } catch(e){}
-            try { if(typeof renderBenView==='function') renderBenView(); } catch(e){}
-            try { if(typeof renderJourView==='function') renderJourView(); } catch(e){}
-            try { if(typeof renderAccueilView==='function') renderAccueilView(); } catch(e){}
-            try { if(typeof renderZonesList==='function') renderZonesList(); } catch(e){}
-            try { if(typeof renderZonesSynoptic==='function') renderZonesSynoptic(); } catch(e){}
-            try { if(typeof renderPlanningCF==='function') renderPlanningCF(); } catch(e){}
-            try { if(typeof renderProg==='function') renderProg(); } catch(e){}
-            try { if(typeof computeProgramme==='function') computeProgramme(); } catch(e){}
-            try { if(typeof updateHeader==='function') updateHeader(); } catch(e){}
+            // ★ FIX CRITIQUE (perte bénévoles) : backup sans bénévoles mais mémoire
+            //   non vide → on retire la clé pour ne pas écraser par du vide
+            //   (applyState est aussi protégé). Les wods/categories, eux, s'appliquent
+            //   toujours (garde-fou benevoles assoupli : jamais de blocage global).
+            if((!backup.benevoles || !backup.benevoles.length) && (BENEVOLES||[]).length){
+              delete backup.benevoles;
+            }
+
+            var prevApplying = window._applyingRemote;
+            window._applyingRemote = true; // anti-echo le temps d'appliquer+rendre
+            try{
+              try { applyState(backup); } catch(e){ console.warn('applyState (backup) échoué', e); }
+              try { if(typeof normalizeWodOrdreZone==='function') normalizeWodOrdreZone(); } catch(e){}
+
+              // Rafraîchir TOUS les affichages qui dépendent de ces données
+              try { if(typeof renderWodsList==='function') renderWodsList(); } catch(e){}
+              try { if(typeof renderProgWodsList==='function') renderProgWodsList(); } catch(e){}
+              try { if(typeof renderCategories==='function') renderCategories(); } catch(e){}
+              try { if(typeof renderBenView==='function') renderBenView(); } catch(e){}
+              try { if(typeof renderJourView==='function') renderJourView(); } catch(e){}
+              try { if(typeof renderAccueilView==='function') renderAccueilView(); } catch(e){}
+              try { if(typeof renderZonesList==='function') renderZonesList(); } catch(e){}
+              try { if(typeof renderZonesSynoptic==='function') renderZonesSynoptic(); } catch(e){}
+              try { if(typeof renderPlanningCF==='function') renderPlanningCF(); } catch(e){}
+              try { if(typeof renderProg==='function') renderProg(); } catch(e){}
+              try { if(typeof computeProgramme==='function') computeProgramme(); } catch(e){}
+              try { if(typeof updateHeader==='function') updateHeader(); } catch(e){}
+            } finally {
+              window._applyingRemote = prevApplying; // restaurer (robuste si imbriqué)
+            }
+
+            // Mémoriser l'état appliqué comme référence (anti-echo + anti-périmé).
+            //   IMPORTANT : on recalcule la signature à partir de l'état LOCAL
+            //   APRÈS applyState (qui normalise/enrichit parfois les données :
+            //   slotJ1/J2 des bénévoles, teams↔equipes des catégories, etc.). Sinon
+            //   la signature "entrante" diffère de celle que recalculera le prochain
+            //   scheduleAdminBackup → une écriture corrective inutile partirait
+            //   (pas une boucle, mais un aller-retour évitable). En prenant la
+            //   signature de l'état normalisé, un autoSave ultérieur SANS vraie
+            //   modif donne une signature identique ⇒ 0 écriture (anti-ping-pong strict).
+            var localSig = inSig;
+            try{ localSig = _adminBackupSig((typeof WODS!=='undefined'&&WODS)||[], (typeof CATEGORIES!=='undefined'&&CATEGORIES)||[], (typeof BENEVOLES!=='undefined'&&BENEVOLES)||[]); }catch(e){}
+            window._lastAppliedSavedAt = Math.max(window._lastAppliedSavedAt||0, inSaved);
+            window._lastAppliedSig = localSig;
+            // On considère cet état normalisé comme la base : un autoSave ultérieur ne
+            //   repoussera que si le contenu CHANGE réellement (signature différente).
+            window._lastPushedSig = localSig;
+            // Re-baser encore après enrichissement asynchrone éventuel (idempotent).
+            try{ if(typeof _refreshPushedSigSoon==='function') _refreshPushedSigSoon(); }catch(e){}
 
             var nbC = (CATEGORIES||[]).length, nbB = (BENEVOLES||[]).length, nbW = (WODS||[]).length;
-            console.log('✅ Sync Firebase — '+nbW+' WOD, '+nbC+' catégories, '+nbB+' juges/bénévoles chargés');
+            console.log('✅ Sync Firebase'+(srcLabel?(' ('+srcLabel+')'):'')+' — '+nbW+' WOD, '+nbC+' catégories, '+nbB+' juges/bénévoles chargés');
+          }catch(eApply){ console.warn('_applyAdminBackup échoué', eApply); }
+        };
+
+        try {
+          _db.ref('admin_backup').on('value', function(snap){
+            window._applyAdminBackup(snap.val(), 'live');
           });
         } catch(eSync){ console.warn('Sync admin_backup Firebase échouée', eSync); }
+
+        // ── RATTRAPAGE (reconnexion / retour de veille / onglet ré-affiché) ──
+        //   Le listener .on('value') se ré-abonne normalement tout seul après une
+        //   reconnexion RTDB, mais si l'OS a gelé l'onglet (PC en veille, arrière-plan
+        //   prolongé) la reprise peut tarder. On force donc une relecture once('value')
+        //   quand : l'onglet redevient visible, le réseau revient (online), ou la
+        //   connexion Firebase repasse à "connecté". Idempotent + throttlé.
+        try {
+          if(!window._adminBackupReconnectBound){
+            window._adminBackupReconnectBound = true;
+            var _catchUpAdminBackup = function(why){
+              try{
+                var _db3=_getAdminBackupDb();
+                if(!_db3 || typeof _db3.ref!=='function') return;
+                var nowc=Date.now();
+                if(window._lastAdminCatchUp && nowc-window._lastAdminCatchUp<1500) return; // throttle
+                window._lastAdminCatchUp=nowc;
+                _db3.ref('admin_backup').once('value').then(function(s){
+                  window._applyAdminBackup(s.val(), 'rattrapage '+(why||''));
+                }).catch(function(){});
+              }catch(e){}
+            };
+            window._catchUpAdminBackup=_catchUpAdminBackup;
+            try{ document.addEventListener('visibilitychange', function(){ if(!document.hidden) _catchUpAdminBackup('visible'); }); }catch(e){}
+            try{ window.addEventListener('online', function(){ _catchUpAdminBackup('online'); }); }catch(e){}
+            try{ window.addEventListener('focus', function(){ _catchUpAdminBackup('focus'); }); }catch(e){}
+            try{
+              _db.ref('.info/connected').on('value', function(cs){
+                if(cs.val()===true) _catchUpAdminBackup('reconnexion');
+              });
+            }catch(e){}
+          }
+        } catch(eRc){ console.warn('rattrapage admin_backup', eRc); }
       }
       var finalizeWithCurrentState = function(source){
         var rosterSeeded = false;
@@ -21237,6 +21482,15 @@ async function generateAndPublishAll(){
 
   if(typeof _genAndPublishDone!=='undefined') _genAndPublishDone = true;
 
+  // ★ ENVOI IMMÉDIAT admin_backup (sync admin↔admin) — « Générer & Publier »
+  //   force la publication COMPLÈTE de admin_backup (wods+categories+benevoles)
+  //   tout de suite, sans debounce ni throttle, pour que l'AUTRE poste (Johan)
+  //   reçoive les modifs du chef en quasi temps réel au lieu d'attendre le prochain
+  //   autoSave. Transaction anti-écrasement : si l'autre poste a publié encore plus
+  //   récemment, on ne recule pas (force=true fixe quand même notre horodatage
+  //   serveur, donc une publication explicite gagne). Fail-safe (try/catch).
+  try { if(typeof pushAdminBackup==='function') pushAdminBackup({force:true, immediate:true}); } catch(ePb){ console.warn('pushAdminBackup (publish):', ePb); }
+
   clearTimeout(_safetyTimer);
   if(btn){ btn.disabled=false; btn.textContent='🚀 Générer & Publier'; }
   if(btnA){ btnA.disabled=false; btnA.style.opacity='1'; }
@@ -22064,13 +22318,27 @@ function manualBackup(){
   //   pas seulement admin_backup, pour que rôles + disponibilités arrivent partout.
   window._deltaBackupLoadedOnce = true; // débloque une éventuelle protection démarrage
   if(typeof syncBenevolesToFirebase==='function'){ try{ syncBenevolesToFirebase(); }catch(e){} }
-  _db2.ref('admin_backup').set({
-    wods:WODS||[], categories:CATEGORIES||[], benevoles:BENEVOLES||[],
-    savedAt:Date.now(), version:'delta', manual:true,
-    ev:state.ev||{}
-  }).then(function(){
-    toast('✅ Sauvegarde Firebase OK — '+new Date().toLocaleTimeString('fr-FR'),'#00E5A0',4000);
-  }).catch(function(e){ toast('Erreur : '+e.message,'#FF3B5C'); });
+  // Passe par la synchro centralisée (transaction anti-écrasement + horloge
+  //   serveur + garde-fou benevoles). force=true : sauvegarde explicite demandée
+  //   par l'utilisateur. Les extras manual/ev sont conservés.
+  var _usedHelper=false;
+  try{
+    if(typeof pushAdminBackup==='function'){
+      pushAdminBackup({force:true, immediate:true, extra:{manual:true, ev:state.ev||{}}});
+      _usedHelper=true;
+      toast('✅ Sauvegarde Firebase OK — '+new Date().toLocaleTimeString('fr-FR'),'#00E5A0',4000);
+    }
+  }catch(e){ _usedHelper=false; }
+  if(!_usedHelper){
+    // Fail-safe : ancien comportement direct si le helper est indisponible.
+    _db2.ref('admin_backup').set({
+      wods:WODS||[], categories:CATEGORIES||[], benevoles:BENEVOLES||[],
+      savedAt:Date.now(), version:'delta', manual:true,
+      ev:state.ev||{}
+    }).then(function(){
+      toast('✅ Sauvegarde Firebase OK — '+new Date().toLocaleTimeString('fr-FR'),'#00E5A0',4000);
+    }).catch(function(e){ toast('Erreur : '+e.message,'#FF3B5C'); });
+  }
 }
 
 function exportBackupJSON(){
