@@ -4867,7 +4867,12 @@ function validate(ergoVal){
       var best2=0; mlAttempts.forEach(function(a){if(a.ok&&a.kg>best2)best2=a.kg;});
       payload.load=best2;
     } else if(fmt2==='ergo'){
-      payload.dist=typeof ergoVal!=='undefined'?(ergoVal||0):0;
+      // ★ BLINDAGE : la valeur ergo saisie alimente directement le score classé.
+      //   validateErgo() bloque déjà <0 et NaN, mais pas Infinity (parseFloat('Infinity')),
+      //   et d'autres appelants pourraient passer une valeur douteuse. On n'écrit qu'un
+      //   nombre fini >= 0 (sinon 0), pour ne jamais corrompre le classement.
+      var _ev=parseFloat(ergoVal); _ev=(isFinite(_ev)&&_ev>=0)?_ev:0;
+      payload.dist=_ev;
       payload.ergoVal=payload.dist; // alias pour compatibilité classement
     } else if(fmt2==='fortime'){
       payload.finalTime=getJudgeFortimeFinalSeconds();
@@ -5002,8 +5007,10 @@ function equipeVu(){
   try{
     if(db && FB_HEAT_ID && FB_LANE){
       var flag={vuEquipe:true, vuEquipeTs:Date.now()};
-      db.ref('heats/'+FB_HEAT_ID+'/scores/'+FB_LANE).update(flag);
-      db.ref('scores/'+FB_HEAT_ID+'_'+FB_LANE).update(flag);
+      // ★ .catch : hors-ligne, update() rejette — sans catch c'est une "unhandledrejection".
+      //   Ce ne sont que des drapeaux (vu équipe), leur perte est sans conséquence.
+      db.ref('heats/'+FB_HEAT_ID+'/scores/'+FB_LANE).update(flag).catch(function(){});
+      db.ref('scores/'+FB_HEAT_ID+'_'+FB_LANE).update(flag).catch(function(){});
     }
   }catch(e){}
   clearTimeout(window._vuAutoTm);
@@ -5238,7 +5245,7 @@ function updateEmomDisplay(){
     var phase = isResting ? 'rest' : 'work';
     if(window._lastPushedPhase !== phase){
       window._lastPushedPhase = phase;
-      try{ db.ref('heats/'+FB_HEAT_ID).update({roundPhase:phase, curRound:emomRound}); }catch(e){}
+      try{ db.ref('heats/'+FB_HEAT_ID).update({roundPhase:phase, curRound:emomRound}).catch(function(){}); }catch(e){}
     }
   }
   // Wake Lock : libérer après 10s de repos, réactiver immédiatement au WORK
@@ -5792,7 +5799,14 @@ function _judgeRestoreFromScore(sc, runTs){
   if(typeof emomRound!=='undefined') emomRound=Math.max(1,parseInt(sc.currentRound||1,10)||1);
   if(typeof _dbOut!=='undefined') _dbOut=(sc.dbOut===true);
   if(typeof _clOut!=='undefined') _clOut=(sc.clOut===true);
-  if(typeof _clLoad!=='undefined' && sc.clLoad!=null) _clLoad=parseFloat(sc.clLoad)||0;
+  // ★ BLINDAGE FUZZING : clLoad est la CHARGE de départage (kg) du Clean Ladder, lue
+  //   depuis Firebase. Une valeur corrompue ('Infinity', '-Infinity', NaN) écraserait
+  //   le classement (barre infinie = 1er pour toujours). On n'accepte qu'un nombre fini
+  //   >= 0 ; sinon on tombe à 0 (comme les autres compteurs restaurés).
+  if(typeof _clLoad!=='undefined' && sc.clLoad!=null){
+    var _rcl=parseFloat(sc.clLoad);
+    _clLoad=(isFinite(_rcl)&&_rcl>=0)?_rcl:0;
+  }
   tbTs=parseInt(sc.tiebreak||0,10)||0;
   _tbCaptured=[];
   var tbs=Array.isArray(sc.tiebreaks)?sc.tiebreaks:[];
@@ -6335,7 +6349,8 @@ function signalPresence(){
   //   lisent déjà). Avant, la présence était écrite AUSSI dans heats/<hid>/scores, ce
   //   qui faisait redescendre un child_changed sur le GROS nœud heats à tous les écrans
   //   (speaker, superviseur, classement), toutes les 3 min et par juge. Doublon inutile.
-  db.ref('scores/'+FB_HEAT_ID+'_'+FB_LANE).update(payload);
+  // ★ .catch : présence/batterie hors-ligne → update() rejette ; on ignore (métadonnée).
+  db.ref('scores/'+FB_HEAT_ID+'_'+FB_LANE).update(payload).catch(function(){});
 }
 // ★ Rafraîchir la présence (et donc la batterie) toutes les 3 minutes
 setInterval(function(){ try{ if(typeof signalPresence==='function') signalPresence(); }catch(e){} }, 180000);
@@ -6421,7 +6436,17 @@ function _enqueueScore(path,hpath,sc){
 function _loadOfflineQueue(){
   try{
     var saved=JSON.parse(localStorage.getItem(_LS_KEY)||'[]');
-    if(saved.length){ _offlineQueue=saved; toast('📦 '+saved.length+' reps en attente de sync...','#FF8A00'); }
+    // ★ BLINDAGE FUZZING : la file offline (scores en attente) peut être corrompue dans
+    //   localStorage (autre onglet, écriture partielle, extension). Si ce n'est pas un
+    //   TABLEAU d'items {path, sc} valides, l'ancien code faisait _offlineQueue=saved avec
+    //   une string/objet → .forEach au rejeu plantait et les scores en file étaient perdus.
+    //   On n'accepte que des items bien formés ; le reste est ignoré.
+    if(Array.isArray(saved)){
+      var clean=saved.filter(function(it){ return it && typeof it==='object' && typeof it.path==='string' && it.sc && typeof it.sc==='object'; });
+      if(clean.length){ _offlineQueue=clean; toast('📦 '+clean.length+' reps en attente de sync...','#FF8A00'); }
+      // Si des items corrompus ont été écartés, réécrire la file nettoyée sur disque.
+      if(clean.length!==saved.length){ try{ _saveOfflineQueue(); }catch(e){} }
+    }
   }catch(e){}
   try{ _updateQueueBadge(); }catch(e){} // ★ MAJ compteur "⏳ N" au démarrage
 }
@@ -6521,17 +6546,26 @@ function restoreCountIfNeeded(){
     var c=JSON.parse(localStorage.getItem(_countKey())||'null');
     if(!c) return;
     if(Date.now()-(c.ts||0) > 21600000){ localStorage.removeItem(_countKey()); return; }
-    moveIdx=c.moveIdx||0; moveReps=c.moveReps||0; totalReps=c.totalReps||0; noReps=c.noReps||0;
-    currentRound=c.currentRound||1;
-    if(typeof emomRound!=='undefined') emomRound=c.emomRound||1;
-    if(typeof emomRoundReps!=='undefined') emomRoundReps=c.emomRoundReps||0;
-    if(typeof emomTotalReps!=='undefined') emomTotalReps=c.emomTotalReps||0;
-    if(typeof emomRoundHistory!=='undefined' && Array.isArray(c.emomRoundHistory)) emomRoundHistory=c.emomRoundHistory;
-    if(typeof _dbOut!=='undefined') _dbOut=!!c.dbOut;
-    if(typeof _clOut!=='undefined') _clOut=!!c.clOut;
-    if(typeof _clLoad!=='undefined') _clLoad=(c.clLoad!=null?c.clLoad:null);
-    if(typeof _ecValues!=='undefined' && Array.isArray(c.ecValues)) _ecValues=c.ecValues;
-    if(typeof _pendingDist!=='undefined') _pendingDist=(c.pendingDist!=null?c.pendingDist:null);
+    // ★ BLINDAGE FUZZING (localStorage corrompu) : ne JAMAIS restaurer un compteur
+    //   non numérique / négatif / hors bornes. L'ancien idiome `c.x||0` laissait
+    //   passer les négatifs ('-5||0' = -5), les chaînes ('abc'||0 = 'abc' → score
+    //   devenu une string, détruit au +REP suivant) et les valeurs délirantes (1e9).
+    //   Même clamp que _judgeRestoreFromScore (Math.max(0, parseInt||0)).
+    var _ci=function(v){ var n=parseInt(v,10); return (isFinite(n)&&n>=0)?n:0; };
+    var _cf=function(v){ var n=parseFloat(v); return (isFinite(n)&&n>=0)?n:0; };
+    totalReps=_ci(c.totalReps); noReps=_ci(c.noReps); moveReps=_ci(c.moveReps);
+    var _maxIdxR=(SC&&Array.isArray(SC.moves)&&SC.moves.length)?SC.moves.length-1:0;
+    moveIdx=Math.min(_ci(c.moveIdx), _maxIdxR);
+    currentRound=Math.max(1,_ci(c.currentRound)||1);
+    if(typeof emomRound!=='undefined') emomRound=Math.max(1,_ci(c.emomRound)||1);
+    if(typeof emomRoundReps!=='undefined') emomRoundReps=_ci(c.emomRoundReps);
+    if(typeof emomTotalReps!=='undefined') emomTotalReps=_ci(c.emomTotalReps);
+    if(typeof emomRoundHistory!=='undefined' && Array.isArray(c.emomRoundHistory)) emomRoundHistory=c.emomRoundHistory.map(_ci);
+    if(typeof _dbOut!=='undefined') _dbOut=(c.dbOut===true);
+    if(typeof _clOut!=='undefined') _clOut=(c.clOut===true);
+    if(typeof _clLoad!=='undefined') _clLoad=(c.clLoad!=null?_cf(c.clLoad):null);
+    if(typeof _ecValues!=='undefined' && Array.isArray(c.ecValues)) _ecValues=c.ecValues.map(_cf);
+    if(typeof _pendingDist!=='undefined') _pendingDist=(c.pendingDist!=null?_cf(c.pendingDist):null);
     try{ if(typeof updateDisplay==='function') updateDisplay(); }catch(e){}
     try{ if(typeof updateEmomDisplay==='function') updateEmomDisplay(); }catch(e){}
     try{ if(typeof ecRefresh==='function') ecRefresh(); }catch(e){}
@@ -6804,7 +6838,9 @@ function pushScoreFinal(scorePayload){
     //   N'altère PAS l'envoi : handler purement additif.
     if(p1&&p1.then) p1.then(function(){
       if(!_finalConfirmed && !_finalQueued){ _finalConfirmed=true; try{ _setDoneConfirm('confirmed'); }catch(e){} }
-    });
+    }, function(){}); // ★ handler de rejet sur le .then() : évite une "unhandledrejection"
+                      //   quand l'écriture finale échoue (réseau instable) — le re-enqueue
+                      //   reste géré par le p1.catch ci-dessous, inchangé.
     if(p1&&p1.catch) p1.catch(function(){
       if(!_finalQueued){
         _finalQueued=true;
