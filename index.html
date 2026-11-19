@@ -8754,6 +8754,26 @@ if(typeof fbBuildLanes !== 'function'){
   }
 }
 
+// ★ BLINDAGE ANTI-NaN FIREBASE (fuzzing) — Firebase RTDB REJETTE toute écriture
+//   contenant un nombre non fini (NaN / Infinity) : l'update entier échoue et, pour
+//   syncHeatsToFirebase, AUCUN heat n'est alors publié (échec silencieux attrapé par
+//   le catch). Des données dégénérées (duree="abc", mouvement qty NaN, catOrdre Infini,
+//   wodOrdreZone Infini…) pouvaient produire de tels nombres dans le payload malgré les
+//   parseInt locaux (ex. `parseInt("abc")` = NaN, `Infinity||0` = Infinity). Ce helper
+//   remplace récursivement tout nombre non fini par 0, JUSTE avant l'écriture réseau.
+//   Il ne touche PAS les données locales ni la sémantique : c'est un filet de dernier
+//   recours au bord Firebase, appliqué sur une copie du payload.
+function _fbSafeNums(o){
+  if(o===null||o===undefined) return o;
+  if(typeof o==='number') return isFinite(o) ? o : 0;
+  if(typeof o!=='object') return o;
+  if(Array.isArray(o)){ var arr=[]; for(var i=0;i<o.length;i++) arr.push(_fbSafeNums(o[i])); return arr; }
+  var out={};
+  for(var k in o){ if(Object.prototype.hasOwnProperty.call(o,k)){ var v=_fbSafeNums(o[k]); if(v!==undefined) out[k]=v; } }
+  return out;
+}
+window._fbSafeNums=_fbSafeNums;
+
 // ── Sync auto heats → Firebase (debounce 3s) ──
 function syncHeatsToFirebase(){
   var db=getDb(); if(!db || typeof db.ref !== 'function') return;
@@ -8914,7 +8934,7 @@ function syncHeatsToFirebase(){
         console.log('syncHeatsToFirebase: '+orphansRemoved+' ancien(s) heat(s) pending/pre supprimé(s) pour recoller au planning index');
       }
 
-      await db.ref().update(updates);
+      await db.ref().update(_fbSafeNums(updates)); // ★ anti-NaN : jamais d'échec d'écriture global
 
       // ★ Publier aussi le nœud léger lu par les spectateurs (QR classement) — bande passante.
       try{ if(typeof publishClassementLite==='function') publishClassementLite(); }catch(e){}
@@ -8940,9 +8960,9 @@ function syncHeatsToFirebase(){
         });
       });
       // ★ En mode interne, jugeMap2 (buildJugeAssignment) contient DÉJÀ la rotation → ja2 est bon.
-      if(Object.keys(ja2).length) await db.ref('judgeAssignments').set(ja2);
+      if(Object.keys(ja2).length) await db.ref('judgeAssignments').set(_fbSafeNums(ja2));
       // aussi par prénom (fallback appli juge) — inoffensif en interne (ids = team:*)
-      try{ if(Object.keys(ja2).length) await db.ref('judgeAssignmentsByPrenom').set(ja2); }catch(e){}
+      try{ if(Object.keys(ja2).length) await db.ref('judgeAssignmentsByPrenom').set(_fbSafeNums(ja2)); }catch(e){}
 
       var ind = document.getElementById('save-indicator');
       if(ind){
@@ -12141,7 +12161,12 @@ function generateHeats(){
     var orderedCats = getOrderedCategoriesForWod(wod, sortedCats);
     orderedCats.forEach(function(cat, catIdxInWod){
       if(!catRunsOnWod(cat, wod)) return;
-      var teams=cat.teams.slice().filter(function(t){return !t.invitedOut;}); if(!teams.length)return;
+      // ★ BLINDAGE (fuzzing) : cat.teams peut être absent/null (config dégénérée ou
+      //   sync corrompue) et contenir des éléments null/undefined → cat.teams.slice()
+      //   OU .filter(t=>!t.invitedOut) planterait generateHeats (bouton « Générer »).
+      //   On copie défensivement et on écarte les éléments non-objets. generateHeatsSilent
+      //   est protégé de la même façon.
+      var teams=((cat.teams||[]).slice()).filter(function(t){return t && typeof t==='object' && !t.invitedOut;}); if(!teams.length)return;
       var nbHeats=cat.nbHeats||1;
       var nbLignes=cat.nbLignes||6;
       if(!cat.wodOrdres)cat.wodOrdres={};
@@ -12260,7 +12285,10 @@ function generateHeatsSilent(){
     var orderedCats=getOrderedCategoriesForWod(wod, sortedCats);
     orderedCats.forEach(function(cat, catIdxInWod){
       if(!catRunsOnWod(cat, wod)) return;
-      var teams=(cat.teams||[]).filter(function(t){return !t.invitedOut;}); if(!teams.length)return;
+      // ★ BLINDAGE (fuzzing) : écarter les éléments null/undefined de cat.teams
+      //   (un seul élément corrompu via sync faisait planter la génération silencieuse,
+      //   appelée par le pre-flight, computeProgramme et « Générer & Publier »).
+      var teams=(cat.teams||[]).filter(function(t){return t && typeof t==='object' && !t.invitedOut;}); if(!teams.length)return;
       var nbHeats=cat.nbHeats||1;
       var nbLignes=cat.nbLignes||6;
       if(!cat.wodOrdres)cat.wodOrdres={};
@@ -14703,6 +14731,20 @@ function ensureWodTiming(w) {
     if(w.capSec>0) w.capSec = parseInt(w.capSec,10)||0;
     if(w.capSeconds>0) w.capSeconds = parseInt(w.capSeconds,10)||0;
   }
+  // ★ BLINDAGE HORAIRES (fuzzing) : duree / interHeat / coupureApres sont divisés
+  //   par 60 dans computeProgramme & computeHorairesOnly puis ÉCRITS dans
+  //   heat.horaires{debut,fin}. Une valeur non-finie ou non-numérique (ex. "abc",
+  //   NaN, Infinity, négatif, ou un nombre absurde comme 1e9 s) y injectait des
+  //   NaN/Infinity → planning_public rejeté par Firebase (set contenant NaN) et
+  //   horaires cassés. On force ici des nombres FINIS et bornés. Ne change RIEN
+  //   pour des valeurs normales (secondes réalistes), c'est un garde-fou de bord.
+  var _SANE_MAX_DUR = 24*60*60; // 24 h en secondes : borne haute de sécurité
+  var _dz = parseFloat(w.duree);
+  w.duree = (isFinite(_dz) && _dz > 0) ? Math.min(_dz, _SANE_MAX_DUR) : (20*60);
+  var _ih = parseFloat(w.interHeat);
+  w.interHeat = (isFinite(_ih) && _ih >= 0) ? Math.min(_ih, _SANE_MAX_DUR) : 300;
+  var _ca = parseFloat(w.coupureApres);
+  w.coupureApres = (isFinite(_ca) && _ca >= 0) ? Math.min(_ca, _SANE_MAX_DUR) : 0;
   return w;
 }
 
@@ -16003,8 +16045,13 @@ function timingField(icon, label, wid, field, val, min, max, col, IS) {
 // ─── TIME HELPERS ───
 function parseTimeToMin(t) {
   if (!t) return 0;
-  var p = t.split(':');
-  return parseInt(p[0]) * 60 + parseInt(p[1] || 0);
+  var p = String(t).split(':');
+  // ★ BLINDAGE : une heure non analysable (champ corrompu, "abc", "25:xx") renvoyait
+  //   NaN → curseur NaN propagé dans tous les horaires. On retombe sur 0 (comportement
+  //   déjà appliqué pour une entrée vide), jamais NaN.
+  var h = parseInt(p[0], 10); if (!isFinite(h)) h = 0;
+  var m = parseInt(p[1] || 0, 10); if (!isFinite(m)) m = 0;
+  return h * 60 + m;
 }
 function minToTimeStr(m) {
   if(m==null || !isFinite(m)) return '--:--';
@@ -21431,7 +21478,7 @@ async function generateAndPublishAll(){
   publishUpdates['categories'] = Object.keys(catsObj).length ? catsObj : null;
 
   try{
-    await _db.ref().update(publishUpdates);
+    await _db.ref().update((typeof _fbSafeNums==='function')?_fbSafeNums(publishUpdates):publishUpdates); // ★ anti-NaN : jamais d'échec d'écriture global
   }catch(e){
     console.warn('publish reset/update:', e.message);
     errors++;
@@ -22269,7 +22316,7 @@ function publishPlanningPublic(heatsArr){
       return;
     }
     _planPubBusy=true; _planPubLast=Date.now();
-    _db.ref('planning_public').set({ heats:pub, v:Date.now(), at:Date.now() })
+    _db.ref('planning_public').set(_fbSafeNums({ heats:pub, v:Date.now(), at:Date.now() })) // ★ anti-NaN : jamais de planning rejeté
       .then(function(){ _planPubBusy=false; try{ console.info('planning_public publié : '+Object.keys(pub).length+' heats, '+_nbTeams+' équipes'); }catch(_){} })
       .catch(function(e){ _planPubBusy=false; try{console.warn('publishPlanningPublic:',e&&e.message);}catch(_){} });
   }catch(e){ _planPubBusy=false; try{console.warn('publishPlanningPublic:',e&&e.message);}catch(_){} }
