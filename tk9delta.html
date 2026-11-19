@@ -101,26 +101,35 @@ body::before{
 .tk-health-l{font-family:var(--ff);font-size:12px;letter-spacing:1.4px;color:var(--muted)}
 .tk-health-v{margin-top:3px;font-family:var(--fm);font-size:19px;font-weight:700;line-height:1.1}
 .tk-health-s{margin-top:2px;font-size:10px;color:var(--muted)}
-.tk-radar{margin:10px 14px 0 14px;background:linear-gradient(180deg,rgba(255,59,92,.05),rgba(255,255,255,.012)),var(--panel2);border:1px solid var(--line2);border-radius:18px;padding:12px 14px}
-.tk-radar-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
-.tk-radar-title{font-family:var(--ff);font-size:18px;letter-spacing:2px;color:var(--txt)}
-.tk-radar-count{font-family:var(--fm);font-size:11px;font-weight:800;padding:3px 10px;border-radius:999px}
-.tk-radar-count.ok{color:var(--ok);background:rgba(6,214,160,.12)}
-.tk-radar-count.warn{color:var(--warn);background:rgba(255,176,32,.14)}
-.tk-radar-count.crit{color:var(--err);background:rgba(255,59,92,.14)}
-.tk-radar-list{display:flex;flex-direction:column;gap:6px}
-.tk-alert{display:flex;align-items:flex-start;gap:10px;padding:8px 10px;border-radius:12px;border:1px solid var(--line);background:rgba(255,255,255,.02)}
+/* Radar repliable : barre fine toujours visible + liste compacte dépliable. */
+.tk-radar{margin:10px 14px 0 14px;border:1px solid var(--line2);border-radius:14px;overflow:hidden;background:var(--panel2)}
+.tk-radar-bar{display:flex;align-items:center;gap:9px;padding:9px 13px;cursor:pointer;user-select:none;border-left:4px solid transparent;transition:background .15s}
+.tk-radar-bar:hover{filter:brightness(1.08)}
+.tk-radar-bar.ok{background:rgba(6,214,160,.08);border-left-color:var(--ok)}
+.tk-radar-bar.warn{background:rgba(255,176,32,.09);border-left-color:var(--warn)}
+.tk-radar-bar.crit{background:rgba(255,59,92,.11);border-left-color:var(--err)}
+.tk-radar-chev{font-size:12px;color:var(--muted);width:12px;transition:transform .15s}
+.tk-radar-title{font-family:var(--ff);font-size:16px;letter-spacing:2px;color:var(--txt)}
+.tk-radar-count{margin-left:auto;font-family:var(--fm);font-size:11px;font-weight:800;padding:2px 9px;border-radius:999px}
+.tk-radar-bar.ok .tk-radar-count{color:var(--ok);background:rgba(6,214,160,.14)}
+.tk-radar-bar.warn .tk-radar-count{color:var(--warn);background:rgba(255,176,32,.16)}
+.tk-radar-bar.crit .tk-radar-count{color:var(--err);background:rgba(255,59,92,.16)}
+.tk-radar-list{display:flex;flex-direction:column;gap:4px;padding:8px 10px 10px 10px}
+.tk-radar.collapsed .tk-radar-list{display:none}
+.tk-radar.collapsed .tk-radar-chev{transform:none}
+.tk-alert{display:flex;align-items:center;gap:8px;padding:5px 9px;border-radius:9px;border:1px solid var(--line);background:rgba(255,255,255,.02);line-height:1.25}
 .tk-alert.crit{border-color:rgba(255,59,92,.4);background:rgba(255,59,92,.08)}
-.tk-alert.warn{border-color:rgba(255,176,32,.35);background:rgba(255,176,32,.07)}
+.tk-alert.warn{border-color:rgba(255,176,32,.33);background:rgba(255,176,32,.06)}
 .tk-alert.info{border-color:rgba(77,166,255,.3);background:rgba(77,166,255,.06)}
 .tk-alert.ok{border-color:rgba(6,214,160,.3);background:rgba(6,214,160,.06)}
-.tk-ai{font-size:18px;line-height:1.2;flex:0 0 auto}
-.tk-ab{flex:1 1 auto;min-width:0}
-.tk-at{font-weight:800;font-size:13px;color:var(--txt)}
-.tk-ad{font-size:11.5px;color:var(--muted);margin-top:1px;line-height:1.4}
+.tk-ai{font-size:14px;line-height:1;flex:0 0 auto}
+.tk-ab{flex:1 1 auto;min-width:0;display:flex;align-items:baseline;gap:7px;overflow:hidden}
+.tk-at{font-weight:800;font-size:12px;color:var(--txt);flex:0 0 auto;white-space:nowrap}
+.tk-ad{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 .tk-ad b{color:var(--txt)}
-.tk-af{font-size:11px;color:var(--gold);margin-top:2px;font-weight:600}
-.tk-atime{font-family:var(--fm);font-size:10px;color:var(--muted);flex:0 0 auto;align-self:center;text-align:right;max-width:72px;word-break:break-word}
+.tk-af{font-size:10px;color:var(--gold);flex:0 0 auto;font-weight:600;white-space:nowrap;opacity:.85}
+.tk-atime{font-family:var(--fm);font-size:9.5px;color:var(--muted);flex:0 0 auto;text-align:right;white-space:nowrap}
+.tk-alert-more{font-size:11px;color:var(--muted);text-align:center;padding:2px;font-style:italic}
 .h-heat{font-family:var(--ff);font-size:26px;letter-spacing:2px;color:var(--fire2);text-align:center}
 .z2 .h-heat{color:var(--blue)}
 .h-cat{font-size:24px;font-weight:800;text-align:center}
@@ -446,11 +455,12 @@ body::before{
   </div>
 </div>
 
-<!-- ★ CENTRE DE CONTRÔLE TK — RADAR d'alertes (lecture seule, 0 BP) -->
-<div class="tk-radar" id="tkRadar">
-  <div class="tk-radar-hd">
-    <div class="tk-radar-title">📡 RADAR</div>
-    <div class="tk-radar-count ok" id="tkRadarCount">RAS</div>
+<!-- ★ CENTRE DE CONTRÔLE TK — RADAR d'alertes (lecture seule, 0 BP, repliable) -->
+<div class="tk-radar collapsed" id="tkRadar">
+  <div class="tk-radar-bar ok" id="tkRadarBar" onclick="toggleTkRadar()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleTkRadar();}" role="button" tabindex="0" title="Plier / déplier le radar">
+    <span class="tk-radar-chev" id="tkRadarChev">▸</span>
+    <span class="tk-radar-title">📡 RADAR</span>
+    <span class="tk-radar-count" id="tkRadarCount">RAS</span>
   </div>
   <div class="tk-radar-list" id="tkRadarList"></div>
 </div>
@@ -1241,23 +1251,83 @@ function tkComputeAlerts(){
   return al;
 }
 
+/* ── RADAR REPLIABLE ──────────────────────────────────────────────────────
+   - barre fine TOUJOURS visible (couleur = pire criticité), cliquable ;
+   - replié par défaut quand pas de crit → écran dégagé (zones remontent) ;
+   - AUTO-DÉPLIÉ dès qu'une alerte 🔴 crit existe (prioritaire sur la préférence) ;
+   - mémoire de l'état manuel dans localStorage (tk_radar_collapsed), sauf override crit ;
+   - contenu déplié compact : 1 ligne par alerte (icône + titre + lieu + action discrète). */
+var TK_RADAR_LS='tk_radar_collapsed';
+var _tkRadarUserPref=null; // null=non défini, true=plié voulu, false=déplié voulu
+try{ var _lsv=localStorage.getItem(TK_RADAR_LS); if(_lsv==='1')_tkRadarUserPref=true; else if(_lsv==='0')_tkRadarUserPref=false; }catch(e){}
+var _tkRadarHasCrit=false; // dernier état calculé (pour toggleTkRadar)
+
+// Détruit le texte HTML riche d'une alerte pour n'en garder qu'un résumé court (lieu).
+function _tkAlertShort(a){
+  // a.d contient déjà « Zone X · … » ; on retire les <b> et on garde une ligne.
+  var d=String(a.d||'').replace(/<[^>]+>/g,'');
+  // raccourcir : garder la partie « Zone X · Heat Y · Lane Z … » jusqu'au 1er point-phrase.
+  return d;
+}
+
 function renderTkRadar(){
-  var box=g('tkRadarList'), cnt=g('tkRadarCount');
-  if(!box) return;
+  var box=g('tkRadarList'), bar=g('tkRadarBar'), cnt=g('tkRadarCount'), chev=g('tkRadarChev'), wrap=g('tkRadar');
+  if(!box||!wrap) return;
   var al;
   try{ al=tkComputeAlerts(); }catch(e){ al=[]; }
+  var nCrit=0, nWarn=0;
+  al.forEach(function(a){ if(a.lv==='crit')nCrit++; else if(a.lv==='warn')nWarn++; });
+  _tkRadarHasCrit=nCrit>0;
+  var worst = nCrit?'crit':(nWarn?'warn':'ok');
+  // Barre : couleur + libellé + compteur
+  if(bar) bar.className='tk-radar-bar '+worst;
+  if(cnt){ cnt.textContent=al.length?(al.length+(al.length>1?' alertes':' alerte')):'RAS'; }
+  // État plié/déplié : une crit FORCE le dépliage ; sinon préférence manuelle ; sinon plié.
+  var collapsed;
+  if(nCrit>0) collapsed=false;                       // override crit (prioritaire)
+  else if(_tkRadarUserPref!==null) collapsed=_tkRadarUserPref; // choix utilisateur
+  else collapsed=true;                                // défaut : replié (calme)
+  wrap.classList.toggle('collapsed', collapsed);
+  if(chev) chev.textContent=collapsed?'▸':'▾';
+  // Contenu (compact, 1 ligne) — rendu même si replié (masqué en CSS) pour affichage instantané.
   if(!al.length){
     box.innerHTML='<div class="tk-alert ok"><div class="tk-ai">✅</div><div class="tk-ab"><div class="tk-at">Tout est sous contrôle</div><div class="tk-ad">Aucune anomalie détectée.</div></div></div>';
-    if(cnt){ cnt.textContent='RAS'; cnt.className='tk-radar-count ok'; }
     return;
   }
-  var nCrit=al.filter(function(a){return a.lv==='crit';}).length;
-  if(cnt){ cnt.textContent=al.length+(al.length>1?' alertes':' alerte'); cnt.className='tk-radar-count '+(nCrit?'crit':'warn'); }
-  box.innerHTML=al.slice(0,8).map(function(a){
-    return '<div class="tk-alert '+a.lv+'"><div class="tk-ai">'+a.ic+'</div>'
-      +'<div class="tk-ab"><div class="tk-at">'+esc(a.t)+'</div><div class="tk-ad">'+a.d+'</div><div class="tk-af">'+esc(a.fix)+'</div></div>'
-      +'<div class="tk-atime">'+esc(a.tag||'')+'</div></div>';
+  var MAXN=8;
+  var html=al.slice(0,MAXN).map(function(a){
+    return '<div class="tk-alert '+a.lv+'">'
+      +'<span class="tk-ai">'+a.ic+'</span>'
+      +'<span class="tk-ab"><span class="tk-at">'+esc(a.t)+'</span>'
+        +'<span class="tk-ad">'+_tkAlertShort(a)+'</span></span>'
+      +(a.fix?'<span class="tk-af">'+esc(a.fix)+'</span>':'')
+      +'<span class="tk-atime">'+esc(a.tag||'')+'</span></div>';
   }).join('');
+  if(al.length>MAXN) html+='<div class="tk-alert-more">+'+(al.length-MAXN)+' autre'+((al.length-MAXN)>1?'s':'')+'…</div>';
+  box.innerHTML=html;
+}
+
+// Clic sur la barre → plier/déplier + mémoriser. Une crit en cours ne peut pas être masquée.
+function toggleTkRadar(){
+  var wrap=g('tkRadar'), chev=g('tkRadarChev');
+  if(!wrap) return;
+  var isCollapsed=wrap.classList.contains('collapsed');
+  if(isCollapsed){
+    // déplier (toujours possible)
+    wrap.classList.remove('collapsed'); _tkRadarUserPref=false;
+    if(chev) chev.textContent='▾';
+  } else {
+    // tenter de plier : refusé s'il y a une crit en cours (on la garde visible)
+    if(_tkRadarHasCrit){
+      wrap.classList.remove('collapsed'); _tkRadarUserPref=false;
+      // petit feedback visuel : flash de la barre (sans bloquer)
+      var bar=g('tkRadarBar'); if(bar){ bar.style.transition='filter .1s'; bar.style.filter='brightness(1.4)'; setTimeout(function(){ try{ bar.style.filter=''; }catch(e){} },160); }
+      return;
+    }
+    wrap.classList.add('collapsed'); _tkRadarUserPref=true;
+    if(chev) chev.textContent='▸';
+  }
+  try{ localStorage.setItem(TK_RADAR_LS, _tkRadarUserPref?'1':'0'); }catch(e){}
 }
 
 /* ── Bandeau santé : pouls dernier score, juges actifs, scores attendus, retard/zone ── */
