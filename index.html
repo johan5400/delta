@@ -855,7 +855,7 @@ function checkPassword(){
       
       <button class="btn btn-dark" onclick="fbClear()" style="background:rgba(211,47,47,.15);color:#EF5350;border-color:rgba(211,47,47,.3)" title="Purge totale Firebase : efface tout sur le cloud puis repush tes données locales actuelles">🗑 Firebase</button>
       <button onclick="deconnexion()" title="Déconnexion" style="padding:7px 14px;border:1.5px solid rgba(255,255,255,0.4);border-radius:8px;background:rgba(255,255,255,0.1);color:#fff;font-size:12px;font-weight:700;cursor:pointer">🚪 Quitter</button>
-      <button id="gen-btn" onclick="generateAndPublishAll()" style="padding:8px 20px;border:1.5px solid rgba(255,255,255,0.6);border-radius:10px;background:rgba(255,255,255,0.15);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);color:#fff;font-weight:900;font-size:13px;cursor:pointer;letter-spacing:.3px;box-shadow:0 2px 12px rgba(0,0,0,.15);transition:all .2s" onmouseover="this.style.background='rgba(255,255,255,0.25)'" onmouseout="this.style.background='rgba(255,255,255,0.15)'">🚀 Générer & Publier</button>
+      <button id="gen-btn" onclick="generateAndPublishWithPreflight()" style="padding:8px 20px;border:1.5px solid rgba(255,255,255,0.6);border-radius:10px;background:rgba(255,255,255,0.15);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);color:#fff;font-weight:900;font-size:13px;cursor:pointer;letter-spacing:.3px;box-shadow:0 2px 12px rgba(0,0,0,.15);transition:all .2s" onmouseover="this.style.background='rgba(255,255,255,0.25)'" onmouseout="this.style.background='rgba(255,255,255,0.15)'">🚀 Générer & Publier</button>
     </div>
   </div>
   <div class="tabs">
@@ -1357,7 +1357,7 @@ function checkPassword(){
         <div style="font-size:11px;color:var(--ink3);margin-top:2px">Crée les heats et les envoie sur Firebase en un clic</div>
         <div id="accueil-publish-status" style="font-size:11px;color:var(--ok);margin-top:3px"></div>
       </div>
-      <button onclick="generateAndPublishAll()" id="accueil-publish-btn" style="padding:10px 18px;border:none;border-radius:10px;background:linear-gradient(135deg,#14532d,#16a34a);color:#fff;font-family:inherit;font-weight:900;font-size:13px;cursor:pointer;white-space:nowrap;box-shadow:0 3px 12px rgba(6,214,160,.3)">🚀 Publier</button>
+      <button onclick="generateAndPublishWithPreflight()" id="accueil-publish-btn" style="padding:10px 18px;border:none;border-radius:10px;background:linear-gradient(135deg,#14532d,#16a34a);color:#fff;font-family:inherit;font-weight:900;font-size:13px;cursor:pointer;white-space:nowrap;box-shadow:0 3px 12px rgba(6,214,160,.3)">🚀 Publier</button>
     </div>
 
   </div>
@@ -4632,7 +4632,580 @@ function checkGenBtn(){
     b.title=tooltip;
     b.textContent=ok?'🚀 Générer & Publier':'⚠️ Générer & Publier';
   });
+  // ★ VÉRIFICATEUR : résumé « X err / Y alertes » dans le tooltip (calculé par le même
+  //   moteur, mais 100% fail-open — jamais bloquant pour la coloration du bouton).
+  try{
+    if(ok && typeof preflightSummaryForTooltip==='function'){
+      var _sum=preflightSummaryForTooltip();
+      if(_sum){
+        [btn,btnA].forEach(function(b){
+          if(!b||b.disabled) return;
+          b.title=_sum.title;
+          if(_sum.hasErr){ b.style.background=orangeStyle; b.textContent='⚠️ Générer & Publier'; }
+        });
+      }
+    }
+  }catch(e){ /* fail-open : un bug du résumé ne casse jamais checkGenBtn */ }
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   VÉRIFICATEUR AUTOMATIQUE (PRE-FLIGHT CHECK) — déterministe, local, offline
+   ──────────────────────────────────────────────────────────────────────
+   Au clic sur « Générer & Publier », on contrôle TOUTE la config AVANT de
+   générer/publier. Aucune requête réseau, aucun LLM : des règles JS pures
+   qui lisent les données déjà en mémoire (WODS / CATEGORIES / BENEVOLES et
+   les heats/horaires simulés en interne).
+
+   RÈGLE DE SÉCURITÉ ABSOLUE (FAIL-OPEN) : si le vérificateur lui-même plante,
+   il ne DOIT JAMAIS empêcher de générer. L'appelant attrape l'exception et
+   laisse passer la génération normale.
+
+   Ce code est 100% ADDITIF : il ne modifie ni generateAndPublishAll, ni
+   generateHeats, ni syncHeatsToFirebase, ni le scoring, ni l'offline.
+   ══════════════════════════════════════════════════════════════════════ */
+
+// Petit helper local : minutes → "HH:MM" (réutilise minToTimeStr si dispo).
+function _pfFmt(m){
+  try{ if(typeof minToTimeStr==='function') return minToTimeStr(m); }catch(e){}
+  if(m==null||!isFinite(m)) return '--:--';
+  var h=Math.floor(m/60)%24, mn=Math.round(m%60);
+  return (h<10?'0':'')+h+':'+(mn<10?'0':'')+mn;
+}
+function _pfEsc(s){
+  try{ if(typeof escHtml==='function') return escHtml(s); }catch(e){}
+  return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// Mouvements EFFECTIFS d'un WOD (identique à la logique de wodValidationStatus /
+// de la publication : en mode tours perso, on aplatit les mouvements des tours).
+function _pfWodEffectiveMoves(w){
+  try{
+    if(w && w.toursMode==='custom' && Array.isArray(w.toursPerso) && w.toursPerso.length>0){
+      var acc=[];
+      w.toursPerso.forEach(function(tp){
+        (tp&&Array.isArray(tp.mouvements)?tp.mouvements:[]).forEach(function(m){ acc.push(m); });
+      });
+      return acc;
+    }
+  }catch(e){}
+  return (w&&w.mouvements)||[];
+}
+
+// Équipes PROPRES placées d'une catégorie (on ignore les équipes parties en
+// invitation ailleurs — invitedOut — comme le fait generateHeats).
+function _pfCatOwnTeams(cat){
+  var teams=(cat&&(cat.teams||cat.equipes))||[];
+  return teams.filter(function(t){ return t && !t.invitedOut; });
+}
+
+/**
+ * runPreflightCheck() — cœur du vérificateur.
+ * Retourne { errors:[{titre,detail,section?}], warnings:[{titre,detail,section?}] }.
+ * TOUT est en try/catch granulaire : une règle qui plante n'empêche pas les autres,
+ * et l'ensemble ne jette jamais pour une donnée inattendue (les erreurs internes
+ * sont loggées et ignorées — fail-open au niveau de chaque règle).
+ */
+function runPreflightCheck(){
+  var errors=[], warnings=[];
+  var E=function(titre,detail,section){ errors.push({titre:titre,detail:detail||'',section:section||''}); };
+  var W=function(titre,detail,section){ warnings.push({titre:titre,detail:detail||'',section:section||''}); };
+
+  // ── 0. Présence des données de base (reprend checkGenBtn, en version « erreur ») ──
+  try{
+    if(!WODS || !WODS.length) E('Aucun WOD','Ajoute au moins un WOD (onglet ⏱ WODs).','WODs');
+    if(!CATEGORIES || !CATEGORIES.length) E('Aucune catégorie','Crée au moins une catégorie (onglet Catégories).','Catégories');
+    var _anyTeam = CATEGORIES && CATEGORIES.some(function(c){ return _pfCatOwnTeams(c).length>0; });
+    if(!_anyTeam) E('Aucune équipe','Aucune catégorie ne contient d\'équipe. Ajoute des équipes.','Catégories');
+    if(!BENEVOLES || !BENEVOLES.length) E('Aucun bénévole','Ajoute des bénévoles / juges (onglet Bénévoles).','Bénévoles');
+  }catch(e){ console.warn('[preflight] base:', e&&e.message); }
+
+  // ── 1. Nom d'événement ──────────────────────────────────────────────
+  try{
+    var evEl=document.getElementById('ev-nom');
+    var evNom=evEl ? String(evEl.value||'').trim() : '';
+    if(!evNom) W('Nom d\'événement vide','Le nom de l\'événement n\'est pas renseigné (il apparaît sur les écrans et feuilles).','Événement');
+  }catch(e){ console.warn('[preflight] evname:', e&&e.message); }
+
+  // ── 2. Heures de début/fin de journée ───────────────────────────────
+  var dayBounds={}; // { jour: {start, end} } en minutes
+  try{
+    function _readBound(id, def){
+      var el=document.getElementById(id);
+      var v=el?String(el.value||'').trim():'';
+      return v ? parseTimeToMin(v) : (def!=null?parseTimeToMin(def):null);
+    }
+    var cs1=_readBound('comp-start',null), ce1=_readBound('comp-end',null);
+    if(cs1==null) E('Heure de début (J1) manquante','Renseigne l\'heure de début de la journée 1.','Événement');
+    if(ce1==null) E('Heure de fin (J1) manquante','Renseigne l\'heure de fin de la journée 1.','Événement');
+    if(cs1!=null && ce1!=null && ce1<=cs1) E('Horaires J1 incohérents','L\'heure de fin ('+_pfFmt(ce1)+') est avant/égale au début ('+_pfFmt(cs1)+').','Événement');
+    dayBounds[1]={start:cs1,end:ce1};
+
+    // J2 : seulement si des WODs/catégories tournent le jour 2
+    var hasJ2 = (WODS&&WODS.some(function(w){return (w.jour||1)===2;})) ||
+                (CATEGORIES&&CATEGORIES.some(function(c){return (c.jour||1)===2;}));
+    if(hasJ2){
+      var cs2=_readBound('comp-start2',null), ce2=_readBound('comp-end2',null);
+      if(cs2==null) E('Heure de début (J2) manquante','Des épreuves sont prévues en J2 mais l\'heure de début J2 est vide.','Événement');
+      if(ce2==null) E('Heure de fin (J2) manquante','Des épreuves sont prévues en J2 mais l\'heure de fin J2 est vide.','Événement');
+      if(cs2!=null && ce2!=null && ce2<=cs2) E('Horaires J2 incohérents','L\'heure de fin J2 ('+_pfFmt(ce2)+') est avant/égale au début J2 ('+_pfFmt(cs2)+').','Événement');
+      dayBounds[2]={start:cs2,end:ce2};
+    }
+  }catch(e){ console.warn('[preflight] bounds:', e&&e.message); }
+
+  // ── 3. Contrôles par CATÉGORIE (équipes vides, doublons, déséquilibre) ──
+  try{
+    (CATEGORIES||[]).forEach(function(cat){
+      try{
+        var nom=(cat&&cat.nom)||'(sans nom)';
+        var teams=_pfCatOwnTeams(cat);
+        // 3a. Catégorie sans aucune équipe → ERREUR (sauf si elle n'accueille que des invités)
+        var guestsIn=((cat&&cat.teams)||[]).filter(function(t){return t&&t.isGuest&&t.ligne!=null&&t.heatNum!=null;});
+        if(teams.length===0 && guestsIn.length===0){
+          E('Catégorie sans équipe : « '+nom+' »','Cette catégorie n\'a aucune équipe. Elle ne générera aucun heat.','Catégories');
+        } else if(teams.length===1){
+          // 3b. Une seule équipe → ALERTE (souvent un oubli, mais parfois voulu)
+          W('Catégorie à 1 seule équipe : « '+nom+' »','La catégorie « '+nom+' » ne contient qu\'une équipe — vérifie que c\'est voulu.','Catégories');
+        }
+        // 3c. Doublons de nom d'équipe dans la catégorie → ERREUR
+        var seen={}, dup={};
+        teams.forEach(function(t){
+          var key=String((t&&t.nom)||'').trim().toLowerCase();
+          if(!key) return;
+          if(seen[key]) dup[key]=(t.nom||'').trim(); else seen[key]=true;
+        });
+        var dupNames=Object.keys(dup).map(function(k){return dup[k];});
+        if(dupNames.length){
+          E('Équipe en double dans « '+nom+' »','Nom(s) d\'équipe en double : '+dupNames.join(', ')+'.','Catégories');
+        }
+      }catch(eInner){ console.warn('[preflight] cat loop:', eInner&&eInner.message); }
+    });
+  }catch(e){ console.warn('[preflight] categories:', e&&e.message); }
+
+  // ── 4. Contrôles par WOD (mouvements, durée/format) ─────────────────
+  try{
+    (WODS||[]).forEach(function(w){
+      try{
+        if(typeof ensureWodTiming==='function'){ try{ ensureWodTiming(w); }catch(e){} }
+        var nom=(w&&w.nom&&String(w.nom).trim())||'(WOD sans nom)';
+        // 4a. Nom manquant → ERREUR
+        if(!w || !String(w.nom||'').trim()) E('WOD sans nom','Un WOD n\'a pas de nom (ordre '+((w&&w.ordreZone)||'?')+').','WODs');
+        // 4b. Aucun mouvement → ERREUR
+        var moves=_pfWodEffectiveMoves(w);
+        if(!moves || !moves.length) E('WOD sans mouvement : « '+nom+' »','Le WOD « '+nom+' » n\'a aucun mouvement défini.','WODs');
+        // 4c. Durée invalide → ERREUR
+        if(!(w && w.duree>0)) E('WOD sans durée : « '+nom+' »','Le WOD « '+nom+' » n\'a pas de durée valide (durée = 0).','WODs');
+        // 4d. inter-heat non défini → ERREUR (doit être >=0)
+        if(!(w && w.interHeat!=null && w.interHeat>=0)) E('Inter-heat manquant : « '+nom+' »','Le temps inter-heat du WOD « '+nom+' » n\'est pas défini.','WODs');
+        // 4e. zone non définie → ERREUR
+        if(!(w && w.zone)) E('Zone non définie : « '+nom+' »','Le WOD « '+nom+' » n\'a pas de zone (1, 2 ou 1+2).','WODs');
+      }catch(eInner){ console.warn('[preflight] wod loop:', eInner&&eInner.message); }
+    });
+  }catch(e){ console.warn('[preflight] wods:', e&&e.message); }
+
+  // ── 5. SIMULATION des heats + horaires (en mémoire, SANS Firebase) ──
+  //   generateHeatsSilent() + computeHorairesOnly() sont purement locaux. Ils
+  //   recalculent HEATS_RESULT exactement comme le fera la génération juste
+  //   après — aucune publication, aucune lecture réseau. Si ça plante, on
+  //   saute simplement les règles basées sur les heats (fail-open partiel).
+  var heats=null;
+  try{
+    if(WODS&&WODS.length&&CATEGORIES&&CATEGORIES.length){
+      if(typeof generateHeatsSilent==='function') generateHeatsSilent();
+      if(typeof computeHorairesOnly==='function') computeHorairesOnly();
+      heats=(typeof HEATS_RESULT!=='undefined'&&HEATS_RESULT)?HEATS_RESULT:null;
+    }
+  }catch(e){ console.warn('[preflight] simulate heats:', e&&e.message); heats=null; }
+
+  if(heats && heats.length){
+    // Construit, par heat, sa fenêtre horaire {debut,fin} à partir de heat.horaires.
+    function _heatWindow(h){
+      try{
+        var ho=h&&h.horaires;
+        if(!ho) return null;
+        var best=null;
+        Object.keys(ho).forEach(function(k){
+          var seg=ho[k];
+          if(seg&&isFinite(seg.debut)&&isFinite(seg.fin)){
+            if(!best) best={debut:seg.debut,fin:seg.fin};
+            else { best.debut=Math.min(best.debut,seg.debut); best.fin=Math.max(best.fin,seg.fin); }
+          }
+        });
+        return best;
+      }catch(e){ return null; }
+    }
+
+    // ── 5a. Conflit de ressource : même (jour, zone) à deux heats qui se chevauchent ──
+    //   Dans ce modèle, une zone physique (Z1/Z2) ne peut faire tourner qu'un
+    //   heat à la fois. Deux heats de même jour+zone dont les fenêtres se
+    //   chevauchent = conflit de plateau → ERREUR.
+    try{
+      var byZone={}; // clé "jour|zone" → [{h, win}]
+      heats.forEach(function(h){
+        var win=_heatWindow(h);
+        if(!win) return;
+        var jour=parseInt(h.catJour||1,10)||1;
+        var zone=parseInt(h.catZone||1,10)||1;
+        var key=jour+'|'+zone;
+        (byZone[key]=byZone[key]||[]).push({h:h,win:win});
+      });
+      var zoneConflicts=0, firstZoneConf=null;
+      Object.keys(byZone).forEach(function(key){
+        var arr=byZone[key].slice().sort(function(a,b){return a.win.debut-b.win.debut;});
+        for(var i=1;i<arr.length;i++){
+          var prev=arr[i-1], cur=arr[i];
+          // chevauchement strict (tolérance 0.5 min pour les arrondis)
+          if(cur.win.debut < prev.win.fin - 0.5){
+            zoneConflicts++;
+            if(!firstZoneConf){
+              var p=key.split('|');
+              firstZoneConf='Jour '+p[0]+' · Zone '+p[1]+' : heat #'+(getHeatDisplayNum?getHeatDisplayNum(prev.h):prev.h.globalNum)+
+                ' ('+_pfFmt(prev.win.debut)+'→'+_pfFmt(prev.win.fin)+') et heat #'+(getHeatDisplayNum?getHeatDisplayNum(cur.h):cur.h.globalNum)+
+                ' ('+_pfFmt(cur.win.debut)+'→'+_pfFmt(cur.win.fin)+') se chevauchent.';
+            }
+          }
+        }
+      });
+      if(zoneConflicts>0){
+        E('Conflit de plateau ('+zoneConflicts+')','Deux heats tournent en même temps sur la même zone. '+(firstZoneConf||''),'Programme');
+      }
+    }catch(e){ console.warn('[preflight] zone conflict:', e&&e.message); }
+
+    // ── 5b. Même JUGE sur deux lanes au même moment → ALERTE ────────────
+    //   buildJugeAssignment() donne {globalNum:{ligne:{id,...}}}. On croise
+    //   avec les fenêtres horaires : un même id de juge sur deux heats qui se
+    //   chevauchent (même jour, créneaux communs) = humainement impossible.
+    try{
+      if(typeof buildJugeAssignment==='function'){
+        var asg=buildJugeAssignment()||{};
+        var winByGlobal={};
+        heats.forEach(function(h){ var w=_heatWindow(h); if(w) winByGlobal[h.globalNum]={win:w, jour:parseInt(h.catJour||1,10)||1}; });
+        // juge → liste de {win, jour, globalNum}
+        var jugeSlots={};
+        Object.keys(asg).forEach(function(gn){
+          var lanes=asg[gn]||{};
+          var info=winByGlobal[gn];
+          if(!info) return;
+          Object.keys(lanes).forEach(function(ln){
+            var j=lanes[ln];
+            if(!j||!j.id) return;
+            var jid=String(j.id);
+            (jugeSlots[jid]=jugeSlots[jid]||[]).push({win:info.win, jour:info.jour, name:(j.prenom||'')+' '+(j.nom||'')});
+          });
+        });
+        var jugeConflicts=0, firstJugeConf=null;
+        Object.keys(jugeSlots).forEach(function(jid){
+          var arr=jugeSlots[jid].slice().sort(function(a,b){return (a.jour-b.jour)|| (a.win.debut-b.win.debut);});
+          for(var i=1;i<arr.length;i++){
+            var prev=arr[i-1], cur=arr[i];
+            if(cur.jour===prev.jour && cur.win.debut < prev.win.fin - 0.5){
+              jugeConflicts++;
+              if(!firstJugeConf) firstJugeConf='Juge '+(cur.name||'').trim()+' : deux lignes à juger en même temps (J'+cur.jour+', vers '+_pfFmt(cur.win.debut)+').';
+              break; // un conflit par juge suffit pour l'alerte
+            }
+          }
+        });
+        if(jugeConflicts>0){
+          W('Juge sur 2 lignes en simultané ('+jugeConflicts+')','Un ou plusieurs juges sont affectés à deux lignes au même moment. '+(firstJugeConf||'')+' Vérifie le planning juges.','Planning juges');
+        }
+      }
+    }catch(e){ console.warn('[preflight] juge conflict:', e&&e.message); }
+
+    // ── 5c. Même ÉQUIPE qui enchaîne deux WODs sans récup → ALERTE ──────
+    //   On repère une même équipe (par id) présente sur deux heats du même jour
+    //   dont les fenêtres se touchent/chevauchent (fin ≈ début suivant). On
+    //   n'alerte que si l'écart est < RECUP_MIN minutes (conservateur).
+    try{
+      var RECUP_MIN=3; // seuil de récup minimale souhaitée entre 2 passages
+      var teamSlots={}; // teamId → [{win, jour}]
+      heats.forEach(function(h){
+        var win=_heatWindow(h); if(!win) return;
+        var jour=parseInt(h.catJour||1,10)||1;
+        (h.slots||[]).forEach(function(s){
+          if(s&&!s.empty&&s.team&&s.team.id!=null){
+            var tid=String(s.team.id);
+            (teamSlots[tid]=teamSlots[tid]||[]).push({win:win, jour:jour, nom:(s.team.nom||'')});
+          }
+        });
+      });
+      var teamTight=0, firstTeamTight=null;
+      Object.keys(teamSlots).forEach(function(tid){
+        var arr=teamSlots[tid].slice().sort(function(a,b){return (a.jour-b.jour)||(a.win.debut-b.win.debut);});
+        for(var i=1;i<arr.length;i++){
+          var prev=arr[i-1], cur=arr[i];
+          if(cur.jour!==prev.jour) continue;
+          var gap=cur.win.debut - prev.win.fin;
+          if(gap < RECUP_MIN - 0.01){ // enchaînement sans vraie récup (y compris chevauchement)
+            teamTight++;
+            if(!firstTeamTight){
+              firstTeamTight='Équipe « '+(cur.nom||'').trim()+' » : '+(gap<0?'chevauchement':'~'+Math.max(0,Math.round(gap))+' min de récup')+
+                ' entre deux WODs (J'+cur.jour+', vers '+_pfFmt(prev.win.fin)+').';
+            }
+            break; // une alerte par équipe
+          }
+        }
+      });
+      if(teamTight>0){
+        W('Équipe sans récup entre 2 WODs ('+teamTight+')','Une ou plusieurs équipes enchaînent deux WODs sans temps de récupération. '+(firstTeamTight||''),'Programme');
+      }
+    }catch(e){ console.warn('[preflight] team recup:', e&&e.message); }
+
+    // ── 5d. Journée qui dépasse l'heure de fin configurée → ALERTE ──────
+    try{
+      var latestByDay={};
+      heats.forEach(function(h){
+        var win=_heatWindow(h); if(!win) return;
+        var jour=parseInt(h.catJour||1,10)||1;
+        if(latestByDay[jour]==null || win.fin>latestByDay[jour]) latestByDay[jour]=win.fin;
+      });
+      Object.keys(latestByDay).forEach(function(jour){
+        var b=dayBounds[jour];
+        if(b && b.end!=null && latestByDay[jour] > b.end + 0.5){
+          var over=Math.round(latestByDay[jour]-b.end);
+          W('Journée '+jour+' finit tard','La dernière épreuve se termine à '+_pfFmt(latestByDay[jour])+', soit '+over+' min après l\'heure de fin configurée ('+_pfFmt(b.end)+').','Programme');
+        }
+      });
+    }catch(e){ console.warn('[preflight] late day:', e&&e.message); }
+
+    // ── 5e. Fort déséquilibre entre zones (nb de heats) → ALERTE ────────
+    try{
+      var cntByDayZone={};
+      heats.forEach(function(h){
+        var jour=parseInt(h.catJour||1,10)||1;
+        var zone=parseInt(h.catZone||1,10)||1;
+        var k=jour+'|'+zone;
+        cntByDayZone[k]=(cntByDayZone[k]||0)+1;
+      });
+      // comparer Z1 vs Z2 par jour
+      [1,2].forEach(function(jour){
+        var z1=cntByDayZone[jour+'|1']||0;
+        var z2=cntByDayZone[jour+'|2']||0;
+        if(z1>0 && z2>0){
+          var hi=Math.max(z1,z2), lo=Math.min(z1,z2);
+          // seuil conservateur : au moins 2x plus ET un écart absolu >= 3 heats
+          if(hi >= 2*lo && (hi-lo) >= 3){
+            W('Zones déséquilibrées (J'+jour+')','Jour '+jour+' : Zone 1 a '+z1+' heat(s) et Zone 2 '+z2+' heat(s). Déséquilibre important entre les plateaux.','Programme');
+          }
+        }
+      });
+    }catch(e){ console.warn('[preflight] zone balance:', e&&e.message); }
+
+  } else {
+    // Pas de heats simulables alors que WODS + catégories existent → signal utile.
+    try{
+      if(WODS&&WODS.length&&CATEGORIES&&CATEGORIES.length && _anyTeamExistsForHeats()){
+        W('Aucun heat généré','La config contient WODs et équipes mais aucun heat n\'a pu être simulé — vérifie l\'affectation des WODs aux catégories.','Programme');
+      }
+    }catch(e){ console.warn('[preflight] no-heats:', e&&e.message); }
+  }
+
+  return { errors: errors, warnings: warnings };
+}
+
+// Petit utilitaire pour la branche « aucun heat » ci-dessus.
+function _anyTeamExistsForHeats(){
+  try{ return CATEGORIES && CATEGORIES.some(function(c){ return _pfCatOwnTeams(c).length>0; }); }
+  catch(e){ return false; }
+}
+
+/**
+ * preflightSummaryForTooltip() — version légère pour le tooltip du bouton.
+ * N'exécute PAS la simulation lourde des heats (pour rester instantané à chaque
+ * frappe) : uniquement les contrôles de config statique. Renvoie null si rien à
+ * signaler. 100% fail-open (l'appelant l'enveloppe déjà dans un try/catch).
+ */
+function preflightSummaryForTooltip(){
+  var errs=0, warns=0;
+  try{
+    (WODS||[]).forEach(function(w){
+      var moves=_pfWodEffectiveMoves(w);
+      if(!moves||!moves.length) errs++;
+      if(!(w&&w.duree>0)) errs++;
+      if(!String((w&&w.nom)||'').trim()) errs++;
+    });
+    (CATEGORIES||[]).forEach(function(cat){
+      var teams=_pfCatOwnTeams(cat);
+      var guestsIn=((cat&&cat.teams)||[]).filter(function(t){return t&&t.isGuest&&t.ligne!=null&&t.heatNum!=null;});
+      if(teams.length===0 && guestsIn.length===0) errs++;
+      else if(teams.length===1) warns++;
+      var seen={}, dup=0;
+      teams.forEach(function(t){ var k=String((t&&t.nom)||'').trim().toLowerCase(); if(!k)return; if(seen[k])dup++; else seen[k]=true; });
+      if(dup) errs++;
+    });
+    var evEl=document.getElementById('ev-nom');
+    if(evEl && !String(evEl.value||'').trim()) warns++;
+  }catch(e){ return null; }
+  if(!errs && !warns) return null;
+  var parts=[];
+  if(errs) parts.push(errs+' erreur'+(errs>1?'s':''));
+  if(warns) parts.push(warns+' alerte'+(warns>1?'s':''));
+  return { hasErr: errs>0, title: (errs?'❌ ':'⚠️ ')+parts.join(' · ')+' — clique pour voir le détail' };
+}
+
+/**
+ * Rendu HTML d'une liste de problèmes (erreurs rouges / alertes orange).
+ */
+function _pfRenderList(items, kind){
+  if(!items || !items.length) return '';
+  var isErr=(kind==='error');
+  var col=isErr?'#C62828':'#E65100';
+  var bg=isErr?'rgba(198,40,40,.06)':'rgba(230,81,0,.06)';
+  var brd=isErr?'rgba(198,40,40,.25)':'rgba(230,81,0,.28)';
+  var icon=isErr?'❌':'⚠️';
+  var label=isErr?('ERREUR'+(items.length>1?'S':'')):('À VÉRIFIER');
+  var html='<div style="margin-bottom:14px">'
+    +'<div style="font-size:11px;font-weight:900;letter-spacing:.5px;color:'+col+';text-transform:uppercase;margin-bottom:8px">'
+    +icon+' '+items.length+' '+label+'</div>'
+    +'<div style="display:flex;flex-direction:column;gap:7px">';
+  items.forEach(function(it){
+    html+='<div style="background:'+bg+';border:1px solid '+brd+';border-left:3px solid '+col+';border-radius:9px;padding:9px 12px">'
+      +'<div style="font-weight:800;font-size:12.5px;color:'+col+';display:flex;align-items:center;gap:6px;flex-wrap:wrap">'
+      + _pfEsc(it.titre)
+      + (it.section?'<span style="background:'+col+'18;color:'+col+';border-radius:20px;padding:1px 8px;font-size:9px;font-weight:800">'+_pfEsc(it.section)+'</span>':'')
+      +'</div>'
+      + (it.detail?'<div style="font-size:11px;color:#475569;margin-top:3px;line-height:1.5">'+_pfEsc(it.detail)+'</div>':'')
+      +'</div>';
+  });
+  html+='</div></div>';
+  return html;
+}
+
+/**
+ * showPreflightModal(result, onProceed) — affiche la modale selon la gravité.
+ * - 0 problème : ne construit pas de modale (géré par l'appelant : flash vert + génération directe).
+ * - alertes seules : « Générer quand même » (primaire) + « Annuler ».
+ * - erreurs : « Corriger » (primaire, ferme) + « Générer malgré tout » (secondaire discret).
+ *
+ * CHOIX ASSUMÉ (documenté) : sur erreurs, on NE BLOQUE PAS durement. On met
+ * fortement en avant la correction, mais on laisse un bouton secondaire discret
+ * pour forcer : Johan est seul maître le jour J et on ne veut pas le bloquer
+ * sur un faux positif en situation réelle imprévue.
+ */
+function showPreflightModal(result, onProceed){
+  var errors=(result&&result.errors)||[];
+  var warnings=(result&&result.warnings)||[];
+  var hasErr=errors.length>0;
+
+  // Nettoyer une éventuelle modale précédente
+  var old=document.getElementById('preflight-modal');
+  if(old && old.parentNode) old.parentNode.removeChild(old);
+
+  var titleTxt, titleCol, titleIcon;
+  if(hasErr){
+    titleIcon='❌'; titleCol='#C62828';
+    titleTxt=errors.length+' erreur'+(errors.length>1?'s':'')+' détectée'+(errors.length>1?'s':'');
+  } else {
+    titleIcon='⚠️'; titleCol='#E65100';
+    titleTxt=warnings.length+' point'+(warnings.length>1?'s':'')+' à vérifier';
+  }
+
+  var bodyHtml=_pfRenderList(errors,'error')+_pfRenderList(warnings,'warn');
+  if(!bodyHtml) bodyHtml='<div style="color:#2E7D32;font-weight:700">✅ Aucun problème détecté.</div>';
+
+  // Bandeau explicatif
+  var intro = hasErr
+    ? '<div style="font-size:12px;color:#475569;line-height:1.6;margin-bottom:14px;background:rgba(198,40,40,.05);border-radius:9px;padding:10px 12px">'
+      +'Des erreurs peuvent casser la génération ou l\'affichage. <b>Corrige-les de préférence avant de publier.</b> '
+      +'Tu peux tout de même forcer la génération (déconseillé).</div>'
+    : '<div style="font-size:12px;color:#475569;line-height:1.6;margin-bottom:14px;background:rgba(230,81,0,.05);border-radius:9px;padding:10px 12px">'
+      +'Rien de bloquant — juste des points à confirmer. Tu peux générer si tout est normal.</div>';
+
+  // Boutons
+  var btns;
+  if(hasErr){
+    btns='<button type="button" id="pf-btn-force" style="padding:9px 16px;border:1px solid #E2E8F0;border-radius:10px;background:#fff;color:#94A3B8;font-family:inherit;font-weight:700;font-size:12px;cursor:pointer">Générer malgré tout</button>'
+      +'<button type="button" id="pf-btn-fix" style="padding:10px 22px;border:none;border-radius:10px;background:linear-gradient(135deg,#991B1B,#C62828);color:#fff;font-family:inherit;font-weight:900;font-size:13px;cursor:pointer;box-shadow:0 3px 12px rgba(198,40,40,.3)">🛠 Corriger</button>';
+  } else {
+    btns='<button type="button" id="pf-btn-cancel" style="padding:9px 18px;border:1px solid #E2E8F0;border-radius:10px;background:#fff;color:#64748B;font-family:inherit;font-weight:700;font-size:12px;cursor:pointer">Annuler</button>'
+      +'<button type="button" id="pf-btn-proceed" style="padding:10px 22px;border:none;border-radius:10px;background:linear-gradient(135deg,#14532d,#16a34a);color:#fff;font-family:inherit;font-weight:900;font-size:13px;cursor:pointer;box-shadow:0 3px 12px rgba(6,214,160,.3)">🚀 Générer quand même</button>';
+  }
+
+  var wrap=document.createElement('div');
+  wrap.className='modal-bg';
+  wrap.id='preflight-modal';
+  wrap.innerHTML=
+    '<div class="modal" style="max-width:600px">'
+    +'<h2 style="color:'+titleCol+'">'+titleIcon+' Vérification avant publication — '+titleTxt
+    +'<button class="modal-close" type="button" id="pf-btn-x" aria-label="Fermer">×</button></h2>'
+    +intro
+    +'<div style="max-height:52vh;overflow-y:auto;margin-bottom:16px">'+bodyHtml+'</div>'
+    +'<div style="display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap">'+btns+'</div>'
+    +'</div>';
+  document.body.appendChild(wrap);
+  wrap.classList.add('open');
+  wrap.style.display='flex';
+
+  function close(){
+    try{ wrap.classList.remove('open'); wrap.style.display='none'; if(wrap.parentNode) wrap.parentNode.removeChild(wrap); }catch(e){}
+  }
+  function proceed(){
+    close();
+    try{ if(typeof onProceed==='function') onProceed(); }catch(e){ console.warn('[preflight] onProceed:', e&&e.message); }
+  }
+
+  // Câblage des boutons
+  var bX=wrap.querySelector('#pf-btn-x'); if(bX) bX.onclick=close;
+  var bFix=wrap.querySelector('#pf-btn-fix'); if(bFix) bFix.onclick=close;
+  var bCancel=wrap.querySelector('#pf-btn-cancel'); if(bCancel) bCancel.onclick=close;
+  var bForce=wrap.querySelector('#pf-btn-force'); if(bForce) bForce.onclick=proceed;
+  var bProceed=wrap.querySelector('#pf-btn-proceed'); if(bProceed) bProceed.onclick=proceed;
+  // Clic sur le fond = fermer (= ne pas générer)
+  wrap.addEventListener('click', function(ev){ if(ev.target===wrap) close(); });
+}
+
+// Flash vert très court « ✅ Config OK » — zéro friction quand tout est bon.
+function _pfFlashOk(){
+  try{
+    var f=document.createElement('div');
+    f.textContent='✅ Config vérifiée — génération…';
+    f.style.cssText='position:fixed;top:18px;left:50%;transform:translateX(-50%);z-index:10050;'
+      +'background:linear-gradient(135deg,#14532d,#16a34a);color:#fff;font-weight:800;font-size:13px;'
+      +'padding:10px 18px;border-radius:999px;box-shadow:0 6px 24px rgba(0,0,0,.25);font-family:inherit;'
+      +'opacity:0;transition:opacity .18s';
+    document.body.appendChild(f);
+    requestAnimationFrame(function(){ f.style.opacity='1'; });
+    setTimeout(function(){ f.style.opacity='0'; setTimeout(function(){ if(f.parentNode) f.parentNode.removeChild(f); },250); }, 1100);
+  }catch(e){ /* le flash est purement cosmétique */ }
+}
+
+/**
+ * generateAndPublishWithPreflight() — WRAPPER appelé par les boutons « Générer ».
+ * Lance le vérificateur, PUIS décide :
+ *   - erreur/alerte  → modale (Johan choisit)
+ *   - rien à signaler → flash vert court + génération directe
+ *   - le check plante → FAIL-OPEN : on loggue et on génère normalement.
+ * Ne modifie JAMAIS generateAndPublishAll (appelée telle quelle).
+ */
+function generateAndPublishWithPreflight(){
+  var _run=function(){
+    try{ return generateAndPublishAll(); }
+    catch(e){ console.error('[preflight] generateAndPublishAll a échoué:', e&&e.message); }
+  };
+  var result;
+  try{
+    // via window.* pour rester surchargeable/testable ; fallback sur la déclaration locale.
+    var _check = (typeof window!=='undefined' && typeof window.runPreflightCheck==='function') ? window.runPreflightCheck : runPreflightCheck;
+    result=_check();
+  }catch(e){
+    // ★ FAIL-OPEN ABSOLU : un bug du vérificateur ne bloque JAMAIS la génération.
+    console.error('[preflight] runPreflightCheck a planté — fail-open, génération normale:', e&&e.message);
+    return _run();
+  }
+  try{
+    var nErr=(result&&result.errors&&result.errors.length)||0;
+    var nWarn=(result&&result.warnings&&result.warnings.length)||0;
+    if(nErr===0 && nWarn===0){
+      _pfFlashOk();
+      return _run();
+    }
+    showPreflightModal(result, _run);
+  }catch(e){
+    // Si l'affichage de la modale plante, on ne bloque pas non plus.
+    console.error('[preflight] affichage modale a planté — fail-open:', e&&e.message);
+    return _run();
+  }
+}
+window.runPreflightCheck = runPreflightCheck;
+window.generateAndPublishWithPreflight = generateAndPublishWithPreflight;
 
 function renderTimelineForDay(day){
   var tlId=day===2?"timeline-preview2":"timeline-preview";
