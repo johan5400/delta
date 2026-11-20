@@ -420,12 +420,19 @@ body.dark #btn-dark-mode{background:rgba(255,122,0,.15)!important;color:var(--fi
 <script>
 // ══════════════════════════════════════════════════════════════════════════
 //  CHARGEMENT PARESSEUX DE SheetJS (xlsx) — pour l'import Excel (.xlsx/.xls)
-//  • Source : cdnjs (version exacte, figée) chargée en <script> À LA DEMANDE.
-//  • 100% optionnel : si le réseau/CDN est indisponible, l'import Excel échoue
-//    PROPREMENT (message clair) et l'import CSV continue de marcher (local).
-//  • window.__XLSX_SRC permet de surcharger la source (tests/offline-mirror).
+//  • Source PRINCIPALE : copie LOCALE embarquée dans le repo (./vendor/xlsx.full.min.js)
+//    → l'import Excel marche MÊME hors-ligne / réseau de salle capricieux (jour-J).
+//  • Fallback : cdnjs (version exacte, figée) si, contre toute attente, le local
+//    ne charge pas (fichier absent / mal servi).
+//  • Si TOUT échoue : l'import Excel échoue PROPREMENT (message clair) et l'import
+//    CSV / copier-coller continue de marcher (100% local, aucune dépendance).
+//  • window.__XLSX_SRC permet de surcharger la 1ʳᵉ source (tests/offline-mirror).
+//  • window.__XLSX_SRC_FALLBACK = source(s) de secours (CDN), essayée(s) ensuite.
 // ══════════════════════════════════════════════════════════════════════════
-window.__XLSX_SRC = window.__XLSX_SRC || 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+window.__XLSX_SRC = window.__XLSX_SRC || './vendor/xlsx.full.min.js';   // ★ LOCAL d'abord (embarqué, fiable)
+window.__XLSX_SRC_FALLBACK = (window.__XLSX_SRC_FALLBACK !== undefined)
+  ? window.__XLSX_SRC_FALLBACK
+  : 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';   // secours réseau
 window.__xlsxState = 'idle';   // idle | loading | ready | failed
 window.ensureXlsx = function(timeoutMs){
   timeoutMs = timeoutMs || 12000;
@@ -445,13 +452,26 @@ window.ensureXlsx = function(timeoutMs){
         var ws = window.__xlsxWaiters||[]; window.__xlsxWaiters=[];
         ws.forEach(function(fn){ try{ fn(ok); }catch(e){} });
       };
-      var to=setTimeout(function(){ finish(typeof XLSX!=='undefined' && XLSX && XLSX.read); }, timeoutMs);
-      var s=document.createElement('script');
-      s.src = window.__XLSX_SRC;
-      s.async = true;
-      s.onload=function(){ clearTimeout(to); finish(typeof XLSX!=='undefined' && XLSX && !!XLSX.read); };
-      s.onerror=function(){ clearTimeout(to); finish(false); };
-      document.head.appendChild(s);
+      // Liste ordonnée des sources à tenter : LOCAL d'abord, puis fallback(s) CDN.
+      var _srcs = [];
+      if(window.__XLSX_SRC) _srcs.push(window.__XLSX_SRC);
+      var _fb = window.__XLSX_SRC_FALLBACK;
+      if(_fb){ if(Array.isArray(_fb)){ _fb.forEach(function(u){ if(u) _srcs.push(u); }); } else { _srcs.push(_fb); } }
+      if(!_srcs.length){ finish(false); return; }
+      var _ok = function(){ return (typeof XLSX!=='undefined' && XLSX && !!XLSX.read); };
+      var to = setTimeout(function(){ finish(_ok()); }, timeoutMs);   // garde-fou global
+      var tryLoad = function(i){
+        if(done) return;
+        if(_ok()){ clearTimeout(to); finish(true); return; }     // déjà prêt
+        if(i >= _srcs.length){ clearTimeout(to); finish(_ok()); return; }   // plus de source
+        var s=document.createElement('script');
+        s.src = _srcs[i];
+        s.async = true;
+        s.onload = function(){ if(_ok()){ clearTimeout(to); finish(true); } else { tryLoad(i+1); } };
+        s.onerror = function(){ tryLoad(i+1); };   // ★ source suivante (ex. local absent → CDN)
+        document.head.appendChild(s);
+      };
+      tryLoad(0);
     }catch(e){ window.__xlsxState='failed'; resolve(false); }
   });
 };
@@ -1862,19 +1882,29 @@ function checkPassword(){
   </div>
 
   <!-- PLANNING PAR WOD (pleine largeur, sous le tableau de bord) -->
-  <div style="background:#fff;border:1px solid var(--brd2);border-radius:14px;padding:14px 16px;margin-bottom:16px;">
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
-      <div style="font-size:11px;font-weight:900;color:var(--ink);text-transform:uppercase;letter-spacing:1px;">🗓 Ordre de passage par WOD</div>
-      <div style="font-size:10px;color:var(--mid);flex:1">Glisse les catégories dans l'ordre voulu pour chaque WOD</div>
-      <button onclick="toggleZoneLeft()" id="zone-left-btn" title="Inverse l'affichage Zone 1 / Zone 2 pour coller à la disposition réelle de la salle" style="padding:4px 10px;border:1px solid var(--brd2);border-radius:6px;background:#fff;color:var(--mid);font-size:10px;font-weight:800;cursor:pointer;margin-right:4px">⇄ Z1 à gauche</button>
-      <button onclick="resetPlanningWod()" style="padding:4px 10px;border:1px solid var(--brd2);border-radius:6px;background:#fff;color:var(--ink3);font-size:10px;font-weight:700;cursor:pointer;">↺ Reset</button>
+  <div style="background:#FFFFFF;border:1px solid var(--brd);border-radius:14px;padding:16px 18px;margin-bottom:18px;box-shadow:var(--shadow-xs);">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:4px;flex-wrap:wrap;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="font-size:17px;line-height:1">🗓</span>
+        <span style="font-size:13px;font-weight:900;color:var(--ink);letter-spacing:.2px;">Ordre de passage par WOD</span>
+      </div>
+      <div style="font-size:10.5px;color:var(--ink3);font-weight:600;flex:1;min-width:120px">Glisse les catégories dans l'ordre voulu pour chaque WOD.</div>
+      <button onclick="toggleZoneLeft()" id="zone-left-btn" title="Inverse l'affichage Zone 1 / Zone 2 pour coller à la disposition réelle de la salle" style="padding:7px 12px;border:1px solid var(--brd2);border-radius:9px;background:#fff;color:var(--ink2);font-size:10.5px;font-weight:800;cursor:pointer;font-family:inherit;white-space:nowrap">⇄ Z1 à gauche</button>
+      <button onclick="resetPlanningWod()" title="Réinitialiser tout l'ordre de passage" style="padding:7px 12px;border:1px solid var(--brd2);border-radius:9px;background:#fff;color:var(--ink3);font-size:10.5px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">↺ Reset</button>
     </div>
-    <div style="font-size:9px;color:var(--mid);margin-bottom:10px;">Une même catégorie peut apparaître dans plusieurs WODs — elle passera sur chacun dans l'ordre défini.</div>
-    <div id="planning-wod-grid" style="display:flex;gap:10px;overflow-x:auto;padding-bottom:6px;"></div>
+    <div style="font-size:9.5px;color:var(--mid);font-weight:600;margin-bottom:12px;">Une même catégorie peut apparaître dans plusieurs WODs — elle passera sur chacun dans l'ordre défini.</div>
+    <div id="planning-wod-grid" style="display:flex;gap:12px;overflow-x:auto;padding-bottom:6px;"></div>
   </div>
 
   <!-- Ordre WODs par zone (conservé) -->
-  <div id="zones-synoptic" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;"></div>
+  <div style="background:#FFFFFF;border:1px solid var(--brd);border-radius:14px;padding:16px 18px;margin-bottom:18px;box-shadow:var(--shadow-xs);">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+      <span style="font-size:17px;line-height:1">🧭</span>
+      <span style="font-size:13px;font-weight:900;color:var(--ink);letter-spacing:.2px;">Ordre des WODs par zone</span>
+    </div>
+    <div style="font-size:9.5px;color:var(--mid);font-weight:600;margin-bottom:12px;">Ordre d'enchaînement des WODs dans chaque zone. Le bouton <b>⇄&nbsp;Z</b> permet d'inverser certaines catégories côté salle sans bouger le matériel.</div>
+    <div id="zones-synoptic" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;"></div>
+  </div>
 
   <!-- Legacy (hidden) -->
   <div id="cat-detail-panel" style="display:none"></div>
@@ -1898,6 +1928,13 @@ function checkPassword(){
 .cat-mini-actions button:hover:not(:disabled){ filter:brightness(.96); }
 @media (hover:none){ .cat-mini-actions{ opacity:1; } }
 @media (max-width:1100px){ .cat-dashboard{grid-template-columns:1fr !important;} .cat-col-right{min-height:300px !important;} }
+@media (max-width:760px){ #zones-synoptic{grid-template-columns:1fr !important;} }
+.pw-slot{ transition:box-shadow .12s, transform .12s, border-color .12s; }
+.pw-slot:hover{ border-color:var(--brd2); box-shadow:var(--shadow-sm); transform:translateY(-1px); }
+.pw-slot:active{ cursor:grabbing; }
+.pw-slot button:hover{ background:rgba(220,38,38,.10); color:var(--err); }
+.pw-dropzone{ transition:border-color .12s, background .12s; }
+.pw-dropzone:hover{ border-color:var(--z2); color:var(--z2); }
 #import-dropzone.dz-over{ border-color:#1565C0 !important; background:rgba(21,101,192,.07) !important; }
 #import-dropzone:hover{ border-color:#1565C0; }
 #import-preview-table th{ position:sticky; top:0; background:#EEF2FA; color:var(--ink2); font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.4px; padding:7px 10px; text-align:left; border-bottom:2px solid var(--brd2); white-space:nowrap; z-index:1; }
@@ -10432,8 +10469,8 @@ function renderWodZonePanel(wod){
     return typeof catRunsOnWod==='function' ? catRunsOnWod(c, wod) : true;
   }).sort(function(a,b){ return (a.ordre||99)-(b.ordre||99); });
 
-  var html = '<div style="margin:2px 0 6px 0;padding:9px 10px;background:#FFFFFF;border:1px dashed rgba(176,110,255,.45);border-radius:8px;">';
-  html += '<div style="font-family:var(--fc);font-size:8px;font-weight:800;letter-spacing:1.5px;color:#9333EA;text-transform:uppercase;margin-bottom:7px;">'
+  var html = '<div style="margin:3px 0 5px 0;padding:10px 11px;background:#FBF8FF;border:1px solid rgba(124,58,237,.22);border-radius:9px;">';
+  html += '<div style="font-size:8.5px;font-weight:900;letter-spacing:1px;color:var(--purple);text-transform:uppercase;margin-bottom:7px;">'
         + '\u21c4 Inversion de zone &mdash; ' + escHtml(wod.nom||'WOD') + '</div>';
 
   if(!cats.length){
@@ -10523,48 +10560,52 @@ function renderZonesSynoptic(){
   });
   el.innerHTML = _zonesOrdered.map(function(zone){
     var zNum = zone.id;
-    var zColor = zNum===1?'var(--blue)':'var(--ok)';
-    var zBg = zNum===1?'rgba(77,166,255,.05)':'rgba(0,229,160,.04)';
-    var zBrd = zNum===1?'rgba(77,166,255,.18)':'rgba(0,229,160,.15)';
+    // ★ Palette ZONE unifiée avec le tableau de bord & « Ordre de passage par WOD »
+    //   (Z1 = fire/orange, Z2 = blue) au lieu du bleu/vert d'origine, pour la cohérence.
+    var zColor = (zNum===1 || zNum==='1') ? 'var(--z1)' : 'var(--z2)';
+    var zBg    = (zNum===1 || zNum==='1') ? 'var(--z1-bg)' : 'var(--z2-bg)';
+    var zBrd   = (zNum===1 || zNum==='1') ? 'var(--z1-brd)' : 'var(--z2-brd)';
 
     // WODs de cette zone — triés par ordreZone
     var wods = WODS.filter(function(w){
       return String(w.zone||1)===String(zNum) || w.zone==='12';
     }).sort(function(a,b){ return (a.ordreZone||99)-(b.ordreZone||99); });
 
-    var html = '<div style="background:'+zBg+';border:1px solid '+zBrd+';border-radius:12px;overflow:hidden;">';
+    // ── Carte zone : fond blanc + filet de zone en haut (comme les cartes WOD) ──
+    var html = '<div style="display:flex;flex-direction:column;background:#FFFFFF;border:1px solid var(--brd);border-radius:12px;box-shadow:var(--shadow-xs);overflow:hidden;">';
+    html += '<div style="height:4px;background:'+zColor+';"></div>';
 
     // Header zone
-    html += '<div style="padding:10px 13px;border-bottom:1px solid '+zBrd+';display:flex;align-items:center;gap:8px;">';
-    html += '<span style="font-family:var(--fc);font-size:11px;font-weight:900;letter-spacing:2px;color:'+zColor+';text-transform:uppercase;">'+escHtml(zone.nom||'Zone '+zNum)+'</span>';
-    if(zone.resp) html += '<span style="font-size:9px;color:var(--mid);">· '+escHtml(zone.resp)+'</span>';
-    html += '<span style="font-size:9px;color:var(--mid);margin-left:auto;">'+wods.length+' WOD'+(wods.length>1?'s':'')+'</span>';
+    html += '<div style="padding:11px 13px 10px;border-bottom:1px solid var(--brd);display:flex;align-items:center;gap:8px;flex-wrap:wrap;">';
+    html += '<span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:900;letter-spacing:.8px;color:'+zColor+';text-transform:uppercase;"><span style="width:8px;height:8px;border-radius:50%;background:'+zColor+';"></span>'+escHtml(zone.nom||'Zone '+zNum)+'</span>';
+    if(zone.resp) html += '<span style="font-size:9.5px;color:var(--ink3);font-weight:600;">· '+escHtml(zone.resp)+'</span>';
+    html += '<span style="margin-left:auto;font-size:9px;font-weight:800;color:var(--mid);background:'+zBg+';border:1px solid '+zBrd+';padding:2px 8px;border-radius:999px;">'+wods.length+' WOD'+(wods.length>1?'s':'')+'</span>';
     html += '</div>';
 
     // WODs de la zone uniquement
-    html += '<div style="padding:9px 12px;">';
-    html += '<div style="font-family:var(--fc);font-size:7px;font-weight:700;letter-spacing:2px;color:var(--mid);text-transform:uppercase;margin-bottom:6px;">Ordre des WODs</div>';
+    html += '<div style="padding:10px 12px 11px;">';
+    html += '<div style="font-size:8px;font-weight:900;letter-spacing:1px;color:var(--mid);text-transform:uppercase;margin-bottom:7px;">Ordre des WODs</div>';
     if(!wods.length){
-      html += '<div style="font-size:9px;color:var(--mid);text-align:center;padding:8px 0;">Aucun WOD · Assigner Z'+zNum+' dans ⏱ WODs</div>';
+      html += '<div style="font-size:9.5px;font-weight:600;color:var(--mid);text-align:center;padding:14px 8px;border:1.5px dashed var(--dim);border-radius:9px;background:#FAFCFF;">Aucun WOD · assigner Z'+zNum+' dans ⏱ WODs</div>';
     } else {
-      html += '<div style="display:flex;flex-direction:column;gap:3px;">';
+      html += '<div style="display:flex;flex-direction:column;gap:5px;">';
       wods.forEach(function(w, wi){
         var fmt2=(w.wodFormat||w.format||'AMRAP').toUpperCase();
-        html += '<div style="display:flex;align-items:center;gap:6px;padding:5px 7px;background:#EBF0FA;border-radius:7px;border:1px solid var(--brd);">';
-        html += '<input type="number" min="1" max="20" value="'+(w.ordreZone||wi+1)+'" onchange="setWodZoneOrdre('+w.id+',parseInt(this.value)||1)" class="ordre-zone-input" style="width:46px;background:#fff;border:1px solid var(--brd2);border-radius:5px;padding:4px 5px;font-family:var(--fm);font-size:12px;font-weight:900;color:'+zColor+';text-align:center;outline:none">';
-        html += '<span style="font-family:var(--fc);font-size:10px;font-weight:700;color:var(--ink);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+escHtml(w.nom||'WOD')+'</span>';
-        if(w.zone==='12') html += '<span style="font-family:var(--fc);font-size:7px;padding:1px 4px;border-radius:3px;background:rgba(176,110,255,.1);color:#C084FC;flex-shrink:0;">Z1+2</span>';
-        html += '<span style="font-family:var(--fc);font-size:7px;font-weight:700;padding:1px 5px;border-radius:3px;background:rgba(77,166,255,.08);color:var(--blue);flex-shrink:0;">'+fmt2+'</span>';
-        var _tc7s=(w.duree>0?w.duree:((w.capMinutes||0)*60)); var _tc7=(_tc7s>0?(Math.floor(_tc7s/60)+'min'+(_tc7s%60?(_tc7s%60)+'s':'')):''); if(_tc7) html += '<span style="font-size:8px;color:var(--mid);flex-shrink:0;">TC '+_tc7+'</span>';
+        html += '<div style="display:flex;align-items:center;gap:7px;padding:6px 8px;background:#FFFFFF;border-radius:9px;border:1px solid var(--brd2);box-shadow:var(--shadow-xs);">';
+        html += '<input type="number" min="1" max="20" value="'+(w.ordreZone||wi+1)+'" onchange="setWodZoneOrdre('+w.id+',parseInt(this.value)||1)" class="ordre-zone-input" style="width:40px;background:#F5F8FF;border:1.5px solid var(--brd2);border-radius:7px;padding:5px 4px;font-family:var(--fm);font-size:13px;font-weight:900;color:'+zColor+';text-align:center;outline:none">';
+        html += '<span style="font-size:11px;font-weight:800;color:var(--ink);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+escHtml(w.nom||'WOD')+'</span>';
+        if(w.zone==='12') html += '<span style="font-size:7.5px;font-weight:800;padding:2px 5px;border-radius:5px;background:rgba(124,58,237,.10);color:var(--purple);flex-shrink:0;">Z1+2</span>';
+        html += '<span style="font-size:7.5px;font-weight:800;padding:2px 6px;border-radius:5px;background:#F1F5FB;border:1px solid var(--brd);color:var(--ink3);flex-shrink:0;letter-spacing:.3px;">'+escHtml(fmt2)+'</span>';
+        var _tc7s=(w.duree>0?w.duree:((w.capMinutes||0)*60)); var _tc7=(_tc7s>0?(Math.floor(_tc7s/60)+'min'+(_tc7s%60?(_tc7s%60)+'s':'')):''); if(_tc7) html += '<span style="font-size:8.5px;font-weight:700;color:var(--mid);flex-shrink:0;">'+escHtml(_tc7)+'</span>';
         // Compte des categories actuellement inversees sur ce WOD
         var invCount = CATEGORIES.filter(function(c){
           return c.wodZoneOverride && c.wodZoneOverride[String(w.id)] != null;
         }).length;
-        var btnBg = invCount>0 ? 'rgba(22,163,74,.15)' : 'rgba(176,110,255,.08)';
-        var btnCol = invCount>0 ? '#16A34A' : '#C084FC';
-        var btnBrd = invCount>0 ? 'rgba(22,163,74,.45)' : 'rgba(176,110,255,.4)';
+        var btnBg = invCount>0 ? 'rgba(5,150,105,.10)' : 'rgba(124,58,237,.08)';
+        var btnCol = invCount>0 ? 'var(--ok)' : 'var(--purple)';
+        var btnBrd = invCount>0 ? 'rgba(5,150,105,.35)' : 'rgba(124,58,237,.30)';
         var btnLbl = invCount>0 ? ('⇄ '+invCount) : '⇄ Z';
-        html += '<button onclick=\"toggleWodZonePanel('+w.id+')\" title=\"Inverser la zone de certaines categories pour ce WOD\" style=\"padding:2px 7px;border:1px solid '+btnBrd+';border-radius:5px;background:'+btnBg+';color:'+btnCol+';font-size:9px;font-weight:900;cursor:pointer;flex-shrink:0;font-family:var(--fc)\">'+btnLbl+'</button>';
+        html += '<button onclick=\"toggleWodZonePanel('+w.id+')\" title=\"Inverser la zone de certaines catégories pour ce WOD\" style=\"padding:4px 9px;border:1px solid '+btnBrd+';border-radius:7px;background:'+btnBg+';color:'+btnCol+';font-size:9.5px;font-weight:900;cursor:pointer;flex-shrink:0;font-family:inherit\">'+btnLbl+'</button>';
         html += '</div>';
         html += renderWodZonePanel(w);
       });
@@ -11745,52 +11786,63 @@ function renderPlanningWod(){
     var zBrd   = zNum==='1' ? 'var(--z1-brd)' : 'var(--z2-brd)';
     var fmt    = (wod.wodFormat||'AMRAP').toUpperCase();
     var _cm85s=(wod.duree>0?wod.duree:((wod.capMinutes||0)*60)); var cap=(_cm85s>0?(Math.floor(_cm85s/60)+'min'+(_cm85s%60?(_cm85s%60)+'s':'')):'');
+    var slots = WOD_PLANNING[key];
 
-    var html = '<div style="min-width:0;border:1.5px solid '+zBrd+';border-radius:12px;overflow:hidden;background:'+zBg+';">';
+    // ── Carte WOD : fond blanc, filet de zone en haut (cohérent tableau de bord) ──
+    var html = '<div style="min-width:0;display:flex;flex-direction:column;background:#FFFFFF;border:1px solid var(--brd);border-radius:12px;box-shadow:var(--shadow-xs);overflow:hidden;">';
 
-    html += '<div style="padding:8px 10px;border-bottom:1px solid '+zBrd+';background:'+zBg+';">';
-    html += '<div style="font-size:9px;font-weight:900;color:'+zColor+';letter-spacing:1px;text-transform:uppercase;">Z'+zNum+' · '+fmt+(cap?' · '+cap:'')+'</div>';
-    html += '<div style="font-size:12px;font-weight:900;color:var(--ink);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+escHtml(wod.nom||'WOD')+'</div>';
+    // Accent de zone + en-tête
+    html += '<div style="height:4px;background:'+zColor+';"></div>';
+    html += '<div style="padding:10px 12px 9px;border-bottom:1px solid var(--brd);">';
+    html += '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">';
+    html += '<span style="display:inline-flex;align-items:center;gap:4px;font-size:9px;font-weight:900;color:'+zColor+';letter-spacing:.6px;text-transform:uppercase;background:'+zBg+';border:1px solid '+zBrd+';padding:2px 7px;border-radius:999px;"><span style="width:6px;height:6px;border-radius:50%;background:'+zColor+';"></span>Zone '+zNum+'</span>';
+    html += '<span style="font-size:8.5px;font-weight:800;color:var(--ink3);letter-spacing:.5px;text-transform:uppercase;background:#F1F5FB;border:1px solid var(--brd);padding:2px 6px;border-radius:5px;">'+escHtml(fmt)+'</span>';
+    if(cap) html += '<span style="font-size:8.5px;font-weight:700;color:var(--mid);">'+escHtml(cap)+'</span>';
+    html += '<span style="margin-left:auto;font-size:9px;font-weight:800;color:var(--mid);">'+slots.length+'</span>';
+    html += '</div>';
+    html += '<div style="font-size:12.5px;font-weight:900;color:var(--ink);margin-top:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+escHtml(wod.nom||'WOD')+'</div>';
     html += '</div>';
 
-    html += '<div style="padding:6px;display:flex;flex-direction:column;gap:4px;" id="pwod-slots-'+key+'">';
-    html += '<div style="font-size:9px;font-weight:800;color:var(--mid);letter-spacing:.4px;margin-bottom:2px">Saisis l’ordre ou glisse les catégories</div>';
-    var slots = WOD_PLANNING[key];
+    // ── Liste ordonnée des catégories ──
+    html += '<div style="padding:8px;display:flex;flex-direction:column;gap:5px;flex:1;" id="pwod-slots-'+key+'">';
     if(!slots.length){
-      html += '<div style="text-align:center;padding:10px;font-size:10px;color:var(--dim);font-style:italic;"'
+      html += '<div class="pw-dropzone pw-dropzone-empty" style="text-align:center;padding:16px 10px;font-size:10px;font-weight:700;color:var(--mid);border:1.5px dashed var(--dim);border-radius:8px;background:#FAFCFF;"'
         +' ondragover="pwDragOver(event,\''+key+'\',0)"'
         +' ondrop="pwDrop(event,\''+key+'\',0)"'
         +' ondragleave="pwDragLeave(event)"'
-        +' id="pwod-empty-'+key+'">← glisse ici</div>';
+        +' id="pwod-empty-'+key+'">Glisse une catégorie ici</div>';
     } else {
       slots.forEach(function(catId, idx){
         var cat = CATEGORIES.find(function(c){ return String(c.id)===String(catId); });
         html += renderPwSlot(key, idx, cat, zColor);
       });
-      // Slot vide en bas pour ajouter
-      html += '<div style="min-height:28px;border-radius:6px;border:1.5px dashed var(--dim);display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--dim);"'
+      // Zone de dépôt en bas pour ajouter / réordonner en fin
+      html += '<div class="pw-dropzone" style="min-height:30px;border-radius:8px;border:1.5px dashed var(--dim);display:flex;align-items:center;justify-content:center;gap:4px;font-size:9.5px;font-weight:700;color:var(--mid);background:#FAFCFF;"'
         +' ondragover="pwDragOver(event,\''+key+'\','+slots.length+')"'
         +' ondrop="pwDrop(event,\''+key+'\','+slots.length+')"'
         +' ondragleave="pwDragLeave(event)"'
-        +'>+ ajouter</div>';
+        +'><span style="font-size:11px;line-height:1">＋</span> déposer ici</div>';
     }
     html += '</div>';
 
-    // Catégories dispo à glisser
-    html += '<div style="padding:6px;border-top:1px solid '+zBrd+';background:rgba(0,0,0,.02);">';
-    html += '<div style="font-size:8px;font-weight:700;color:var(--mid);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Catégories</div>';
-    html += '<div style="display:flex;flex-wrap:wrap;gap:3px;">';
+    // ── Palette des catégories à glisser ──
+    html += '<div style="padding:9px 10px 10px;border-top:1px solid var(--brd);background:#F7FAFE;">';
+    html += '<div style="font-size:8px;font-weight:900;color:var(--mid);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Glisser une catégorie</div>';
+    html += '<div style="display:flex;flex-wrap:wrap;gap:4px;">';
     CATEGORIES.forEach(function(cat){
       var already = slots.indexOf(cat.id)!==-1 || slots.indexOf(String(cat.id))!==-1;
+      var col = cat.couleur || '#94A3B8';
       html += '<div draggable="true"'
         +' ondragstart="pwDragStart(event,'+cat.id+',\'palette-'+key+'\',-1)"'
-        +' style="display:inline-flex;align-items:center;gap:3px;padding:3px 6px;border-radius:5px;'
-        +'background:'+(already?cat.couleur+'30':'#F1F5F9')+';'
-        +'border:1px solid '+(already?cat.couleur+'60':'var(--brd)')+';'
-        +'cursor:grab;font-size:9px;font-weight:700;color:var(--ink);">'
-        +'<div style="width:5px;height:5px;border-radius:50%;background:'+cat.couleur+';"></div>'
+        +' title="'+(already?'Déjà placée — glisse pour la remettre':'Glisse dans l\'ordre voulu')+'"'
+        +' style="display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border-radius:999px;'
+        +'background:'+(already?'#FFFFFF':'#FFFFFF')+';'
+        +'border:1px solid '+(already?col+'55':'var(--brd2)')+';'
+        +(already?'box-shadow:inset 0 0 0 1px '+col+'22;':'')
+        +'cursor:grab;font-size:9.5px;font-weight:800;color:'+(already?'var(--mid)':'var(--ink)')+';white-space:nowrap;">'
+        +'<span style="width:7px;height:7px;border-radius:50%;background:'+col+';flex-shrink:0;'+(already?'':'')+'"></span>'
         +escHtml(cat.nom)
-        +(already?'<span style="color:'+cat.couleur+';font-size:8px;">✓</span>':'')
+        +(already?'<span style="color:'+col+';font-size:9px;font-weight:900;">✓</span>':'')
         +'</div>';
     });
     html += '</div></div>';
@@ -11801,18 +11853,19 @@ function renderPlanningWod(){
 
 function renderPwSlot(wodKey, idx, cat, zColor){
   if(!cat) return '';
-  return '<div draggable="true"'
+  var col = cat.couleur || '#94A3B8';
+  return '<div class="pw-slot" draggable="true"'
     +' ondragstart="pwDragStart(event,'+cat.id+',\''+wodKey+'\','+idx+')"'
     +' ondragover="pwDragOver(event,\''+wodKey+'\','+idx+')"'
     +' ondrop="pwDrop(event,\''+wodKey+'\','+idx+')"'
     +' ondragleave="pwDragLeave(event)"'
     +' id="pwod-slot-'+wodKey+'-'+idx+'"'
-    +' style="display:flex;align-items:center;gap:5px;padding:4px 7px;border-radius:6px;'
-    +'background:'+cat.couleur+'18;border:1px solid '+cat.couleur+'44;cursor:grab;">'
-    +'<span style="font-size:9px;font-weight:900;color:var(--mid);width:12px;">'+( idx+1)+'</span>'
-    +'<div style="width:6px;height:6px;border-radius:50%;background:'+cat.couleur+';flex-shrink:0;"></div>'
-    +'<span style="font-size:10px;font-weight:800;color:var(--ink);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+escHtml(cat.nom)+'</span>'
-    +'<button onclick="pwRemove(\''+wodKey+'\','+idx+')" style="border:none;background:none;color:var(--mid);cursor:pointer;font-size:11px;line-height:1;padding:0 1px;">×</button>'
+    +' style="display:flex;align-items:center;gap:7px;padding:6px 8px 6px 7px;border-radius:9px;'
+    +'background:#FFFFFF;border:1px solid var(--brd2);box-shadow:var(--shadow-xs);cursor:grab;position:relative;overflow:hidden;">'
+    +'<span style="position:absolute;left:0;top:0;bottom:0;width:4px;background:'+col+';"></span>'
+    +'<span style="display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 4px;border-radius:6px;background:'+col+'1A;color:'+col+';font-size:10px;font-weight:900;flex-shrink:0;margin-left:3px;">'+(idx+1)+'</span>'
+    +'<span style="font-size:11px;font-weight:800;color:var(--ink);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+escHtml(cat.nom)+'</span>'
+    +'<button onclick="pwRemove(\''+wodKey+'\','+idx+')" title="Retirer de ce WOD" style="border:none;background:none;color:var(--mid);cursor:pointer;font-size:14px;line-height:1;padding:0 2px;flex-shrink:0;border-radius:4px;">×</button>'
     +'</div>';
 }
 
@@ -11823,12 +11876,17 @@ function pwDragStart(e, catId, fromWodId, fromIdx){
 function pwDragOver(e, wodId, idx){
   e.preventDefault();
   e.dataTransfer.dropEffect='move';
-  e.currentTarget.style.background='rgba(29,109,181,.10)';
+  // Feedback non destructif : on surligne via outline/box-shadow (le fond reste
+  // celui défini par la carte/slot → pas de « background' qui efface le style).
+  var t=e.currentTarget;
+  t.style.outline='2px dashed var(--z2)';
+  t.style.outlineOffset='-2px';
+  t.style.boxShadow='0 0 0 3px rgba(29,109,181,.12)';
 }
-function pwDragLeave(e){ e.currentTarget.style.background=''; }
+function pwDragLeave(e){ var t=e.currentTarget; t.style.outline=''; t.style.outlineOffset=''; t.style.boxShadow=''; }
 function pwDrop(e, toWodId, toIdx){
   e.preventDefault();
-  e.currentTarget.style.background='';
+  var _t=e.currentTarget; _t.style.outline=''; _t.style.outlineOffset=''; _t.style.boxShadow='';
   if(!_pwDrag) return;
   var catId=_pwDrag.catId, fromWodId=_pwDrag.fromWodId, fromIdx=_pwDrag.fromIdx;
   _pwDrag=null;
