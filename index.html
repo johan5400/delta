@@ -417,6 +417,45 @@ body.dark #btn-dark-mode{background:rgba(255,122,0,.15)!important;color:var(--fi
 })();
 // ─────────────────────────────────────────────────────────────────────────────
 </script>
+<script>
+// ══════════════════════════════════════════════════════════════════════════
+//  CHARGEMENT PARESSEUX DE SheetJS (xlsx) — pour l'import Excel (.xlsx/.xls)
+//  • Source : cdnjs (version exacte, figée) chargée en <script> À LA DEMANDE.
+//  • 100% optionnel : si le réseau/CDN est indisponible, l'import Excel échoue
+//    PROPREMENT (message clair) et l'import CSV continue de marcher (local).
+//  • window.__XLSX_SRC permet de surcharger la source (tests/offline-mirror).
+// ══════════════════════════════════════════════════════════════════════════
+window.__XLSX_SRC = window.__XLSX_SRC || 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+window.__xlsxState = 'idle';   // idle | loading | ready | failed
+window.ensureXlsx = function(timeoutMs){
+  timeoutMs = timeoutMs || 12000;
+  return new Promise(function(resolve){
+    try{
+      if(typeof XLSX !== 'undefined' && XLSX && XLSX.read){ window.__xlsxState='ready'; return resolve(true); }
+      if(window.__xlsxState==='failed'){ return resolve(false); }
+      // File d'attente si un chargement est déjà en cours
+      window.__xlsxWaiters = window.__xlsxWaiters || [];
+      window.__xlsxWaiters.push(resolve);
+      if(window.__xlsxState==='loading'){ return; }
+      window.__xlsxState='loading';
+      var done=false;
+      var finish=function(ok){
+        if(done) return; done=true;
+        window.__xlsxState = ok ? 'ready' : 'failed';
+        var ws = window.__xlsxWaiters||[]; window.__xlsxWaiters=[];
+        ws.forEach(function(fn){ try{ fn(ok); }catch(e){} });
+      };
+      var to=setTimeout(function(){ finish(typeof XLSX!=='undefined' && XLSX && XLSX.read); }, timeoutMs);
+      var s=document.createElement('script');
+      s.src = window.__XLSX_SRC;
+      s.async = true;
+      s.onload=function(){ clearTimeout(to); finish(typeof XLSX!=='undefined' && XLSX && !!XLSX.read); };
+      s.onerror=function(){ clearTimeout(to); finish(false); };
+      document.head.appendChild(s);
+    }catch(e){ window.__xlsxState='failed'; resolve(false); }
+  });
+};
+</script>
 </head>
 <body>
 
@@ -1780,15 +1819,49 @@ function checkPassword(){
     <div style="font-size:11px;color:var(--ink3);margin-top:3px;font-weight:600">Créez les catégories, équipes et heats</div>
   </div>
 </div>
-<div style="max-width:960px;margin:0 auto">
+<div class="cat-dash-wrap" style="max-width:1320px;margin:0 auto">
 
-  <!-- TOOLBAR CRÉATION -->
-  <div style="background:#FFFFFF;border:1px solid var(--brd);border-radius:12px;padding:14px 16px;margin-bottom:16px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-    <button onclick="openAddCatSafe()" style="padding:9px 20px;border:none;border-radius:9px;background:linear-gradient(135deg,#1565C0,#1E88E5);color:#fff;font-size:13px;font-weight:900;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:6px">➕ Créer une catégorie</button>
-    <div id="heats-summary" style="margin-left:auto;font-size:11px;color:var(--mid);font-weight:600"></div>
+  <!-- ══════════ TABLEAU DE BORD 2 COLONNES ══════════ -->
+  <div class="cat-dashboard" style="display:grid;grid-template-columns:minmax(330px,35%) 1fr;gap:18px;align-items:start;margin-bottom:18px;">
+
+    <!-- ───────── COLONNE GAUCHE : création + import + liste ───────── -->
+    <div class="cat-col-left" style="display:flex;flex-direction:column;gap:14px;">
+
+      <!-- Carte création rapide -->
+      <div style="background:#FFFFFF;border:1px solid var(--brd);border-radius:14px;padding:15px 16px;box-shadow:var(--shadow-xs);">
+        <div style="font-size:10px;font-weight:900;color:var(--ink2);text-transform:uppercase;letter-spacing:.9px;margin-bottom:9px;display:flex;align-items:center;gap:6px;">➕ Créer une catégorie</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input id="quick-cat-name" type="text" placeholder="Nom de la catégorie…" autocomplete="off"
+            onkeydown="if(event.key==='Enter'){event.preventDefault();quickAddCat();}"
+            style="flex:1;min-width:0;background:#F5F8FF;border:1.5px solid var(--brd2);border-radius:10px;padding:11px 13px;font-size:14px;font-weight:700;color:var(--ink);outline:none;font-family:inherit;">
+          <button onclick="quickAddCat()" title="Créer (ou appuie sur Entrée)" style="padding:11px 16px;border:none;border-radius:10px;background:linear-gradient(135deg,#1565C0,#1E88E5);color:#fff;font-size:14px;font-weight:900;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:5px;white-space:nowrap;box-shadow:0 4px 12px rgba(21,101,192,.22)">＋ Créer</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap">
+          <button onclick="openImportCat()" title="Importer des catégories et équipes depuis un fichier CSV ou Excel" style="flex:1;min-width:150px;padding:10px 14px;border:1.5px solid rgba(21,101,192,.3);border-radius:10px;background:linear-gradient(135deg,rgba(21,101,192,.08),rgba(30,136,229,.05));color:#1565C0;font-size:12.5px;font-weight:900;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:7px;white-space:nowrap">📥 Importer (CSV / Excel)</button>
+          <button onclick="openAddCatSafe()" title="Créer avec tous les réglages détaillés (couleur, zone, jour, équipes…)" style="padding:10px 12px;border:1px solid var(--brd2);border-radius:10px;background:#fff;color:var(--ink2);font-size:11px;font-weight:800;cursor:pointer;font-family:inherit;white-space:nowrap">⚙️ Détaillé</button>
+        </div>
+        <div style="font-size:9.5px;color:var(--mid);font-weight:600;margin-top:8px;line-height:1.5">Astuce : tape un nom et <b>Entrée</b> pour enchaîner plusieurs catégories.</div>
+      </div>
+
+      <!-- Liste compacte des catégories -->
+      <div style="background:#FFFFFF;border:1px solid var(--brd);border-radius:14px;padding:12px 12px 14px;box-shadow:var(--shadow-xs);">
+        <div style="display:flex;align-items:center;margin:2px 4px 10px;">
+          <span style="font-size:10px;font-weight:900;color:var(--ink3);text-transform:uppercase;letter-spacing:1px;">Catégories</span>
+          <span id="heats-summary" style="margin-left:auto;font-size:10px;color:var(--mid);font-weight:600;white-space:nowrap;text-align:right"></span>
+        </div>
+        <div id="cat-list-grid" style="display:flex;flex-direction:column;gap:6px;"></div>
+      </div>
+
+    </div>
+
+    <!-- ───────── COLONNE DROITE : panneau détail ───────── -->
+    <div class="cat-col-right" style="background:#FFFFFF;border:1px solid var(--brd);border-radius:14px;box-shadow:var(--shadow-sm);min-height:420px;overflow:hidden;">
+      <div id="cat-detail-pane"></div>
+    </div>
+
   </div>
 
-  <!-- PLANNING PAR WOD -->
+  <!-- PLANNING PAR WOD (pleine largeur, sous le tableau de bord) -->
   <div style="background:#fff;border:1px solid var(--brd2);border-radius:14px;padding:14px 16px;margin-bottom:16px;">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
       <div style="font-size:11px;font-weight:900;color:var(--ink);text-transform:uppercase;letter-spacing:1px;">🗓 Ordre de passage par WOD</div>
@@ -1803,9 +1876,6 @@ function checkPassword(){
   <!-- Ordre WODs par zone (conservé) -->
   <div id="zones-synoptic" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;"></div>
 
-  <!-- LISTE CATÉGORIES -->
-  <div id="cat-list-grid" style="display:flex;flex-direction:column;gap:10px;"></div>
-
   <!-- Legacy (hidden) -->
   <div id="cat-detail-panel" style="display:none"></div>
   <div id="cat-sidebar-list" style="display:none"></div>
@@ -1818,6 +1888,107 @@ function checkPassword(){
   </div>
 
 </div>
+
+<!-- Styles tableau de bord catégories -->
+<style>
+.cat-mini-row:hover{ background:var(--s2,#F5F8FF); border-color:var(--brd2,#D4DEEE); }
+.cat-mini-row.sel:hover{ }
+.cat-mini-actions{ opacity:0; transition:opacity .13s; }
+.cat-mini-row:hover .cat-mini-actions,.cat-mini-row.sel .cat-mini-actions{ opacity:1; }
+.cat-mini-actions button:hover:not(:disabled){ filter:brightness(.96); }
+@media (hover:none){ .cat-mini-actions{ opacity:1; } }
+@media (max-width:1100px){ .cat-dashboard{grid-template-columns:1fr !important;} .cat-col-right{min-height:300px !important;} }
+#import-dropzone.dz-over{ border-color:#1565C0 !important; background:rgba(21,101,192,.07) !important; }
+#import-dropzone:hover{ border-color:#1565C0; }
+#import-preview-table th{ position:sticky; top:0; background:#EEF2FA; color:var(--ink2); font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.4px; padding:7px 10px; text-align:left; border-bottom:2px solid var(--brd2); white-space:nowrap; z-index:1; }
+#import-preview-table td{ padding:6px 10px; border-bottom:1px solid var(--brd); color:var(--ink); white-space:nowrap; max-width:220px; overflow:hidden; text-overflow:ellipsis; }
+#import-preview-table td.col-cat{ background:rgba(21,101,192,.06); font-weight:700; }
+#import-preview-table td.col-team{ background:rgba(5,150,105,.06); font-weight:700; }
+#import-preview-table th.col-cat{ background:rgba(21,101,192,.14); color:#1565C0; }
+#import-preview-table th.col-team{ background:rgba(5,150,105,.14); color:#047857; }
+</style>
+</div>
+
+<!-- ══════════ MODAL IMPORT CSV / EXCEL ══════════ -->
+<div class="modal-bg" id="import-cat-modal">
+  <div class="modal" style="max-width:720px">
+    <div style="background:linear-gradient(135deg,#1565C0,#1E88E5);margin:-24px -24px 18px;padding:15px 20px;border-radius:16px 16px 0 0;display:flex;align-items:center;justify-content:space-between">
+      <span style="color:#fff;font-weight:900;font-size:14px;display:flex;align-items:center;gap:8px">📥 Importer des catégories &amp; équipes</span>
+      <button onclick="closeImportCat()" style="background:rgba(255,255,255,.18);border:none;color:#fff;font-size:18px;cursor:pointer;width:30px;height:30px;border-radius:8px;line-height:1">×</button>
+    </div>
+
+    <!-- ÉTAPE 1 : source (fichier / glisser-déposer / collage) -->
+    <div id="import-step-source">
+      <div id="import-dropzone"
+        ondragover="event.preventDefault();this.classList.add('dz-over');"
+        ondragleave="this.classList.remove('dz-over');"
+        ondrop="importHandleDrop(event);"
+        onclick="document.getElementById('import-file-input').click();"
+        style="border:2px dashed var(--brd2,#C4D0E4);border-radius:14px;padding:30px 20px;text-align:center;cursor:pointer;background:var(--s2,#F8FAFF);transition:border-color .15s,background .15s;">
+        <div style="font-size:40px;margin-bottom:10px;opacity:.6;">📄</div>
+        <div style="font-size:14px;font-weight:900;color:var(--ink);margin-bottom:5px;">Glisse un fichier ici, ou clique pour choisir</div>
+        <div style="font-size:11.5px;color:var(--ink3);font-weight:600;">CSV (.csv) · Excel (.xlsx, .xls)</div>
+        <input id="import-file-input" type="file" accept=".csv,.xlsx,.xls,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" style="display:none" onchange="importHandleFile(this.files&&this.files[0]);this.value='';">
+      </div>
+
+      <div style="display:flex;align-items:center;gap:10px;margin:16px 0 10px;">
+        <div style="flex:1;height:1px;background:var(--brd2);"></div>
+        <span style="font-size:10px;font-weight:800;color:var(--mid);text-transform:uppercase;letter-spacing:1px;">ou colle un tableau</span>
+        <div style="flex:1;height:1px;background:var(--brd2);"></div>
+      </div>
+      <textarea id="import-paste-area" rows="4" placeholder="Colle ici depuis Excel / Sheets (Catégorie[tab]Équipe par ligne), puis clique « Analyser le collage ».&#10;Catégorie	Équipe&#10;RX Hommes	Team Alpha&#10;RX Hommes	Team Bravo&#10;Scaled	Team Charlie"
+        style="width:100%;background:var(--s2,#F5F8FF);border:1.5px solid var(--brd2);border-radius:10px;padding:10px 12px;font-size:12px;color:var(--ink);outline:none;font-family:var(--fm,monospace);resize:vertical;box-sizing:border-box;line-height:1.5;"></textarea>
+      <div style="display:flex;align-items:center;gap:10px;margin-top:9px;">
+        <button onclick="importHandlePaste()" style="padding:9px 18px;background:linear-gradient(135deg,#1565C0,#1E88E5);border:none;border-radius:9px;color:#fff;font-size:12.5px;font-weight:800;cursor:pointer;">🔍 Analyser le collage</button>
+        <span id="import-source-msg" style="font-size:11px;font-weight:700;color:var(--err);"></span>
+      </div>
+      <div style="font-size:10.5px;color:var(--mid);margin-top:14px;line-height:1.6;background:var(--s2,#F8FAFF);border:1px solid var(--brd);border-radius:9px;padding:9px 12px;">
+        💡 <b>Formats acceptés</b> : 2 colonnes (Catégorie, Équipe) pour créer plusieurs catégories d'un coup, ou 1 seule colonne (juste des noms d'équipes) qui seront ajoutées à la catégorie sélectionnée. La détection des colonnes est automatique et modifiable avant l'import.
+      </div>
+    </div>
+
+    <!-- ÉTAPE 2 : aperçu + mapping + récap -->
+    <div id="import-step-preview" style="display:none;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+        <span id="import-file-badge" style="font-size:11px;font-weight:800;color:#1565C0;background:rgba(21,101,192,.1);border:1px solid rgba(21,101,192,.22);border-radius:7px;padding:4px 10px;">fichier.csv</span>
+        <button onclick="importBackToSource()" style="margin-left:auto;padding:5px 12px;border:1px solid var(--brd2);border-radius:7px;background:#fff;color:var(--ink2);font-size:11px;font-weight:700;cursor:pointer;">← Changer de source</button>
+      </div>
+
+      <!-- Mapping colonnes -->
+      <div id="import-mapping-wrap" style="background:var(--s2,#F8FAFF);border:1px solid var(--brd2);border-radius:11px;padding:13px 15px;margin-bottom:13px;">
+        <div style="font-size:10px;font-weight:900;color:var(--ink2);text-transform:uppercase;letter-spacing:.7px;margin-bottom:10px;">🔗 Correspondance des colonnes</div>
+        <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-end;">
+          <label style="flex:1;min-width:150px;">
+            <span style="display:block;font-size:10px;font-weight:700;color:var(--ink3);margin-bottom:5px;">Colonne « Catégorie »</span>
+            <select id="import-col-cat" onchange="importRefreshRecap()" style="width:100%;background:#fff;border:1.5px solid var(--brd2);border-radius:8px;padding:8px 10px;font-size:12px;color:var(--ink);font-family:inherit;cursor:pointer;"></select>
+          </label>
+          <label style="flex:1;min-width:150px;">
+            <span style="display:block;font-size:10px;font-weight:700;color:var(--ink3);margin-bottom:5px;">Colonne « Équipe »</span>
+            <select id="import-col-team" onchange="importRefreshRecap()" style="width:100%;background:#fff;border:1.5px solid var(--brd2);border-radius:8px;padding:8px 10px;font-size:12px;color:var(--ink);font-family:inherit;cursor:pointer;"></select>
+          </label>
+          <label style="display:flex;align-items:center;gap:7px;padding-bottom:8px;cursor:pointer;" title="Si ta 1ère ligne contient les titres de colonnes (Catégorie, Équipe…)">
+            <input type="checkbox" id="import-has-header" onchange="importRebuildColumns()" style="width:16px;height:16px;cursor:pointer;">
+            <span style="font-size:11px;font-weight:700;color:var(--ink2);">1ère ligne = en-têtes</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Aperçu -->
+      <div style="font-size:10px;font-weight:900;color:var(--ink2);text-transform:uppercase;letter-spacing:.7px;margin-bottom:7px;">👁 Aperçu <span id="import-preview-rows" style="color:var(--mid);font-weight:700;text-transform:none;letter-spacing:0;"></span></div>
+      <div style="border:1px solid var(--brd2);border-radius:10px;overflow:auto;max-height:230px;margin-bottom:13px;">
+        <table id="import-preview-table" style="width:100%;border-collapse:collapse;font-size:11.5px;"></table>
+      </div>
+
+      <!-- Récap -->
+      <div id="import-recap" style="background:linear-gradient(135deg,rgba(5,150,105,.08),rgba(5,150,105,.03));border:1px solid rgba(5,150,105,.25);border-radius:11px;padding:12px 15px;margin-bottom:16px;font-size:12.5px;font-weight:700;color:var(--ink);"></div>
+
+      <div style="display:flex;align-items:center;gap:10px;">
+        <button onclick="importCommit()" id="import-commit-btn" style="padding:11px 24px;background:linear-gradient(135deg,#059669,#047857);border:none;border-radius:10px;color:#fff;font-size:14px;font-weight:900;cursor:pointer;display:flex;align-items:center;gap:7px;">✅ Importer</button>
+        <button onclick="closeImportCat()" style="padding:11px 18px;border:1px solid var(--brd2);border-radius:10px;background:#fff;color:var(--ink2);font-size:12.5px;font-weight:800;cursor:pointer;">Annuler</button>
+        <span id="import-commit-msg" style="font-size:11px;font-weight:700;color:var(--ink3);margin-left:auto;"></span>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- MODAL CATÉGORIE -->
@@ -9638,6 +9809,27 @@ function scheduleAdminBackup(){
 }
 window.scheduleAdminBackup=scheduleAdminBackup;
 
+// ── Recompute silencieuse des heats, débouncée (anti-recalcul à chaque frappe).
+//   Coalesce les rafales d'autoSave : un seul generateHeatsSilent()+sync après
+//   ~350ms d'inactivité. N'affiche RIEN et ne vole pas le focus (DOM-free).
+//   La génération EXPLICITE (boutons) reste inchangée et immédiate.
+var _silentHeatsTimer=null;
+function scheduleSilentHeatsRecompute(){
+  try{
+    if(_silentHeatsTimer) clearTimeout(_silentHeatsTimer);
+    _silentHeatsTimer=setTimeout(function(){
+      _silentHeatsTimer=null;
+      try{ if(typeof generateHeatsSilent==='function') generateHeatsSilent(); }catch(e){}
+      try{ if(typeof syncHeatsToFirebase==='function') syncHeatsToFirebase(); }catch(e){}
+    }, 350);
+  }catch(e){
+    // Fallback synchrone si setTimeout indisponible
+    try{ if(typeof generateHeatsSilent==='function') generateHeatsSilent(); }catch(e2){}
+    try{ if(typeof syncHeatsToFirebase==='function') syncHeatsToFirebase(); }catch(e3){}
+  }
+}
+window.scheduleSilentHeatsRecompute=scheduleSilentHeatsRecompute;
+
 function autoSave(){
   try{
     var state=getStateToSave();
@@ -9660,8 +9852,13 @@ function autoSave(){
       wods: WODS||[]
     }));
     syncBenevolesToFirebase();
-    generateHeatsSilent();
-    syncHeatsToFirebase();
+    // ── FLUIDITÉ (F2) : la RECOMPUTE silencieuse des heats + son sync sont
+    //   DÉBOUNCÉES (≈350ms). Pendant une rafale de frappes (création/ajout
+    //   d'équipes, réglages, import), on NE recalcule PLUS les heats à chaque
+    //   caractère : un seul recalcul a lieu une fois la saisie retombée. La
+    //   génération reste par ailleurs EXPLICITE (boutons / Générer & Publier).
+    //   La sauvegarde localStorage + les autres syncs restent immédiats.
+    scheduleSilentHeatsRecompute();
     syncWodsToFirebase();
     syncCategoriesToFirebase();
     scheduleJudgeAssignmentsSync();
@@ -9883,15 +10080,26 @@ var JSONBIN_API    = 'https://api.jsonbin.io/v3';
 function renderCatGrid(){
   var el=document.getElementById('cat-list-grid');
   if(!el)return;
+  // ── Sauvegarde focus + sélection + scroll AVANT reconstruction (anti perte de focus) ──
+  var _focSave=null;
+  try{
+    var ae=document.activeElement;
+    if(ae && ae.id && (ae.tagName==='INPUT'||ae.tagName==='TEXTAREA')){
+      _focSave={id:ae.id, start:ae.selectionStart, end:ae.selectionEnd};
+    }
+  }catch(e){}
+  var _scrollY = (typeof window!=='undefined') ? (window.scrollY||window.pageYOffset||0) : 0;
   var sorted=CATEGORIES.slice().sort(function(a,b){return (a.ordre||99)-(b.ordre||99);});
   if(!sorted.length){
-    el.innerHTML='<div style="text-align:center;padding:40px;color:var(--ink2);font-size:13px;border:1px dashed #EBF0FA;border-radius:12px;">'
-      +'<div style="font-size:36px;margin-bottom:10px;opacity:.3">🏆</div>'
-      +'Clique sur un bouton ci-dessus pour créer ta première catégorie'
+    el.innerHTML='<div style="text-align:center;padding:26px 14px;color:var(--ink2);font-size:12px;border:1px dashed var(--brd2,#E3E9F4);border-radius:10px;">'
+      +'<div style="font-size:30px;margin-bottom:8px;opacity:.3">🏆</div>'
+      +'Crée ta première catégorie ci-dessus'
       +'</div>';
+    renderCatDetailPane();          // affiche l'état vide à droite
     return;
   }
-  el.innerHTML=sorted.map(function(cat){
+  // ── LISTE COMPACTE (colonne gauche du tableau de bord 2 colonnes) ──
+  el.innerHTML=sorted.map(function(cat, idx){
     var isActive=cat.id===_activeCatId;
     // ★ ÉQUIPES INVITÉES : deux cas se cumulent.
     //   (a) Une équipe PROPRE partie en invitation ailleurs (invitedOut) EST placée —
@@ -9903,47 +10111,82 @@ function renderCatGrid(){
     var _ownG=cat.teams.filter(function(t){return !t.isGuest;});
     var _guestIn=cat.teams.filter(function(t){return t.isGuest && t.ligne!=null && t.heatNum!=null;});
     var total=_ownG.length + _guestIn.length;
-    var placed=_ownG.filter(function(t){return t.invitedOut || (t.ligne!=null&&t.heatNum!=null);}).length + _guestIn.length;
-    var pct=total>0?Math.round(placed/total*100):0;
     var nbH=cat.nbHeats||1;
     var nbL=cat.nbLignes||6;
-    var zColor='#94A3B8';
+    var places=nbH*nbL;
+    // Taux de remplissage des PLACES (équipes saisies / places dispo) — joli détail
+    var fillPct=places>0?Math.min(100,Math.round(total/places*100)):0;
+    var over=total>places;                           // dépassement de capacité
     var zLabel=categoryZoneLabel(cat);
     var dayLabel=cat.jour===2?'J2':cat.jour===12?'J1+2':'J1';
-    
-    return '<div id="catrow-'+cat.id+'" style="border:1.5px solid '+(isActive?cat.couleur+'88':'var(--brd,#EBF0FA)')+';border-radius:11px;overflow:hidden;background:'+(isActive?cat.couleur+'12':'var(--s1,#FFFFFF)')+';transition:all .15s;">'
-      // ── HEADER (cliquable) ──
-      +'<div onclick="selectCat('+cat.id+')" style="display:flex;align-items:center;gap:12px;padding:12px 14px;cursor:pointer;">'
-        +'<div style="width:14px;height:14px;border-radius:4px;background:'+cat.couleur+';flex-shrink:0;box-shadow:0 2px 8px '+cat.couleur+'66;"></div>'
-        +'<div style="flex:1;min-width:0;">'
-          +'<div style="font-size:15px;font-weight:900;color:#0F1C2E;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+escHtml(cat.nom)+'</div>'
-          +'<div style="display:flex;align-items:center;gap:8px;margin-top:3px;flex-wrap:wrap;">'
-            +'<span style="font-size:10px;font-weight:700;color:'+zColor+';">'+zLabel+'</span>'
-            +'<span style="font-size:10px;color:#3A5270;">'+dayLabel+'</span>'
-            +'<span style="font-size:10px;color:#3A5270;">'+nbH+' heat'+(nbH>1?'s':'')+' × '+nbL+' lignes</span>'
-            +'<span style="font-size:10px;color:#3A5270;">'+total+' équipe'+(total>1?'s':'')+'</span>'
-          +'</div>'
-        +'</div>'
-        // Progress
-        +'<div style="text-align:right;flex-shrink:0;">'
-          +'<div style="font-size:11px;font-weight:800;color:'+(pct===100?'#69F0AE':'#94A3B8')+';">'+pct+'%</div>'
-          +'<div style="font-size:9px;color:#3A5270;margin-bottom:4px;">placés</div>'
-          +'<div style="width:60px;height:4px;background:#DDE5F5;border-radius:2px;overflow:hidden;">'
-            +'<div style="height:100%;width:'+pct+'%;background:'+(pct===100?'#69F0AE':cat.couleur)+';border-radius:2px;"></div>'
-          +'</div>'
-        +'</div>'
-        +'<div style="font-size:18px;color:#3A5270;flex-shrink:0;transition:transform .2s;'+(isActive?'transform:rotate(90deg)':'')+'">›</div>'
-        +'<button onclick="event.stopPropagation();deleteCat('+cat.id+')" title="Supprimer cette catégorie" style="background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.25);color:#EF4444;border-radius:7px;padding:5px 10px;font-size:13px;font-weight:900;cursor:pointer;flex-shrink:0;line-height:1">🗑</button>'
+    var safeIdH = String(cat.id).replace('.','_');
+    var isFirst = idx===0;
+    var isLast  = idx===sorted.length-1;
+    var fillColor = over ? '#DC2626' : cat.couleur;
+    return '<div id="catrow-'+cat.id+'" onclick="selectCat('+cat.id+')" class="cat-mini-row'+(isActive?' sel':'')+'" '
+      +'style="position:relative;display:flex;flex-direction:column;gap:7px;padding:10px 11px;border-radius:10px;cursor:pointer;'
+      +'background:'+(isActive?cat.couleur+'14':'#FFFFFF')+';'
+      +'border:1.5px solid '+(isActive?cat.couleur+'99':'var(--brd2,#E3E9F4)')+';transition:background .14s,border-color .14s;">'
+      // barre accent gauche quand sélectionné
+      +(isActive?'<span style="position:absolute;left:0;top:8px;bottom:8px;width:3px;border-radius:3px;background:'+cat.couleur+';"></span>':'')
+      // ── Ligne 1 : pastille + nom + badges + compteur ──
+      +'<div style="display:flex;align-items:center;gap:9px;">'
+        +'<span class="cat-mini-pill" style="width:13px;height:13px;border-radius:4px;background:'+cat.couleur+';flex-shrink:0;box-shadow:0 1px 5px '+cat.couleur+'66,inset 0 0 0 1px rgba(255,255,255,.25);"></span>'
+        +'<span class="cat-mini-name" style="flex:1;min-width:0;font-size:14px;font-weight:800;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;letter-spacing:-.1px;">'+escHtml(cat.nom)+'</span>'
+        +'<span class="cat-mini-badge day" style="font-size:9.5px;font-weight:800;padding:2px 6px;border-radius:5px;background:rgba(124,58,237,.12);color:#7C3AED;flex-shrink:0;">'+dayLabel+'</span>'
+        +'<span class="cat-mini-badge" style="font-size:9.5px;font-weight:800;padding:2px 6px;border-radius:5px;background:var(--s3,#EBF0FA);color:var(--ink2);flex-shrink:0;">'+zLabel+'</span>'
+        +'<span id="cat-hdr-count-'+safeIdH+'" style="font-size:11px;font-weight:900;color:'+(over?'#DC2626':'var(--ink2)')+';flex-shrink:0;min-width:34px;text-align:right;">'+total+'<span style="font-size:9px;font-weight:700;color:var(--mid);">/'+places+'</span></span>'
       +'</div>'
-      +(isActive?'<div id="cat-inline-detail" style="border-top:1px solid var(--brd,#EBF0FA);"></div>':'')
+      // ── Ligne 2 : mini barre de remplissage + actions (hover) ──
+      +'<div style="display:flex;align-items:center;gap:8px;">'
+        +'<span id="cat-hdr-hl-'+safeIdH+'" style="display:none;">'+nbH+'×'+nbL+'</span>'
+        +'<div style="flex:1;height:4px;background:var(--s3,#E3E9F4);border-radius:3px;overflow:hidden;">'
+          +'<div class="cat-mini-fill" style="height:100%;width:'+fillPct+'%;background:'+fillColor+';border-radius:3px;transition:width .2s;"></div>'
+        +'</div>'
+        +'<div class="cat-mini-actions" onclick="event.stopPropagation();" style="display:flex;align-items:center;gap:3px;flex-shrink:0;">'
+          +'<button onclick="event.stopPropagation();moveCat('+cat.id+',-1)" '+(isFirst?'disabled':'')+' title="Monter" style="width:20px;height:20px;padding:0;background:'+(isFirst?'#F0F4FA':'#fff')+';border:1px solid var(--brd2);border-radius:5px;color:'+(isFirst?'#C5D5E8':'#3A5270')+';font-size:9px;line-height:1;cursor:'+(isFirst?'default':'pointer')+';">▲</button>'
+          +'<button onclick="event.stopPropagation();moveCat('+cat.id+',1)" '+(isLast?'disabled':'')+' title="Descendre" style="width:20px;height:20px;padding:0;background:'+(isLast?'#F0F4FA':'#fff')+';border:1px solid var(--brd2);border-radius:5px;color:'+(isLast?'#C5D5E8':'#3A5270')+';font-size:9px;line-height:1;cursor:'+(isLast?'default':'pointer')+';">▼</button>'
+          +'<button onclick="event.stopPropagation();duplicateCat('+cat.id+')" title="Dupliquer" style="width:20px;height:20px;padding:0;background:rgba(21,101,192,.08);border:1px solid rgba(21,101,192,.22);color:#1565C0;border-radius:5px;font-size:11px;font-weight:900;cursor:pointer;line-height:1;">⧉</button>'
+          +'<button onclick="event.stopPropagation();deleteCat('+cat.id+')" title="Supprimer" style="width:20px;height:20px;padding:0;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.25);color:#EF4444;border-radius:5px;font-size:10px;font-weight:900;cursor:pointer;line-height:1;">🗑</button>'
+        +'</div>'
+      +'</div>'
       +'</div>';
   }).join('');
-  
-  // If active, render detail inline
-  if(_activeCatId){
-    var detailEl=document.getElementById('cat-inline-detail');
-    if(detailEl) renderCatDetailInline(detailEl);
+
+  // ── Panneau de détail (colonne droite) ──
+  renderCatDetailPane();
+
+  // ── Restauration focus + sélection + scroll APRÈS reconstruction ──
+  if(_focSave){
+    requestAnimationFrame(function(){
+      try{
+        var again=document.getElementById(_focSave.id);
+        if(again){
+          again.focus();
+          if(_focSave.start!=null && again.setSelectionRange){
+            try{ again.setSelectionRange(_focSave.start, _focSave.end); }catch(e){}
+          }
+        }
+      }catch(e){}
+      try{ if(_scrollY) window.scrollTo(0, _scrollY); }catch(e){}
+    });
   }
+}
+
+// ── Rendu du panneau de détail (colonne droite) ou de l'état vide ──
+function renderCatDetailPane(){
+  var pane=document.getElementById('cat-detail-pane');
+  if(!pane) return;
+  var cat = _activeCatId ? CATEGORIES.find(function(c){return c.id===_activeCatId;}) : null;
+  if(!cat){
+    pane.innerHTML='<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;min-height:420px;padding:40px;color:var(--ink3);">'
+      +'<div style="font-size:52px;margin-bottom:14px;opacity:.22;">🏆</div>'
+      +'<div style="font-size:16px;font-weight:900;color:var(--ink2);margin-bottom:5px;">Sélectionne ou crée une catégorie</div>'
+      +'<div style="font-size:12px;color:var(--mid);max-width:300px;line-height:1.6;">Clique sur une catégorie à gauche pour gérer ses réglages et ses équipes, ou crée-en une nouvelle.</div>'
+      +'</div>';
+    return;
+  }
+  renderCatDetailInline(pane);
 }
 
 
@@ -9982,9 +10225,11 @@ function renderCatSidebar(){
   }).join('');
 }
 function selectCat(catId){
-  if(_activeCatId===catId){_activeCatId=null;}else{_activeCatId=catId;}
+  // Tableau de bord : la sélection est "collante" (clic = sélectionne/ouvre à droite).
+  // Re-cliquer la catégorie déjà active ne la referme pas (le détail reste affiché).
+  _activeCatId = catId;
   renderCatGrid();
-  // Also update legacy detail panel if exists
+  // Legacy panel masqué
   var dp=document.getElementById('cat-detail-panel');
   if(dp){dp.style.display='none';}
 }
@@ -10001,26 +10246,19 @@ function saveTeamsFromTextarea(catId){
   if(!ta) return;
   var cat = CATEGORIES.find(function(c){return c.id===catId;});
   if(!cat) return;
-  var names = ta.value.split('\n').map(function(l){return l.trim();}).filter(Boolean);
-  // Reconstruire la liste complète
+  var parsed = parseTeamNamesInput(ta.value);
+  var names = parsed.names;
+  // Reconstruire la liste complète (★ préservation des placements existants conservée)
   cat.teams = names.map(function(nom, i){
-    // Conserver les données de placement si l'équipe existait déjà
-    var existing = cat.teams.find(function(t){return t.nom===nom;});
+    // Conserver les données de placement si l'équipe existait déjà (match insensible à la casse)
+    var existing = cat.teams.find(function(t){return (t.nom||'').toLowerCase()===nom.toLowerCase();});
     return existing || {id:Date.now()+Math.random()+i, nom:nom, ligne:null, heatNum:null, forcedLine:null};
   });
   autoCalcHeats(cat);
-  // Répartir équipement dans les heats automatiquement (distribution équilibrée)
-  var nbH=cat.nbHeats||1, nbL=cat.nbLignes||6;
-  cat.teams.forEach(function(t,i){
-    if(t.heatNum===null||t.heatNum===undefined){
-      t.heatNum = Math.floor(i/nbL);
-      t.ligne   = (i % nbL) + 1;
-    }
-  });
   renderCategories();
   autoSave();
-  generateHeats();
-  toast('✅ '+cat.teams.length+' équipes · '+cat.nbHeats+' heat(s) · placement auto');
+  // ★ Plus de generateHeats ici (F2) : la génération des heats reste explicite.
+  toast('✅ '+cat.teams.length+' équipes enregistrées');
 }
 
 // ── previewTeamCount : affiche le nb d'équipes en temps réel ──
@@ -10038,13 +10276,29 @@ function previewTeamCount(catId){
   preview.style.color = names.length > 0 ? '#10B981' : '#64748B';
 }
 
-var _catTextareaTimers = {};
+// ── (DÉSACTIVÉ) L'auto-apply pendant la frappe/collage provoquait des re-renders
+//    et des générations de heats à chaque frappe (F2). On ne garde QU'UN compteur
+//    live, sans aucun re-render ni écriture. L'application est désormais explicite
+//    (bouton « Ajouter ces équipes »). Alias conservé pour compat éventuelle.
 function scheduleCategoryTextareaApply(catId){
-  previewTeamCount(catId);
-  if(_catTextareaTimers[catId]) clearTimeout(_catTextareaTimers[catId]);
-  _catTextareaTimers[catId] = setTimeout(function(){
-    saveTeamsFromTextarea(catId);
-  }, 450);
+  previewPasteCount(catId);
+}
+
+// ── Compteur live pour la zone de collage (sans re-render ni auto-save) ──
+function previewPasteCount(catId){
+  var safeId = String(catId).replace('.','_');
+  var ta = document.getElementById('teams-paste-'+safeId);
+  var out = document.getElementById('teams-paste-count-'+safeId);
+  if(!ta || !out) return;
+  var cat = CATEGORIES.find(function(c){return c.id===catId;});
+  if(!cat){ out.textContent=''; return; }
+  var parsed = parseTeamNamesInput(ta.value);
+  var n = parsed.names.length;
+  if(n===0){ out.textContent=''; return; }
+  var dupN = parsed.duplicatesInBatch.length;
+  out.textContent = n+' équipe'+(n>1?'s':'')+' détectée'+(n>1?'s':'')
+    + (dupN? ' · '+dupN+' doublon'+(dupN>1?'s':'')+' dans le lot' : '');
+  out.style.color = '#059669';
 }
 
 // ── updateCatWodOrdre : met à jour l'ordre de passage d'une catégorie pour un WOD ──
@@ -10432,20 +10686,32 @@ function autoCalcHeats(cat){
 }
 
 // ── Modifier nb heats / nb lignes ───────────────────────────────────
+//  ★ PLUS de generateHeats ici (F2) : la génération des heats reste EXPLICITE
+//    (boutons de placement / Générer & Publier). On rafraîchit juste le détail
+//    de la carte active (grille heats + jauges) en préservant le focus, et on
+//    resynchronise la mini-ligne gauche + les vues planning/zone.
 function setCatNbHeats(catId, n){
   var cat=CATEGORIES.find(function(c){return c.id===catId;});
   if(!cat) return;
   cat.nbHeats = Math.max(1, Math.min(20, n||1));
-  renderCategories(); if(typeof autoSave==='function')autoSave();
-  if(typeof generateHeats==='function')generateHeats();
+  refreshActiveCatDetail();
+  updateCatTeamsMeta(cat);
+  if(typeof renderHeatsSummary==='function') renderHeatsSummary();
+  if(typeof renderPlanningWod==='function') renderPlanningWod();
+  if(typeof renderZonesSynoptic==='function') renderZonesSynoptic();
+  if(typeof autoSave==='function')autoSave();
 }
 function setCatNbLignes(catId, n){
   var cat=CATEGORIES.find(function(c){return c.id===catId;});
   if(!cat) return;
   cat.nbLignes = Math.max(1, Math.min(12, n||6));
   autoCalcHeats(cat);
-  renderCategories(); if(typeof autoSave==='function')autoSave();
-  if(typeof generateHeats==='function')generateHeats();
+  refreshActiveCatDetail();
+  updateCatTeamsMeta(cat);
+  if(typeof renderHeatsSummary==='function') renderHeatsSummary();
+  if(typeof renderPlanningWod==='function') renderPlanningWod();
+  if(typeof renderZonesSynoptic==='function') renderZonesSynoptic();
+  if(typeof autoSave==='function')autoSave();
 }
 
 // ── Drag & Drop placement ────────────────────────────────────────────
@@ -10897,63 +11163,165 @@ function renderCatDetailInline(container){
   if(!cat||!container)return;
   var nbH=cat.nbHeats||1;
   var nbL=cat.nbLignes||6;
-  var html='<div style="padding:14px 16px;">';
-
-  // ── ROW 1 : Config rapide ──
-  html+='<div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">';
-  
-  // Nb heats
-  html+='<div style="background:var(--s2,#e1e8f6);border:1px solid var(--brd2,#EBF0FA);border-radius:9px;padding:10px 14px;text-align:center;flex:1;min-width:100px;">'
-    +'<div style="font-size:8px;font-weight:800;color:var(--ink2);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">Heats</div>'
-    +'<div style="display:flex;align-items:center;justify-content:center;gap:0;">'
-      +'<button onclick="setCatNbHeats('+cat.id+','+(Math.max(1,nbH-1))+')" style="width:32px;height:32px;background:#F0F4FA;border:none;border-radius:6px 0 0 6px;color:#6A84A0;font-size:18px;cursor:pointer;font-weight:700;">−</button>'
-      +'<div style="width:48px;height:32px;background:#e4eaf7;border:1px solid rgba(0,0,0,.08);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:900;color:#60A5FA;font-family:monospace;">'+nbH+'</div>'
-      +'<button onclick="setCatNbHeats('+cat.id+','+(Math.min(20,nbH+1))+')" style="width:32px;height:32px;background:#F0F4FA;border:none;border-radius:0 6px 6px 0;color:#6A84A0;font-size:18px;cursor:pointer;font-weight:700;">+</button>'
-    +'</div>'
-  +'</div>';
-
-  // Nb lignes
-  html+='<div style="background:var(--s2,#e1e8f6);border:1px solid var(--brd2,#EBF0FA);border-radius:9px;padding:10px 14px;text-align:center;flex:1;min-width:100px;">'
-    +'<div style="font-size:8px;font-weight:800;color:var(--ink2);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">Lignes/heat</div>'
-    +'<div style="display:flex;align-items:center;justify-content:center;gap:0;">'
-      +'<button onclick="setCatNbLignes('+cat.id+','+(Math.max(1,nbL-1))+')" style="width:32px;height:32px;background:#F0F4FA;border:none;border-radius:6px 0 0 6px;color:#6A84A0;font-size:18px;cursor:pointer;font-weight:700;">−</button>'
-      +'<div style="width:48px;height:32px;background:#e4eaf7;border:1px solid rgba(0,0,0,.08);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:900;color:#A78BFA;font-family:monospace;">'+nbL+'</div>'
-      +'<button onclick="setCatNbLignes('+cat.id+','+(Math.min(12,nbL+1))+')" style="width:32px;height:32px;background:#F0F4FA;border:none;border-radius:0 6px 6px 0;color:#6A84A0;font-size:18px;cursor:pointer;font-weight:700;">+</button>'
-    +'</div>'
-  +'</div>';
-
-  html+='</div>'; // close ROW 1
-
-  // ── ROW 2 : Saisie équipes ──
-  var existingTeams = cat.teams.map(function(t){return t.nom;}).join('\n');
+  var places=nbH*nbL;
   var safeId = String(cat.id).replace('.','_');
-  html+='<div style="background:var(--s2,#e1e8f6);border:1.5px solid var(--brd2,#EBF0FA);border-radius:10px;padding:12px 14px;margin-bottom:14px;">'    +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">'      +'<div style="font-size:10px;font-weight:900;color:var(--ink2);text-transform:uppercase;letter-spacing:1px;">'        +'📋 Équipes · <span style="color:'+(cat.teams.length?'var(--ok)':'var(--mid)')+';">'+cat.teams.length+' saisies</span>'        +' → <span style="color:var(--blue);">'+nbH+'×'+nbL+' = '+(nbH*nbL)+' places</span>'      +'</div>'      +'<button onclick="autoCalcHeats(CATEGORIES.find(function(x){return x.id==='+cat.id+';}));renderCategories();autoSave();" style="padding:3px 8px;background:rgba(77,166,255,.08);border:1px solid rgba(77,166,255,.2);border-radius:5px;color:var(--blue);font-size:9px;font-weight:800;cursor:pointer;">🔄 Recalc</button>'    +'</div>'    +'<div style="display:flex;gap:6px;margin-bottom:10px;">'      +'<input id="quick-add-'+safeId+'" type="text" placeholder="Nom de l équipe..."'        +' onkeydown="if(event.key===\'Enter\'){event.preventDefault();quickAddTeam('+cat.id+');}"'        +' style="flex:1;background:#EBF0FA;border:1px solid var(--brd2);border-radius:8px;padding:10px 12px;font-size:13px;font-weight:700;color:var(--ink);outline:none;font-family:inherit;">'      +'<button onclick="quickAddTeam('+cat.id+')" style="padding:10px 18px;background:linear-gradient(135deg,var(--ok),#00B87A);border:none;border-radius:8px;color:#000;font-size:16px;font-weight:900;cursor:pointer;">+</button>'    +'</div>'    +'<div id="teams-chips-'+safeId+'" style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px;">'    +cat.teams.map(function(t){ return '<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 9px;background:#EBF0FA;border:1px solid var(--brd2);border-radius:20px;font-size:11px;font-weight:700;color:var(--ink);">'+escHtml(t.nom)+'<button onclick="removeTeamById('+cat.id+','+JSON.stringify(t.id)+')" style="background:none;border:none;color:var(--mid);cursor:pointer;font-size:14px;line-height:1;padding:0;">×</button></span>'; }).join('')    +'</div>'    +'<details>'      +'<summary style="font-size:9px;font-weight:700;color:var(--mid);cursor:pointer;padding:3px 0;letter-spacing:.5px;">📋 COLLER UNE LISTE COMPLÈTE</summary>'      +'<div style="margin-top:8px;">'        +'<textarea id="teams-input-'+safeId+'" data-catid="'+cat.id+'" placeholder="Une équipe par ligne&#10;Alpha Team&#10;Beta Squad&#10;..." rows="4" oninput="scheduleCategoryTextareaApply('+cat.id+')"'          +' style="width:100%;background:#EBF0FA;border:1px solid var(--brd2);border-radius:8px;padding:8px 10px;font-size:12px;color:var(--ink);outline:none;font-family:inherit;resize:vertical;box-sizing:border-box;">'+escHtml(existingTeams)+'</textarea>'        +'<div id="team-preview-'+safeId+'" style="font-size:10px;color:var(--ink2);margin:4px 0;"></div>'        +'<div style="display:flex;gap:6px;margin-top:6px;">'          +'<button onclick="saveTeamsFromTextarea('+cat.id+')" style="flex:1;padding:8px;background:var(--blue);border:none;border-radius:7px;color:#fff;font-size:11px;font-weight:800;cursor:pointer;">💾 Remplacer la liste</button>'          +'<button onclick="addTeamsFromInput('+cat.id+')" style="padding:8px 12px;background:rgba(0,229,160,.1);border:1px solid rgba(0,229,160,.25);border-radius:7px;color:var(--ok);font-size:11px;font-weight:800;cursor:pointer;">+ Ajouter à la liste</button>'        +'</div>'      +'</div>'    +'</details>'  +'</div>';
+  var curZone = String(cat.zone||'1');
+  var curJour = cat.jour||1;
+  var zLabel=categoryZoneLabel(cat);
+  var dayFull=curJour===2?'Jour 2':curJour===12?'Jour 1 + 2':'Jour 1';
+  var teamN=cat.teams.length;
+  var over=teamN>places;
+  var capPct=places>0?Math.min(100,Math.round(teamN/places*100)):0;
+  var html='';
 
-    // ── ROW 3 : Actions placement ──
-  html+='<div style="display:flex;gap:7px;margin-bottom:14px;flex-wrap:wrap;">'
+  // ════════════════════════════════════════════════════
+  //  EN-TÊTE DÉTAIL : grosse pastille + nom éditable + résumé + actions
+  // ════════════════════════════════════════════════════
+  html+='<div style="display:flex;align-items:center;gap:13px;padding:16px 20px;border-bottom:1px solid var(--brd,#EBF0FA);background:linear-gradient(180deg,'+cat.couleur+'0D,transparent);">'
+    +'<div class="cat-detail-pill" style="width:34px;height:34px;border-radius:9px;background:'+cat.couleur+';flex-shrink:0;box-shadow:0 4px 14px '+cat.couleur+'55,inset 0 0 0 1px rgba(255,255,255,.2);"></div>'
+    +'<div style="flex:1;min-width:0;">'
+      +'<input id="cat-name-edit-'+safeId+'" type="text" value="'+escHtml(cat.nom)+'" autocomplete="off"'
+        +' onchange="renameCatLive('+cat.id+',this.value)" onkeydown="if(event.key===\'Enter\'){this.blur();}"'
+        +' title="Clique pour renommer la catégorie"'
+        +' style="width:100%;border:1px solid transparent;background:transparent;font-size:19px;font-weight:900;color:var(--ink);letter-spacing:-.3px;padding:3px 5px;margin:-3px -5px;border-radius:7px;outline:none;font-family:inherit;transition:background .13s,border-color .13s;"'
+        +' onfocus="this.style.background=\'#F5F8FF\';this.style.borderColor=\'var(--brd2)\';" onblur="this.style.background=\'transparent\';this.style.borderColor=\'transparent\';">'
+      +'<div style="font-size:11.5px;color:var(--ink3);margin-top:3px;font-weight:600;padding-left:1px;">'
+        +nbH+' heat'+(nbH>1?'s':'')+' × '+nbL+' lignes · '+places+' places · '+dayFull+' · '+zLabel
+      +'</div>'
+    +'</div>'
+    +'<button onclick="duplicateCat('+cat.id+')" title="Dupliquer cette catégorie" style="width:36px;height:36px;border-radius:9px;background:var(--s2,#F5F8FF);border:1px solid var(--brd2);color:#1565C0;cursor:pointer;font-size:16px;font-weight:900;flex-shrink:0;line-height:1;">⧉</button>'
+    +'<button onclick="deleteCat('+cat.id+')" title="Supprimer cette catégorie" style="width:36px;height:36px;border-radius:9px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.22);color:#EF4444;cursor:pointer;font-size:15px;flex-shrink:0;line-height:1;">🗑</button>'
+  +'</div>';
+
+  // ════════════════════════════════════════════════════
+  //  RÉGLAGES COMPACTS EN LIGNE (couleur, jour, zone, heats, lignes)
+  // ════════════════════════════════════════════════════
+  html+='<div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:14px 20px;border-bottom:1px solid var(--brd,#EBF0FA);background:var(--s2,#F8FAFF);">';
+
+  // Couleur
+  html+='<label style="display:flex;align-items:center;gap:7px;cursor:pointer;">'
+    +'<span style="font-size:9px;font-weight:800;color:var(--ink2);text-transform:uppercase;letter-spacing:.6px;">Couleur</span>'
+    +'<input type="color" value="'+cat.couleur+'" oninput="setCatCouleur('+cat.id+',this.value)" style="width:30px;height:28px;border:1px solid var(--brd2);border-radius:6px;cursor:pointer;padding:1px;background:#fff;" title="Couleur de la catégorie">'
+  +'</label>';
+
+  // Jour
+  html+='<div style="display:flex;align-items:center;gap:7px;">'
+    +'<span style="font-size:9px;font-weight:800;color:var(--ink2);text-transform:uppercase;letter-spacing:.6px;">Jour</span>'
+    +'<div style="display:flex;border:1px solid var(--brd2);border-radius:7px;overflow:hidden;">'
+      +'<button onclick="setCatJour('+cat.id+',1)" style="padding:5px 11px;border:none;cursor:pointer;font-size:10px;font-weight:800;'+(curJour===1?'background:#7C3AED;color:#fff':'background:#fff;color:var(--ink2)')+'">J1</button>'
+      +'<button onclick="setCatJour('+cat.id+',12)" style="padding:5px 11px;border:none;cursor:pointer;font-size:10px;font-weight:800;border-left:1px solid var(--brd2);'+(curJour===12?'background:#1E88E5;color:#fff':'background:#fff;color:var(--ink2)')+'">J1+2</button>'
+      +'<button onclick="setCatJour('+cat.id+',2)" style="padding:5px 11px;border:none;cursor:pointer;font-size:10px;font-weight:800;border-left:1px solid var(--brd2);'+(curJour===2?'background:#7C3AED;color:#fff':'background:#fff;color:var(--ink2)')+'">J2</button>'
+    +'</div>'
+  +'</div>';
+
+  // Zone
+  html+='<div style="display:flex;align-items:center;gap:7px;">'
+    +'<span style="font-size:9px;font-weight:800;color:var(--ink2);text-transform:uppercase;letter-spacing:.6px;">Zone</span>'
+    +'<div style="display:flex;border:1px solid var(--brd2);border-radius:7px;overflow:hidden;">'
+      +'<button onclick="setCatZone('+cat.id+',1)" style="padding:5px 11px;border:none;cursor:pointer;font-size:10px;font-weight:800;'+(curZone==='1'?'background:#1565C0;color:#fff':'background:#fff;color:var(--ink2)')+'">Z1</button>'
+      +'<button onclick="setCatZone('+cat.id+',2)" style="padding:5px 11px;border:none;cursor:pointer;font-size:10px;font-weight:800;border-left:1px solid var(--brd2);'+(curZone==='2'?'background:#16A34A;color:#fff':'background:#fff;color:var(--ink2)')+'">Z2</button>'
+      +'<button onclick="setCatZone('+cat.id+',12)" style="padding:5px 11px;border:none;cursor:pointer;font-size:10px;font-weight:800;border-left:1px solid var(--brd2);'+(curZone==='12'?'background:#0277BD;color:#fff':'background:#fff;color:var(--ink2)')+'">Z1+2</button>'
+    +'</div>'
+  +'</div>';
+
+  // Heats (auto-calculé par défaut, override possible — PAS de generateHeats)
+  html+='<div style="display:flex;align-items:center;gap:7px;">'
+    +'<span style="font-size:9px;font-weight:800;color:var(--ink2);text-transform:uppercase;letter-spacing:.6px;">Heats</span>'
+    +'<div style="display:flex;align-items:center;border:1px solid var(--brd2);border-radius:7px;overflow:hidden;">'
+      +'<button onclick="setCatNbHeats('+cat.id+','+(Math.max(1,nbH-1))+')" style="width:28px;height:28px;background:#fff;border:none;color:var(--ink2);font-size:16px;cursor:pointer;font-weight:700;">−</button>'
+      +'<div style="width:34px;height:28px;background:#F5F8FF;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:900;color:#1D6DB5;font-family:monospace;border-left:1px solid var(--brd2);border-right:1px solid var(--brd2);">'+nbH+'</div>'
+      +'<button onclick="setCatNbHeats('+cat.id+','+(Math.min(20,nbH+1))+')" style="width:28px;height:28px;background:#fff;border:none;color:var(--ink2);font-size:16px;cursor:pointer;font-weight:700;">+</button>'
+    +'</div>'
+  +'</div>';
+
+  // Lignes/heat
+  html+='<div style="display:flex;align-items:center;gap:7px;">'
+    +'<span style="font-size:9px;font-weight:800;color:var(--ink2);text-transform:uppercase;letter-spacing:.6px;">Lignes</span>'
+    +'<div style="display:flex;align-items:center;border:1px solid var(--brd2);border-radius:7px;overflow:hidden;">'
+      +'<button onclick="setCatNbLignes('+cat.id+','+(Math.max(1,nbL-1))+')" style="width:28px;height:28px;background:#fff;border:none;color:var(--ink2);font-size:16px;cursor:pointer;font-weight:700;">−</button>'
+      +'<div style="width:34px;height:28px;background:#F5F8FF;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:900;color:#7C3AED;font-family:monospace;border-left:1px solid var(--brd2);border-right:1px solid var(--brd2);">'+nbL+'</div>'
+      +'<button onclick="setCatNbLignes('+cat.id+','+(Math.min(12,nbL+1))+')" style="width:28px;height:28px;background:#fff;border:none;color:var(--ink2);font-size:16px;cursor:pointer;font-weight:700;">+</button>'
+    +'</div>'
+  +'</div>';
+
+  html+='</div>'; // fin réglages
+
+  // ════════════════════════════════════════════════════
+  //  ZONE SCROLLABLE : équipes + placement + heats
+  // ════════════════════════════════════════════════════
+  html+='<div style="padding:16px 20px;">';
+
+  // ── BLOC ÉQUIPES ──
+  html+='<div style="background:#FFFFFF;border:1.5px solid var(--brd2,#EBF0FA);border-radius:12px;padding:14px 16px;margin-bottom:14px;">';
+
+  // En-tête : titre + jauge de capacité (compteur places + barre)
+  html+='<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;">'
+    +'<span style="font-size:13px;font-weight:900;color:var(--ink);letter-spacing:.2px;">👥 Équipes</span>'
+    +'<span style="font-size:11px;font-weight:800;color:'+(teamN?'var(--ok)':'var(--mid)')+';" id="team-count-'+safeId+'">'+teamN+' saisie'+(teamN>1?'s':'')+'</span>'
+    +'<div style="margin-left:auto;display:flex;align-items:center;gap:9px;">'
+      +'<div style="width:110px;height:7px;background:var(--s3,#E3E9F4);border-radius:4px;overflow:hidden;" id="team-capbar-wrap-'+safeId+'">'
+        +'<div id="team-capbar-'+safeId+'" style="height:100%;width:'+capPct+'%;background:'+(over?'#DC2626':'linear-gradient(90deg,'+cat.couleur+','+cat.couleur+'cc)')+';border-radius:4px;transition:width .2s;"></div>'
+      +'</div>'
+      +'<span style="font-size:12px;font-weight:900;color:'+(over?'#DC2626':'var(--ink)')+';white-space:nowrap;" id="team-places-'+safeId+'"><b style="color:'+(over?'#DC2626':cat.couleur)+'">'+teamN+'</b> / '+places+' places</span>'
+    +'</div>'
+  +'</div>';
+
+  // Alerte dépassement
+  html+='<div id="team-over-'+safeId+'" style="'+(over?'':'display:none;')+'font-size:10.5px;font-weight:700;color:#B91C1C;background:rgba(220,38,38,.07);border:1px solid rgba(220,38,38,.2);border-radius:7px;padding:6px 10px;margin-bottom:10px;">⚠ '+teamN+' équipes pour '+places+' places — augmente les heats ou les lignes.</div>';
+
+  // Ajout UNITAIRE : champ + Entrée (focus conservé)
+  html+='<div style="display:flex;gap:7px;margin-bottom:10px;">'
+    +'<input id="quick-add-'+safeId+'" type="text" placeholder="Nom d\'une équipe, puis Entrée…" autocomplete="off"'
+      +' onkeydown="if(event.key===\'Enter\'){event.preventDefault();quickAddTeam('+cat.id+');}"'
+      +' style="flex:1;background:#F5F8FF;border:1.5px solid var(--brd2);border-radius:9px;padding:11px 13px;font-size:14px;font-weight:700;color:var(--ink);outline:none;font-family:inherit;">'
+    +'<button onclick="quickAddTeam('+cat.id+')" title="Ajouter (ou Entrée)" style="padding:11px 20px;background:linear-gradient(135deg,#059669,#047857);border:none;border-radius:9px;color:#fff;font-size:18px;font-weight:900;cursor:pointer;line-height:1;">＋</button>'
+  +'</div>';
+
+  // Liste des équipes (puces) — conteneur à ID stable pour l'ajout ciblé
+  html+='<div id="teams-chips-'+safeId+'" style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:12px;'+(teamN?'':'display:none;')+'">'
+    +cat.teams.map(function(t){ return catTeamChipHtml(cat.id, t); }).join('')
+  +'</div>';
+
+  // Collage d'une LISTE (VISIBLE par défaut)
+  html+='<div style="border-top:1px dashed var(--brd2);padding-top:11px;">'
+    +'<div style="font-size:10px;font-weight:800;color:var(--ink2);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px;">📋 Coller une liste (depuis Excel)</div>'
+    +'<textarea id="teams-paste-'+safeId+'" data-catid="'+cat.id+'" placeholder="Colle ici une équipe par ligne (copie Excel OK).&#10;Team Alpha&#10;Team Beta&#10;Team Gamma" rows="3" oninput="previewPasteCount('+cat.id+')"'
+      +' style="width:100%;background:#F5F8FF;border:1.5px solid var(--brd2);border-radius:9px;padding:9px 11px;font-size:12px;color:var(--ink);outline:none;font-family:inherit;resize:vertical;box-sizing:border-box;"></textarea>'
+    +'<div style="display:flex;align-items:center;gap:10px;margin-top:7px;">'
+      +'<button onclick="addTeamsFromInput('+cat.id+')" style="padding:9px 18px;background:linear-gradient(135deg,#1565C0,#1E88E5);border:none;border-radius:8px;color:#fff;font-size:12px;font-weight:800;cursor:pointer;">＋ Ajouter ces équipes</button>'
+      +'<span id="teams-paste-count-'+safeId+'" style="font-size:10px;font-weight:700;color:var(--ok);"></span>'
+      +'<span style="font-size:9px;color:var(--mid);margin-left:auto;">1ère colonne retenue · doublons ignorés</span>'
+    +'</div>'
+  +'</div>';
+
+  html+='</div>'; // fin bloc équipes
+
+  // ── ACTIONS PLACEMENT (explicites : déclenchent la génération) ──
+  html+='<div style="display:flex;align-items:center;gap:7px;margin-bottom:14px;flex-wrap:wrap;">'
+    +'<span style="font-size:9px;font-weight:800;color:var(--ink2);text-transform:uppercase;letter-spacing:.6px;margin-right:2px;">Placer les équipes :</span>'
     +'<button onclick="randomPlaceTeams('+cat.id+')" style="padding:8px 16px;background:linear-gradient(135deg,#1B5E20,#2E7D32);color:#fff;border:none;border-radius:7px;font-size:11px;font-weight:800;cursor:pointer;">🎲 Tirage aléatoire</button>'
     +'<button onclick="autoPlaceTeams('+cat.id+')" style="padding:8px 16px;background:linear-gradient(135deg,#1565C0,#1E88E5);color:#fff;border:none;border-radius:7px;font-size:11px;font-weight:800;cursor:pointer;">⚡ Auto</button>'
     +'<button onclick="clearAllPlacement('+cat.id+')" style="padding:8px 16px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.2);color:#EF4444;border-radius:7px;font-size:11px;font-weight:800;cursor:pointer;">↺ Effacer</button>'
-    +'<button onclick="editCat('+cat.id+')" style="padding:8px 14px;background:rgba(124,58,237,.08);border:1px solid rgba(124,58,237,.18);color:#7C3AED;border-radius:7px;font-size:11px;font-weight:800;cursor:pointer;">🛠 Modifier</button>'
-    +'<button onclick="deleteCat('+cat.id+')" style="padding:8px 14px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.15);color:#EF4444;border-radius:7px;font-size:11px;font-weight:800;cursor:pointer;">🗑 Supprimer</button>'
+    +'<span style="flex:1"></span>'
+    +'<button onclick="editCat('+cat.id+')" style="padding:8px 14px;background:rgba(124,58,237,.08);border:1px solid rgba(124,58,237,.18);color:#7C3AED;border-radius:7px;font-size:11px;font-weight:800;cursor:pointer;">🛠 Réglages détaillés</button>'
   +'</div>';
 
-  // ── ROW 4 : Grille heats ──
+  // ── GRILLE HEATS ──
   for(var hi=0;hi<nbH;hi++){
     var heatTeams=cat.teams.filter(function(t){return t.heatNum===hi;});
     var placed=heatTeams.length;
     var free=nbL-placed;
-    html+='<div style="background:#e4eaf7;border:1px solid rgba(0,0,0,.08);border-radius:9px;margin-bottom:8px;overflow:hidden;">';
-    html+='<div style="background:#e1e8f6;padding:7px 12px;display:flex;align-items:center;gap:8px;border-bottom:1px solid #EBF0FA;">'
-      +'<span style="font-size:12px;font-weight:900;color:#60A5FA;font-family:monospace;">HEAT '+(hi+1)+'/'+nbH+'</span>'
-      +'<span style="font-size:9px;color:#3A5270;">'+placed+'/'+nbL+'</span>'
+    html+='<div style="background:var(--s2,#F5F8FF);border:1px solid var(--brd2,#E3E9F4);border-radius:9px;margin-bottom:8px;overflow:hidden;">';
+    html+='<div style="background:var(--s3,#EBF0FA);padding:7px 12px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--brd2,#E3E9F4);">'
+      +'<span style="font-size:12px;font-weight:900;color:var(--blue);font-family:monospace;">HEAT '+(hi+1)+'/'+nbH+'</span>'
+      +'<span style="font-size:9px;color:var(--ink3);">'+placed+'/'+nbL+'</span>'
       +(free>0
-        ?'<span style="font-size:9px;color:var(--ink2);margin-left:auto;">'+free+' libre'+(free>1?'s':'')+' — inviter une autre catégorie : '
-          +'<select onchange="if(this.value)openInvitePicker('+cat.id+','+hi+',this.value);this.selectedIndex=0;" style="background:#e1e8f6;border:none;color:var(--ink2);font-size:9px;cursor:pointer;outline:none;">'
+        ?'<span style="font-size:9px;color:var(--ink2);margin-left:auto;">'+free+' libre'+(free>1?'s':'')+' — inviter : '
+          +'<select onchange="if(this.value)openInvitePicker('+cat.id+','+hi+',this.value);this.selectedIndex=0;" style="background:#fff;border:1px solid var(--brd2);border-radius:5px;color:var(--ink2);font-size:9px;cursor:pointer;outline:none;padding:1px 3px;">'
           +'<option value="">choisir</option>'
           +CATEGORIES.filter(function(oc){return oc.id!==cat.id;}).map(function(oc){return'<option value="'+oc.id+'">'+escHtml(oc.nom)+'</option>';}).join('')
           +'</select></span>'
-        :'<span style="font-size:9px;color:#69F0AE;margin-left:auto;">✓ Complet</span>')
+        :'<span style="font-size:9px;color:var(--ok);margin-left:auto;font-weight:800;">✓ Complet</span>')
     +'</div>';
     html+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:5px;padding:8px;">';
     for(var li=0;li<nbL;li++){
@@ -10963,33 +11331,33 @@ function renderCatDetailInline(container){
         var gColor=isGuest?(team2.guestCatCouleur||'#888'):cat.couleur;
         html+='<div draggable="true" ondragstart="catDragStart(event,\''+String(isGuest?(team2.guestCatId||cat.id):cat.id)+'\',\''+String(team2.id||0)+'\')" '
           +'ondragover="event.preventDefault()" ondrop="catDrop(event,'+cat.id+','+hi+','+(li+1)+')" '
-          +'style="display:flex;align-items:center;gap:5px;padding:5px 8px;border-radius:6px;cursor:grab;background:'+gColor+(isGuest?'33':'18')+';border:1px '+(isGuest?'dashed':'solid')+' '+gColor+(isGuest?'88':'44')+';">'
-          +'<span style="font-size:8px;color:#3A5270;flex-shrink:0;font-weight:700;">L'+(li+1)+'</span>'
+          +'style="display:flex;align-items:center;gap:5px;padding:5px 8px;border-radius:6px;cursor:grab;background:'+gColor+(isGuest?'26':'14')+';border:1px '+(isGuest?'dashed':'solid')+' '+gColor+(isGuest?'88':'44')+';">'
+          +'<span style="font-size:8px;color:var(--ink3);flex-shrink:0;font-weight:700;">L'+(li+1)+'</span>'
           +'<span style="font-size:11px;font-weight:700;color:#0F1C2E;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+escHtml(team2.nom)+'</span>'
           +(isGuest?'<span title="Équipe invitée de '+escHtml(team2.guestCatNom||'')+'" style="font-size:7px;font-weight:900;background:'+gColor+';color:#fff;border-radius:3px;padding:1px 4px;flex-shrink:0;white-space:nowrap;">👥 '+escHtml((team2.guestCatNom||'INVITÉ').toString().slice(0,10))+'</span>':'')
-          +'<button onclick="'+(isGuest?'uninviteGuest':'catUnplaceByPos')+'('+cat.id+','+hi+','+(li+1)+')" title="'+(isGuest?'Rendre à sa catégorie':'Retirer du heat')+'" style="background:none;border:none;color:#3A5270;cursor:pointer;font-size:12px;padding:0;flex-shrink:0;line-height:1;">×</button>'
+          +'<button onclick="'+(isGuest?'uninviteGuest':'catUnplaceByPos')+'('+cat.id+','+hi+','+(li+1)+')" title="'+(isGuest?'Rendre à sa catégorie':'Retirer du heat')+'" style="background:none;border:none;color:var(--ink3);cursor:pointer;font-size:12px;padding:0;flex-shrink:0;line-height:1;">×</button>'
         +'</div>';
       } else {
         html+='<div ondragover="event.preventDefault()" ondrop="catDrop(event,'+cat.id+','+hi+','+(li+1)+')" '
-          +'style="display:flex;align-items:center;gap:5px;padding:5px 8px;border-radius:6px;border:1px dashed #EBF0FA;min-height:30px;">'
-          +'<span style="font-size:8px;color:#3A5270;font-weight:700;">L'+(li+1)+'</span>'
-          +'<span style="font-size:9px;color:#3A5270;">libre</span>'
+          +'style="display:flex;align-items:center;gap:5px;padding:5px 8px;border-radius:6px;border:1px dashed var(--brd2,#E3E9F4);min-height:30px;">'
+          +'<span style="font-size:8px;color:var(--ink3);font-weight:700;">L'+(li+1)+'</span>'
+          +'<span style="font-size:9px;color:var(--mid);">libre</span>'
         +'</div>';
       }
     }
     html+='</div></div>';
   }
 
-  // ── ROW 5 : Équipes non placées ──
+  // ── ÉQUIPES NON PLACÉES ──
   var placedIds=new Set();
   cat.teams.forEach(function(t){if(t.ligne!=null&&t.heatNum!=null)placedIds.add(t.id||t.nom);});
   var unplaced=cat.teams.filter(function(t){return !placedIds.has(t.id||t.nom)&&!t.isGuest&&!t.invitedOut;});
   if(unplaced.length){
     html+='<div style="background:rgba(255,159,10,.06);border:1px solid rgba(255,159,10,.2);border-radius:9px;padding:10px 12px;">'
-      +'<div style="font-size:9px;font-weight:800;color:#FF9F0A;letter-spacing:1px;text-transform:uppercase;margin-bottom:7px;">⚠ Non placées ('+unplaced.length+')</div>'
+      +'<div style="font-size:9px;font-weight:800;color:#B45309;letter-spacing:1px;text-transform:uppercase;margin-bottom:7px;">⚠ Non placées ('+unplaced.length+')</div>'
       +'<div style="display:flex;flex-wrap:wrap;gap:5px;">'
       +unplaced.map(function(t){
-        return '<div draggable="true" ondragstart="catDragStartUnplaced(event,\''+String(cat.id)+'\',\''+String(t.id||0)+'\')" style="display:flex;align-items:center;gap:5px;padding:4px 9px;border-radius:6px;background:'+cat.couleur+'18;border:1px solid '+cat.couleur+'44;cursor:grab;">'
+        return '<div draggable="true" ondragstart="catDragStartUnplaced(event,\''+String(cat.id)+'\',\''+String(t.id||0)+'\')" style="display:flex;align-items:center;gap:5px;padding:4px 9px;border-radius:6px;background:'+cat.couleur+'14;border:1px solid '+cat.couleur+'44;cursor:grab;">'
           +'<div style="width:5px;height:5px;border-radius:50%;background:'+cat.couleur+'"></div>'
           +'<span style="font-size:10px;font-weight:700;color:#0F1C2E;">'+escHtml(t.nom)+'</span>'
           +'<button onclick="deleteTeamByIdx('+cat.id+','+(cat.teams.indexOf(t))+')" style="background:none;border:none;color:var(--ink2);cursor:pointer;font-size:11px;padding:0;margin-left:2px;">×</button>'
@@ -10998,7 +11366,7 @@ function renderCatDetailInline(container){
       +'</div></div>';
   }
 
-  html+='</div>';
+  html+='</div>'; // fin zone scrollable
   container.innerHTML=html;
 }
 
@@ -11656,6 +12024,70 @@ function addCatSimple(){
 }
 
 
+// ── Construit le HTML d'une puce équipe (réutilisé par ajout ciblé + render) ──
+function catTeamChipHtml(catId, t){
+  var cat = CATEGORIES.find(function(c){return c.id===catId;});
+  var col = (cat && cat.couleur) || '#8FA8C0';
+  return '<span class="cat-team-chip" data-teamid="'+escHtml(String(t.id))+'" style="display:inline-flex;align-items:center;gap:5px;padding:4px 9px 4px 8px;background:var(--s2,#F5F8FF);border:1px solid var(--brd2);border-radius:20px;font-size:11px;font-weight:700;color:var(--ink);">'
+    +'<span style="width:6px;height:6px;border-radius:50%;background:'+col+';flex-shrink:0;"></span>'
+    +escHtml(t.nom)
+    +'<button onclick="removeTeamById('+catId+','+JSON.stringify(String(t.id))+')" title="Retirer" style="background:none;border:none;color:var(--mid);cursor:pointer;font-size:14px;line-height:1;padding:0;">×</button>'
+    +'</span>';
+}
+
+// ── Met à jour UNIQUEMENT les compteurs/jauges de CETTE carte (détail + mini-ligne) ──
+//  (pas de re-render global). Si le DOM n'est pas présent, no-op.
+function updateCatTeamsMeta(cat){
+  if(!cat) return;
+  var safeId = String(cat.id).replace('.','_');
+  var nbH = cat.nbHeats||1, nbL = cat.nbLignes||6;
+  var teamN = cat.teams.length;
+  var places = nbH*nbL;
+  var over = teamN>places;
+  var capPct = places>0?Math.min(100,Math.round(teamN/places*100)):0;
+  // — Détail (colonne droite) —
+  var cnt = document.getElementById('team-count-'+safeId);
+  if(cnt){ cnt.textContent = teamN+' saisie'+(teamN>1?'s':''); cnt.style.color = teamN?'var(--ok)':'var(--mid)'; }
+  var placesEl = document.getElementById('team-places-'+safeId);
+  if(placesEl){ placesEl.innerHTML = '<b style="color:'+(over?'#DC2626':cat.couleur)+'">'+teamN+'</b> / '+places+' places'; placesEl.style.color = over?'#DC2626':'var(--ink)'; }
+  var capbar = document.getElementById('team-capbar-'+safeId);
+  if(capbar){ capbar.style.width = capPct+'%'; capbar.style.background = over?'#DC2626':('linear-gradient(90deg,'+cat.couleur+','+cat.couleur+'cc)'); }
+  var overEl = document.getElementById('team-over-'+safeId);
+  if(overEl){ overEl.style.display = over?'':'none'; overEl.innerHTML = '⚠ '+teamN+' équipes pour '+places+' places — augmente les heats ou les lignes.'; }
+  // — Mini-ligne (colonne gauche) —
+  var hdr = document.getElementById('cat-hdr-count-'+safeId);
+  if(hdr){ hdr.innerHTML = teamN+'<span style="font-size:9px;font-weight:700;color:var(--mid);">/'+places+'</span>'; hdr.style.color = over?'#DC2626':'var(--ink2)'; }
+  // Mini barre de remplissage de la ligne gauche
+  var row = document.getElementById('catrow-'+cat.id);
+  if(row){
+    var fillbar = row.querySelector('.cat-mini-fill');
+    if(fillbar){ fillbar.style.width = capPct+'%'; fillbar.style.background = over?'#DC2626':cat.couleur; }
+  }
+}
+
+// ── Re-render CIBLÉ du panneau détail (colonne droite), focus préservé.
+//    Utilisé quand nbHeats change (ajout d'équipes) sans reconstruire la liste.
+function refreshActiveCatDetail(){
+  var det = document.getElementById('cat-detail-pane');
+  if(!det) return;
+  var _f=null;
+  try{
+    var ae=document.activeElement;
+    if(ae && ae.id && (ae.tagName==='INPUT'||ae.tagName==='TEXTAREA')){
+      _f={id:ae.id, start:ae.selectionStart, end:ae.selectionEnd};
+    }
+  }catch(e){}
+  renderCatDetailInline(det);
+  if(_f){
+    requestAnimationFrame(function(){
+      try{
+        var el=document.getElementById(_f.id);
+        if(el){ el.focus(); if(_f.start!=null && el.setSelectionRange){ try{ el.setSelectionRange(_f.start,_f.end); }catch(e){} } }
+      }catch(e){}
+    });
+  }
+}
+
 function quickAddTeam(catId){
   var safeId = String(catId).replace('.','_');
   var input = document.getElementById('quick-add-'+safeId);
@@ -11664,51 +12096,104 @@ function quickAddTeam(catId){
   if(!nom){ input.focus(); return; }
   var cat = CATEGORIES.find(function(c){ return c.id===catId; });
   if(!cat) return;
-  if(cat.teams.find(function(t){ return t.nom===nom; })){
-    toast('⚠️ '+nom+' déjà dans la liste','w');
+  if(cat.teams.find(function(t){ return (t.nom||'').toLowerCase()===nom.toLowerCase(); })){
+    toast('⚠️ '+nom+' déjà dans la liste','#E65100');
     input.select();
     return;
   }
-  cat.teams.push({id:Date.now()+Math.random(), nom:nom, ligne:null, heatNum:null, forcedLine:null});
-  input.value = '';
-  input.focus();
+  var prevNbH = cat.nbHeats||1;
+  var team = {id:Date.now()+Math.random(), nom:nom, ligne:null, heatNum:null, forcedLine:null};
+  cat.teams.push(team);
   autoCalcHeats(cat);
-  renderCategories();
+  var heatsChanged = (cat.nbHeats||1) !== prevNbH;
+  // ── AJOUT CIBLÉ : on injecte la puce dans la liste de CETTE catégorie, sans
+  //    reconstruire tout le innerHTML (sinon le champ focalisé est détruit → F1).
+  var chips = document.getElementById('teams-chips-'+safeId);
+  var appended = false;
+  if(chips){
+    chips.insertAdjacentHTML('beforeend', catTeamChipHtml(catId, team));
+    if(chips.style.display==='none') chips.style.display='';
+    appended = true;
+  }
+  updateCatTeamsMeta(cat);
+  // Si nbHeats a changé, on rafraîchit la grille de heats de CETTE carte (focus préservé).
+  if(heatsChanged && appended){ refreshActiveCatDetail(); }
+  input = document.getElementById('quick-add-'+safeId) || input;
+  if(input){ input.value = ''; input.focus(); }  // ★ FOCUS CONSERVÉ : enchaîner taper→Entrée→taper→Entrée
+  // ★ Plus d'appel à generateHeats() ici (F2) : la génération des heats reste explicite.
   autoSave();
-  toast('✅ '+nom+' ajouté');
+  // Si on n'a pas pu faire l'ajout ciblé (carte pas rendue), fallback re-render ciblé.
+  if(!appended){ renderCatGrid(); var el=document.getElementById('quick-add-'+safeId); if(el){el.focus();} }
 }
 
 function removeTeamById(catId, teamId){
   var cat = CATEGORIES.find(function(c){ return c.id===catId; });
   if(!cat) return;
   var before = cat.teams.length;
+  var prevNbH = cat.nbHeats||1;
   cat.teams = cat.teams.filter(function(t){ return String(t.id)!==String(teamId); });
   if(cat.teams.length < before){
     autoCalcHeats(cat);
-    renderCategories();
+    var heatsChanged = (cat.nbHeats||1) !== prevNbH;
+    // ── Retrait CIBLÉ de la puce (pas de re-render global → pas de perte de focus) ──
+    var safeId = String(cat.id).replace('.','_');
+    var chips = document.getElementById('teams-chips-'+safeId);
+    var removed = false;
+    if(chips){
+      var node = chips.querySelector('.cat-team-chip[data-teamid="'+String(teamId).replace(/"/g,'\\"')+'"]');
+      if(node){ node.parentNode.removeChild(node); removed = true; }
+    }
+    updateCatTeamsMeta(cat);
+    if(!removed){ renderCatGrid(); }            // fallback si la puce n'a pas été trouvée
+    else if(heatsChanged){ refreshActiveCatDetail(); }  // grille de heats à resynchroniser
+    // Pas de generateHeats ici (action explicite).
     autoSave();
   }
 }
 function addTeamsFromInput(catId){
   var safeId = String(catId).replace('.','_');
-  var ta = document.getElementById('teams-input-'+safeId) || document.getElementById('teams-input-'+catId) || document.querySelector('textarea[data-catid="'+catId+'"]') || document.querySelector('textarea[data-catid="'+safeId+'"]');
+  var ta = document.getElementById('teams-paste-'+safeId) || document.getElementById('teams-input-'+safeId) || document.getElementById('teams-input-'+catId) || document.querySelector('textarea[data-catid="'+catId+'"]') || document.querySelector('textarea[data-catid="'+safeId+'"]');
   if(!ta||!ta.value.trim()) return;
   var cat = CATEGORIES.find(function(c){return c.id===catId;});
   if(!cat) return;
-  var names = ta.value.split('\n').map(function(l){return l.trim();}).filter(Boolean);
+  // ── Parsing robuste (collage Excel : tabulations/;, trim, lignes vides, doublons dans le lot) ──
+  var parsed = parseTeamNamesInput(ta.value);
+  var prevNbH = cat.nbHeats||1;
   var added = 0;
-  names.forEach(function(nom){
-    if(!cat.teams.find(function(t){return t.nom===nom;})){
-      cat.teams.push({id:Date.now()+Math.random(), nom:nom, ligne:null, heatNum:null, forcedLine:null});
-      added++;
+  var dupExisting = [];                 // déjà présents dans la catégorie
+  var addedChipsHtml = '';
+  parsed.names.forEach(function(nom){
+    if(cat.teams.find(function(t){return (t.nom||'').toLowerCase()===nom.toLowerCase();})){
+      dupExisting.push(nom);
+      return;
     }
+    var team = {id:Date.now()+Math.random(), nom:nom, ligne:null, heatNum:null, forcedLine:null};
+    cat.teams.push(team);
+    addedChipsHtml += catTeamChipHtml(catId, team);
+    added++;
   });
   ta.value='';
   autoCalcHeats(cat);
-  renderCategories();
-  autoSave();
-  generateHeats();
-  toast('✅ '+added+' équipe(s) ajoutée(s) — heats auto-calculés');
+  var heatsChanged = (cat.nbHeats||1) !== prevNbH;
+  // ── Ajout CIBLÉ des puces (pas de re-render global) ──
+  var chips = document.getElementById('teams-chips-'+safeId);
+  if(chips && added>0){ chips.insertAdjacentHTML('beforeend', addedChipsHtml); if(chips.style.display==='none') chips.style.display=''; }
+  else if(!chips){ renderCatGrid(); }
+  updateCatTeamsMeta(cat);
+  // Si nbHeats a changé, rafraîchir la grille de heats de la carte (focus préservé).
+  if(heatsChanged && chips){ refreshActiveCatDetail(); }
+  // reset du compteur live de la zone collage
+  var prev = document.getElementById('teams-paste-count-'+safeId);
+  if(prev){ prev.textContent=''; }
+  autoSave();           // ★ Plus de generateHeats ici (F2) : génération explicite.
+  // Feedback : ajoutées + doublons ignorés (dans le lot ET déjà présents)
+  var ignored = parsed.duplicatesInBatch.concat(dupExisting);
+  var msg = '✅ '+added+' équipe'+(added>1?'s':'')+' ajoutée'+(added>1?'s':'');
+  if(ignored.length){
+    var show = ignored.slice(0,3).join(', ') + (ignored.length>3?' +'+(ignored.length-3):'');
+    msg += ' · '+ignored.length+' doublon'+(ignored.length>1?'s':'')+' ignoré'+(ignored.length>1?'s':'')+' ('+show+')';
+  }
+  toast(msg, added>0 ? '#059669' : '#E65100');
 }
 
 function renameTeam(catId, teamId, val){
@@ -11757,6 +12242,40 @@ function cancelRenameCat(catId){
 function renameCat(catId, val){
   var cat = CATEGORIES.find(function(c){return c.id===catId;});
   if(cat){ cat.nom = val.trim()||cat.nom; autoSave(); renderHeatsSummary(); }
+}
+
+// ── Renommage inline depuis l'en-tête du panneau détail (colonne droite) ──
+//  Met à jour le nom, resynchronise la mini-ligne gauche + planning, SANS
+//  reconstruire le détail (sinon on perdrait le champ). Pas de generateHeats.
+function renameCatLive(catId, val){
+  var cat = CATEGORIES.find(function(c){return c.id===catId;});
+  if(!cat) return;
+  var nv = (val||'').trim();
+  if(!nv){ // nom vide ignoré : on restaure l'ancien dans le champ
+    var inp0 = document.getElementById('cat-name-edit-'+String(catId).replace('.','_'));
+    if(inp0) inp0.value = cat.nom;
+    return;
+  }
+  if(nv === cat.nom) return;
+  // doublon de nom (autre catégorie) → refuser proprement
+  if(CATEGORIES.find(function(c){return c.id!==catId && (c.nom||'').toLowerCase()===nv.toLowerCase();})){
+    toast('⚠️ Une catégorie « '+nv+' » existe déjà','#E65100');
+    var inp1 = document.getElementById('cat-name-edit-'+String(catId).replace('.','_'));
+    if(inp1){ inp1.value = cat.nom; }
+    return;
+  }
+  cat.nom = nv;
+  if(HEATS_RESULT) HEATS_RESULT.forEach(function(h){ if(h.catId===catId) h.catNom=nv; });
+  // Resync ciblé de la mini-ligne gauche (nom affiché)
+  var row = document.getElementById('catrow-'+catId);
+  if(row){
+    var nmEl = row.querySelector('.cat-mini-name');
+    if(nmEl) nmEl.textContent = nv;
+  }
+  if(typeof renderHeatsSummary==='function') renderHeatsSummary();
+  if(typeof renderPlanningWod==='function') renderPlanningWod();
+  if(typeof renderZonesSynoptic==='function') renderZonesSynoptic();
+  autoSave();
 }
 
 function changeCatColor(catId, val){
@@ -11886,6 +12405,621 @@ function openAddCat(){
 }
 function openAddCatSafe(){
   openAddCat();
+}
+
+// ════════════════════════════════════════════════════════════
+//  CRÉATION RAPIDE — palette rotative + parsing collage Excel
+// ════════════════════════════════════════════════════════════
+var CAT_QUICK_PALETTE = ['#1E88E5','#7C3AED','#E65100','#2E7D32','#C62828','#0277BD','#AD1457','#F59E0B','#00897B','#5E35B1'];
+
+// Couleur suivante dans la rotation (basée sur le nb de catégories déjà créées)
+function nextCatColor(){
+  var used = (CATEGORIES||[]).map(function(c){return (c.couleur||'').toUpperCase();});
+  // Cherche la 1ère couleur de la palette pas encore utilisée
+  for(var i=0;i<CAT_QUICK_PALETTE.length;i++){
+    if(used.indexOf(CAT_QUICK_PALETTE[i].toUpperCase())===-1) return CAT_QUICK_PALETTE[i];
+  }
+  // Toutes utilisées → rotation simple
+  return CAT_QUICK_PALETTE[(CATEGORIES||[]).length % CAT_QUICK_PALETTE.length];
+}
+
+// Nombre de lignes par défaut (reprend le réglage global si présent)
+function defaultCatLignes(){
+  var defL = document.getElementById('default-lignes');
+  var n = defL ? parseInt(defL.value,10) : 6;
+  return (n>0 && n<=12) ? n : 6;
+}
+
+// ── Parse une saisie multi-lignes (collage Excel géré) ───────────────
+//  Retourne {names:[...], duplicatesInBatch:[...]} (noms uniques, 1ère colonne).
+//  - split sur \n (et \r)
+//  - si tabulation ou ';' → ne garde que la 1ère colonne
+//  - trim, ignore lignes vides
+//  - dédoublonne À L'INTÉRIEUR du lot (insensible à la casse)
+function parseTeamNamesInput(raw){
+  var lines = String(raw||'').split(/\r\n|\r|\n/);
+  var names = [];
+  var seen = {};
+  var duplicatesInBatch = [];
+  lines.forEach(function(line){
+    var first = line.split(/\t|;/)[0];
+    var nom = (first||'').trim();
+    if(!nom) return;
+    var key = nom.toLowerCase();
+    if(seen[key]){ duplicatesInBatch.push(nom); return; }
+    seen[key] = true;
+    names.push(nom);
+  });
+  return {names:names, duplicatesInBatch:duplicatesInBatch};
+}
+
+// ════════════════════════════════════════════════════════════════════════
+//  IMPORT CSV / EXCEL — intelligent (détection colonnes, aperçu, mapping)
+//  ------------------------------------------------------------------------
+//  • CSV : 100% local, séparateur auto-détecté (, ; tab), guillemets gérés.
+//  • Excel : via SheetJS chargé à la demande depuis cdnjs. Si le CDN est
+//    indisponible (hors-ligne), on échoue PROPREMENT → fallback CSV.
+//  • Robustesse : try/catch partout, fichier vide, colonnes manquantes,
+//    unicode, noms très longs, <script> (échappé à l'affichage via escHtml).
+// ════════════════════════════════════════════════════════════════════════
+
+// État courant de l'import (lignes brutes = tableau de tableaux de chaînes)
+var _importRows = [];       // [[cellA, cellB, ...], ...]
+var _importName = '';       // nom du fichier (ou "collage")
+var _importNbCols = 0;
+
+// ── Parseur CSV robuste (gère "", séparateur fourni, \r\n) ──────────────
+function parseCSV(text, sep){
+  var rows = [];
+  var row = [];
+  var field = '';
+  var inQ = false;
+  var i = 0, n = text.length;
+  while(i < n){
+    var ch = text[i];
+    if(inQ){
+      if(ch === '"'){
+        if(text[i+1] === '"'){ field += '"'; i += 2; continue; }
+        inQ = false; i++; continue;
+      }
+      field += ch; i++; continue;
+    }
+    if(ch === '"'){ inQ = true; i++; continue; }
+    if(ch === sep){ row.push(field); field=''; i++; continue; }
+    if(ch === '\n'){ row.push(field); rows.push(row); row=[]; field=''; i++; continue; }
+    if(ch === '\r'){ // \r ou \r\n
+      row.push(field); rows.push(row); row=[]; field='';
+      if(text[i+1] === '\n') i++;
+      i++; continue;
+    }
+    field += ch; i++;
+  }
+  // Dernier champ / dernière ligne
+  if(field.length>0 || row.length>0){ row.push(field); rows.push(row); }
+  return rows;
+}
+
+// ── Détection auto du séparateur CSV (compte , ; tab hors guillemets) ───
+function detectCSVSeparator(text){
+  // On regarde les premières lignes non vides
+  var sample = text.split(/\r\n|\r|\n/).filter(function(l){return l.trim();}).slice(0,10).join('\n');
+  var counts = { ',':0, ';':0, '\t':0 };
+  var inQ=false;
+  for(var i=0;i<sample.length;i++){
+    var c=sample[i];
+    if(c==='"'){ inQ=!inQ; continue; }
+    if(inQ) continue;
+    if(c===',' ) counts[',']++;
+    else if(c===';') counts[';']++;
+    else if(c==='\t') counts['\t']++;
+  }
+  // Le séparateur le plus fréquent gagne ; défaut virgule
+  var best=',', bestN=counts[','];
+  if(counts[';']>bestN){ best=';'; bestN=counts[';']; }
+  if(counts['\t']>bestN){ best='\t'; bestN=counts['\t']; }
+  return best;
+}
+
+// ── Normalise les lignes (trim cellules, enlève lignes 100% vides) ──────
+function normalizeImportRows(rows){
+  var out = [];
+  var maxCols = 0;
+  (rows||[]).forEach(function(r){
+    var cells = (r||[]).map(function(c){ return (c==null?'':String(c)).trim(); });
+    // retirer lignes entièrement vides
+    if(cells.every(function(c){return c==='';})) return;
+    maxCols = Math.max(maxCols, cells.length);
+    out.push(cells);
+  });
+  // homogénéiser le nb de colonnes
+  out.forEach(function(r){ while(r.length<maxCols) r.push(''); });
+  return { rows: out, cols: maxCols };
+}
+
+// ── Devine si la 1ère ligne est un en-tête (mots-clés connus) ───────────
+function importGuessHeader(rows){
+  if(!rows.length) return false;
+  var first = rows[0].map(function(c){return c.toLowerCase();});
+  var kw = ['catégorie','categorie','category','division','cat','équipe','equipe','team','nom','name','athlète','athlete','club','box'];
+  var hits = first.filter(function(c){ return kw.indexOf(c)!==-1; }).length;
+  return hits >= 1;
+}
+
+// ── Devine quelle colonne est "Catégorie" / "Équipe" via en-têtes ───────
+function importGuessColumns(headerCells){
+  var catIdx = -1, teamIdx = -1;
+  var catKw = ['catégorie','categorie','category','division','cat'];
+  var teamKw = ['équipe','equipe','team','nom','name'];
+  (headerCells||[]).forEach(function(h, i){
+    var hl = (h||'').toLowerCase().trim();
+    if(catIdx===-1 && catKw.indexOf(hl)!==-1) catIdx=i;
+    if(teamIdx===-1 && teamKw.indexOf(hl)!==-1) teamIdx=i;
+  });
+  return { catIdx:catIdx, teamIdx:teamIdx };
+}
+
+// ── Ouvre la modale d'import ────────────────────────────────────────────
+function openImportCat(){
+  _importRows = []; _importName=''; _importNbCols=0;
+  var src=document.getElementById('import-step-source');
+  var prev=document.getElementById('import-step-preview');
+  if(src) src.style.display='';
+  if(prev) prev.style.display='none';
+  var pa=document.getElementById('import-paste-area'); if(pa) pa.value='';
+  var sm=document.getElementById('import-source-msg'); if(sm) sm.textContent='';
+  var cm=document.getElementById('import-commit-msg'); if(cm) cm.textContent='';
+  openModal('import-cat-modal');
+  // Pré-charge SheetJS en arrière-plan (silencieux) pour accélérer un futur .xlsx
+  try{ if(window.ensureXlsx && window.__xlsxState==='idle') window.ensureXlsx(15000); }catch(e){}
+}
+function closeImportCat(){ closeModal('import-cat-modal'); }
+function importBackToSource(){
+  var src=document.getElementById('import-step-source');
+  var prev=document.getElementById('import-step-preview');
+  if(src) src.style.display='';
+  if(prev) prev.style.display='none';
+}
+
+// ── Message d'erreur dans l'étape source ────────────────────────────────
+function importSourceMsg(msg, color){
+  var sm=document.getElementById('import-source-msg');
+  if(sm){ sm.textContent=msg||''; sm.style.color=color||'var(--err)'; }
+}
+
+// ── Glisser-déposer un fichier ──────────────────────────────────────────
+function importHandleDrop(ev){
+  ev.preventDefault();
+  try{ var dz=document.getElementById('import-dropzone'); if(dz) dz.classList.remove('dz-over'); }catch(e){}
+  var f = ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files[0];
+  if(f){ importHandleFile(f); return; }
+  // Sinon : du texte tabulaire déposé ?
+  try{
+    var txt = ev.dataTransfer.getData('text/plain');
+    if(txt && txt.trim()){ var pa=document.getElementById('import-paste-area'); if(pa) pa.value=txt; importHandlePaste(); }
+  }catch(e){}
+}
+
+// ── Analyse un fichier (CSV local, ou Excel via SheetJS) ────────────────
+function importHandleFile(file){
+  if(!file){ return; }
+  importSourceMsg('', 'var(--ink3)');
+  var name = file.name || 'fichier';
+  var lower = name.toLowerCase();
+  var isExcel = /\.(xlsx|xls|xlsm|xlsb)$/i.test(lower);
+  var isCSV   = /\.(csv|tsv|txt)$/i.test(lower);
+  // Fallback détection par type MIME si pas d'extension claire
+  if(!isExcel && !isCSV){
+    var t=(file.type||'').toLowerCase();
+    if(t.indexOf('spreadsheet')!==-1 || t.indexOf('ms-excel')!==-1) isExcel=true;
+    else isCSV=true;   // par défaut on tente le CSV
+  }
+  if(isExcel){ importReadExcel(file, name); }
+  else { importReadCSVFile(file, name); }
+}
+
+// ── Lit un fichier CSV via FileReader (100% local) ──────────────────────
+function importReadCSVFile(file, name){
+  try{
+    var reader = new FileReader();
+    reader.onload = function(e){
+      try{
+        var text = String(e.target.result||'');
+        importParseCSVText(text, name);
+      }catch(err){ importSourceMsg('Impossible de lire ce CSV : '+(err&&err.message||err), 'var(--err)'); }
+    };
+    reader.onerror = function(){ importSourceMsg('Erreur de lecture du fichier.', 'var(--err)'); };
+    reader.readAsText(file, 'UTF-8');
+  }catch(err){ importSourceMsg('Erreur : '+(err&&err.message||err), 'var(--err)'); }
+}
+
+// ── Parse un texte CSV et passe à l'aperçu ──────────────────────────────
+function importParseCSVText(text, name){
+  if(!text || !text.trim()){ importSourceMsg('Le fichier est vide.', 'var(--err)'); return; }
+  var sep = detectCSVSeparator(text);
+  var raw;
+  try{ raw = parseCSV(text, sep); }
+  catch(err){ importSourceMsg('CSV illisible : '+(err&&err.message||err), 'var(--err)'); return; }
+  var norm = normalizeImportRows(raw);
+  if(!norm.rows.length){ importSourceMsg('Aucune donnée exploitable dans ce fichier.', 'var(--err)'); return; }
+  _importRows = norm.rows; _importNbCols = norm.cols; _importName = name || 'import.csv';
+  importShowPreview();
+}
+
+// ── Lit un fichier Excel via SheetJS (chargé à la demande) ──────────────
+function importReadExcel(file, name){
+  importSourceMsg('⏳ Chargement du moteur Excel…', 'var(--ink3)');
+  var reader = new FileReader();
+  reader.onload = function(e){
+    var data = e.target.result;
+    // Charge SheetJS maintenant (ou récupère l'état)
+    (window.ensureXlsx ? window.ensureXlsx(12000) : Promise.resolve(false)).then(function(ok){
+      if(!ok || typeof XLSX==='undefined' || !XLSX.read){
+        importSourceMsg('⚠ Import Excel indisponible hors-ligne — exporte ton fichier en CSV, ou réessaie avec une connexion.', 'var(--err)');
+        return;
+      }
+      try{
+        var wb = XLSX.read(data, {type:'array'});
+        var firstSheetName = wb.SheetNames && wb.SheetNames[0];
+        if(!firstSheetName){ importSourceMsg('Ce classeur Excel ne contient aucune feuille.', 'var(--err)'); return; }
+        var ws = wb.Sheets[firstSheetName];
+        // header:1 → tableau de tableaux ; defval:'' pour ne pas sauter de cellules vides
+        var aoa = XLSX.utils.sheet_to_json(ws, {header:1, defval:'', raw:false, blankrows:false});
+        var norm = normalizeImportRows(aoa);
+        if(!norm.rows.length){ importSourceMsg('La 1ère feuille « '+firstSheetName+' » est vide.', 'var(--err)'); return; }
+        _importRows = norm.rows; _importNbCols = norm.cols; _importName = name || 'import.xlsx';
+        importShowPreview();
+      }catch(err){
+        importSourceMsg('Fichier Excel illisible : '+(err&&err.message||err)+'. Essaie un export CSV.', 'var(--err)');
+      }
+    });
+  };
+  reader.onerror = function(){ importSourceMsg('Erreur de lecture du fichier Excel.', 'var(--err)'); };
+  try{ reader.readAsArrayBuffer(file); }
+  catch(err){ importSourceMsg('Erreur : '+(err&&err.message||err), 'var(--err)'); }
+}
+
+// ── Analyse le collage (textarea) ───────────────────────────────────────
+function importHandlePaste(){
+  var pa=document.getElementById('import-paste-area');
+  var text = pa ? pa.value : '';
+  if(!text || !text.trim()){ importSourceMsg('Colle d\'abord un tableau (une ligne par équipe).', 'var(--err)'); return; }
+  // Collage Excel/Sheets = séparé par des tabulations ; sinon détection std.
+  var sep = (text.indexOf('\t')!==-1) ? '\t' : detectCSVSeparator(text);
+  var raw;
+  try{ raw = parseCSV(text, sep); }
+  catch(err){ importSourceMsg('Collage illisible : '+(err&&err.message||err), 'var(--err)'); return; }
+  var norm = normalizeImportRows(raw);
+  if(!norm.rows.length){ importSourceMsg('Aucune donnée exploitable dans le collage.', 'var(--err)'); return; }
+  _importRows = norm.rows; _importNbCols = norm.cols; _importName = 'collage';
+  importShowPreview();
+}
+
+// ── Prépare et affiche l'étape aperçu + mapping ─────────────────────────
+function importShowPreview(){
+  try{
+    var hasHeaderGuess = importGuessHeader(_importRows);
+    var hdrChk=document.getElementById('import-has-header');
+    if(hdrChk) hdrChk.checked = hasHeaderGuess;
+    // Badge fichier
+    var badge=document.getElementById('import-file-badge');
+    if(badge) badge.textContent = _importName + ' · ' + _importNbCols + ' colonne'+(_importNbCols>1?'s':'')+' · ' + _importRows.length + ' ligne'+(_importRows.length>1?'s':'');
+    importRebuildColumns();     // remplit les selects + aperçu + récap
+    var src=document.getElementById('import-step-source');
+    var prev=document.getElementById('import-step-preview');
+    if(src) src.style.display='none';
+    if(prev) prev.style.display='';
+  }catch(err){
+    importSourceMsg('Erreur d\'analyse : '+(err&&err.message||err), 'var(--err)');
+  }
+}
+
+// ── (Re)construit les menus de colonnes selon en-tête oui/non ───────────
+function importRebuildColumns(){
+  var hasHeader = !!(document.getElementById('import-has-header')||{}).checked;
+  var nbCols = _importNbCols;
+  var headerRow = hasHeader && _importRows.length ? _importRows[0] : null;
+  // Libellés des colonnes
+  var labels = [];
+  for(var c=0;c<nbCols;c++){
+    var lbl = (headerRow && headerRow[c]) ? headerRow[c] : ('Colonne '+(c+1));
+    labels.push(lbl);
+  }
+  // Devine cat/team
+  var guess = headerRow ? importGuessColumns(headerRow) : {catIdx:-1, teamIdx:-1};
+  var catIdx = guess.catIdx, teamIdx = guess.teamIdx;
+  // Heuristique sans en-tête : 2+ colonnes → col0=cat, col1=team ; 1 colonne → team seul
+  if(catIdx===-1 && teamIdx===-1){
+    if(nbCols>=2){ catIdx=0; teamIdx=1; }
+    else { teamIdx=0; }      // une seule colonne = équipes
+  } else {
+    if(teamIdx===-1) teamIdx = (catIdx===0 && nbCols>1) ? 1 : (nbCols>1?1:0);
+    if(catIdx===-1 && nbCols>1) catIdx = (teamIdx===0?1:0);
+  }
+  // Remplit les selects (option "— aucune —" pour la catégorie)
+  var selCat=document.getElementById('import-col-cat');
+  var selTeam=document.getElementById('import-col-team');
+  if(selCat){
+    var h='<option value="-1">— aucune (catégorie sélectionnée) —</option>';
+    for(var i=0;i<nbCols;i++){ h+='<option value="'+i+'"'+(i===catIdx?' selected':'')+'>'+escHtml(labels[i])+'</option>'; }
+    selCat.innerHTML=h;
+  }
+  if(selTeam){
+    var h2='';
+    for(var j=0;j<nbCols;j++){ h2+='<option value="'+j+'"'+(j===teamIdx?' selected':'')+'>'+escHtml(labels[j])+'</option>'; }
+    selTeam.innerHTML=h2;
+  }
+  importRenderPreviewTable();
+  importRefreshRecap();
+}
+
+// ── Rendu du tableau d'aperçu (premières lignes, colonnes surlignées) ───
+function importRenderPreviewTable(){
+  var tbl=document.getElementById('import-preview-table');
+  if(!tbl) return;
+  var hasHeader = !!(document.getElementById('import-has-header')||{}).checked;
+  var catIdx = parseInt((document.getElementById('import-col-cat')||{}).value, 10); if(isNaN(catIdx)) catIdx=-1;
+  var teamIdx = parseInt((document.getElementById('import-col-team')||{}).value, 10); if(isNaN(teamIdx)) teamIdx=-1;
+  var nbCols=_importNbCols;
+  var dataRows = hasHeader ? _importRows.slice(1) : _importRows.slice();
+  var headerRow = hasHeader && _importRows.length ? _importRows[0] : null;
+  var PREVIEW_MAX = 8;
+  var shown = dataRows.slice(0, PREVIEW_MAX);
+  // En-tête
+  var html='<thead><tr>';
+  for(var c=0;c<nbCols;c++){
+    var cls = c===catIdx?'col-cat':(c===teamIdx?'col-team':'');
+    var tag = c===catIdx?' 🏷':(c===teamIdx?' 👥':'');
+    var lbl = headerRow && headerRow[c] ? escHtml(headerRow[c]) : ('Col '+(c+1));
+    html+='<th class="'+cls+'">'+lbl+tag+'</th>';
+  }
+  html+='</tr></thead><tbody>';
+  if(!shown.length){
+    html+='<tr><td colspan="'+Math.max(1,nbCols)+'" style="text-align:center;color:var(--mid);padding:14px;">(aucune ligne de données)</td></tr>';
+  } else {
+    shown.forEach(function(r){
+      html+='<tr>';
+      for(var c2=0;c2<nbCols;c2++){
+        var cls2 = c2===catIdx?'col-cat':(c2===teamIdx?'col-team':'');
+        html+='<td class="'+cls2+'" title="'+escHtml(r[c2]||'')+'">'+escHtml(r[c2]||'')+'</td>';
+      }
+      html+='</tr>';
+    });
+  }
+  html+='</tbody>';
+  tbl.innerHTML=html;
+  var rowsInfo=document.getElementById('import-preview-rows');
+  if(rowsInfo) rowsInfo.textContent = '('+dataRows.length+' ligne'+(dataRows.length>1?'s':'')+' de données'+(dataRows.length>PREVIEW_MAX?', '+PREVIEW_MAX+' affichées':'')+')';
+}
+
+// ── Calcule ce qui sera importé (dédoublonnage) ─────────────────────────
+function importComputePlan(){
+  var hasHeader = !!(document.getElementById('import-has-header')||{}).checked;
+  var catIdx = parseInt((document.getElementById('import-col-cat')||{}).value, 10); if(isNaN(catIdx)) catIdx=-1;
+  var teamIdx = parseInt((document.getElementById('import-col-team')||{}).value, 10); if(isNaN(teamIdx)) teamIdx=-1;
+  var dataRows = hasHeader ? _importRows.slice(1) : _importRows.slice();
+  // Catégorie cible par défaut si pas de colonne catégorie
+  var fallbackCat = _activeCatId ? CATEGORIES.find(function(c){return c.id===_activeCatId;}) : null;
+  // Structure : { catName(lower) : {name, teams:[...], teamsSeen:{}} }
+  var byCat = {};
+  var order = [];
+  var totalTeams = 0, skippedEmpty = 0, dupInFile = 0;
+  function getBucket(name){
+    var key = name.toLowerCase();
+    if(!byCat[key]){ byCat[key] = { name:name, teams:[], seen:{} }; order.push(key); }
+    return byCat[key];
+  }
+  dataRows.forEach(function(r){
+    var teamName = teamIdx>=0 ? (r[teamIdx]||'').trim() : '';
+    if(!teamName){ skippedEmpty++; return; }
+    var catName;
+    if(catIdx>=0){ catName = (r[catIdx]||'').trim(); }
+    if(!catName){ catName = fallbackCat ? fallbackCat.nom : (catIdx>=0 ? '' : '(catégorie sélectionnée)'); }
+    if(catIdx>=0 && !catName){ // catégorie attendue mais vide → ignore la ligne
+      skippedEmpty++; return;
+    }
+    var bucket = getBucket(catName);
+    var tkey = teamName.toLowerCase();
+    if(bucket.seen[tkey]){ dupInFile++; return; }
+    bucket.seen[tkey] = true;
+    bucket.teams.push(teamName);
+    totalTeams++;
+  });
+  // Classe catégories : existantes vs nouvelles ; compte doublons vs existant
+  var cats = order.map(function(k){
+    var b = byCat[k];
+    var existing = CATEGORIES.find(function(c){return (c.nom||'').toLowerCase()===k;});
+    // si pas de colonne cat et fallback actif, l'"existing" est la catégorie active
+    if(!existing && catIdx<0 && fallbackCat && (fallbackCat.nom||'').toLowerCase()===k){ existing=fallbackCat; }
+    var dupExisting = 0, newTeams = 0;
+    if(existing){
+      b.teams.forEach(function(nm){
+        if(existing.teams.find(function(t){return (t.nom||'').toLowerCase()===nm.toLowerCase();})) dupExisting++;
+        else newTeams++;
+      });
+    } else { newTeams = b.teams.length; }
+    return { name:b.name, teams:b.teams, existing:!!existing, existingRef:existing||null, dupExisting:dupExisting, newTeams:newTeams };
+  });
+  var noCatCol = catIdx<0;
+  var canImport = totalTeams>0 && (!noCatCol || !!fallbackCat);
+  return {
+    cats:cats, totalTeams:totalTeams, skippedEmpty:skippedEmpty, dupInFile:dupInFile,
+    newCats: cats.filter(function(c){return !c.existing;}).length,
+    existingCats: cats.filter(function(c){return c.existing;}).length,
+    noCatCol:noCatCol, hasFallback:!!fallbackCat, fallbackName: fallbackCat?fallbackCat.nom:'', canImport:canImport
+  };
+}
+
+// ── Met à jour le récap + l'état du bouton Importer ─────────────────────
+function importRefreshRecap(){
+  importRenderPreviewTable();
+  var recap=document.getElementById('import-recap');
+  var btn=document.getElementById('import-commit-btn');
+  if(!recap) return;
+  var plan;
+  try{ plan = importComputePlan(); }
+  catch(err){ recap.innerHTML='⚠ '+escHtml(err&&err.message||String(err)); return; }
+  var parts=[];
+  if(plan.noCatCol){
+    if(plan.hasFallback){
+      parts.push('<b>'+plan.totalTeams+'</b> équipe'+(plan.totalTeams>1?'s':'')+' → catégorie « <b>'+escHtml(plan.fallbackName)+'</b> »');
+    } else {
+      recap.style.borderColor='rgba(220,38,38,.3)';
+      recap.style.background='rgba(220,38,38,.06)';
+      recap.innerHTML='⚠ Aucune colonne « Catégorie » et aucune catégorie sélectionnée à gauche. Sélectionne une catégorie, ou choisis une colonne Catégorie.';
+      if(btn){ btn.disabled=true; btn.style.opacity='.5'; btn.style.cursor='not-allowed'; }
+      return;
+    }
+  } else {
+    parts.push('<b>'+plan.cats.length+'</b> catégorie'+(plan.cats.length>1?'s':'')+' ('+plan.newCats+' nouvelle'+(plan.newCats>1?'s':'')+', '+plan.existingCats+' complétée'+(plan.existingCats>1?'s':'')+')');
+    parts.push('<b>'+plan.totalTeams+'</b> équipe'+(plan.totalTeams>1?'s':''));
+  }
+  var notes=[];
+  if(plan.dupInFile) notes.push(plan.dupInFile+' doublon'+(plan.dupInFile>1?'s':'')+' dans le fichier');
+  var dupEx = plan.cats.reduce(function(s,c){return s+c.dupExisting;},0);
+  if(dupEx) notes.push(dupEx+' déjà présente'+(dupEx>1?'s':'')+' (ignorée'+(dupEx>1?'s':'')+')');
+  if(plan.skippedEmpty) notes.push(plan.skippedEmpty+' ligne'+(plan.skippedEmpty>1?'s':'')+' vide'+(plan.skippedEmpty>1?'s':'')+' ignorée'+(plan.skippedEmpty>1?'s':''));
+  var html = '✅ ' + parts.join(' · ');
+  if(notes.length) html += '<div style="font-size:10.5px;font-weight:600;color:var(--ink3);margin-top:5px;">↳ '+notes.join(' · ')+'</div>';
+  // Liste compacte des catégories concernées (max 6)
+  if(!plan.noCatCol && plan.cats.length){
+    var chips = plan.cats.slice(0,6).map(function(c){
+      return '<span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;background:#fff;border:1px solid var(--brd2);border-radius:20px;padding:2px 9px;color:var(--ink2);">'
+        +(c.existing?'↻':'＋')+' '+escHtml(c.name)+' <b style="color:'+(c.existing?'#1565C0':'#059669')+'">'+c.newTeams+'</b></span>';
+    }).join(' ');
+    if(plan.cats.length>6) chips += ' <span style="font-size:10px;color:var(--mid);">+'+(plan.cats.length-6)+'…</span>';
+    html += '<div style="margin-top:9px;display:flex;flex-wrap:wrap;gap:5px;">'+chips+'</div>';
+  }
+  recap.style.borderColor='rgba(5,150,105,.25)';
+  recap.style.background='linear-gradient(135deg,rgba(5,150,105,.08),rgba(5,150,105,.03))';
+  recap.innerHTML = html;
+  if(btn){
+    var ok = plan.canImport;
+    btn.disabled = !ok; btn.style.opacity = ok?'1':'.5'; btn.style.cursor = ok?'pointer':'not-allowed';
+  }
+}
+
+// ── Valide l'import : crée/complète les catégories, ajoute les équipes ──
+function importCommit(){
+  var plan;
+  try{ plan = importComputePlan(); }
+  catch(err){ toast('Erreur import : '+(err&&err.message||err), '#DC2626'); return; }
+  if(!plan.canImport){ toast('Rien à importer (vérifie le mapping).', '#E65100'); return; }
+  var createdCats = 0, completedCats = 0, addedTeams = 0, dupTeams = 0;
+  var lastCatId = null;
+  try{
+    plan.cats.forEach(function(entry){
+      var cat = entry.existingRef;
+      if(!cat){
+        // Crée une nouvelle catégorie avec défauts sensés
+        var maxOrdre = CATEGORIES.reduce(function(m,c){return Math.max(m, c.ordre||0);}, 0);
+        cat = {
+          id: Date.now() + Math.floor(Math.random()*100000),
+          nom: entry.name,
+          couleur: nextCatColor(),
+          ordre: maxOrdre + 1,
+          nbHeats: 1,
+          nbLignes: defaultCatLignes(),
+          zone: String(resolveCategorySeedZone({wodOrdres:{}})||1),
+          jour: 1,
+          wodOrdres: {},
+          teams: []
+        };
+        CATEGORIES.push(cat);
+        createdCats++;
+      } else {
+        completedCats++;
+      }
+      // Ajoute les équipes (dédoublonnées vs existant)
+      entry.teams.forEach(function(nm){
+        if(cat.teams.find(function(t){return (t.nom||'').toLowerCase()===nm.toLowerCase();})){ dupTeams++; return; }
+        cat.teams.push({ id: Date.now()+Math.random(), nom:nm, ligne:null, heatNum:null, forcedLine:null });
+        addedTeams++;
+      });
+      // Recalcule le nb de heats (PAS de generateHeats : génération explicite ensuite)
+      autoCalcHeats(cat);
+      lastCatId = cat.id;
+    });
+  }catch(err){
+    toast('Import interrompu : '+(err&&err.message||err), '#DC2626');
+  }
+  // Sélectionne la dernière catégorie touchée + re-render complet (liste + planning + zones)
+  if(lastCatId!=null) _activeCatId = lastCatId;
+  renderCategories();
+  autoSave();   // ★ PAS de generateHeats ici : placement/heats restent explicites
+  closeImportCat();
+  var msg = '✅ Import : '+createdCats+' créée'+(createdCats>1?'s':'')+', '+completedCats+' complétée'+(completedCats>1?'s':'')+' · '+addedTeams+' équipe'+(addedTeams>1?'s':'')+' ajoutée'+(addedTeams>1?'s':'');
+  if(dupTeams) msg += ' · '+dupTeams+' doublon'+(dupTeams>1?'s':'')+' ignoré'+(dupTeams>1?'s':'');
+  toast(msg, '#059669');
+}
+
+// ── Création ultra-rapide depuis le champ nom ────────────────────────
+//  Crée IMMÉDIATEMENT la catégorie avec des défauts sensés, vide le champ,
+//  GARDE LE FOCUS pour enchaîner. N'appelle PAS generateHeats (action explicite).
+function quickAddCat(){
+  var input = document.getElementById('quick-cat-name');
+  var nom = input ? input.value.trim() : '';
+  if(!nom){ if(input) input.focus(); return; }
+  if(CATEGORIES.find(function(c){return (c.nom||'').toLowerCase()===nom.toLowerCase();})){
+    toast('⚠️ La catégorie « '+nom+' » existe déjà','#E65100');
+    if(input){ input.select(); input.focus(); }
+    return;
+  }
+  var maxOrdre = CATEGORIES.reduce(function(m,c){return Math.max(m, c.ordre||0);}, 0);
+  var cat = {
+    id: Date.now(),
+    nom: nom,
+    couleur: nextCatColor(),
+    ordre: maxOrdre + 1,
+    nbHeats: 1,
+    nbLignes: defaultCatLignes(),
+    zone: String(resolveCategorySeedZone({wodOrdres:{}})||1),
+    jour: 1,
+    wodOrdres: {},
+    teams: []
+  };
+  CATEGORIES.push(cat);
+  _activeCatId = cat.id;               // on ouvre la nouvelle catégorie pour saisir ses équipes
+  if(input){ input.value=''; }
+  // Re-render ciblé de la grille (pas de generateHeats). Puis on redonne le focus au champ nom.
+  renderCatGrid();
+  if(typeof renderHeatsSummary==='function') renderHeatsSummary();
+  if(typeof renderPlanningWod==='function') renderPlanningWod();
+  if(typeof renderZonesSynoptic==='function') renderZonesSynoptic();
+  autoSave();
+  // GARDER LE FOCUS sur le champ création pour enchaîner (Entrée → taper → Entrée).
+  requestAnimationFrame(function(){
+    var el = document.getElementById('quick-cat-name');
+    if(el){ el.focus(); }
+  });
+  toast('✅ Catégorie « '+nom+' » créée');
+}
+
+// ── Duplication d'une catégorie (réglages clonés, équipes vides) ─────
+//  Modèle calqué sur duplicateWodProg.
+function duplicateCat(id){
+  var src = CATEGORIES.find(function(c){return c.id===id;});
+  if(!src) return;
+  var maxOrdre = CATEGORIES.reduce(function(m,c){return Math.max(m, c.ordre||0);}, 0);
+  var copy = {
+    id: Date.now()+Math.floor(Math.random()*1000),
+    nom: (src.nom||'Catégorie') + ' (copie)',
+    couleur: src.couleur,
+    ordre: maxOrdre + 1,
+    nbHeats: src.nbHeats||1,
+    nbLignes: src.nbLignes||6,
+    zone: src.zone||'1',
+    jour: src.jour||1,
+    wodOrdres: {},               // la copie ne reprend pas l'ordre de passage par WOD
+    teams: []                    // équipes vides (on duplique les réglages, pas les équipes)
+  };
+  CATEGORIES.push(copy);
+  _activeCatId = copy.id;
+  renderCatGrid();
+  if(typeof renderHeatsSummary==='function') renderHeatsSummary();
+  if(typeof renderPlanningWod==='function') renderPlanningWod();
+  if(typeof renderZonesSynoptic==='function') renderZonesSynoptic();
+  autoSave();
+  toast('✅ Dupliqué : '+copy.nom,'#1E88E5');
 }
 
 function addWodFromCategories(){
@@ -19137,13 +20271,39 @@ function renderCatTable(){
 
 
 
+var _setCatColSaveTimer = null;
 function setCatCouleur(catId, col){
   var cat = CATEGORIES.find(function(c){ return c.id===catId; });
   if(!cat) return;
   cat.couleur = col;
   if(HEATS_RESULT) HEATS_RESULT.forEach(function(h){ if(h.catId===catId) h.catCouleur=col; });
-  renderCategories();
-  autoSave();
+  // ── MAJ CIBLÉE (oninput en continu) : ne PAS reconstruire le détail, sinon on
+  //    détruit le color picker pendant le drag. On repeint pastilles/barres/heats.
+  var safeId = String(catId).replace('.','_');
+  var row = document.getElementById('catrow-'+catId);
+  if(row){
+    var pill = row.querySelector('.cat-mini-pill'); if(pill){ pill.style.background=col; pill.style.boxShadow='0 1px 5px '+col+'66,inset 0 0 0 1px rgba(255,255,255,.25)'; }
+    var fill = row.querySelector('.cat-mini-fill'); if(fill && !(cat.teams.length>(cat.nbHeats||1)*(cat.nbLignes||6))){ fill.style.background=col; }
+  }
+  // Pastille + pastilles du détail (en-tête, puces, heats) via repaint léger
+  var pane = document.getElementById('cat-detail-pane');
+  if(pane && _activeCatId===catId){
+    // pastille d'en-tête
+    var headPill = pane.querySelector('.cat-detail-pill'); if(headPill){ headPill.style.background=col; headPill.style.boxShadow='0 4px 14px '+col+'55,inset 0 0 0 1px rgba(255,255,255,.2)'; }
+    // points de couleur des puces d'équipes
+    pane.querySelectorAll('.cat-team-chip > span:first-child').forEach(function(d){ d.style.background=col; });
+  }
+  // Les cases de heats (fond/bordure) suivent la couleur : refresh ciblé du détail
+  //    SAUF si le color-picker est encore focus (évite de casser le drag).
+  var ae = document.activeElement;
+  var pickerActive = ae && ae.type==='color';
+  if(!pickerActive && _activeCatId===catId){ refreshActiveCatDetail(); }
+  // Planning / zones reflètent la couleur
+  if(typeof renderPlanningWod==='function') renderPlanningWod();
+  if(typeof renderZonesSynoptic==='function') renderZonesSynoptic();
+  // Sauvegarde debouncée (oninput en rafale)
+  if(_setCatColSaveTimer) clearTimeout(_setCatColSaveTimer);
+  _setCatColSaveTimer = setTimeout(function(){ autoSave(); }, 350);
 }
 
 function openCatTeamsPanel(catId){
