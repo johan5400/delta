@@ -1120,7 +1120,14 @@ function updateDayOverview(){
       var plannedEnd=plannedEnds.length ? Math.max.apply(null, plannedEnds) : null;
       if(plannedEnd && dayEndTs){
         var deltaMin=Math.round((dayEndTs-plannedEnd)/60000);
-        g('dayDelay').textContent=deltaMin>0?('Retard +'+deltaMin+' min'):deltaMin<0?('Avance '+Math.abs(deltaMin)+' min'):'À l\'heure';
+        // ★ Anti-aberration : un delta > 6 h (en valeur absolue) est un artefact de date
+        //   (horaires théoriques comparés à l'heure courante sans la bonne date) → « En attente »
+        //   plutôt qu'un « Retard +715 min » absurde.
+        if(Math.abs(deltaMin)>TK_DELAY_ABERRANT_MIN){
+          g('dayDelay').textContent='En attente';
+        } else {
+          g('dayDelay').textContent=deltaMin>0?('Retard +'+deltaMin+' min'):deltaMin<0?('Avance '+Math.abs(deltaMin)+' min'):'À l\'heure';
+        }
       } else {
         g('dayDelay').textContent='À l\'heure';
       }
@@ -1150,8 +1157,14 @@ var TK_SILENT_MS  = 240000; // juge présent mais silencieux pendant le live : w
 var TK_SILENT_CRIT_MS = 300000; // … crit > 300s
 var TK_NO_ENTRY_MS = 150000; // heat live sans aucune saisie depuis > 150s
 var TK_FEED_DEAD_MS = 300000; // flux coupé : aucun score reçu depuis > 300s
-var TK_START_LATE_MS = 300000; // heat en retard de départ : horaire dépassé de > 5 min
+var TK_START_LATE_MS = 300000; // (plus utilisé : alerte « heat en retard de départ » retirée du radar)
 var TK_ZONE_GAP_MS = 900000;  // écart entre les 2 zones > 15 min
+// ★ SEUIL ANTI-ABERRATION du retard affiché (zone + hero). Le retard = projection vs horaires
+//   THÉORIQUES, comparés à l'heure courante SANS borne de DATE : un jour sans compét (ou en
+//   test/préparation) les horaires paraissent dépassés de plusieurs heures → « +715 min » bidon.
+//   Un vrai retard de compétition dépasse rarement 1-2 h ; au-delà de 6 h c'est quasi
+//   certainement un artefact de date → on affiche « — » plutôt qu'un chiffre absurde.
+var TK_DELAY_ABERRANT_MIN = 360; // |retard| > 360 min (6 h) ⇒ considéré artefact ⇒ « — »
 
 // Lecture du score d'une lane depuis les caches (jamais de read réseau).
 function tkLaneScore(hid, ln){
@@ -1213,10 +1226,6 @@ function tkDayIsActive(){
 function tkComputeAlerts(){
   var al=[], now=serverNow();
   var dayActive=tkDayIsActive();
-  // ★ « Compét réellement démarrée » (au moins un live/timecap/done). NB : différent de
-  //   dayActive/tkDayIsActive qui inclut « pre ». Sert à ne PAS crier « heat en retard de
-  //   départ » quand rien n'a encore démarré (compét prévue un autre jour → faux positif).
-  var _compRunning=false; try{ _compRunning=tkCompIsRunning(); }catch(e){ _compRunning=false; }
   Object.keys(HD).forEach(function(hid){
     var h=HD[hid]; if(!h||heatDay(h)!==ACTIVE_DAY) return;
     var st=heatStatus(h), z=heatZone(h);
@@ -1262,20 +1271,12 @@ function tkComputeAlerts(){
           fix:'→ Vérifie que les juges voient le compteur', tag:fmtS(elapsed)});
       }
     }
-    // (3) Heat en retard de départ (pending/pre, horaire prévu dépassé de > 5 min)
-    //   ★ Uniquement si la compét a RÉELLEMENT démarré (au moins un heat live/timecap/done) :
-    //     sinon (compét prévue un autre jour, rien de lancé) l'horaire théorique est « dépassé »
-    //     par nature → alerte en boucle au repos. Pas d'activité réelle = pas d'alerte.
-    if(_compRunning && (st==='pending'||st==='pre')){
-      try{
-        var planTs=parseHeatClockToTs(h);
-        if(planTs && (now-planTs)>TK_START_LATE_MS){
-          al.push({lv:'warn', ic:'🕒', t:'Heat en retard de départ',
-            d:'Zone '+z+' · Heat '+(h.catHeatNum||h.globalNum||heatNum(hid))+' prévu à <b>'+fmtClock(planTs)+'</b>, dépassé de <b>'+Math.round((now-planTs)/60000)+' min</b>.',
-            fix:'→ Lance le heat ou ajuste le planning', tag:'+'+Math.round((now-planTs)/60000)+'min'});
-        }
-      }catch(e){}
-    }
+    // (3) [RETIRÉ] L'alerte « Heat en retard de départ » a été SUPPRIMÉE du radar :
+    //     l'horaire théorique (ex. 10:39) est comparé à l'heure courante sans borne de DATE,
+    //     donc un jour sans compét (ou en test/préparation) chaque heat paraissait en retard
+    //     de plusieurs heures → le radar crachait des dizaines de fausses lignes. Le
+    //     retard/avance utile reste affiché (borné) dans les cadres « RETARD ZONE 1/2 » et le
+    //     hero. NE PAS réintroduire ce bloc sans gérer la date réelle de la compétition.
   });
   // (4) Écart entre les 2 zones > 15 min (projection fin de chaque zone)
   try{
@@ -1483,8 +1484,14 @@ function renderTkHealth(){
       var plannedEnd=plannedEnds.length?Math.max.apply(null,plannedEnds):null;
       if(plannedEnd){
         var dmin=Math.round((endTs-plannedEnd)/60000);
-        elZ.textContent=dmin>0?('+'+dmin+' min'):dmin<0?('−'+Math.abs(dmin)+' min'):'à l\'heure';
-        elZ.style.color=dmin>3?'var(--err)':dmin>0?'var(--warn)':'var(--ok)';
+        // ★ Anti-aberration : un retard > 6 h (valeur absolue) = artefact de date (horaires
+        //   théoriques comparés à l'heure courante sans la bonne date) → « — » et non « +715 min ».
+        if(Math.abs(dmin)>TK_DELAY_ABERRANT_MIN){
+          elZ.textContent='—'; elZ.style.color='var(--muted)';
+        } else {
+          elZ.textContent=dmin>0?('+'+dmin+' min'):dmin<0?('−'+Math.abs(dmin)+' min'):'à l\'heure';
+          elZ.style.color=dmin>3?'var(--err)':dmin>0?'var(--warn)':'var(--ok)';
+        }
       } else {
         elZ.textContent=fmtClock(endTs); elZ.style.color='var(--muted)';
       }
