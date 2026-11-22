@@ -1896,6 +1896,13 @@ function checkPassword(){
         <div id="cat-list-grid" style="display:flex;flex-direction:column;gap:6px;"></div>
       </div>
 
+      <!-- Zone « actions globales » — séparée des actions quotidiennes (anti clic accidentel) -->
+      <div style="background:#FFFFFF;border:1px solid rgba(220,38,38,.22);border-radius:14px;padding:13px 15px;box-shadow:var(--shadow-xs);">
+        <div style="font-size:9.5px;font-weight:900;color:#B91C1C;text-transform:uppercase;letter-spacing:.9px;margin-bottom:8px;display:flex;align-items:center;gap:6px;">⚠️ Zone de réinitialisation</div>
+        <button onclick="resetAllTeams()" title="Retirer toutes les équipes de TOUTES les catégories. Les catégories et les scores sont conservés. Double confirmation requise." style="width:100%;padding:11px 14px;border:1.5px solid rgba(220,38,38,.35);border-radius:10px;background:linear-gradient(135deg,rgba(220,38,38,.07),rgba(239,68,68,.04));color:#B91C1C;font-size:12.5px;font-weight:900;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:7px;white-space:nowrap;transition:background .13s;" onmouseover="this.style.background='linear-gradient(135deg,rgba(220,38,38,.13),rgba(239,68,68,.08))';" onmouseout="this.style.background='linear-gradient(135deg,rgba(220,38,38,.07),rgba(239,68,68,.04))';">♻️ Réinitialiser toutes les équipes</button>
+        <div style="font-size:9px;color:var(--mid);font-weight:600;margin-top:7px;line-height:1.5">Vide les équipes de <b>toutes</b> les catégories (catégories &amp; scores conservés). Confirmation + mot à taper.</div>
+      </div>
+
     </div>
 
     <!-- ───────── COLONNE DROITE : panneau détail ───────── -->
@@ -12053,6 +12060,8 @@ function renderCatDetailInline(container){
   html+='<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;">'
     +'<span style="font-size:13px;font-weight:900;color:var(--ink);letter-spacing:.2px;">👥 Équipes</span>'
     +'<span style="font-size:11px;font-weight:800;color:'+(teamN?'var(--ok)':'var(--mid)')+';" id="team-count-'+safeId+'">'+teamN+' saisie'+(teamN>1?'s':'')+'</span>'
+    // ── Bouton discret : vider les équipes de CETTE catégorie (sobre, non criard) ──
+    +(teamN?'<button id="clear-cat-teams-'+safeId+'" onclick="clearCategoryTeams('+cat.id+')" title="Retirer toutes les équipes de cette catégorie (les scores ne sont pas concernés)" style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;background:transparent;border:1px solid var(--brd2,#E3E9F4);border-radius:7px;color:var(--ink3);font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;line-height:1.4;transition:background .13s,color .13s,border-color .13s;" onmouseover="this.style.background=\'rgba(220,38,38,.06)\';this.style.color=\'#B91C1C\';this.style.borderColor=\'rgba(220,38,38,.25)\';" onmouseout="this.style.background=\'transparent\';this.style.color=\'var(--ink3)\';this.style.borderColor=\'var(--brd2,#E3E9F4)\';">🧹 Vider les équipes</button>':'')
     +'<div style="margin-left:auto;display:flex;align-items:center;gap:9px;">'
       +'<div style="width:110px;height:7px;background:var(--s3,#E3E9F4);border-radius:4px;overflow:hidden;" id="team-capbar-wrap-'+safeId+'">'
         +'<div id="team-capbar-'+safeId+'" style="height:100%;width:'+capPct+'%;background:'+(over?'#DC2626':'linear-gradient(90deg,'+cat.couleur+','+cat.couleur+'cc)')+';border-radius:4px;transition:width .2s;"></div>'
@@ -13187,6 +13196,136 @@ function deleteCat(id){
   renderCategories(); renderCatPresets(); renderOrdreGlobal(); autoSave(); toast('Supprimé','#E65100');
 }
 
+// ════════════════════════════════════════════════════════════════════════
+//  RÉINITIALISATION DES ÉQUIPES — (A) une catégorie, (B) toutes les catégories
+// ────────────────────────────────────────────────────────────────────────
+//  Principe : on vide UNIQUEMENT les équipes (cat.teams). Les catégories
+//  elles-mêmes (nom, couleur, zone, jour, heats, lignes, ordre…) sont
+//  PRÉSERVÉES. On ne touche JAMAIS aux scores (nœuds scores/ et backups/
+//  Firebase, intacts). Persistance via le même autoSave() que l'ajout/le
+//  retrait d'une équipe (localStorage + syncCategoriesToFirebase + backup
+//  admin↔admin). Pas de generateHeats lourd : autoSave déclenche déjà une
+//  recompute silencieuse débouncée.
+//  Garde-fou « compétition en cours » : réutilise le flag _heatLiveNow (poll
+//  existant toutes les 30 s, status live/timecap) et _journeeActive (live/
+//  timecap/pre/done). Si une journée est active → avertissement renforcé
+//  (confirmation supplémentaire) avant de vider.
+// ════════════════════════════════════════════════════════════════════════
+
+// Détection « compétition en cours » — fail-safe (tout chemin incertain = false).
+//  live  : au moins un heat réellement en cours (live/timecap) → risque maximal.
+//  active: journée ouverte (live/timecap/pre/done) → prudence renforcée.
+function _resetCompetitionState(){
+  var live=false, active=false;
+  try{ live   = (typeof _heatLiveNow!=='undefined'   && _heatLiveNow===true); }catch(e){}
+  try{ active = (typeof _journeeActive!=='undefined' && _journeeActive===true); }catch(e){}
+  return { live:live, active:active, danger:(live||active) };
+}
+
+// Vide les équipes d'UNE catégorie (équipes propres + invitées entrantes),
+//  puis nettoie les copies invitées orphelines qui pointaient vers cette
+//  catégorie dans les AUTRES catégories (cf. importRemovePropreElsewhere).
+//  Renvoie le nb d'équipes retirées (dans la catégorie + orphelines ailleurs).
+function _wipeCategoryTeams(cat){
+  if(!cat || !Array.isArray(cat.teams)) return 0;
+  // ids des équipes PROPRES de cette catégorie (pour retrouver leurs copies invitées ailleurs)
+  var ownIds = {};
+  cat.teams.forEach(function(t){ if(t && !t.isGuest && t.id!=null) ownIds[String(t.id)]=true; });
+  var removedHere = cat.teams.length;
+  cat.teams = [];                               // ★ vide tout : propres + invitées entrantes
+  // Nettoyage des invitées orphelines dans les autres catégories :
+  //  une invitée dont la source (guestCatId / guestSourceId) appartenait à cette catégorie
+  //  n'a plus de sens → on la retire pour ne pas laisser de chip fantôme.
+  var removedElsewhere = 0;
+  try{
+    (CATEGORIES||[]).forEach(function(c){
+      if(!c || c===cat || !Array.isArray(c.teams)) return;
+      var before = c.teams.length;
+      c.teams = c.teams.filter(function(t){
+        if(!t || !t.isGuest) return true;
+        var fromThisCat = (t.guestCatId!=null && String(t.guestCatId)===String(cat.id))
+                       || (t.guestSourceId!=null && ownIds[String(t.guestSourceId)]);
+        return !fromThisCat;                    // on retire l'invitée orpheline
+      });
+      removedElsewhere += (before - c.teams.length);
+    });
+  }catch(e){ console.warn('_wipeCategoryTeams nettoyage invitées:', e&&e.message); }
+  try{ if(typeof recomputeHeatCountFromTeams==='function') recomputeHeatCountFromTeams(cat); else if(typeof autoCalcHeats==='function') autoCalcHeats(cat); }catch(e){}
+  return removedHere + removedElsewhere;
+}
+
+// (A) — Bouton discret dans le détail : vider les équipes de la catégorie active.
+function clearCategoryTeams(catId){
+  try{
+    var cat = CATEGORIES.find(function(c){return c.id===catId;});
+    if(!cat){ toast('Catégorie introuvable','#D32F2F'); return; }
+    var n = (cat.teams||[]).length;
+    if(!n){ toast('Cette catégorie n\'a aucune équipe','#64748B'); return; }
+    // Garde-fou compétition en cours → avertissement renforcé (confirmation supplémentaire).
+    var st = _resetCompetitionState();
+    if(st.danger){
+      var warn = st.live
+        ? '🔴 COMPÉTITION EN COURS (un heat est LIVE).\n\nVider les équipes de « '+cat.nom+' » maintenant peut retirer des équipes actuellement sur le terrain.\n\nContinuer QUAND MÊME ?'
+        : '🟠 Journée ouverte (des heats sont préparés/terminés).\n\nVider les équipes de « '+cat.nom+' » ?\n\nContinuer ?';
+      if(!confirm(warn)) { toast('Annulé','#64748B'); return; }
+    }
+    // Confirmation claire principale.
+    if(!confirm('Vider toutes les équipes de la catégorie « '+cat.nom+' » ?\n\n• '+n+' équipe'+(n>1?'s':'')+' seront retirée'+(n>1?'s':'')+'.\n• Les scores ne sont PAS concernés.\n• La catégorie (nom, couleur, zone…) est conservée.\n\nℹ️ Une sauvegarde auto existe (tu peux exporter avant depuis Réglages).')) {
+      return;
+    }
+    var removed = _wipeCategoryTeams(cat);
+    // Rafraîchir la page catégories (liste + détail) + compteurs, persister.
+    try{ if(typeof renderCategories==='function') renderCategories(); else renderCatGrid(); }catch(e){}
+    try{ updateCatTeamsMeta(cat); }catch(e){}
+    try{ autoSave(); }catch(e){}                 // ← même persistance qu'un retrait d'équipe
+    toast('🧹 Catégorie vidée ('+removed+' équipe'+(removed>1?'s':'')+' retirée'+(removed>1?'s':'')+') — scores intacts','#16A34A',4000);
+  }catch(err){
+    console.error('clearCategoryTeams:', err);
+    toast('Erreur — rien n\'a été modifié','#D32F2F');
+  }
+}
+
+// (B) — Bouton visible mais PROTÉGÉ : réinitialiser les équipes de TOUTES les catégories.
+function resetAllTeams(){
+  try{
+    if(!CATEGORIES || !CATEGORIES.length){ toast('Aucune catégorie','#64748B'); return; }
+    var totalTeams = 0;
+    CATEGORIES.forEach(function(c){ totalTeams += (c && Array.isArray(c.teams)) ? c.teams.length : 0; });
+    if(!totalTeams){ toast('Aucune équipe à réinitialiser','#64748B'); return; }
+    var st = _resetCompetitionState();
+    // Garde-fou compétition en cours → avertissement TRÈS fort (confirmation supplémentaire).
+    if(st.danger){
+      var warn = st.live
+        ? '🔴🔴 ATTENTION — COMPÉTITION EN COURS (un heat est LIVE).\n\nRéinitialiser TOUTES les équipes pendant une compétition active est TRÈS risqué : des équipes actuellement sur le terrain seront retirées de la saisie.\n\nEs-tu ABSOLUMENT sûr de vouloir continuer ?'
+        : '🟠 Journée ouverte (des heats sont préparés/terminés).\n\nRéinitialiser TOUTES les équipes de TOUTES les catégories ?\n\nContinuer ?';
+      if(!confirm(warn)){ toast('Annulé','#64748B'); return; }
+    }
+    // Protection FORTE niveau 1 : confirmation explicite.
+    if(!confirm('⚠️ Réinitialiser TOUTES les équipes de TOUTES les catégories ?\n\n• '+totalTeams+' équipe'+(totalTeams>1?'s':'')+' au total seront retirée'+(totalTeams>1?'s':'')+'.\n• Les catégories elles-mêmes sont CONSERVÉES (nom, couleur, zone, jour).\n• Les scores ne sont PAS concernés.\n\nℹ️ Une sauvegarde auto existe (pense à exporter avant depuis Réglages si besoin).')) {
+      return;
+    }
+    // Protection FORTE niveau 2 : saisie du mot RESET (comme fbClear → PURGER).
+    var typed = prompt('Pour confirmer, tape exactement :  RESET');
+    if(typed !== 'RESET'){ toast('Réinitialisation annulée','#64748B'); return; }
+    // Action : vider chaque catégorie (simple remise à [] — pas besoin du nettoyage
+    //  orphelines croisé puisqu'on vide TOUT le monde ; on garde la logique minimale).
+    var removed = 0;
+    CATEGORIES.forEach(function(c){
+      if(c && Array.isArray(c.teams)){
+        removed += c.teams.length;
+        c.teams = [];
+        try{ if(typeof recomputeHeatCountFromTeams==='function') recomputeHeatCountFromTeams(c); else if(typeof autoCalcHeats==='function') autoCalcHeats(c); }catch(e){}
+      }
+    });
+    // Rafraîchir la page catégories (liste + détail) + persister.
+    try{ if(typeof renderCategories==='function') renderCategories(); else renderCatGrid(); }catch(e){}
+    try{ autoSave(); }catch(e){}
+    toast('♻️ Toutes les équipes réinitialisées ('+removed+' retirée'+(removed>1?'s':'')+') — catégories & scores intacts','#16A34A',5000);
+  }catch(err){
+    console.error('resetAllTeams:', err);
+    toast('Erreur — réinitialisation interrompue','#D32F2F');
+  }
+}
 
 
 function startInlineRenameCat(catId){
