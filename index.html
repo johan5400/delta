@@ -13603,6 +13603,44 @@ function importRenderPreviewTable(){
   if(rowsInfo) rowsInfo.textContent = '('+dataRows.length+' ligne'+(dataRows.length>1?'s':'')+' de données'+(dataRows.length>PREVIEW_MAX?', '+PREVIEW_MAX+' affichées':'')+')';
 }
 
+// ── Clé normalisée d'un nom d'équipe/catégorie (cohérent avec addTeam /
+//    quickAddCat / importCommit : trim + minuscules, PAS de pliage d'accents
+//    pour rester homogène avec le reste du code qui compare en .toLowerCase()). ──
+function importTeamKey(nm){ return String(nm==null?'':nm).trim().toLowerCase(); }
+
+// ── Retire toute occurrence « propre » (non isGuest) d'une équipe d'un
+//    nom donné dans TOUTES les catégories SAUF `keepCat`. Les invitées
+//    (isGuest) sont préservées ; les éventuelles invitées orphelines dont
+//    la source vient d'être retirée sont nettoyées pour éviter les doublons
+//    fantômes. Retourne le nombre d'occurrences propres supprimées.
+//    RÈGLE : une équipe ne doit JAMAIS être « propre » dans deux catégories ;
+//    l'import par colonne catégorie fait foi (= déplacement, jamais doublon).
+function importRemovePropreElsewhere(teamKey, keepCat){
+  var removed = 0;
+  var removedIds = {};
+  (CATEGORIES||[]).forEach(function(c){
+    if(!c || c===keepCat || !Array.isArray(c.teams)) return;
+    c.teams = c.teams.filter(function(t){
+      if(t && !t.isGuest && importTeamKey(t.nom)===teamKey){
+        if(t.id!=null) removedIds[String(t.id)] = true;
+        removed++;
+        return false;             // on enlève la copie propre d'une AUTRE catégorie
+      }
+      return true;
+    });
+  });
+  // Nettoyage des invitées orphelines référençant une source supprimée.
+  if(removed){
+    (CATEGORIES||[]).forEach(function(c){
+      if(!c || !Array.isArray(c.teams)) return;
+      c.teams = c.teams.filter(function(t){
+        return !(t && t.isGuest && t.guestSourceId!=null && removedIds[String(t.guestSourceId)]);
+      });
+    });
+  }
+  return removed;
+}
+
 // ── Calcule ce qui sera importé (dédoublonnage) ─────────────────────────
 function importComputePlan(){
   var hasHeader = !!(document.getElementById('import-has-header')||{}).checked;
@@ -13616,7 +13654,7 @@ function importComputePlan(){
   var order = [];
   var totalTeams = 0, skippedEmpty = 0, dupInFile = 0;
   function getBucket(name){
-    var key = name.toLowerCase();
+    var key = importTeamKey(name);
     if(!byCat[key]){ byCat[key] = { name:name, teams:[], seen:{} }; order.push(key); }
     return byCat[key];
   }
@@ -13630,31 +13668,42 @@ function importComputePlan(){
       skippedEmpty++; return;
     }
     var bucket = getBucket(catName);
-    var tkey = teamName.toLowerCase();
+    var tkey = importTeamKey(teamName);
     if(bucket.seen[tkey]){ dupInFile++; return; }
     bucket.seen[tkey] = true;
     bucket.teams.push(teamName);
     totalTeams++;
   });
-  // Classe catégories : existantes vs nouvelles ; compte doublons vs existant
+  // Classe catégories : existantes vs nouvelles ; compte doublons vs existant.
+  // movedFromOther = équipes actuellement « propres » dans une AUTRE catégorie
+  //   qui seront DÉPLACÉES vers leur catégorie de destination (jamais dupliquées).
+  var movedFromOther = 0;
   var cats = order.map(function(k){
     var b = byCat[k];
     var existing = CATEGORIES.find(function(c){return (c.nom||'').toLowerCase()===k;});
     // si pas de colonne cat et fallback actif, l'"existing" est la catégorie active
     if(!existing && catIdx<0 && fallbackCat && (fallbackCat.nom||'').toLowerCase()===k){ existing=fallbackCat; }
-    var dupExisting = 0, newTeams = 0;
-    if(existing){
-      b.teams.forEach(function(nm){
-        if(existing.teams.find(function(t){return (t.nom||'').toLowerCase()===nm.toLowerCase();})) dupExisting++;
-        else newTeams++;
+    var dupExisting = 0, newTeams = 0, movedHere = 0;
+    b.teams.forEach(function(nm){
+      var nk = importTeamKey(nm);
+      // Déjà présente « propre » dans la catégorie de destination → ignorée.
+      if(existing && existing.teams.find(function(t){return !t.isGuest && importTeamKey(t.nom)===nk;})){
+        dupExisting++;
+        return;
+      }
+      // Présente « propre » dans une AUTRE catégorie → sera déplacée ici.
+      var elsewhere = CATEGORIES.some(function(c){
+        return c!==existing && Array.isArray(c.teams) && c.teams.some(function(t){ return !t.isGuest && importTeamKey(t.nom)===nk; });
       });
-    } else { newTeams = b.teams.length; }
-    return { name:b.name, teams:b.teams, existing:!!existing, existingRef:existing||null, dupExisting:dupExisting, newTeams:newTeams };
+      if(elsewhere){ movedHere++; movedFromOther++; }
+      else { newTeams++; }
+    });
+    return { name:b.name, teams:b.teams, existing:!!existing, existingRef:existing||null, dupExisting:dupExisting, newTeams:newTeams, movedHere:movedHere };
   });
   var noCatCol = catIdx<0;
   var canImport = totalTeams>0 && (!noCatCol || !!fallbackCat);
   return {
-    cats:cats, totalTeams:totalTeams, skippedEmpty:skippedEmpty, dupInFile:dupInFile,
+    cats:cats, totalTeams:totalTeams, skippedEmpty:skippedEmpty, dupInFile:dupInFile, movedFromOther:movedFromOther,
     newCats: cats.filter(function(c){return !c.existing;}).length,
     existingCats: cats.filter(function(c){return c.existing;}).length,
     noCatCol:noCatCol, hasFallback:!!fallbackCat, fallbackName: fallbackCat?fallbackCat.nom:'', canImport:canImport
@@ -13689,6 +13738,7 @@ function importRefreshRecap(){
   if(plan.dupInFile) notes.push(plan.dupInFile+' doublon'+(plan.dupInFile>1?'s':'')+' dans le fichier');
   var dupEx = plan.cats.reduce(function(s,c){return s+c.dupExisting;},0);
   if(dupEx) notes.push(dupEx+' déjà présente'+(dupEx>1?'s':'')+' (ignorée'+(dupEx>1?'s':'')+')');
+  if(plan.movedFromOther) notes.push(plan.movedFromOther+' déplacée'+(plan.movedFromOther>1?'s':'')+' depuis une autre catégorie (doublon évité)');
   if(plan.skippedEmpty) notes.push(plan.skippedEmpty+' ligne'+(plan.skippedEmpty>1?'s':'')+' vide'+(plan.skippedEmpty>1?'s':'')+' ignorée'+(plan.skippedEmpty>1?'s':''));
   var html = '✅ ' + parts.join(' · ');
   if(notes.length) html += '<div style="font-size:10.5px;font-weight:600;color:var(--ink3);margin-top:5px;">↳ '+notes.join(' · ')+'</div>';
@@ -13716,7 +13766,7 @@ function importCommit(){
   try{ plan = importComputePlan(); }
   catch(err){ toast('Erreur import : '+(err&&err.message||err), '#DC2626'); return; }
   if(!plan.canImport){ toast('Rien à importer (vérifie le mapping).', '#E65100'); return; }
-  var createdCats = 0, completedCats = 0, addedTeams = 0, dupTeams = 0;
+  var createdCats = 0, completedCats = 0, addedTeams = 0, dupTeams = 0, movedTeams = 0;
   var lastCatId = null;
   try{
     plan.cats.forEach(function(entry){
@@ -13741,16 +13791,26 @@ function importCommit(){
       } else {
         completedCats++;
       }
-      // Ajoute les équipes (dédoublonnées vs existant)
+      // Ajoute les équipes.
+      //  1) Si déjà présente « propre » dans CETTE catégorie → ignorée (idempotence).
+      //  2) Sinon, on RETIRE toute copie « propre » du même nom dans une AUTRE
+      //     catégorie (la colonne catégorie du fichier fait foi = déplacement),
+      //     de sorte qu'une équipe ne soit JAMAIS « propre » dans deux catégories.
+      //     Les invitées (isGuest) ne sont jamais touchées.
       entry.teams.forEach(function(nm){
-        if(cat.teams.find(function(t){return (t.nom||'').toLowerCase()===nm.toLowerCase();})){ dupTeams++; return; }
+        var nk = importTeamKey(nm);
+        if(cat.teams.find(function(t){return !t.isGuest && importTeamKey(t.nom)===nk;})){ dupTeams++; return; }
+        var moved = importRemovePropreElsewhere(nk, cat);
+        if(moved){ movedTeams++; }
         cat.teams.push({ id: Date.now()+Math.random(), nom:nm, ligne:null, heatNum:null, forcedLine:null });
         addedTeams++;
       });
-      // Recalcule le nb de heats (PAS de generateHeats : génération explicite ensuite)
-      autoCalcHeats(cat);
       lastCatId = cat.id;
     });
+    // Recalcule le nb de heats de TOUTES les catégories touchées (destinations
+    // ET sources dont on a retiré des équipes). PAS de generateHeats :
+    // le placement / la génération restent des actions explicites.
+    (CATEGORIES||[]).forEach(function(c){ if(c) autoCalcHeats(c); });
   }catch(err){
     toast('Import interrompu : '+(err&&err.message||err), '#DC2626');
   }
@@ -13760,6 +13820,7 @@ function importCommit(){
   autoSave();   // ★ PAS de generateHeats ici : placement/heats restent explicites
   closeImportCat();
   var msg = '✅ Import : '+createdCats+' créée'+(createdCats>1?'s':'')+', '+completedCats+' complétée'+(completedCats>1?'s':'')+' · '+addedTeams+' équipe'+(addedTeams>1?'s':'')+' ajoutée'+(addedTeams>1?'s':'');
+  if(movedTeams) msg += ' · '+movedTeams+' déplacée'+(movedTeams>1?'s':'')+' (doublon évité)';
   if(dupTeams) msg += ' · '+dupTeams+' doublon'+(dupTeams>1?'s':'')+' ignoré'+(dupTeams>1?'s':'');
   toast(msg, '#059669');
 }
