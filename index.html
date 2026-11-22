@@ -1754,64 +1754,83 @@ function checkPassword(){
 <div id="benevoles" class="sheet">
 <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px;padding-bottom:14px;border-bottom:2px solid var(--brd2)">
   <div style="flex:1">
-    <div style="font-size:20px;font-weight:900;color:var(--ink)">👥 Bénévoles & Juges</div>
-    <div style="font-size:11px;color:var(--ink3);margin-top:3px">Gérez les bénévoles, disponibilités et compétences</div>
-  </div>
-  <div style="display:flex;gap:8px;flex-wrap:wrap">
-    <button class="btn btn-red" onclick="openAddBen()">+ Nouveau bénévole</button>
-    <button class="btn" onclick="renderBenView()" style="background:#EBF0FA;color:var(--ink2)">🔄 Actualiser</button>
+    <div style="font-size:20px;font-weight:900;color:var(--ink);letter-spacing:.3px">👥 Bénévoles & Juges</div>
+    <div style="font-size:11px;color:var(--ink3);margin-top:3px;font-weight:600">Gérez les juges, disponibilités et compétences</div>
   </div>
 </div>
 
-<!-- Filtres -->
-<div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
-  <input id="ben-search" placeholder="🔍 Rechercher..." oninput="renderBenView()" 
-    style="flex:1;min-width:160px;background:#fff;border:1.5px solid var(--brd2);border-radius:8px;padding:8px 12px;font-size:12px;outline:none;font-family:inherit;color:var(--ink)">
-  <select id="ben-slot-filter" onchange="renderBenView()" 
-    style="background:#fff;border:1.5px solid var(--brd2);border-radius:8px;padding:8px 10px;font-size:11px;outline:none;cursor:pointer;color:var(--ink)">
-    <option value="Tous">Tous créneaux</option>
-    <option value="Matin">🌅 Matin</option>
-    <option value="Après-Midi">☀️ Après-Midi</option>
-    <option value="Journée">🌞 Journée</option>
-  </select>
-  <select id="ben-day-filter" onchange="renderBenView()" 
-    style="background:#fff;border:1.5px solid var(--brd2);border-radius:8px;padding:8px 10px;font-size:11px;outline:none;cursor:pointer;color:var(--ink)">
-    <option value="Tous">Tous jours</option>
-    <option value="1">📅 Jour 1</option>
-    <option value="2">📅 Jour 2</option>
-    <option value="12">📅 Les 2</option>
-  </select>
+<div class="ben-dash-wrap" style="max-width:1320px;margin:0 auto">
+
+  <!-- ══════════ TABLEAU DE BORD 2 COLONNES ══════════ -->
+  <div class="ben-dashboard" style="display:grid;grid-template-columns:minmax(330px,35%) 1fr;gap:18px;align-items:start;margin-bottom:18px;">
+
+    <!-- ───────── COLONNE GAUCHE : ajout rapide + import + liste ───────── -->
+    <div class="ben-col-left" style="display:flex;flex-direction:column;gap:14px;">
+
+      <!-- Carte ajout rapide -->
+      <div style="background:#FFFFFF;border:1px solid var(--brd);border-radius:14px;padding:15px 16px;box-shadow:var(--shadow-xs);">
+        <div style="font-size:10px;font-weight:900;color:var(--ink2);text-transform:uppercase;letter-spacing:.9px;margin-bottom:9px;display:flex;align-items:center;gap:6px;">➕ Ajouter un juge</div>
+        <div style="display:flex;gap:7px;align-items:center">
+          <input id="quick-ben-prenom" type="text" placeholder="Prénom…" autocomplete="off"
+            onkeydown="if(event.key==='Enter'){event.preventDefault();var n=document.getElementById('quick-ben-nom');if(n)n.focus();}"
+            style="flex:1;min-width:0;background:#F5F8FF;border:1.5px solid var(--brd2);border-radius:10px;padding:11px 12px;font-size:14px;font-weight:700;color:var(--ink);outline:none;font-family:inherit;">
+          <input id="quick-ben-nom" type="text" placeholder="Nom…" autocomplete="off"
+            onkeydown="if(event.key==='Enter'){event.preventDefault();quickAddBen();}"
+            style="flex:1;min-width:0;background:#F5F8FF;border:1.5px solid var(--brd2);border-radius:10px;padding:11px 12px;font-size:14px;font-weight:700;color:var(--ink);outline:none;font-family:inherit;">
+          <button onclick="quickAddBen()" title="Ajouter (ou appuie sur Entrée)" style="padding:11px 15px;border:none;border-radius:10px;background:linear-gradient(135deg,#1565C0,#1E88E5);color:#fff;font-size:14px;font-weight:900;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:5px;white-space:nowrap;box-shadow:0 4px 12px rgba(21,101,192,.22)">＋</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap">
+          <button onclick="openImportBen()" title="Importer des juges depuis un fichier CSV ou Excel" style="flex:1;min-width:150px;padding:10px 14px;border:1.5px solid rgba(21,101,192,.3);border-radius:10px;background:linear-gradient(135deg,rgba(21,101,192,.08),rgba(30,136,229,.05));color:#1565C0;font-size:12.5px;font-weight:900;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:7px;white-space:nowrap">📥 Importer (CSV / Excel)</button>
+          <button onclick="openAddBen()" title="Créer avec tous les réglages détaillés (zone, qualif, dispos, head judge, athlète…)" style="padding:10px 12px;border:1px solid var(--brd2);border-radius:10px;background:#fff;color:var(--ink2);font-size:11px;font-weight:800;cursor:pointer;font-family:inherit;white-space:nowrap">⚙️ Détaillé</button>
+        </div>
+        <div style="font-size:9.5px;color:var(--mid);font-weight:600;margin-top:8px;line-height:1.5">Astuce : Prénom, <b>Entrée</b>, Nom, <b>Entrée</b> pour enchaîner plusieurs juges (rôle Juge, J1+J2 par défaut).</div>
+      </div>
+
+      <!-- Liste compacte des bénévoles -->
+      <div style="background:#FFFFFF;border:1px solid var(--brd);border-radius:14px;padding:12px 12px 14px;box-shadow:var(--shadow-xs);">
+        <!-- Compteur juges + seuil pré-flight -->
+        <div id="ben-judge-counter" style="margin:0 2px 10px;"></div>
+        <!-- Recherche + filtres -->
+        <div style="display:flex;gap:6px;margin:0 2px 10px;flex-wrap:wrap;align-items:center">
+          <input id="ben-search" placeholder="🔍 Rechercher…" autocomplete="off" oninput="filterBenList()"
+            style="flex:1;min-width:120px;background:#F5F8FF;border:1.5px solid var(--brd2);border-radius:9px;padding:8px 11px;font-size:12px;outline:none;font-family:inherit;color:var(--ink)">
+          <select id="ben-slot-filter" onchange="filterBenList()"
+            style="background:#fff;border:1.5px solid var(--brd2);border-radius:9px;padding:8px 8px;font-size:10.5px;outline:none;cursor:pointer;color:var(--ink2);font-family:inherit">
+            <option value="Tous">Tous créneaux</option>
+            <option value="Matin">🌅 Matin</option>
+            <option value="Après-Midi">☀️ A-M</option>
+            <option value="Journée">🌞 Journée</option>
+          </select>
+          <select id="ben-day-filter" onchange="filterBenList()"
+            style="background:#fff;border:1.5px solid var(--brd2);border-radius:9px;padding:8px 8px;font-size:10.5px;outline:none;cursor:pointer;color:var(--ink2);font-family:inherit">
+            <option value="Tous">Tous jours</option>
+            <option value="1">J1</option>
+            <option value="2">J2</option>
+            <option value="12">J1+2</option>
+          </select>
+        </div>
+        <div style="display:flex;align-items:center;margin:2px 4px 8px;">
+          <span style="font-size:10px;font-weight:900;color:var(--ink3);text-transform:uppercase;letter-spacing:1px;">Bénévoles</span>
+          <span id="ben-list-summary" style="margin-left:auto;font-size:10px;color:var(--mid);font-weight:600;white-space:nowrap;text-align:right"></span>
+        </div>
+        <div id="ben-list-grid" style="display:flex;flex-direction:column;gap:6px;max-height:620px;overflow-y:auto;"></div>
+      </div>
+
+    </div>
+
+    <!-- ───────── COLONNE DROITE : panneau détail ───────── -->
+    <div class="ben-col-right" style="background:#FFFFFF;border:1px solid var(--brd);border-radius:14px;box-shadow:var(--shadow-sm);min-height:420px;overflow:hidden;">
+      <div id="ben-detail-pane"></div>
+    </div>
+
+  </div>
 </div>
 
-<!-- Stats badges -->
-<div id="ben-stats-badges" style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap"></div>
-
-<!-- Tableau -->
-<div style="background:#fff;border:1.5px solid var(--brd2);border-radius:12px;overflow:hidden">
-  <div style="overflow-x:auto">
-    <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:1160px">
-      <thead>
-        <tr style="background:#F8FAFF">
-          <th style="padding:10px 12px;text-align:left;font-weight:800;color:var(--ink2);border-bottom:2px solid var(--brd2);white-space:nowrap">#</th>
-          <th style="padding:10px 12px;text-align:left;font-weight:800;color:var(--ink2);border-bottom:2px solid var(--brd2)">Nom</th>
-          <th style="padding:10px 12px;text-align:center;font-weight:800;color:var(--ink2);border-bottom:2px solid var(--brd2)">Q.</th>
-          <th style="padding:10px 12px;text-align:center;font-weight:800;color:var(--ink2);border-bottom:2px solid var(--brd2)">Créneaux</th>
-          <th style="padding:10px 12px;text-align:center;font-weight:800;color:var(--ink2);border-bottom:2px solid var(--brd2)">Jours</th>
-          <th style="padding:10px 12px;text-align:left;font-weight:800;color:var(--ink2);border-bottom:2px solid var(--brd2)">Affectation</th>
-          <th style="padding:10px 12px;text-align:center;font-weight:800;color:var(--ink2);border-bottom:2px solid var(--brd2)">Repas</th>
-          <th style="padding:10px 12px;text-align:left;font-weight:800;color:var(--ink2);border-bottom:2px solid var(--brd2)">Email</th>
-          <th style="padding:10px 12px;text-align:center;font-weight:800;color:var(--ink2);border-bottom:2px solid var(--brd2)">Tél.</th>
-          <th style="padding:10px 12px;text-align:center;font-weight:800;color:var(--ink2);border-bottom:2px solid var(--brd2)">Actions</th>
-        </tr>
-      </thead>
-      <tbody id="ben-body"></tbody>
-    </table>
-  </div>
-  <div id="ben-empty" style="display:none;text-align:center;padding:40px;color:var(--ink3)">
-    <div style="font-size:36px;margin-bottom:10px;opacity:.3">👥</div>
-    <div style="font-size:14px;font-weight:800;margin-bottom:6px">Aucun bénévole</div>
-    <div style="font-size:12px">Clique sur <b>+ Nouveau bénévole</b> pour commencer</div>
-  </div>
+<!-- Conteneurs legacy (compat : certaines vues lisent encore ces IDs) -->
+<div style="display:none">
+  <div id="ben-stats-badges"></div>
+  <tbody id="ben-body"></tbody>
+  <div id="ben-empty"></div>
 </div>
 </div>
 
@@ -2028,6 +2047,93 @@ function checkPassword(){
         <button onclick="importCommit()" id="import-commit-btn" style="padding:11px 24px;background:linear-gradient(135deg,#059669,#047857);border:none;border-radius:10px;color:#fff;font-size:14px;font-weight:900;cursor:pointer;display:flex;align-items:center;gap:7px;">✅ Importer</button>
         <button onclick="closeImportCat()" style="padding:11px 18px;border:1px solid var(--brd2);border-radius:10px;background:#fff;color:var(--ink2);font-size:12.5px;font-weight:800;cursor:pointer;">Annuler</button>
         <span id="import-commit-msg" style="font-size:11px;font-weight:700;color:var(--ink3);margin-left:auto;"></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ MODAL IMPORT BÉNÉVOLES / JUGES ═══════════ -->
+<div class="modal-bg" id="import-ben-modal">
+  <div class="modal" style="max-width:760px">
+    <div style="background:linear-gradient(135deg,#1565C0,#1E88E5);margin:-24px -24px 18px;padding:15px 20px;border-radius:16px 16px 0 0;display:flex;align-items:center;justify-content:space-between">
+      <span style="color:#fff;font-weight:900;font-size:14px;display:flex;align-items:center;gap:8px">📥 Importer des juges / bénévoles</span>
+      <button onclick="closeImportBen()" style="background:rgba(255,255,255,.18);border:none;color:#fff;font-size:18px;cursor:pointer;width:30px;height:30px;border-radius:8px;line-height:1">×</button>
+    </div>
+
+    <!-- ÉTAPE 1 : source -->
+    <div id="importben-step-source">
+      <div id="importben-dropzone"
+        ondragover="event.preventDefault();this.classList.add('dz-over');"
+        ondragleave="this.classList.remove('dz-over');"
+        ondrop="importBenHandleDrop(event);"
+        onclick="document.getElementById('importben-file-input').click();"
+        style="border:2px dashed var(--brd2,#C4D0E4);border-radius:14px;padding:30px 20px;text-align:center;cursor:pointer;background:var(--s2,#F8FAFF);transition:border-color .15s,background .15s;">
+        <div style="font-size:40px;margin-bottom:10px;opacity:.6;">📄</div>
+        <div style="font-size:14px;font-weight:900;color:var(--ink);margin-bottom:5px;">Glisse un fichier ici, ou clique pour choisir</div>
+        <div style="font-size:11.5px;color:var(--ink3);font-weight:600;">CSV (.csv) · Excel (.xlsx, .xls)</div>
+        <input id="importben-file-input" type="file" accept=".csv,.xlsx,.xls,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" style="display:none" onchange="importBenHandleFile(this.files&&this.files[0]);this.value='';">
+      </div>
+
+      <div style="display:flex;align-items:center;gap:10px;margin:16px 0 10px;">
+        <div style="flex:1;height:1px;background:var(--brd2);"></div>
+        <span style="font-size:10px;font-weight:800;color:var(--mid);text-transform:uppercase;letter-spacing:1px;">ou colle un tableau</span>
+        <div style="flex:1;height:1px;background:var(--brd2);"></div>
+      </div>
+      <textarea id="importben-paste-area" rows="4" placeholder="Colle ici depuis Excel / Sheets (une ligne par juge), puis clique « Analyser le collage ».&#10;Prénom	Nom	Rôle	Zone&#10;Jean	Dupont	Juge	1&#10;Marie	Martin	Juge	2"
+        style="width:100%;background:var(--s2,#F5F8FF);border:1.5px solid var(--brd2);border-radius:10px;padding:10px 12px;font-size:12px;color:var(--ink);outline:none;font-family:var(--fm,monospace);resize:vertical;box-sizing:border-box;line-height:1.5;"></textarea>
+      <div style="display:flex;align-items:center;gap:10px;margin-top:9px;">
+        <button onclick="importBenHandlePaste()" style="padding:9px 18px;background:linear-gradient(135deg,#1565C0,#1E88E5);border:none;border-radius:9px;color:#fff;font-size:12.5px;font-weight:800;cursor:pointer;">🔍 Analyser le collage</button>
+        <span id="importben-source-msg" style="font-size:11px;font-weight:700;color:var(--err);"></span>
+      </div>
+      <div style="font-size:10.5px;color:var(--mid);margin-top:14px;line-height:1.6;background:var(--s2,#F8FAFF);border:1px solid var(--brd);border-radius:9px;padding:9px 12px;">
+        💡 <b>Colonnes reconnues</b> : Prénom, Nom (au minimum) — Rôle, Zone, Qualif et Jours sont optionnels. Une seule colonne « nom complet » est automatiquement scindée en prénom / nom. La détection est automatique et modifiable avant l'import.
+      </div>
+    </div>
+
+    <!-- ÉTAPE 2 : aperçu + mapping + récap -->
+    <div id="importben-step-preview" style="display:none;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+        <span id="importben-file-badge" style="font-size:11px;font-weight:800;color:#1565C0;background:rgba(21,101,192,.1);border:1px solid rgba(21,101,192,.22);border-radius:7px;padding:4px 10px;">fichier.csv</span>
+        <button onclick="importBenBackToSource()" style="margin-left:auto;padding:5px 12px;border:1px solid var(--brd2);border-radius:7px;background:#fff;color:var(--ink2);font-size:11px;font-weight:700;cursor:pointer;">← Changer de source</button>
+      </div>
+
+      <!-- Mapping colonnes -->
+      <div style="background:var(--s2,#F8FAFF);border:1px solid var(--brd2);border-radius:11px;padding:13px 15px;margin-bottom:13px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:8px;flex-wrap:wrap">
+          <div style="font-size:10px;font-weight:900;color:var(--ink2);text-transform:uppercase;letter-spacing:.7px;">🔗 Correspondance des colonnes</div>
+          <label style="display:flex;align-items:center;gap:7px;cursor:pointer;" title="Si ta 1ère ligne contient les titres de colonnes (Prénom, Nom…)">
+            <input type="checkbox" id="importben-has-header" onchange="importBenRebuildColumns()" style="width:16px;height:16px;cursor:pointer;">
+            <span style="font-size:11px;font-weight:700;color:var(--ink2);">1ère ligne = en-têtes</span>
+          </label>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:11px;">
+          <label><span style="display:block;font-size:10px;font-weight:700;color:var(--ink3);margin-bottom:5px;">Prénom</span>
+            <select id="importben-col-prenom" onchange="importBenRefreshRecap()" style="width:100%;background:#fff;border:1.5px solid var(--brd2);border-radius:8px;padding:7px 9px;font-size:12px;color:var(--ink);font-family:inherit;cursor:pointer;"></select></label>
+          <label><span style="display:block;font-size:10px;font-weight:700;color:var(--ink3);margin-bottom:5px;">Nom</span>
+            <select id="importben-col-nom" onchange="importBenRefreshRecap()" style="width:100%;background:#fff;border:1.5px solid var(--brd2);border-radius:8px;padding:7px 9px;font-size:12px;color:var(--ink);font-family:inherit;cursor:pointer;"></select></label>
+          <label><span style="display:block;font-size:10px;font-weight:700;color:var(--ink3);margin-bottom:5px;">Rôle <span style="color:var(--mid);font-weight:600">(opt.)</span></span>
+            <select id="importben-col-role" onchange="importBenRefreshRecap()" style="width:100%;background:#fff;border:1.5px solid var(--brd2);border-radius:8px;padding:7px 9px;font-size:12px;color:var(--ink);font-family:inherit;cursor:pointer;"></select></label>
+          <label><span style="display:block;font-size:10px;font-weight:700;color:var(--ink3);margin-bottom:5px;">Zone <span style="color:var(--mid);font-weight:600">(opt.)</span></span>
+            <select id="importben-col-zone" onchange="importBenRefreshRecap()" style="width:100%;background:#fff;border:1.5px solid var(--brd2);border-radius:8px;padding:7px 9px;font-size:12px;color:var(--ink);font-family:inherit;cursor:pointer;"></select></label>
+          <label><span style="display:block;font-size:10px;font-weight:700;color:var(--ink3);margin-bottom:5px;">Qualif <span style="color:var(--mid);font-weight:600">(opt.)</span></span>
+            <select id="importben-col-qualif" onchange="importBenRefreshRecap()" style="width:100%;background:#fff;border:1.5px solid var(--brd2);border-radius:8px;padding:7px 9px;font-size:12px;color:var(--ink);font-family:inherit;cursor:pointer;"></select></label>
+          <label><span style="display:block;font-size:10px;font-weight:700;color:var(--ink3);margin-bottom:5px;">Jours <span style="color:var(--mid);font-weight:600">(opt.)</span></span>
+            <select id="importben-col-jours" onchange="importBenRefreshRecap()" style="width:100%;background:#fff;border:1.5px solid var(--brd2);border-radius:8px;padding:7px 9px;font-size:12px;color:var(--ink);font-family:inherit;cursor:pointer;"></select></label>
+        </div>
+      </div>
+
+      <!-- Aperçu -->
+      <div style="font-size:10px;font-weight:900;color:var(--ink2);text-transform:uppercase;letter-spacing:.7px;margin-bottom:7px;">👁 Aperçu <span id="importben-preview-rows" style="color:var(--mid);font-weight:700;text-transform:none;letter-spacing:0;"></span></div>
+      <div style="border:1px solid var(--brd2);border-radius:10px;overflow:auto;max-height:230px;margin-bottom:13px;">
+        <table id="importben-preview-table" style="width:100%;border-collapse:collapse;font-size:11.5px;"></table>
+      </div>
+
+      <!-- Récap -->
+      <div id="importben-recap" style="background:linear-gradient(135deg,rgba(5,150,105,.08),rgba(5,150,105,.03));border:1px solid rgba(5,150,105,.25);border-radius:11px;padding:12px 15px;margin-bottom:16px;font-size:12.5px;font-weight:700;color:var(--ink);"></div>
+
+      <div style="display:flex;align-items:center;gap:10px;">
+        <button onclick="importBenCommit()" id="importben-commit-btn" style="padding:11px 24px;background:linear-gradient(135deg,#059669,#047857);border:none;border-radius:10px;color:#fff;font-size:14px;font-weight:900;cursor:pointer;display:flex;align-items:center;gap:7px;">✅ Importer</button>
+        <button onclick="closeImportBen()" style="padding:11px 18px;border:1px solid var(--brd2);border-radius:10px;background:#fff;color:var(--ink2);font-size:12.5px;font-weight:800;cursor:pointer;">Annuler</button>
       </div>
     </div>
   </div>
@@ -4484,6 +4590,7 @@ function show(id,btn){
   if(id==='classement-tk'){ setTimeout(function(){ if(typeof startClassementAutoRefresh==='function') startClassementAutoRefresh(); },50); }
   if(id==="config"){ setTimeout(function(){ if(typeof loadCountdownDuration==='function') loadCountdownDuration(); }, 100); }
   if(id==="categories"){setTimeout(function(){renderCategories();},80);}
+  if(id==="benevoles"){setTimeout(function(){if(typeof renderBenView==="function")renderBenView();},60);}
   if(id==="planning"){generateHeatsSilent();computeHorairesOnly();syncHeatsToFirebase();setPlanDay(activePlanDay);setTimeout(function(){if(typeof syncJudgeAssignmentsNow==='function')syncJudgeAssignmentsNow();},2000);setTimeout(renderPlanningCF,50);}
   if(id==="planning-juge"){generateHeatsSilent();computeHorairesOnly();setTimeout(function(){if(typeof syncJudgeAssignmentsNow==='function')syncJudgeAssignmentsNow();},1200);setTimeout(renderJudgePlanningTab,60);setTimeout(function(){try{if(typeof loadJudgeOverrides==='function')loadJudgeOverrides();}catch(e){}},140);}
   if(id==="planning-hj"){try{generateHeatsSilent();computeHorairesOnly();}catch(e){}setTimeout(function(){if(typeof renderHeadJudgePlanningTab==='function')renderHeadJudgePlanningTab();},60);}
@@ -5978,60 +6085,668 @@ function renderPSView(){
   }).join("");
 }
 
+// ════════════════════════════════════════════════════════════════════
+//  TABLEAU DE BORD BÉNÉVOLES (2 colonnes, cohérent avec Catégories)
+//  — Rendu : compteur juges + liste compacte (gauche) + panneau détail (droite)
+//  — renderBenView() est le point d'entrée (appelé par reactiveUpdate, Firebase…)
+// ════════════════════════════════════════════════════════════════════
+var _activeBenId = null;   // bénévole sélectionné (collant)
+
+// Helper d'échappement : réutilise escHtml si dispo, sinon fallback local.
+function escBen(s){
+  if(typeof escHtml==='function'){ try{ return escHtml(s); }catch(e){} }
+  return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Libellé court du rôle (rôles « Juge Z1/Z2 » affichés « Juge »).
+function benRoleShort(b){
+  var r=String((b&&b.role)||'').trim();
+  if(!r) return 'Juge';
+  var rl=r.toLowerCase();
+  if(rl==='juge z1'||rl==='juge z2'||rl==='juge') return 'Juge';
+  if(rl.indexOf('principal')!==-1||rl.indexOf('head')!==-1||rl.indexOf('chef')!==-1) return 'Head judge';
+  return r;
+}
+
+// Rendu principal : met à jour TOUS les éléments du tableau de bord.
 function renderBenView(){
   ensureSeedBenevoles(false);
+  // Si le bénévole sélectionné n'existe plus, on déselectionne.
+  if(_activeBenId!=null && !BENEVOLES.some(function(b){return b.id===_activeBenId;})) _activeBenId=null;
+  renderBenJudgeCounter();
+  renderBenList();
+  renderBenDetailPane();
+  // ── Compat : conserver les anciens conteneurs (cachés) pour toute vue qui les lirait.
+  var sb=document.getElementById("ben-stats-badges");
+  if(sb) sb.innerHTML=
+    '<span class="badge day1" style="font-size:10px">📅 Jour 1 · '+BENEVOLES.filter(function(b){return b.jours==="1";}).length+'</span>'
+    +'<span class="badge day2" style="font-size:10px">📅 Jour 2 · '+BENEVOLES.filter(function(b){return b.jours==="2";}).length+'</span>'
+    +'<span class="badge day12" style="font-size:10px">📅 Les 2 · '+BENEVOLES.filter(function(b){return b.jours==="12";}).length+'</span>';
+}
+
+// Compteur en tête : « N juges · ✅/⚠️ 2+ requis » (branché getJudgingBenevoles + seuil pré-flight)
+function renderBenJudgeCounter(){
+  var el=document.getElementById("ben-judge-counter");
+  if(!el) return;
+  var nJuges=0;
+  try{ nJuges=(typeof getJudgingBenevoles==='function'?getJudgingBenevoles():[]).length; }catch(e){ nJuges=0; }
+  var nTotal=(BENEVOLES||[]).length;
+  // ★ Seuil identique au pré-flight accueil (BENEVOLES.length>=2 → « 2+ juges »).
+  var ok=nTotal>=2;
+  var icon=ok?'✅':'⚠️';
+  var col=ok?'#047857':'#B45309';
+  var bg=ok?'linear-gradient(135deg,rgba(5,150,105,.09),rgba(5,150,105,.03))':'linear-gradient(135deg,rgba(245,158,11,.1),rgba(245,158,11,.03))';
+  var bd=ok?'rgba(5,150,105,.25)':'rgba(245,158,11,.3)';
+  el.innerHTML='<div style="display:flex;align-items:center;gap:9px;background:'+bg+';border:1px solid '+bd+';border-radius:11px;padding:9px 12px;">'
+    +'<span style="font-size:19px;font-weight:900;color:'+col+';line-height:1;font-family:monospace;">'+nJuges+'</span>'
+    +'<div style="flex:1;min-width:0;line-height:1.3;">'
+      +'<div style="font-size:11.5px;font-weight:900;color:var(--ink);">juge'+(nJuges>1?'s':'')+' affecté'+(nJuges>1?'s':'')+'</div>'
+      +'<div style="font-size:10px;font-weight:700;color:'+col+';">'+icon+' '+(ok?'seuil atteint (2+ requis)':'2 juges minimum requis')+'</div>'
+    +'</div>'
+    +(nTotal!==nJuges?'<span style="font-size:10px;color:var(--mid);font-weight:700;white-space:nowrap;">'+nTotal+' au total</span>':'')
+  +'</div>';
+}
+
+// Liste compacte filtrée. Filtrage ciblé (ne touche QUE #ben-list-grid + résumé).
+function renderBenList(){
+  var grid=document.getElementById("ben-list-grid");
+  if(!grid) return;
   var searchEl=document.getElementById("ben-search");
   var slotEl=document.getElementById("ben-slot-filter");
   var dayEl=document.getElementById("ben-day-filter");
-  var search=(searchEl&&searchEl.value||"").toLowerCase();
+  var search=(searchEl&&searchEl.value||"").toLowerCase().trim();
   var slotF=slotEl&&slotEl.value||"Tous";
   var dayF=dayEl&&dayEl.value||"Tous";
-  var filtered=BENEVOLES.filter(function(b){
+  var filtered=(BENEVOLES||[]).filter(function(b){
     if(slotF!=="Tous"&&b.slot!==slotF)return false;
     if(dayF!=="Tous"&&b.jours!==dayF)return false;
-    if(search&&!(b.prenom+" "+b.nom+" "+(b.email||"")).toLowerCase().includes(search))return false;
+    if(search&&!((b.prenom||"")+" "+(b.nom||"")+" "+(b.email||"")+" "+(b.role||"")).toLowerCase().includes(search))return false;
     return true;
   });
-  if(!filtered.length && BENEVOLES.length && (search || slotF!=="Tous" || dayF!=="Tous")){
-    if(searchEl) searchEl.value="";
-    if(slotEl) slotEl.value="Tous";
-    if(dayEl) dayEl.value="Tous";
-    search=""; slotF="Tous"; dayF="Tous";
-    filtered=BENEVOLES.slice();
+  var summary=document.getElementById("ben-list-summary");
+  if(summary){
+    var tot=(BENEVOLES||[]).length;
+    summary.textContent = filtered.length===tot ? (tot+' bénévole'+(tot>1?'s':'')) : (filtered.length+' / '+tot);
   }
-  document.getElementById("ben-stats-badges").innerHTML=
-    '<span class="badge day1" style="font-size:10px">📅 Jour 1 · '+BENEVOLES.filter(function(b){return b.jours==="1";}).length+'</span>'
-    +'<span class="badge day2" style="font-size:10px">📅 Jour 2 · '+BENEVOLES.filter(function(b){return b.jours==="2";}).length+'</span>'
-    +'<span class="badge day12" style="font-size:10px">📅 Les 2 · '+BENEVOLES.filter(function(b){return b.jours==="12";}).length+'</span>'
-    +'<span class="badge" style="background:#1E88E522;color:#64B5F6;border:1px solid #1E88E533;font-size:10px">⭐ Experts · '+BENEVOLES.filter(function(b){return b.qualif>=7;}).length+'</span>'
-    +'<span class="badge" style="background:#4A148C22;color:#CE93D8;border:1px solid #4A148C33;font-size:10px">🏃 Athlètes · '+BENEVOLES.filter(function(b){return b.isAthlete;}).length+'</span>';
-  document.getElementById("ben-body").innerHTML=filtered.map(function(b,i){
-    var roleBadges = [];
-    if(b.role) roleBadges.push('<span style="background:#E8F1FF;color:#1565C0;border:1px solid #BFDBFE;border-radius:999px;padding:2px 8px;font-size:9px;font-weight:800">'+b.role+'</span>');
-    if(b.zoneAssign) roleBadges.push('<span style="background:'+(String(b.zoneAssign)==="2"?'#ECFDF5;color:#166534;border:1px solid #A7F3D0':'#EFF6FF;color:#1D4ED8;border:1px solid #BFDBFE')+';border-radius:999px;padding:2px 8px;font-size:9px;font-weight:800">📍 Z'+b.zoneAssign+'</span>');
-    if(b.isAthlete) roleBadges.push('<span class="badge bg-course" style="font-size:9px">🏃 #'+(b.dossard||"—")+'</span>');
-    var affectCell=roleBadges.length?roleBadges.join(' '):'<span style="color:#94A3B8">—</span>';
-    var joursCell=b.jours==="12"?'<td class="center"><span class="day-badge day12" style="font-size:9px">J1+J2</span></td>':b.jours==="1"?'<td class="center"><span class="day-badge day1" style="font-size:9px">J1</span></td>':'<td class="center"><span class="day-badge day2" style="font-size:9px">J2</span></td>';
-    var repasCell=b.repas?'<td class="center"><span style="background:#fff3e0;border:1px solid #FFB30044;color:#E65100;border-radius:4px;padding:2px 6px;font-size:9px;font-weight:600">'+b.repas+'</span></td>':'<td class="center" style="color:#ccc;font-size:10px">—</td>';
-    return'<tr>'
-      +'<td class="center" style="color:#bbb">'+(i+1)+'</td>'
-      +'<td class="bold"><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span>'+b.prenom+' '+b.nom+'</span>'+(b.linkedId?'<span style="background:#e8f5e9;color:#2E7D32;border:1px solid #2E7D32;border-radius:4px;padding:1px 5px;font-size:9px;font-weight:700">&#128279;</span>':'')+'</div></td>'
-      +'<td class="'+qClass(b.qualif)+' center bold">'+b.qualif+'</td>'
-      +'<td class="center" style="font-size:10px">'
-        +(b.slotJ1&&b.slotJ1!=="absent"?'<div style="color:#1E88E5">'+slotEmoji(b.slotJ1)+' J1</div>':'<div style="color:#ccc;font-size:9px">✕ J1</div>')
-        +(b.slotJ2&&b.slotJ2!=="absent"?'<div style="color:#2E7D32">'+slotEmoji(b.slotJ2)+' J2</div>':'<div style="color:#ccc;font-size:9px">✕ J2</div>')
-        +'</td>'
-      +joursCell
-      +'<td style="min-width:230px"><div style="display:flex;gap:5px;flex-wrap:wrap">'+affectCell+'</div></td>'
-      +repasCell
-      +'<td style="color:var(--blue);font-size:11px">'+(b.email||'<span style="color:#ccc">—</span>')+'</td>'
-      +'<td class="center" style="font-size:11px">'+(b.tel||"—")+'</td>'
-      +'<td class="center no-print" style="white-space:nowrap"><div style="display:flex;gap:3px;justify-content:center">'
-      +'<button class="btn btn-blue" style="padding:3px 7px;font-size:10px" onclick="editBen('+b.id+')">📝</button>'
-      +'<button class="btn btn-dark" style="padding:3px 7px;font-size:10px;color:#2196F3" onclick="deleteBen('+b.id+')">✕</button>'
-      +'<button class="btn btn-orange" style="padding:3px 7px;font-size:10px" onclick="sendMailTo('+b.id+')">📧</button>'
-      +'</div></td></tr>';
+  if(!(BENEVOLES||[]).length){
+    grid.innerHTML='<div style="text-align:center;padding:26px 14px;color:var(--mid);">'
+      +'<div style="font-size:30px;margin-bottom:8px;opacity:.3;">👥</div>'
+      +'<div style="font-size:12px;font-weight:800;color:var(--ink3);margin-bottom:3px;">Aucun bénévole</div>'
+      +'<div style="font-size:10.5px;">Ajoute un juge ci-dessus ou importe un fichier.</div>'
+      +'</div>';
+    return;
+  }
+  if(!filtered.length){
+    grid.innerHTML='<div style="text-align:center;padding:22px 14px;color:var(--mid);font-size:11.5px;font-weight:700;">Aucun résultat pour ce filtre.</div>';
+    return;
+  }
+  grid.innerHTML=filtered.map(function(b){
+    var isActive = b.id===_activeBenId;
+    var zone=String(b.zoneAssign||b.zone||'');
+    var isRx=(parseInt(b.qualif,10)||0)>=8;
+    var head=(typeof isHeadJudge==='function' && isHeadJudge(b));
+    // Pastilles
+    var badges='';
+    var roleShort=benRoleShort(b);
+    var roleBg = head?'#FEF3C7;color:#92400E;border:1px solid #FDE68A':'#E8F1FF;color:#1565C0;border:1px solid #BFDBFE';
+    badges+='<span style="background:'+roleBg+';border-radius:999px;padding:1px 7px;font-size:8.5px;font-weight:800;white-space:nowrap">'+escBen(roleShort)+'</span>';
+    if(zone==='1'||zone==='2') badges+='<span style="background:'+(zone==='2'?'#ECFDF5;color:#166534;border:1px solid #A7F3D0':'#EFF6FF;color:#1D4ED8;border:1px solid #BFDBFE')+';border-radius:999px;padding:1px 7px;font-size:8.5px;font-weight:800;white-space:nowrap">Z'+zone+'</span>';
+    var joursLbl=b.jours==="12"?"J1+2":b.jours==="1"?"J1":"J2";
+    badges+='<span style="background:#F1F5F9;color:#475569;border:1px solid #E2E8F0;border-radius:999px;padding:1px 7px;font-size:8.5px;font-weight:800;white-space:nowrap">'+joursLbl+'</span>';
+    if(isRx) badges+='<span style="background:#FEE2E2;color:#B91C1C;border:1px solid #FCA5A5;border-radius:999px;padding:1px 7px;font-size:8.5px;font-weight:900;white-space:nowrap">RX</span>';
+    if(b.isAthlete) badges+='<span style="background:#F3E8FF;color:#7C3AED;border:1px solid #E9D5FF;border-radius:999px;padding:1px 7px;font-size:8.5px;font-weight:800;white-space:nowrap">🏃</span>';
+    // Pastille couleur (zone) + initiales
+    var dot=zone==='2'?'#16A34A':zone==='1'?'#1565C0':'#94A3B8';
+    var qColor=isRx?'#B91C1C':(parseInt(b.qualif,10)||0)>=4?'#B45309':'#64748B';
+    return '<div class="ben-row" data-benid="'+b.id+'" onclick="selectBen('+b.id+')" '
+      +'style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:9px;cursor:pointer;'
+      +'background:'+(isActive?'rgba(21,101,192,.08)':'var(--s2,#F5F8FF)')+';'
+      +'border:1.5px solid '+(isActive?'rgba(21,101,192,.4)':'var(--brd,#EBF0FA)')+';transition:background .12s,border-color .12s;">'
+      +'<div style="width:9px;height:9px;border-radius:3px;background:'+dot+';flex-shrink:0;box-shadow:0 1px 4px '+dot+'66;"></div>'
+      +'<div style="flex:1;min-width:0;">'
+        +'<div style="display:flex;align-items:center;gap:6px;">'
+          +'<span style="font-size:12.5px;font-weight:800;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+escBen((b.prenom||'')+' '+(b.nom||''))+'</span>'
+          +(b.linkedId?'<span title="Lié à un autre bénévole" style="font-size:9px;flex-shrink:0;">🔗</span>':'')
+        +'</div>'
+        +'<div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-top:3px;">'+badges+'</div>'
+      +'</div>'
+      +'<span class="ben-row-q" style="font-size:12px;font-weight:900;color:'+qColor+';font-family:monospace;flex-shrink:0;" title="Qualification">'+(parseInt(b.qualif,10)||0)+'</span>'
+      +'<div class="ben-row-actions" style="display:flex;gap:3px;flex-shrink:0;">'
+        +'<button onclick="event.stopPropagation();duplicateBen('+b.id+')" title="Dupliquer" style="width:30px;height:30px;border-radius:7px;background:#fff;border:1px solid var(--brd2);color:#1565C0;cursor:pointer;font-size:13px;line-height:1;font-weight:900;">⧉</button>'
+        +'<button onclick="event.stopPropagation();editBen('+b.id+')" title="Éditer en détail" style="width:30px;height:30px;border-radius:7px;background:#fff;border:1px solid var(--brd2);color:var(--ink2);cursor:pointer;font-size:13px;line-height:1;">✏️</button>'
+        +'<button onclick="event.stopPropagation();deleteBen('+b.id+')" title="Supprimer" style="width:30px;height:30px;border-radius:7px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.22);color:#EF4444;cursor:pointer;font-size:12px;line-height:1;">🗑</button>'
+      +'</div>'
+    +'</div>';
   }).join("");
+}
+
+// Filtrage ciblé : ne re-render QUE la liste + le résumé (pas tout le monde).
+function filterBenList(){ renderBenList(); }
+
+// Sélection « collante » d'un bénévole → remplit le panneau détail à droite.
+function selectBen(id){
+  _activeBenId = id;
+  renderBenList();          // pour mettre à jour le surlignage
+  renderBenDetailPane();
+}
+
+// ── Panneau détail (colonne droite) : essentiel + accès au modal complet ──
+function renderBenDetailPane(){
+  var pane=document.getElementById("ben-detail-pane");
+  if(!pane) return;
+  var b = _activeBenId!=null ? (BENEVOLES||[]).find(function(x){return x.id===_activeBenId;}) : null;
+  if(!b){
+    pane.innerHTML='<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;min-height:420px;padding:40px;color:var(--ink3);">'
+      +'<div style="font-size:52px;margin-bottom:14px;opacity:.22;">👤</div>'
+      +'<div style="font-size:16px;font-weight:900;color:var(--ink2);margin-bottom:5px;">Sélectionne ou ajoute un bénévole</div>'
+      +'<div style="font-size:12px;color:var(--mid);max-width:300px;line-height:1.6;">Clique sur un bénévole à gauche pour voir ses infos clés, ou ajoute un juge pour commencer.</div>'
+      +'</div>';
+    return;
+  }
+  var zone=String(b.zoneAssign||b.zone||'');
+  var isRx=(parseInt(b.qualif,10)||0)>=8;
+  var head=(typeof isHeadJudge==='function' && isHeadJudge(b));
+  var dot=zone==='2'?'#16A34A':zone==='1'?'#1565C0':'#94A3B8';
+  var initials=((b.prenom||'?').charAt(0)+(b.nom||'').charAt(0)).toUpperCase();
+  var roleShort=benRoleShort(b);
+  var qv=parseInt(b.qualif,10)||0;
+  // Dispos J1 / J2
+  function dispoChip(slot, label, col){
+    var abs=(!slot||slot==='absent');
+    return '<div style="flex:1;min-width:120px;background:'+(abs?'#F8FAFC':'#fff')+';border:1px solid '+(abs?'var(--brd2)':col+'44')+';border-radius:9px;padding:9px 11px;">'
+      +'<div style="font-size:9px;font-weight:800;color:var(--ink3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:3px;">'+label+'</div>'
+      +(abs?'<div style="font-size:12px;font-weight:800;color:#94A3B8;">✕ Absent</div>'
+           :'<div style="font-size:12px;font-weight:800;color:'+col+';">'+(typeof slotEmoji==='function'?slotEmoji(slot):'')+' '+escBen(slot)+'</div>')
+    +'</div>';
+  }
+  var html='';
+  // En-tête
+  html+='<div style="display:flex;align-items:center;gap:13px;padding:16px 20px;border-bottom:1px solid var(--brd,#EBF0FA);background:linear-gradient(180deg,'+dot+'0D,transparent);">'
+    +'<div style="width:46px;height:46px;border-radius:12px;background:'+dot+';flex-shrink:0;box-shadow:0 4px 14px '+dot+'55,inset 0 0 0 1px rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;color:#fff;font-size:16px;font-weight:900;font-family:inherit;">'+escBen(initials)+'</div>'
+    +'<div style="flex:1;min-width:0;">'
+      +'<div style="font-size:19px;font-weight:900;color:var(--ink);letter-spacing:-.3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+escBen((b.prenom||'')+' '+(b.nom||''))+'</div>'
+      +'<div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-top:5px;">'
+        +'<span style="background:'+(head?'#FEF3C7;color:#92400E;border:1px solid #FDE68A':'#E8F1FF;color:#1565C0;border:1px solid #BFDBFE')+';border-radius:999px;padding:2px 9px;font-size:9.5px;font-weight:800;">'+escBen(roleShort)+'</span>'
+        +(zone==='1'||zone==='2'?'<span style="background:'+(zone==='2'?'#ECFDF5;color:#166534;border:1px solid #A7F3D0':'#EFF6FF;color:#1D4ED8;border:1px solid #BFDBFE')+';border-radius:999px;padding:2px 9px;font-size:9.5px;font-weight:800;">📍 Zone '+zone+'</span>':'')
+        +(isRx?'<span style="background:#FEE2E2;color:#B91C1C;border:1px solid #FCA5A5;border-radius:999px;padding:2px 9px;font-size:9.5px;font-weight:900;">RX ≥8</span>':'')
+        +(b.isAthlete?'<span style="background:#F3E8FF;color:#7C3AED;border:1px solid #E9D5FF;border-radius:999px;padding:2px 9px;font-size:9.5px;font-weight:800;">🏃 Athlète #'+escBen(b.dossard||'—')+'</span>':'')
+      +'</div>'
+    +'</div>'
+    +'<button onclick="duplicateBen('+b.id+')" title="Dupliquer ce bénévole" style="width:36px;height:36px;border-radius:9px;background:var(--s2,#F5F8FF);border:1px solid var(--brd2);color:#1565C0;cursor:pointer;font-size:16px;font-weight:900;flex-shrink:0;line-height:1;">⧉</button>'
+    +'<button onclick="deleteBen('+b.id+')" title="Supprimer ce bénévole" style="width:36px;height:36px;border-radius:9px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.22);color:#EF4444;cursor:pointer;font-size:15px;flex-shrink:0;line-height:1;">🗑</button>'
+  +'</div>';
+  // Corps
+  html+='<div style="padding:16px 20px;">';
+  // Infos clés (grille)
+  html+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:14px;">';
+  html+='<div style="background:var(--s2,#F8FAFF);border:1px solid var(--brd2);border-radius:9px;padding:10px 12px;"><div style="font-size:9px;font-weight:800;color:var(--ink3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:3px;">Qualification</div><div style="font-size:13px;font-weight:900;color:'+(isRx?'#B91C1C':qv>=4?'#B45309':'#64748B')+';">'+qv+' / 10 <span style="font-size:10px;font-weight:700;color:var(--mid);">'+(typeof qLabel==='function'?escBen(qLabel(qv)):'')+'</span></div></div>';
+  html+='<div style="background:var(--s2,#F8FAFF);border:1px solid var(--brd2);border-radius:9px;padding:10px 12px;"><div style="font-size:9px;font-weight:800;color:var(--ink3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:3px;">Fonction</div><div style="font-size:12.5px;font-weight:800;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+escBen(b.role||'Juge')+'">'+escBen(b.role||'Juge')+'</div></div>';
+  if(head){
+    html+='<div style="background:#FFF7ED;border:1px solid #FED7AA;border-radius:9px;padding:10px 12px;"><div style="font-size:9px;font-weight:800;color:#C2410C;text-transform:uppercase;letter-spacing:.6px;margin-bottom:3px;">Zone supervisée</div><div style="font-size:12.5px;font-weight:800;color:#9A3412;">Zone '+(typeof headJudgeZone==='function'?headJudgeZone(b):zone||'1')+'</div></div>';
+  }
+  html+='</div>';
+  // Dispos
+  html+='<div style="font-size:10px;font-weight:900;color:var(--ink2);text-transform:uppercase;letter-spacing:.7px;margin-bottom:8px;">📅 Disponibilités</div>';
+  html+='<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;">'+dispoChip(b.slotJ1,'Jour 1','#1E88E5')+dispoChip(b.slotJ2,'Jour 2','#059669')+'</div>';
+  // Contact
+  html+='<div style="font-size:10px;font-weight:900;color:var(--ink2);text-transform:uppercase;letter-spacing:.7px;margin-bottom:8px;">📇 Contact</div>';
+  html+='<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;">'
+    +'<div style="flex:1;min-width:150px;background:var(--s2,#F8FAFF);border:1px solid var(--brd2);border-radius:9px;padding:9px 11px;"><div style="font-size:9px;font-weight:800;color:var(--ink3);text-transform:uppercase;margin-bottom:3px;">✉️ Email</div><div style="font-size:12px;font-weight:700;color:'+(b.email?'var(--blue)':'#94A3B8')+';overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+escBen(b.email||'—')+'">'+escBen(b.email||'—')+'</div></div>'
+    +'<div style="flex:1;min-width:130px;background:var(--s2,#F8FAFF);border:1px solid var(--brd2);border-radius:9px;padding:9px 11px;"><div style="font-size:9px;font-weight:800;color:var(--ink3);text-transform:uppercase;margin-bottom:3px;">📞 Téléphone</div><div style="font-size:12px;font-weight:700;color:'+(b.tel?'var(--ink)':'#94A3B8')+';">'+escBen(b.tel||'—')+'</div></div>'
+  +'</div>';
+  // Notes (si présentes)
+  if(b.notes){
+    html+='<div style="background:#FFFBEB;border:1px solid #FDE68A;border-radius:9px;padding:9px 12px;margin-bottom:16px;"><div style="font-size:9px;font-weight:800;color:#92400E;text-transform:uppercase;letter-spacing:.6px;margin-bottom:3px;">📝 Notes</div><div style="font-size:11.5px;font-weight:600;color:#78350F;line-height:1.5;white-space:pre-wrap;">'+escBen(b.notes)+'</div></div>';
+  }
+  // Actions : modal détaillé + mail
+  html+='<div style="display:flex;gap:9px;flex-wrap:wrap;">'
+    +'<button onclick="editBen('+b.id+')" style="flex:1;min-width:180px;padding:12px 16px;border:none;border-radius:10px;background:linear-gradient(135deg,#1565C0,#1E88E5);color:#fff;font-size:13px;font-weight:900;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:7px;box-shadow:0 4px 12px rgba(21,101,192,.22);">✏️ Modifier en détail</button>'
+    +'<button onclick="sendMailTo('+b.id+')" title="Envoyer un email à ce bénévole" style="padding:12px 16px;border:1px solid var(--brd2);border-radius:10px;background:#fff;color:var(--ink2);font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;white-space:nowrap;">📧 Mail</button>'
+  +'</div>';
+  html+='<div style="font-size:9.5px;color:var(--mid);font-weight:600;margin-top:10px;line-height:1.5;">Les réglages avancés (head judge, athlète-juge, repas, t-shirt, QR nominatif, lien…) sont dans « Modifier en détail ».</div>';
+  html+='</div>';
+  pane.innerHTML=html;
+}
+
+// ════════════════════════════════════════════════════════════════════
+//  AJOUT RAPIDE D'UN JUGE
+//  — Crée IMMÉDIATEMENT via normalizeBenevoleRecord (toutes les clés),
+//    vide les champs, GARDE LE FOCUS sur Prénom pour enchaîner.
+//  — PAS de ré-ouverture de modal. Sync Firebase déclenchée.
+// ════════════════════════════════════════════════════════════════════
+function quickAddBen(prenom, nom){
+  var pEl=document.getElementById("quick-ben-prenom");
+  var nEl=document.getElementById("quick-ben-nom");
+  var p=(prenom!=null?prenom:(pEl?pEl.value:"")).trim();
+  var n=(nom!=null?nom:(nEl?nEl.value:"")).trim();
+  if(!p && !n){ if(pEl) pEl.focus(); return; }
+  if(!p && n){ p=n; n=""; }   // un seul champ rempli → on le prend comme prénom
+  try{
+    var newId=Math.floor(Date.now())+Math.floor(Math.random()*1000);
+    // ★ Défauts sensés : rôle Juge, J1+J2, qualif par défaut (5), zone 1.
+    //   normalizeBenevoleRecord complète toutes les autres clés attendues.
+    var rec=normalizeBenevoleRecord({
+      id:newId, prenom:p, nom:n,
+      role:"Juge", zoneAssign:"1", qualif:5, qualification:5,
+      slot:"Journée", slotJ1:"Journée", slotJ2:"Journée", jours:"12",
+      isAthlete:false
+    });
+    BENEVOLES.push(rec);
+    _activeBenId=newId;
+    // Vider les champs + garder le focus sur Prénom pour enchaîner.
+    if(pEl) pEl.value="";
+    if(nEl) nEl.value="";
+    // Rendu CIBLÉ : compteur + liste + détail (PAS de reactiveUpdate global lourd).
+    renderBenJudgeCounter();
+    renderBenList();
+    renderBenDetailPane();
+    // Garder les dépendances QR + pré-flight à jour (léger).
+    try{ if(typeof renderJugeQRGrid==='function') renderJugeQRGrid(); }catch(e){}
+    try{ if(typeof updateQRBadge==='function') updateQRBadge(); }catch(e){}
+    try{ if(typeof checkGenBtn==='function') checkGenBtn(); }catch(e){}
+    // Sync Firebase + sauvegarde locale.
+    try{ if(typeof syncBenevolesToFirebase==='function') syncBenevolesToFirebase(); }catch(e){}
+    try{ if(typeof persistBenevolesSnapshot==='function') persistBenevolesSnapshot(); }catch(e){}
+    try{ clearTimeout(saveTimer); saveTimer=setTimeout(autoSave,2000); }catch(e){}
+    toast("✅ "+(p+" "+n).trim()+" ajouté");
+    requestAnimationFrame(function(){ var el=document.getElementById("quick-ben-prenom"); if(el) el.focus(); });
+  }catch(err){
+    try{ console.error("quickAddBen error:",err); }catch(e){}
+    toast("Erreur ajout : "+(err&&err.message||err),"#D32F2F");
+  }
+}
+
+// ── Duplication d'un bénévole (toutes les clés clonées, nouvel id) ──
+function duplicateBen(id){
+  var src=(BENEVOLES||[]).find(function(b){return b.id===id;});
+  if(!src){ toast("Bénévole introuvable","#D32F2F"); return; }
+  try{
+    var newId=Math.floor(Date.now())+Math.floor(Math.random()*1000);
+    var copy=JSON.parse(JSON.stringify(src));
+    copy.id=newId;
+    copy.nom=(src.nom||"")+(src.nom?" (copie)":"(copie)");
+    copy.linkedId=null;                 // la copie ne reprend pas le lien
+    var rec=normalizeBenevoleRecord(copy);
+    BENEVOLES.push(rec);
+    _activeBenId=newId;
+    renderBenJudgeCounter();
+    renderBenList();
+    renderBenDetailPane();
+    try{ if(typeof renderJugeQRGrid==='function') renderJugeQRGrid(); }catch(e){}
+    try{ if(typeof updateQRBadge==='function') updateQRBadge(); }catch(e){}
+    try{ if(typeof checkGenBtn==='function') checkGenBtn(); }catch(e){}
+    try{ if(typeof syncBenevolesToFirebase==='function') syncBenevolesToFirebase(); }catch(e){}
+    try{ if(typeof persistBenevolesSnapshot==='function') persistBenevolesSnapshot(); }catch(e){}
+    try{ clearTimeout(saveTimer); saveTimer=setTimeout(autoSave,2000); }catch(e){}
+    toast("✅ Dupliqué : "+((rec.prenom||'')+" "+(rec.nom||'')).trim(),"#1E88E5");
+  }catch(err){
+    try{ console.error("duplicateBen error:",err); }catch(e){}
+    toast("Erreur duplication : "+(err&&err.message||err),"#D32F2F");
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════
+//  IMPORT CSV / EXCEL DES BÉNÉVOLES / JUGES
+//  — Réutilise les parseurs bas-niveau de l'import catégories
+//    (parseCSV, detectCSVSeparator, normalizeImportRows, ensureXlsx).
+//  — Mapping dédié : Prénom, Nom, Rôle, Zone, Qualif, Jours.
+//  — Crée les bénévoles via normalizeBenevoleRecord (toutes les clés).
+// ════════════════════════════════════════════════════════════════════
+var _benImportRows=[], _benImportNbCols=0, _benImportName="";
+
+function openImportBen(){
+  _benImportRows=[]; _benImportNbCols=0; _benImportName="";
+  var src=document.getElementById("importben-step-source");
+  var prev=document.getElementById("importben-step-preview");
+  if(src) src.style.display="";
+  if(prev) prev.style.display="none";
+  var pa=document.getElementById("importben-paste-area"); if(pa) pa.value="";
+  var sm=document.getElementById("importben-source-msg"); if(sm) sm.textContent="";
+  openModal("import-ben-modal");
+  try{ if(window.ensureXlsx && window.__xlsxState==='idle') window.ensureXlsx(15000); }catch(e){}
+}
+function closeImportBen(){ closeModal("import-ben-modal"); }
+function importBenBackToSource(){
+  var src=document.getElementById("importben-step-source");
+  var prev=document.getElementById("importben-step-preview");
+  if(src) src.style.display="";
+  if(prev) prev.style.display="none";
+}
+function importBenSourceMsg(msg,color){
+  var sm=document.getElementById("importben-source-msg");
+  if(sm){ sm.textContent=msg||""; sm.style.color=color||"var(--err)"; }
+}
+function importBenHandleDrop(ev){
+  ev.preventDefault();
+  try{ var dz=document.getElementById("importben-dropzone"); if(dz) dz.classList.remove("dz-over"); }catch(e){}
+  var f=ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files[0];
+  if(f){ importBenHandleFile(f); return; }
+  try{
+    var txt=ev.dataTransfer.getData("text/plain");
+    if(txt && txt.trim()){ var pa=document.getElementById("importben-paste-area"); if(pa) pa.value=txt; importBenHandlePaste(); }
+  }catch(e){}
+}
+function importBenHandleFile(file){
+  if(!file) return;
+  importBenSourceMsg("","var(--ink3)");
+  var name=file.name||"fichier";
+  var lower=name.toLowerCase();
+  var isExcel=/\.(xlsx|xls|xlsm|xlsb)$/i.test(lower);
+  var isCSV=/\.(csv|tsv|txt)$/i.test(lower);
+  if(!isExcel && !isCSV){
+    var t=(file.type||"").toLowerCase();
+    if(t.indexOf("spreadsheet")!==-1 || t.indexOf("ms-excel")!==-1) isExcel=true;
+    else isCSV=true;
+  }
+  if(isExcel){ importBenReadExcel(file,name); }
+  else { importBenReadCSVFile(file,name); }
+}
+function importBenReadCSVFile(file,name){
+  try{
+    var reader=new FileReader();
+    reader.onload=function(e){
+      try{ importBenParseCSVText(String(e.target.result||""),name); }
+      catch(err){ importBenSourceMsg("Impossible de lire ce CSV : "+(err&&err.message||err),"var(--err)"); }
+    };
+    reader.onerror=function(){ importBenSourceMsg("Erreur de lecture du fichier.","var(--err)"); };
+    reader.readAsText(file,"UTF-8");
+  }catch(err){ importBenSourceMsg("Erreur : "+(err&&err.message||err),"var(--err)"); }
+}
+function importBenParseCSVText(text,name){
+  if(!text || !text.trim()){ importBenSourceMsg("Le fichier est vide.","var(--err)"); return; }
+  var sep=detectCSVSeparator(text);
+  var raw;
+  try{ raw=parseCSV(text,sep); }
+  catch(err){ importBenSourceMsg("CSV illisible : "+(err&&err.message||err),"var(--err)"); return; }
+  var norm=normalizeImportRows(raw);
+  if(!norm.rows.length){ importBenSourceMsg("Aucune donnée exploitable dans ce fichier.","var(--err)"); return; }
+  _benImportRows=norm.rows; _benImportNbCols=norm.cols; _benImportName=name||"import.csv";
+  importBenShowPreview();
+}
+function importBenReadExcel(file,name){
+  importBenSourceMsg("⏳ Chargement du moteur Excel…","var(--ink3)");
+  var reader=new FileReader();
+  reader.onload=function(e){
+    var data=e.target.result;
+    (window.ensureXlsx ? window.ensureXlsx(12000) : Promise.resolve(false)).then(function(ok){
+      if(!ok || typeof XLSX==="undefined" || !XLSX.read){
+        importBenSourceMsg("⚠ Import Excel indisponible hors-ligne — exporte ton fichier en CSV, ou réessaie avec une connexion.","var(--err)");
+        return;
+      }
+      try{
+        var wb=XLSX.read(data,{type:"array"});
+        var firstSheetName=wb.SheetNames && wb.SheetNames[0];
+        if(!firstSheetName){ importBenSourceMsg("Ce classeur Excel ne contient aucune feuille.","var(--err)"); return; }
+        var ws=wb.Sheets[firstSheetName];
+        var aoa=XLSX.utils.sheet_to_json(ws,{header:1,defval:"",raw:false,blankrows:false});
+        var norm=normalizeImportRows(aoa);
+        if(!norm.rows.length){ importBenSourceMsg("La 1ère feuille « "+firstSheetName+" » est vide.","var(--err)"); return; }
+        _benImportRows=norm.rows; _benImportNbCols=norm.cols; _benImportName=name||"import.xlsx";
+        importBenShowPreview();
+      }catch(err){
+        importBenSourceMsg("Fichier Excel illisible : "+(err&&err.message||err)+". Essaie un export CSV.","var(--err)");
+      }
+    });
+  };
+  reader.onerror=function(){ importBenSourceMsg("Erreur de lecture du fichier Excel.","var(--err)"); };
+  try{ reader.readAsArrayBuffer(file); }
+  catch(err){ importBenSourceMsg("Erreur : "+(err&&err.message||err),"var(--err)"); }
+}
+function importBenHandlePaste(){
+  var pa=document.getElementById("importben-paste-area");
+  var text=pa?pa.value:"";
+  if(!text || !text.trim()){ importBenSourceMsg("Colle d'abord un tableau (une ligne par juge).","var(--err)"); return; }
+  var sep=(text.indexOf("\t")!==-1)?"\t":detectCSVSeparator(text);
+  var raw;
+  try{ raw=parseCSV(text,sep); }
+  catch(err){ importBenSourceMsg("Collage illisible : "+(err&&err.message||err),"var(--err)"); return; }
+  var norm=normalizeImportRows(raw);
+  if(!norm.rows.length){ importBenSourceMsg("Aucune donnée exploitable dans le collage.","var(--err)"); return; }
+  _benImportRows=norm.rows; _benImportNbCols=norm.cols; _benImportName="collage";
+  importBenShowPreview();
+}
+
+// ── Devine si la 1ère ligne est un en-tête (mots-clés bénévoles) ──
+function importBenGuessHeader(rows){
+  if(!rows.length) return false;
+  var first=rows[0].map(function(c){return String(c||"").toLowerCase().trim();});
+  var kw=["prénom","prenom","firstname","first name","nom","lastname","last name","name","rôle","role","fonction","zone","qualif","qualification","niveau","level","jour","jours","day","days","dispo","email","mail","tel","téléphone","telephone","phone"];
+  var hits=first.filter(function(c){ return kw.indexOf(c)!==-1; }).length;
+  return hits>=1;
+}
+// ── Devine les colonnes bénévoles via les en-têtes ──
+function importBenGuessColumns(headerCells){
+  var m={prenom:-1,nom:-1,role:-1,zone:-1,qualif:-1,jours:-1,full:-1};
+  var dict={
+    prenom:["prénom","prenom","firstname","first name","first"],
+    nom:["nom","lastname","last name","surname","famille","name"],
+    role:["rôle","role","fonction","poste","function"],
+    zone:["zone","zoneassign","area"],
+    qualif:["qualif","qualification","niveau","level","note","grade"],
+    jours:["jour","jours","day","days","dispo","disponibilité","disponibilite","présence","presence"],
+    full:["nom complet","full name","fullname","prénom nom","nom prénom","participant","bénévole","benevole","juge"]
+  };
+  (headerCells||[]).forEach(function(h,i){
+    var hl=String(h||"").toLowerCase().trim();
+    Object.keys(dict).forEach(function(k){
+      if(m[k]===-1 && dict[k].indexOf(hl)!==-1) m[k]=i;
+    });
+  });
+  return m;
+}
+function importBenShowPreview(){
+  try{
+    var hasHeaderGuess=importBenGuessHeader(_benImportRows);
+    var hdrChk=document.getElementById("importben-has-header");
+    if(hdrChk) hdrChk.checked=hasHeaderGuess;
+    var badge=document.getElementById("importben-file-badge");
+    if(badge) badge.textContent=_benImportName+" · "+_benImportNbCols+" colonne"+(_benImportNbCols>1?"s":"")+" · "+_benImportRows.length+" ligne"+(_benImportRows.length>1?"s":"");
+    importBenRebuildColumns();
+    var src=document.getElementById("importben-step-source");
+    var prev=document.getElementById("importben-step-preview");
+    if(src) src.style.display="none";
+    if(prev) prev.style.display="";
+  }catch(err){
+    importBenSourceMsg("Erreur d'analyse : "+(err&&err.message||err),"var(--err)");
+  }
+}
+function importBenRebuildColumns(){
+  var hasHeader=!!(document.getElementById("importben-has-header")||{}).checked;
+  var nbCols=_benImportNbCols;
+  var headerRow=hasHeader && _benImportRows.length ? _benImportRows[0] : null;
+  var labels=[];
+  for(var c=0;c<nbCols;c++){
+    labels.push((headerRow && headerRow[c]) ? headerRow[c] : ("Colonne "+(c+1)));
+  }
+  var g=headerRow ? importBenGuessColumns(headerRow) : {prenom:-1,nom:-1,role:-1,zone:-1,qualif:-1,jours:-1,full:-1};
+  var pIdx=g.prenom, nIdx=g.nom, rIdx=g.role, zIdx=g.zone, qIdx=g.qualif, jIdx=g.jours;
+  // Heuristique sans en-tête clair.
+  if(pIdx===-1 && nIdx===-1){
+    if(g.full!==-1){ pIdx=g.full; nIdx=-1; }   // colonne « nom complet » → Prénom (split au commit)
+    else if(nbCols>=2){ pIdx=0; nIdx=1; }
+    else { pIdx=0; nIdx=-1; }
+  } else {
+    if(pIdx===-1 && nbCols>0) pIdx=(nIdx===0 && nbCols>1)?1:0;
+    if(nIdx===-1 && nbCols>1) nIdx=(pIdx===0?1:0);
+  }
+  function fill(sel, chosen, allowNone, noneLabel){
+    var el=document.getElementById(sel); if(!el) return;
+    var h="";
+    if(allowNone) h+='<option value="-1">'+escBen(noneLabel||"— aucune —")+'</option>';
+    for(var i=0;i<nbCols;i++){ h+='<option value="'+i+'"'+(i===chosen?' selected':'')+'>'+escBen(labels[i])+'</option>'; }
+    el.innerHTML=h;
+  }
+  fill("importben-col-prenom", pIdx, false);
+  fill("importben-col-nom", nIdx, true, "— aucune (dans Prénom) —");
+  fill("importben-col-role", rIdx, true, "— aucune (Juge par défaut) —");
+  fill("importben-col-zone", zIdx, true, "— aucune (Zone 1) —");
+  fill("importben-col-qualif", qIdx, true, "— aucune (défaut) —");
+  fill("importben-col-jours", jIdx, true, "— aucune (J1+J2) —");
+  importBenRenderPreviewTable();
+  importBenRefreshRecap();
+}
+function _benImportColVal(sel){
+  var v=parseInt((document.getElementById(sel)||{}).value,10);
+  return isNaN(v)?-1:v;
+}
+function importBenRenderPreviewTable(){
+  var tbl=document.getElementById("importben-preview-table");
+  if(!tbl) return;
+  var hasHeader=!!(document.getElementById("importben-has-header")||{}).checked;
+  var map={prenom:_benImportColVal("importben-col-prenom"),nom:_benImportColVal("importben-col-nom"),role:_benImportColVal("importben-col-role"),zone:_benImportColVal("importben-col-zone"),qualif:_benImportColVal("importben-col-qualif"),jours:_benImportColVal("importben-col-jours")};
+  var tagByIdx={};
+  tagByIdx[map.prenom]=" 👤"; if(map.nom>=0)tagByIdx[map.nom]=" 🧑"; if(map.role>=0)tagByIdx[map.role]=" 🎽"; if(map.zone>=0)tagByIdx[map.zone]=" 📍"; if(map.qualif>=0)tagByIdx[map.qualif]=" ⭐"; if(map.jours>=0)tagByIdx[map.jours]=" 📅";
+  var colByIdx={};
+  colByIdx[map.prenom]="col-team"; if(map.nom>=0)colByIdx[map.nom]="col-team"; if(map.role>=0)colByIdx[map.role]="col-cat"; if(map.zone>=0)colByIdx[map.zone]="col-cat"; if(map.qualif>=0)colByIdx[map.qualif]="col-cat"; if(map.jours>=0)colByIdx[map.jours]="col-cat";
+  var nbCols=_benImportNbCols;
+  var dataRows=hasHeader?_benImportRows.slice(1):_benImportRows.slice();
+  var headerRow=hasHeader && _benImportRows.length ? _benImportRows[0] : null;
+  var PREVIEW_MAX=8;
+  var shown=dataRows.slice(0,PREVIEW_MAX);
+  var html="<thead><tr>";
+  for(var c=0;c<nbCols;c++){
+    var lbl=headerRow && headerRow[c] ? escBen(headerRow[c]) : ("Col "+(c+1));
+    html+='<th class="'+(colByIdx[c]||"")+'">'+lbl+(tagByIdx[c]||"")+"</th>";
+  }
+  html+="</tr></thead><tbody>";
+  if(!shown.length){
+    html+='<tr><td colspan="'+Math.max(1,nbCols)+'" style="text-align:center;color:var(--mid);padding:14px;">(aucune ligne de données)</td></tr>';
+  } else {
+    shown.forEach(function(r){
+      html+="<tr>";
+      for(var c2=0;c2<nbCols;c2++){
+        html+='<td class="'+(colByIdx[c2]||"")+'" title="'+escBen(r[c2]||"")+'">'+escBen(r[c2]||"")+"</td>";
+      }
+      html+="</tr>";
+    });
+  }
+  html+="</tbody>";
+  tbl.innerHTML=html;
+  var rowsInfo=document.getElementById("importben-preview-rows");
+  if(rowsInfo) rowsInfo.textContent="("+dataRows.length+" ligne"+(dataRows.length>1?"s":"")+" de données"+(dataRows.length>PREVIEW_MAX?", "+PREVIEW_MAX+" affichées":"")+")";
+}
+// ── Normalise une valeur « jours » quelconque → "1" / "2" / "12" ──
+function _benParseJours(v){
+  var s=String(v||"").toLowerCase().replace(/\s/g,"");
+  if(!s) return "12";
+  var has1=/(^|[^0-9])1|j1|jour1|day1|samedi|sam/.test(s);
+  var has2=/(^|[^0-9])2|j2|jour2|day2|dimanche|dim/.test(s);
+  if(s==="12"||s==="1+2"||s==="j1+j2"||s==="les2"||s==="tous"||s==="all"||s==="both"||(has1&&has2)) return "12";
+  if(has2 && !has1) return "2";
+  if(has1) return "1";
+  return "12";
+}
+// ── Normalise une valeur « zone » → "1" ou "2" (défaut 1) ──
+function _benParseZone(v){
+  var m=String(v||"").match(/[12]/);
+  return (m && m[0]==="2")?"2":"1";
+}
+// ── Calcule le plan d'import (dédoublonnage par prénom+nom) ──
+function importBenComputePlan(){
+  var hasHeader=!!(document.getElementById("importben-has-header")||{}).checked;
+  var map={prenom:_benImportColVal("importben-col-prenom"),nom:_benImportColVal("importben-col-nom"),role:_benImportColVal("importben-col-role"),zone:_benImportColVal("importben-col-zone"),qualif:_benImportColVal("importben-col-qualif"),jours:_benImportColVal("importben-col-jours")};
+  var dataRows=hasHeader?_benImportRows.slice(1):_benImportRows.slice();
+  var items=[], seen={}, skippedEmpty=0, dupInFile=0, dupExisting=0;
+  var existingKeys={};
+  (BENEVOLES||[]).forEach(function(b){ existingKeys[((b.prenom||"")+"|"+(b.nom||"")).toLowerCase().trim()]=true; });
+  var splitFull = (map.nom<0 && map.prenom>=0);   // une seule colonne nom → split prénom/nom
+  dataRows.forEach(function(r){
+    var rawP=(map.prenom>=0 ? (r[map.prenom]||"") : "").trim();
+    var rawN=(map.nom>=0 ? (r[map.nom]||"") : "").trim();
+    var prenom=rawP, nom=rawN;
+    if(splitFull && rawP){
+      // Split intelligent : « Jean Dupont » → prénom=Jean, nom=Dupont ; « Jean » → prénom=Jean.
+      var parts=rawP.split(/\s+/).filter(Boolean);
+      if(parts.length>=2){ prenom=parts[0]; nom=parts.slice(1).join(" "); }
+      else { prenom=rawP; nom=""; }
+    }
+    if(!prenom && !nom){ skippedEmpty++; return; }
+    if(!prenom && nom){ prenom=nom; nom=""; }
+    var key=(prenom+"|"+nom).toLowerCase().trim();
+    if(seen[key]){ dupInFile++; return; }
+    seen[key]=true;
+    if(existingKeys[key]){ dupExisting++; return; }
+    var role=(map.role>=0 ? (r[map.role]||"") : "").trim() || "Juge";
+    var zone=(map.zone>=0 ? _benParseZone(r[map.zone]) : "1");
+    var qualif=(map.qualif>=0 ? (parseInt(r[map.qualif],10)) : NaN);
+    if(isNaN(qualif)||qualif<1) qualif=5;
+    if(qualif>10) qualif=10;
+    var jours=(map.jours>=0 ? _benParseJours(r[map.jours]) : "12");
+    items.push({prenom:prenom,nom:nom,role:role,zone:zone,qualif:qualif,jours:jours});
+  });
+  return { items:items, total:items.length, skippedEmpty:skippedEmpty, dupInFile:dupInFile, dupExisting:dupExisting, canImport:items.length>0 };
+}
+function importBenRefreshRecap(){
+  importBenRenderPreviewTable();
+  var recap=document.getElementById("importben-recap");
+  var btn=document.getElementById("importben-commit-btn");
+  if(!recap) return;
+  var plan;
+  try{ plan=importBenComputePlan(); }
+  catch(err){ recap.innerHTML="⚠ "+escBen(err&&err.message||String(err)); return; }
+  if(!plan.total){
+    recap.style.borderColor="rgba(220,38,38,.3)";
+    recap.style.background="rgba(220,38,38,.06)";
+    recap.innerHTML="⚠ Aucun juge à importer. Vérifie la colonne « Prénom » (et « Nom »).";
+    if(btn){ btn.disabled=true; btn.style.opacity=".5"; btn.style.cursor="not-allowed"; }
+    return;
+  }
+  var html="✅ <b>"+plan.total+"</b> juge"+(plan.total>1?"s seront importés":" sera importé");
+  var notes=[];
+  if(plan.dupInFile) notes.push(plan.dupInFile+" doublon"+(plan.dupInFile>1?"s":"")+" dans le fichier");
+  if(plan.dupExisting) notes.push(plan.dupExisting+" déjà présent"+(plan.dupExisting>1?"s":"")+" (ignoré"+(plan.dupExisting>1?"s":"")+")");
+  if(plan.skippedEmpty) notes.push(plan.skippedEmpty+" ligne"+(plan.skippedEmpty>1?"s":"")+" vide"+(plan.skippedEmpty>1?"s":"")+" ignorée"+(plan.skippedEmpty>1?"s":""));
+  if(notes.length) html+='<div style="font-size:10.5px;font-weight:600;color:var(--ink3);margin-top:5px;">↳ '+notes.join(" · ")+"</div>";
+  // Chips aperçu (max 6)
+  var chips=plan.items.slice(0,6).map(function(it){
+    return '<span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;background:#fff;border:1px solid var(--brd2);border-radius:20px;padding:2px 9px;color:var(--ink2);">＋ '+escBen((it.prenom+" "+it.nom).trim())+' <b style="color:#1565C0">Z'+it.zone+"</b></span>";
+  }).join(" ");
+  if(plan.items.length>6) chips+=' <span style="font-size:10px;color:var(--mid);">+'+(plan.items.length-6)+"…</span>";
+  html+='<div style="margin-top:9px;display:flex;flex-wrap:wrap;gap:5px;">'+chips+"</div>";
+  recap.style.borderColor="rgba(5,150,105,.25)";
+  recap.style.background="linear-gradient(135deg,rgba(5,150,105,.08),rgba(5,150,105,.03))";
+  recap.innerHTML=html;
+  if(btn){ btn.disabled=false; btn.style.opacity="1"; btn.style.cursor="pointer"; }
+}
+function importBenCommit(){
+  var plan;
+  try{ plan=importBenComputePlan(); }
+  catch(err){ toast("Erreur import : "+(err&&err.message||err),"#DC2626"); return; }
+  if(!plan.canImport){ toast("Rien à importer (vérifie le mapping).","#E65100"); return; }
+  var added=0, lastId=null;
+  try{
+    plan.items.forEach(function(it){
+      var newId=Math.floor(Date.now())+Math.floor(Math.random()*100000)+added;
+      // ★ Toutes les clés via normalizeBenevoleRecord (rôle, zoneAssign, slotJ1/J2, jours, qualif…).
+      var rec=normalizeBenevoleRecord({
+        id:newId, prenom:it.prenom, nom:it.nom,
+        role:it.role, zoneAssign:it.zone,
+        qualif:it.qualif, qualification:it.qualif,
+        slotJ1:(it.jours==="2"?"absent":"Journée"),
+        slotJ2:(it.jours==="1"?"absent":"Journée"),
+        slot:"Journée", jours:it.jours, isAthlete:false
+      });
+      BENEVOLES.push(rec);
+      added++; lastId=newId;
+    });
+  }catch(err){
+    toast("Import interrompu : "+(err&&err.message||err),"#DC2626");
+  }
+  if(lastId!=null) _activeBenId=lastId;
+  // Rendu + dépendances + sync.
+  renderBenJudgeCounter();
+  renderBenList();
+  renderBenDetailPane();
+  try{ if(typeof renderJugeQRGrid==='function') renderJugeQRGrid(); }catch(e){}
+  try{ if(typeof updateQRBadge==='function') updateQRBadge(); }catch(e){}
+  try{ if(typeof checkGenBtn==='function') checkGenBtn(); }catch(e){}
+  try{ if(typeof syncBenevolesToFirebase==='function') syncBenevolesToFirebase(); }catch(e){}
+  try{ if(typeof persistBenevolesSnapshot==='function') persistBenevolesSnapshot(); }catch(e){}
+  try{ autoSave(); }catch(e){}
+  closeImportBen();
+  var msg="✅ Import : "+added+" juge"+(added>1?"s":"")+" ajouté"+(added>1?"s":"");
+  if(plan.dupExisting) msg+=" · "+plan.dupExisting+" déjà présent"+(plan.dupExisting>1?"s":"")+" ignoré"+(plan.dupExisting>1?"s":"");
+  toast(msg,"#059669");
 }
 
 function renderStationsView(){
@@ -7326,9 +8041,13 @@ function saveBen(){
     prefStation:document.getElementById("m-pref-station").value,linkedId:parseInt(document.getElementById("m-linked").value)||null};
   var isNew=!editBenId;
   var newId=isNew?Math.floor(Date.now()):editBenId;
-  if(editBenId){BENEVOLES=BENEVOLES.map(function(b){return b.id===editBenId?Object.assign({id:editBenId},data):b;});toast("✅ Modifié");}
-  else{BENEVOLES.push(Object.assign({id:newId},data));toast("✅ Ajouté");}
-  // Mise à jour QR immédiate dès modification bénévole
+  // ★ Normalisation : produit TOUTES les clés attendues (role, zoneAssign, slotJ1/J2,
+  //   jours, qualif, hjZone…). Object.assign conserve aussi les clés propres au modal
+  //   (slotJ3/J4, wave, raceDay, raceDur, dossard, ligne, prefStation, linkedId).
+  if(editBenId){BENEVOLES=BENEVOLES.map(function(b){return b.id===editBenId?normalizeBenevoleRecord(Object.assign({},b,data,{id:editBenId})):b;});toast("✅ Modifié");}
+  else{BENEVOLES.push(normalizeBenevoleRecord(Object.assign({id:newId},data)));toast("✅ Ajouté");}
+  _activeBenId=newId;   // sélectionne la fiche enregistrée dans le tableau de bord
+  // Mise à jour QR immédiate dès modification bénévole (QR généré ici, PAS de ré-ouverture modale)
   setTimeout(function(){
     renderJugeQRGrid();
     renderQRSheet();
@@ -7336,15 +8055,13 @@ function saveBen(){
   }, 50);
   closeModal("ben-modal");reactiveUpdate();
   syncBenevolesToFirebase();
-  // Après création : rouvrir la fiche sur l'onglet QR pour accès immédiat
+  // ★ FRICTION CORRIGÉE : on NE rouvre PLUS la fiche après création (ça cassait la saisie
+  //   en série). Le QR est déjà (re)généré ci-dessus. On ramène le focus sur l'ajout rapide.
   if(isNew){
-    setTimeout(function(){
-      editBen(newId);
-      setTimeout(function(){ benTab('qr'); renderBenQRPane(); }, 100);
-    }, 200);
+    requestAnimationFrame(function(){ var el=document.getElementById("quick-ben-prenom"); if(el) el.focus(); });
   }
 }
-function deleteBen(id){if(!confirm("Supprimer ce bénévole ?"))return;BENEVOLES=BENEVOLES.filter(function(b){return b.id!==id;});reactiveUpdate();toast("Supprimé","#E65100");syncBenevolesToFirebase();}
+function deleteBen(id){if(!confirm("Supprimer ce bénévole ?"))return;BENEVOLES=BENEVOLES.filter(function(b){return b.id!==id;});if(_activeBenId===id)_activeBenId=null;reactiveUpdate();toast("Supprimé","#E65100");syncBenevolesToFirebase();}
 function toggleAthleteFields(){document.getElementById("athlete-fields").style.display=document.getElementById("m-is-athlete").checked?"block":"none";}
 // ★ HEAD JUDGE : affiche le sélecteur de zone supervisée quand la fonction = Juge principal
 function toggleHjZone(){
