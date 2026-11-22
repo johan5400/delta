@@ -976,6 +976,27 @@ function progressInfoForWod(wod, sc){
 //   journée faussée et affichage aberrant). Renvoie 0 (= « pas de départ valide »)
 //   si absent/non fini, ce qui fait retomber sur la branche durée pleine/pending.
 function _tkStartTs(h){ var t=parseInt(h&&h.startTimestamp,10); return isFinite(t)&&t>0 ? t : 0; }
+// ★ « Compétition RÉELLEMENT en cours » = au moins un heat a démarré / tourne / est fini
+//   (live | timecap | done). Si tout est pending/pre (ou aucun heat) → PAS encore commencé.
+//   Sert à n'afficher le RETARD/AVANCE que lorsqu'il a un sens (sinon faux retard au repos,
+//   car la projection zoneDayEndTs part de MAINTENANT).
+function tkHeatHasStarted(h){ var st=heatStatus(h); return st==='live'||st==='timecap'||st==='done'; }
+function tkCompIsRunning(){
+  try{
+    return Object.keys(HD).some(function(hid){
+      var h=HD[hid];
+      return h && heatDay(h)===ACTIVE_DAY && tkHeatHasStarted(h);
+    });
+  }catch(e){ return false; } // fail-safe : au moindre doute, considérer « pas commencé »
+}
+function tkZoneIsRunning(zone){
+  try{
+    return Object.keys(HD).some(function(hid){
+      var h=HD[hid];
+      return h && heatDay(h)===ACTIVE_DAY && heatZone(h)===String(zone) && tkHeatHasStarted(h);
+    });
+  }catch(e){ return false; }
+}
 function zoneEtaMeta(zone){
   var live=currentHeat(zone), next=nextHeat(zone), selected=zoneSelectedHeat(zone);
   var hid=live||selected||next;
@@ -1045,10 +1066,17 @@ function zoneDayEndTs(zone){
 function updateDayOverview(){
   var heats=Object.keys(HD).map(function(hid){ return HD[hid]; }).filter(function(h){ return h && heatDay(h)===ACTIVE_DAY; });
   var activeCount=0, pendingCount=0, totalJudges=0, onJudges=0, endTsList=[], nextTsList=[];
+  // ★ Compteurs dédiés au LIBELLÉ du mode (séparés de activeCount/pendingCount qui gardent
+  //   leur sens d'origine) : « EN COURS » ne doit valoir QUE si un heat tourne vraiment
+  //   (live/timecap). Un heat « pre » (préparation) n'a PAS démarré → il relève de « PRÊT ».
+  var liveCount=0, readyCount=0, doneCount=0;
   heats.forEach(function(h){
     var st=heatStatus(h);
     if(st==='live'||st==='timecap'||st==='pre') activeCount++;
     if(st==='pending') pendingCount++;
+    if(st==='live'||st==='timecap') liveCount++;        // réellement en cours
+    else if(st==='pre'||st==='pending') readyCount++;    // prêt / à venir (pas démarré)
+    else if(st==='done') doneCount++;                    // terminé
   });
   [1,2].forEach(function(z){
     var meta=zoneEtaMeta(z);
@@ -1068,24 +1096,34 @@ function updateDayOverview(){
   });
   if(g('dayJudges')) g('dayJudges').textContent=onJudges+' / '+totalJudges;
   if(g('dayJudgesSub')) g('dayJudgesSub').textContent='Zones actives J'+ACTIVE_DAY;
+  // ★ Libellé du mode fondé sur les statuts RÉELS (pre = pas démarré → « PRÊT ») :
+  //   EN COURS = au moins un live/timecap · PRÊT = des heats prêts/à venir (pre/pending)
+  //   TERMINÉ = tous les heats sont done · ATTENTE = aucun heat.
   var mode='ATTENTE';
-  if(activeCount>0) mode='J'+ACTIVE_DAY+' EN COURS';
-  else if(pendingCount>0) mode='J'+ACTIVE_DAY+' PRÊT';
-  else if(heats.length) mode='J'+ACTIVE_DAY+' TERMINÉ';
+  if(liveCount>0) mode='J'+ACTIVE_DAY+' EN COURS';
+  else if(readyCount>0) mode='J'+ACTIVE_DAY+' PRÊT';
+  else if(doneCount>0) mode='J'+ACTIVE_DAY+' TERMINÉ'; // des heats existent et tous done
   if(g('dayMode')) g('dayMode').textContent=mode;
   // ★ ETA fin de journée = projection réelle de la zone la plus lente (depuis maintenant)
   var _de1=zoneDayEndTs(1), _de2=zoneDayEndTs(2);
   var dayEndTs=Math.max(_de1||0, _de2||0)||null;
   if(g('dayEta')) g('dayEta').textContent=dayEndTs ? fmtClock(dayEndTs) : '--:--';
   if(g('dayDelay')){
-    // Fin planifiée = dernier heat programmé + sa durée estimée
-    var plannedEnds=heats.map(function(h){ var s=parseHeatClockToTs(h); return s ? s+heatEstimatedDurationSec(h)*1000 : null; }).filter(Boolean);
-    var plannedEnd=plannedEnds.length ? Math.max.apply(null, plannedEnds) : null;
-    if(plannedEnd && dayEndTs){
-      var deltaMin=Math.round((dayEndTs-plannedEnd)/60000);
-      g('dayDelay').textContent=deltaMin>0?('Retard +'+deltaMin+' min'):deltaMin<0?('Avance '+Math.abs(deltaMin)+' min'):'À l\'heure';
+    // ★ Le RETARD/AVANCE ne s'affiche QUE si la compétition est RÉELLEMENT en cours
+    //   (au moins un heat live/timecap/done). Au repos (tout pending/pre, ou aucun heat),
+    //   la projection partirait de MAINTENANT et afficherait un FAUX retard → « En attente ».
+    if(!tkCompIsRunning()){
+      g('dayDelay').textContent='En attente';
     } else {
-      g('dayDelay').textContent='À l\'heure';
+      // Fin planifiée = dernier heat programmé + sa durée estimée
+      var plannedEnds=heats.map(function(h){ var s=parseHeatClockToTs(h); return s ? s+heatEstimatedDurationSec(h)*1000 : null; }).filter(Boolean);
+      var plannedEnd=plannedEnds.length ? Math.max.apply(null, plannedEnds) : null;
+      if(plannedEnd && dayEndTs){
+        var deltaMin=Math.round((dayEndTs-plannedEnd)/60000);
+        g('dayDelay').textContent=deltaMin>0?('Retard +'+deltaMin+' min'):deltaMin<0?('Avance '+Math.abs(deltaMin)+' min'):'À l\'heure';
+      } else {
+        g('dayDelay').textContent='À l\'heure';
+      }
     }
   }
   if(g('dayNextEvent')){
@@ -1175,6 +1213,10 @@ function tkDayIsActive(){
 function tkComputeAlerts(){
   var al=[], now=serverNow();
   var dayActive=tkDayIsActive();
+  // ★ « Compét réellement démarrée » (au moins un live/timecap/done). NB : différent de
+  //   dayActive/tkDayIsActive qui inclut « pre ». Sert à ne PAS crier « heat en retard de
+  //   départ » quand rien n'a encore démarré (compét prévue un autre jour → faux positif).
+  var _compRunning=false; try{ _compRunning=tkCompIsRunning(); }catch(e){ _compRunning=false; }
   Object.keys(HD).forEach(function(hid){
     var h=HD[hid]; if(!h||heatDay(h)!==ACTIVE_DAY) return;
     var st=heatStatus(h), z=heatZone(h);
@@ -1221,7 +1263,10 @@ function tkComputeAlerts(){
       }
     }
     // (3) Heat en retard de départ (pending/pre, horaire prévu dépassé de > 5 min)
-    if(st==='pending'||st==='pre'){
+    //   ★ Uniquement si la compét a RÉELLEMENT démarré (au moins un heat live/timecap/done) :
+    //     sinon (compét prévue un autre jour, rien de lancé) l'horaire théorique est « dépassé »
+    //     par nature → alerte en boucle au repos. Pas d'activité réelle = pas d'alerte.
+    if(_compRunning && (st==='pending'||st==='pre')){
       try{
         var planTs=parseHeatClockToTs(h);
         if(planTs && (now-planTs)>TK_START_LATE_MS){
@@ -1424,6 +1469,9 @@ function renderTkHealth(){
     [1,2].forEach(function(z){
       var elZ=g('tkZoneDelay'+z);
       if(!elZ) return;
+      // ★ Retard PAR ZONE : uniquement si CETTE zone a au moins un heat live/timecap/done.
+      //   Une zone dont aucun heat n'a démarré → « — » (sinon faux retard au repos).
+      if(!tkZoneIsRunning(z)){ elZ.textContent='—'; elZ.style.color='var(--muted)'; return; }
       var endTs=zoneDayEndTs(z);
       if(!endTs){ elZ.textContent='—'; elZ.style.color='var(--muted)'; return; }
       // Référence planifiée de la zone : dernier heat programmé de la zone + durée estimée
