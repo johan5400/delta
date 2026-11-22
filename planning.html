@@ -157,14 +157,14 @@ body{min-height:100vh;overflow-x:hidden}
   .heat-group{animation:none;page-break-inside:avoid}
 }
 </style>
-<script>if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js').catch(function(){});}</script>
+<script>if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'}).then(function(reg){ setInterval(function(){ reg.update().catch(function(){}); }, 60000); }).catch(function(){});}</script>
 </head>
 <body>
 <div class="bg-glow"></div>
 <div class="wrap">
   <div class="hero">
     <div class="hero-badge"><span class="dot"></span> Planning officiel</div>
-    <h1>FOC 2026</h1>
+    <h1 id="hdr-ev-name">FOC 2026</h1>
     <div class="sub">DELTA</div>
     <div class="tagline">Retrouve ton equipe &middot; Horaires des deux jours</div>
   </div>
@@ -202,6 +202,22 @@ var FIREBASE_DB_URL='https://foc-2026-default-rtdb.europe-west1.firebasedatabase
 if(!firebase.apps.length) firebase.initializeApp({databaseURL:FIREBASE_DB_URL});
 var db=firebase.database();
 var _allHeats={},_dayFilter=null,_catFilter='all',_searchTerm='',_cats={};
+
+/* ── Nom d'événement configurable (QW2) — .once au boot, fallback « FOC 2026 », non bloquant ── */
+(function(){
+  try{
+    if(!db) return;
+    db.ref('system/config').once('value').then(function(snap){
+      try{
+        var cfg=snap.val()||{}; var nom=cfg.eventNom;
+        if(!nom || typeof nom!=='string') return;
+        nom=nom.trim(); if(!nom) return;
+        var h=document.getElementById('hdr-ev-name'); if(h) h.textContent=nom;
+        try{ document.title='Planning · '+nom+' Delta'; }catch(e){}
+      }catch(e){}
+    }).catch(function(){});
+  }catch(e){}
+})();
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
 function fmtMin(m){m=parseInt(m,10);if(isNaN(m))return '--';var h=Math.floor(m/60),mn=m%60;return (h<10?'0':'')+h+':'+(mn<10?'0':'')+mn;}
 function startMinuteFromHeat(h){

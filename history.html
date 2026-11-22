@@ -69,14 +69,17 @@ body{display:flex;flex-direction:column;min-height:100vh}
 .spinner{width:30px;height:30px;border:3px solid rgba(255,255,255,.1);border-top-color:var(--accent);border-radius:50%;animation:spin 1s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 </style>
-<script>if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js').catch(function(){});}</script>
+<script>if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'}).then(function(reg){ setInterval(function(){ reg.update().catch(function(){}); }, 60000); }).catch(function(){});}</script>
 </head>
 <body>
 
 <div class="topbar">
   <div class="brand">
     <div class="brand-k">F</div>
-    <div class="brand-title">HISTORY</div>
+    <div>
+      <div class="brand-title">HISTORY</div>
+      <div id="hdr-ev-name" style="font-size:11px;font-weight:700;color:rgba(255,255,255,.55);letter-spacing:.5px;margin-top:1px"></div>
+    </div>
   </div>
   <div class="nav-links">
     <span id="history-stamp" style="font-size:12px;color:rgba(255,255,255,.45);margin-right:4px;align-self:center"></span>
@@ -98,6 +101,23 @@ body{display:flex;flex-direction:column;min-height:100vh}
 <script>
 firebase.initializeApp({databaseURL:FIREBASE_DB_URL});
 var db=firebase.database();
+
+/* ── Nom d'événement configurable (QW2) — .once au boot, affiché en sous-titre ;
+   fallback : sous-titre vide si eventNom absent. Non bloquant, textContent. ── */
+(function(){
+  try{
+    if(!db) return;
+    db.ref('system/config').once('value').then(function(snap){
+      try{
+        var cfg=snap.val()||{}; var nom=cfg.eventNom;
+        if(!nom || typeof nom!=='string') return;
+        nom=nom.trim(); if(!nom) return;
+        var h=document.getElementById('hdr-ev-name'); if(h) h.textContent=nom;
+        try{ document.title='Historique · '+nom; }catch(e){}
+      }catch(e){}
+    }).catch(function(){});
+  }catch(e){}
+})();
 
 var HEATS = {};
 var SCORES = {};

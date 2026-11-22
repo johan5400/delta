@@ -900,7 +900,7 @@ body{height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-fami
       <div class="sp-spot-lbl">Merci à nos partenaires</div>
       <div id="sp-ov-spotlight"></div>
     </div>
-    <div class="sp-strip-lbl">Ils soutiennent le FOC 2026</div>
+    <div class="sp-strip-lbl">Ils soutiennent le <span id="hdr-ev-strip">FOC 2026</span></div>
     <div id="sp-ov-strip"></div>
   </div>
   <div id="sp-ov-reprise" style="display:none"></div>
@@ -910,7 +910,7 @@ body{height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-fami
 <div class="topbar">
   <div class="brand">
     <div class="brand-ico">K</div>
-    <span class="brand-lbl">FOC 2026</span>
+    <span class="brand-lbl" id="hdr-ev-name">FOC 2026</span>
   </div>
   <div class="live-badge">LIVE</div>
   <div class="vsw">
@@ -954,6 +954,23 @@ try{
 var _off=0;
 if(db) db.ref('.info/serverTimeOffset').on('value',function(s){_off=s.val()||0;});
 function now(){return Date.now()+_off;}
+
+/* ── Nom d'événement configurable (QW2) — .once au boot, fallback « FOC 2026 », non bloquant ── */
+(function(){
+  try{
+    if(!db) return;
+    db.ref('system/config').once('value').then(function(snap){
+      try{
+        var cfg=snap.val()||{}; var nom=cfg.eventNom;
+        if(!nom || typeof nom!=='string') return;
+        nom=nom.trim(); if(!nom) return;
+        var h=document.getElementById('hdr-ev-name'); if(h) h.textContent=nom;
+        var s=document.getElementById('hdr-ev-strip'); if(s) s.textContent=nom;
+        try{ document.title='Live · '+nom; }catch(e){}
+      }catch(e){}
+    }).catch(function(){});
+  }catch(e){}
+})();
 
 // ════ STATE ════
 var HEATS={},SCORES={},IH={},CD={},ZSYNC={},WD={},CLASSEMENT={},CATS={},VIEW='both';

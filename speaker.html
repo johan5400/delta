@@ -198,7 +198,7 @@ body{display:flex;flex-direction:column}
 <meta name="apple-mobile-web-app-title" content="FOC 2026">
 <link rel="apple-touch-icon" href="icon-192.png">
 <script>if('serviceWorker' in navigator){
-  navigator.serviceWorker.register('./sw.js').catch(function(){});
+  navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'}).then(function(reg){ setInterval(function(){ reg.update().catch(function(){}); }, 60000); }).catch(function(){});
   // Auto-reload silencieux quand le SW pousse une nouvelle version
   var _swReloaded=false;
   navigator.serviceWorker.addEventListener('message', function(ev){
@@ -224,7 +224,7 @@ body{display:flex;flex-direction:column}
     <div class="spk-logo">K</div>
     <div>
       <div class="spk-title">SPEAKER</div>
-      <div style="font-size:9px;color:var(--ink3);letter-spacing:1px;text-transform:uppercase">FOC 2026 · Zone K</div>
+      <div style="font-size:9px;color:var(--ink3);letter-spacing:1px;text-transform:uppercase"><span id="hdr-ev-name">FOC 2026</span> · Zone K</div>
     </div>
     <div class="spk-clock" id="spk-clock">--:--</div>
     <div class="conn-dot" id="conn-dot"></div>
@@ -794,6 +794,21 @@ function initSpeaker(){
   try{
     if(!firebase.apps.length) firebase.initializeApp({databaseURL:FIREBASE_DB_URL});
     var db = firebase.database();
+
+    /* ── Nom d'événement configurable (QW2) — .once au boot (réutilise db),
+       fallback « FOC 2026 », non bloquant, textContent. ── */
+    try{
+      db.ref('system/config').once('value').then(function(snap){
+        try{
+          var cfg=snap.val()||{}; var nom=cfg.eventNom;
+          if(!nom || typeof nom!=='string') return;
+          nom=nom.trim(); if(!nom) return;
+          var h=document.getElementById('hdr-ev-name'); if(h) h.textContent=nom;
+          try{ document.title=nom+' · Speaker'; }catch(e){}
+          try{ var m=document.querySelector('meta[name="apple-mobile-web-app-title"]'); if(m) m.setAttribute('content',nom); }catch(e){}
+        }catch(e){}
+      }).catch(function(){});
+    }catch(e){}
 
     // ── Offset horloge serveur ──
     db.ref('.info/serverTimeOffset').on('value',function(snap){ _serverTimeOffset=snap.val()||0; });

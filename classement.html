@@ -224,7 +224,7 @@ td.mine-cell{
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="FOC 2026">
 <link rel="apple-touch-icon" href="icon-192.png">
-<script>if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js').catch(function(){});}</script>
+<script>if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'}).then(function(reg){ setInterval(function(){ reg.update().catch(function(){}); }, 60000); }).catch(function(){});}</script>
 </head>
 <body>
 <div class="offline" id="offline">📡 Hors ligne — reconnexion en cours…</div>
@@ -233,7 +233,7 @@ td.mine-cell{
   <div class="brand">
     <div class="brand-k">K</div>
     <div>
-      <div class="brand-title">CLASSEMENT FOC 2026</div>
+      <div class="brand-title">CLASSEMENT <span id="hdr-ev-name">FOC 2026</span></div>
       <div class="brand-sub">Zone K · dynamique · categories et WODs</div>
     </div>
   </div>
@@ -299,6 +299,30 @@ try { db = firebase.database(_fbApp); } catch(e) { db = firebase.database(); }
 var _off=0;
 if(db) db.ref('.info/serverTimeOffset').on('value',function(s){_off=s.val()||0;});
 function now(){return Date.now()+_off;}
+
+/* ── Nom d'événement configurable (QW2) ──
+   Lecture unique (.once) de system/config au boot : si eventNom existe, on remplace
+   « FOC 2026 » dans l'en-tête + document.title + apple-mobile-web-app-title.
+   textContent uniquement, fallback silencieux, non bloquant (le rendu principal
+   ne dépend pas de cette lecture). Pas de listener permanent : le nom ne change
+   pas pendant la compèt. */
+(function(){
+  try{
+    if(!db) return;
+    db.ref('system/config').once('value').then(function(snap){
+      try{
+        var cfg=snap.val()||{};
+        var nom=cfg.eventNom;
+        if(!nom || typeof nom!=='string') return;
+        nom=nom.trim();
+        if(!nom) return;
+        var h=document.getElementById('hdr-ev-name'); if(h) h.textContent=nom;
+        try{ document.title=nom+' · Classement'; }catch(e){}
+        try{ var m=document.querySelector('meta[name="apple-mobile-web-app-title"]'); if(m) m.setAttribute('content',nom); }catch(e){}
+      }catch(e){}
+    }).catch(function(){});
+  }catch(e){}
+})();
 var HEATS={},SCORES={},SEL_ZONE='all',SEL_CAT=null,SEL_WOD='__total__',SEL_VIEW='teams',LAST_UPDATE='--:--:--';
 
 /* ★ Stub hissé : étoile « mon équipe » injectée par les fonctions de rendu. La vraie

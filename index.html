@@ -1077,6 +1077,18 @@ function checkPassword(){
       </div>
     </div>
 
+    <!-- SAUVEGARDE / RESTAURATION DE LA CONFIGURATION (QW1) -->
+    <div class="card" style="grid-column:1/-1">
+      <div class="sh-card-title">💾 Sauvegarde de la configuration</div>
+      <div style="font-size:11px;color:var(--ink2);margin-bottom:14px">Exportez toute la compétition dans un fichier (événement, catégories, WODs, bénévoles, zones) ou restaurez-la depuis une sauvegarde.</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+        <button type="button" class="btn btn-blue" onclick="exportData()" style="font-size:12px;font-weight:800;padding:10px 18px">💾 Exporter la configuration</button>
+        <button type="button" class="btn btn-dark" onclick="(function(){var i=document.getElementById('cfg-import-file');if(i){i.value='';i.click();}})()" style="font-size:12px;font-weight:800;padding:10px 18px">📂 Importer une configuration</button>
+        <input id="cfg-import-file" type="file" accept=".json,application/json" style="display:none" onchange="if(confirm('Importer une configuration va REMPLACER la compétition actuelle (catégories, WODs, bénévoles...). Les scores en cours ne sont pas concernés.\n\nContinuer ?')){importData(event);}else{this.value='';}">
+      </div>
+      <div style="font-size:10px;color:var(--ink3);margin-top:10px;line-height:1.6">Réutilise une édition précédente ou prépare une nouvelle compétition à partir d&rsquo;une sauvegarde.</div>
+    </div>
+
     <div class="card" style="grid-column:1/-1;background:#F0F9FF;border-color:#1E88E533">
       <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
         <div style="flex:1">
@@ -3821,6 +3833,11 @@ function previewSponsorLive(){
 
 function getDb(){ return (typeof LS_FB_DB!=='undefined'&&LS_FB_DB)||window.db||db||null; }
 var _journeeActive = false; // true une fois la journée lancée via TK
+// ★ QW3 : vrai SEULEMENT si au moins un heat est actuellement EN COURS (status 'live'
+//   ou 'timecap' = cap atteint mais heat pas encore clôturé). Mis à jour par le poll
+//   existant checkJourneeActive() (aucune lecture Firebase supplémentaire). Lu par
+//   competitionEnCours() au moment du beforeunload. Fail-safe : défaut false.
+var _heatLiveNow = false;
 
 
 var activePlanDay=0,activePSDay=1,activeJourDay=1,activeStaDay=1;
@@ -7427,6 +7444,33 @@ function handleQuickActionHash(){
 }
 
 window.addEventListener('hashchange', handleQuickActionHash);
+
+// ── Garde anti-fermeture accidentelle de l'admin (QW3) ──
+// Avertit avant de fermer/recharger l'onglet admin UNIQUEMENT quand un heat est
+// RÉELLEMENT EN COURS (pilotage actif) — pas en préparation, pas le soir, pas
+// entre deux heats, pas quand tout est terminé.
+//
+// Source de vérité : le flag en mémoire _heatLiveNow, mis à jour par le poll
+// EXISTANT checkJourneeActive() (lecture de 'heats' déjà faite toutes les 30 s —
+// AUCUNE nouvelle lecture Firebase ni listener permanent ajouté). _heatLiveNow
+// est true seulement si au moins un heat a le status 'live' ou 'timecap' (cap
+// atteint mais heat non clôturé = encore en cours). Les statuses 'pre', 'done',
+// 'pending' ne déclenchent PAS l'alerte.
+//
+// La condition est évaluée AU MOMENT du beforeunload (fonction, pas flag figé).
+// Fail-safe : tout chemin incertain renvoie false → jamais de popup fantôme.
+function competitionEnCours(){
+  try{ return (typeof _heatLiveNow!=='undefined' && _heatLiveNow===true); }
+  catch(e){ return false; }
+}
+window.addEventListener('beforeunload', function(e){
+  try{
+    if(competitionEnCours()){
+      e.preventDefault();
+      e.returnValue='';
+    }
+  }catch(err){}
+});
 
 function openPrintModal(){
   openModal("print-modal");
@@ -20720,7 +20764,7 @@ function printGuide(){
 
   var baseUrl = window.location.href.split('/').slice(0,-1).join('/');
   html += '<div class="urls"><h2>🔗 URLs du système</h2>';
-  html += '<div class="url-row"><span class="url-lbl">Admin</span><span class="url-val">'+baseUrl+'/index.html · mot de passe : Mirage2000D</span></div>';
+  html += '<div class="url-row"><span class="url-lbl">Admin</span><span class="url-val">'+baseUrl+'/index.html</span></div>';
   html += '<div class="url-row"><span class="url-lbl">Juge</span><span class="url-val">'+baseUrl+'/judge.html#juge/ID</span></div>';
   html += '<div class="url-row"><span class="url-lbl">Écran public</span><span class="url-val">'+baseUrl+'/live.html</span></div>';
   html += '<div class="url-row"><span class="url-lbl">Time Keeper</span><span class="url-val">'+baseUrl+'/tk9delta.html</span></div>';
@@ -20743,7 +20787,7 @@ function printGuide(){
   });
 
   html += '<div class="note">💾 Sauvegarde auto dans le navigateur. Bouton 💾 = export JSON · Bouton 📂 = restaurer<br>';
-  html += '🔑 Mot de passe admin : <b>Mirage2000D</b> · Code démo : <b>essai</b> (usage unique par poste)</div>';
+  html += '🔑 Mot de passe admin communiqué séparément · Code démo : <b>essai</b> (usage unique par poste)</div>';
   html += '<footer>ZONE K · FIGHTS ON CONTEST 2026 · Guide g\u00e9n\u00e9r\u00e9 depuis l\'admin</footer>';
   html += '<scr'+'ipt>window.onload=function(){setTimeout(function(){window.print();},400)}</scr'+'ipt>';
   html += '';
@@ -23325,6 +23369,13 @@ window.renderClassementTK=renderClassementTK;
         return h&&(h.status==='live'||h.status==='pre'||h.status==='done'||h.status==='timecap');
       });
       _journeeActive=active;
+      // ★ QW3 : flag resserré sur les heats réellement en cours (live/timecap),
+      //   calculé depuis le MÊME snapshot (pas de lecture supplémentaire).
+      try{
+        _heatLiveNow=Object.values(heats).some(function(h){
+          return h&&(h.status==='live'||h.status==='timecap');
+        });
+      }catch(e){ _heatLiveNow=false; }
       var btn=document.getElementById('gen-btn');
       var btnA=document.getElementById('accueil-publish-btn');
       if(active){

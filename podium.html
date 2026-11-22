@@ -144,7 +144,7 @@ body{
 
 .toplink{position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:50;font-family:var(--fm);font-size:11px;color:var(--ink3)}
 </style>
-<script>if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js').catch(function(){});}</script>
+<script>if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'}).then(function(reg){ setInterval(function(){ reg.update().catch(function(){}); }, 60000); }).catch(function(){});}</script>
 </head>
 <body>
 
@@ -152,7 +152,7 @@ body{
 <div class="topbar">
   <img class="logo-foc" id="logo-foc" alt="FOC">
   <div class="ev">
-    <div class="t1">FIGHTS ON CONTEST 2026</div>
+    <div class="t1" id="hdr-ev-name">FIGHTS ON CONTEST 2026</div>
     <div class="t2">Cérémonie des podiums · Zone K</div>
   </div>
   <div id="logo-yo-wrap"><svg viewBox="0 0 680 320" xmlns="http://www.w3.org/2000/svg" class="logo-yo" style="display:block;height:54px;width:auto">
@@ -247,6 +247,23 @@ catch(e){ try{_fbApp=firebase.app();}catch(e2){_fbApp=firebase.initializeApp({da
 var db; try{ db=firebase.database(_fbApp); }catch(e){ db=firebase.database(); }
 var _off=0; if(db) db.ref('.info/serverTimeOffset').on('value',function(s){_off=s.val()||0;});
 function now(){return Date.now()+_off;}
+
+/* ── Nom d'événement configurable (QW2) — .once au boot, fallback « FOC 2026 », non bloquant ── */
+(function(){
+  try{
+    if(!db) return;
+    db.ref('system/config').once('value').then(function(snap){
+      try{
+        var cfg=snap.val()||{}; var nom=cfg.eventNom;
+        if(!nom || typeof nom!=='string') return;
+        nom=nom.trim(); if(!nom) return;
+        var h=document.getElementById('hdr-ev-name'); if(h) h.textContent=nom;
+        var f=document.getElementById('foot-stamp'); if(f) f.textContent=nom;
+        try{ document.title='Podium · Cérémonie · '+nom; }catch(e){}
+      }catch(e){}
+    }).catch(function(){});
+  }catch(e){}
+})();
 var HEATS={}, SCORES={};
 var MEDALS=['🥇','🥈','🥉'];
 
