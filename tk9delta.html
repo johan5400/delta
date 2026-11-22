@@ -2397,6 +2397,9 @@ function maybeAutoAdvanceZone(zone){
 }
 
 function autoFlow(zone){
+  // ★ FIX RÉGRESSION : pendant le décompte de début de journée, ne rien lancer.
+  //   Le 1er heat partira au GO via _mcdLaunchGo → launchHeatDirectAt.
+  if(_mcdCountdownActive()) return;
   var base=currentHeat(zone)||zoneSelectedHeat(zone)||zoneState[zone]._lastDoneHid||null;
   var nxt=nextHeatAfter(zone, base)||nextHeat(zone);
   if(!nxt) return;
@@ -2429,6 +2432,9 @@ function autoFlow(zone){
 
 /* ★ Vérifie juges et lance ou bloque avec alerte */
 function checkAndLaunch(zone, hid){
+  // ★ FIX RÉGRESSION : un timer autoFlow armé juste avant le décompte ne doit pas
+  //   lancer le heat pendant le compte à rebours de début de journée.
+  if(_mcdCountdownActive()) return;
   var ready=judgesReadyForHeat(hid);
   var alertEl=g('z'+zone+'JudgeAlert');
   var missingEl=g('z'+zone+'JudgeMissing');
@@ -2581,6 +2587,15 @@ var _mcdTkIv=null;
 // ── Lancement GO journée depuis le listener Firebase (résilient aux rechargements) ──
 var _mcdLaunched=false; // guard anti-double-launch par session
 var _mcdLaunchDay=null;
+
+// ★ FIX RÉGRESSION DÉCOMPTE JOURNÉE : vrai UNIQUEMENT pendant le compte à rebours
+//   de début de journée (jour armé via launchMorningSequence, mais GO pas encore
+//   donné par _mcdLaunchGo). Tant que ça tourne, AUCUN heat ne doit démarrer :
+//   sinon le chrono du WOD tourne en arrière-plan pendant le décompte (ex: countdown
+//   1 min → le WOD de 2 min n'affiche plus qu'1 min au GO). Le lancement officiel au
+//   GO passe par launchHeatDirectAt (non bloqué). Après le GO, _mcdLaunched=true →
+//   ce helper repasse à false et les enchaînements normaux reprennent.
+function _mcdCountdownActive(){ return !!_mcdLaunchDay && !_mcdLaunched; }
 
 function _mcdLaunchGo(day){
   // Guard : si heats déjà live pour ce jour, ne pas relancer
@@ -2967,6 +2982,9 @@ function launchHeatDirect(zone,hid){
   launchHeatDirectAt(zone,hid,serverNow());
 }
 function launchHeat(zone,hid){
+  // ★ FIX RÉGRESSION : rempart final — tant que le décompte de début de journée
+  //   tourne, on ne démarre aucun heat (sinon le chrono WOD part trop tôt).
+  if(_mcdCountdownActive()) return;
   var CD=AUTO_COUNTDOWN_SECS; // secondes countdown
   var target=serverNow()+CD*1000;
   dbRef('system/interheat/'+zone).set({active:false,zone:zone,ts:serverNow()});
