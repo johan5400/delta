@@ -970,18 +970,11 @@ function checkPassword(){
         <div class="form-group"><label>Responsable</label><input id="ev-resp" value="" oninput="reactiveUpdate()"></div>
         <div class="form-group"><label>Email</label><input id="ev-email" type="email" value="" oninput="reactiveUpdate()"></div>
       </div>
-      <div style="background:#F5F3FF;border-radius:8px;padding:12px;border:1px solid #7C3AED33;margin-top:2px">
-        <div style="font-size:10px;font-weight:800;color:#7C3AED;text-transform:uppercase;letter-spacing:.6px;margin-bottom:9px">🏆 Type de compétition</div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <label style="flex:1;min-width:200px;display:flex;align-items:flex-start;gap:8px;background:#fff;border:1.5px solid #E2E8F0;border-radius:10px;padding:10px 12px;cursor:pointer" onclick="setCompMode('normal')">
-            <input type="radio" name="comp-mode" id="comp-mode-normal" value="normal" checked style="margin-top:2px" onchange="setCompMode('normal')">
-            <div><div style="font-size:13px;font-weight:800;color:#0F172A">Compétition normale</div><div style="font-size:10.5px;color:#64748B;margin-top:2px">Juges dédiés. Les athlètes ne jugent pas.</div></div>
-          </label>
-          <label style="flex:1;min-width:200px;display:flex;align-items:flex-start;gap:8px;background:#fff;border:1.5px solid #E2E8F0;border-radius:10px;padding:10px 12px;cursor:pointer" onclick="setCompMode('interne')">
-            <input type="radio" name="comp-mode" id="comp-mode-interne" value="interne" style="margin-top:2px" onchange="setCompMode('interne')">
-            <div><div style="font-size:13px;font-weight:800;color:#0F172A">Compétition interne</div><div style="font-size:10.5px;color:#64748B;margin-top:2px">Les athlètes peuvent aussi juger. Ils entrent dans le planning des juges.</div></div>
-          </label>
-        </div>
+      <!-- Bloc "Type de compétition" (normale / interne) masqué : fonctionnalité "compétition interne" retirée de l'UI.
+           Le mode reste 'normal' par défaut (comp-mode-normal conservé en hidden pour ne pas casser setCompMode/applyState). -->
+      <div style="display:none">
+        <input type="radio" name="comp-mode" id="comp-mode-normal" value="normal" checked>
+        <input type="radio" name="comp-mode" id="comp-mode-interne" value="interne">
       </div>
       <div style="background:#F0F9FF;border-radius:8px;padding:12px;border:1px solid #1E88E533;margin-top:2px">
         <div style="font-size:10px;font-weight:800;color:var(--blue);text-transform:uppercase;letter-spacing:.6px;margin-bottom:9px">⏰ Horaires compétition</div>
@@ -9945,7 +9938,7 @@ function sanitizeBundledTestState(){
   return removed;
 }
 function applyState(state){
-  if(state.ev){var ev=state.ev;if(ev.nom)document.getElementById("ev-nom").value=ev.nom;if(ev.date1)document.getElementById("ev-date1").value=ev.date1;if(ev.date2)document.getElementById("ev-date2").value=ev.date2;if(ev.lieu)document.getElementById("ev-lieu").value=ev.lieu;if(ev.resp)document.getElementById("ev-resp").value=ev.resp;if(ev.email)document.getElementById("ev-email").value=ev.email;if(ev.compStart)document.getElementById("comp-start").value=ev.compStart;if(ev.compEnd)document.getElementById("comp-end").value=ev.compEnd;var cs2el=document.getElementById("comp-start2");var ce2el=document.getElementById("comp-end2");var rd2el=(document.getElementById("rotation-dur2")||{});if(ev.compStart2&&cs2el)cs2el.value=ev.compStart2;if(ev.compEnd2&&ce2el)ce2el.value=ev.compEnd2;if(ev.rotDur2&&rd2el)rd2el.value=ev.rotDur2;var nj1el=document.getElementById("notes-j1");var nj2el=document.getElementById("notes-j2");if(ev.notesJ1&&nj1el)nj1el.value=ev.notesJ1;if(ev.notesJ2&&nj2el)nj2el.value=ev.notesJ2;setCompMode(ev.compMode==='interne'?'interne':'normal',true);if(ev.internalRotation&&ev.internalRotation.data){window._INTERNAL_ROTATION_FROZEN=ev.internalRotation;}}
+  if(state.ev){var ev=state.ev;if(ev.nom)document.getElementById("ev-nom").value=ev.nom;if(ev.date1)document.getElementById("ev-date1").value=ev.date1;if(ev.date2)document.getElementById("ev-date2").value=ev.date2;if(ev.lieu)document.getElementById("ev-lieu").value=ev.lieu;if(ev.resp)document.getElementById("ev-resp").value=ev.resp;if(ev.email)document.getElementById("ev-email").value=ev.email;if(ev.compStart)document.getElementById("comp-start").value=ev.compStart;if(ev.compEnd)document.getElementById("comp-end").value=ev.compEnd;var cs2el=document.getElementById("comp-start2");var ce2el=document.getElementById("comp-end2");var rd2el=(document.getElementById("rotation-dur2")||{});if(ev.compStart2&&cs2el)cs2el.value=ev.compStart2;if(ev.compEnd2&&ce2el)ce2el.value=ev.compEnd2;if(ev.rotDur2&&rd2el)rd2el.value=ev.rotDur2;var nj1el=document.getElementById("notes-j1");var nj2el=document.getElementById("notes-j2");if(ev.notesJ1&&nj1el)nj1el.value=ev.notesJ1;if(ev.notesJ2&&nj2el)nj2el.value=ev.notesJ2;setCompMode('normal',true);/* mode interne retiré de l'UI : on force 'normal' meme sur un ancien etat sauvegarde en interne */if(ev.internalRotation&&ev.internalRotation.data){window._INTERNAL_ROTATION_FROZEN=ev.internalRotation;}}
   if(state.stations&&state.stations.length)STATIONS=state.stations;
   // ★ FIX CRITIQUE (perte bénévoles) : ne JAMAIS écraser la liste par du vide.
   //   Le code d'origine faisait `if(state.benevoles)` sans tester la longueur — or un
