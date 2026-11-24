@@ -654,13 +654,85 @@ body{height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-fami
 .np-nm{font-family:var(--ff);font-size:clamp(16px,2.4vw,28px);letter-spacing:.5px;color:#F2F6FC;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .p-timer{font-family:var(--fm);font-size:13px;color:var(--ink3);text-align:center;margin-top:5px}
 
-#mcd-logo{
-  width:clamp(180px,22vw,320px);
-  height:clamp(180px,22vw,320px);
+/* ═══ Logo BOX CREW qui se DÉVOILE au fil du cooldown (façon chrono qui se charge) ═══
+   La progression --rp (0 → 1) est pilotée en JS depuis le temps restant réel du
+   morningCountdown (durée = celle définie dans l'admin). À 0% le logo est sombre et
+   peu révélé ; à 100% (GO) il est pleinement révélé, net et lumineux. */
+.mcd-logo-wrap{
+  position:relative;
+  display:flex;align-items:center;justify-content:center;
+  margin-bottom:26px;
+  --rp:0; /* progression 0→1, mise à jour en JS */
+}
+/* Halo doré qui grandit et s'intensifie avec la révélation */
+.mcd-logo-halo{
+  position:absolute;
+  width:clamp(320px,44vw,660px);
+  height:clamp(320px,44vw,660px);
+  border-radius:50%;
+  background:radial-gradient(circle,
+    rgba(201,151,0, calc(var(--rp) * .34)) 0%,
+    rgba(201,151,0, calc(var(--rp) * .12)) 40%,
+    rgba(201,151,0,0) 70%);
+  transform:scale(calc(.55 + var(--rp) * .55));
+  pointer-events:none;
+  transition:background .25s linear, transform .25s linear;
+}
+/* Anneau de progression (cadran de chrono qui se remplit dans le sens horaire) */
+.mcd-ring{
+  position:absolute;
+  width:clamp(300px,40vw,580px);
+  height:clamp(300px,40vw,580px);
+  border-radius:50%;
+  /* secteur doré de 0° à (rp*360°), reste très sombre */
+  background:conic-gradient(from -90deg,
+    rgba(201,151,0,.85) 0deg,
+    rgba(230,180,40,.9) calc(var(--rp) * 360deg),
+    rgba(201,151,0,.06) calc(var(--rp) * 360deg) 360deg);
+  /* on ne garde qu'un fin anneau (le centre est découpé) */
+  -webkit-mask:radial-gradient(circle, transparent 0 46%, #000 47.5% 50%, transparent 51%);
+  mask:radial-gradient(circle, transparent 0 46%, #000 47.5% 50%, transparent 51%);
+  pointer-events:none;
+  filter:drop-shadow(0 0 calc(4px + var(--rp) * 16px) rgba(201,151,0,calc(.3 + var(--rp)*.5)));
+  transition:background .25s linear, filter .25s linear;
+}
+/* ── Logo qui se REMPLIT de bas en haut ──
+   Deux copies superposées du même logo :
+   · .mcd-logo-base : version éteinte (sombre/désaturée), toujours visible = le logo "vide"
+   · .mcd-logo-fill : version pleine (lumineuse/dorée) révélée de bas en haut selon --rp,
+     comme si on remplissait les lettres et le chrono d'or au fil du décompte.
+   Logo FIXE : aucune pulsation ni flottement, seul le remplissage progresse. */
+.mcd-logo-stack{
+  position:relative;
+  width:clamp(240px,32vw,470px);
+  line-height:0;
+}
+.mcd-logo-stack img{
+  width:100%;
+  height:auto;
   object-fit:contain;
-  margin-bottom:18px;
-  transform-style:preserve-3d;
-  transform-origin:center center;
+  display:block;
+}
+.mcd-logo-base{
+  /* le logo "vide" : sombre, désaturé, discret */
+  filter:brightness(.34) saturate(.3) drop-shadow(0 0 6px rgba(201,151,0,.12));
+}
+.mcd-logo-fill{
+  position:absolute;
+  inset:0;
+  /* le logo "plein" : lumineux et doré, net */
+  filter:brightness(1.12) saturate(1.15)
+    drop-shadow(0 0 calc(10px + var(--rp) * 26px) rgba(201,151,0, calc(.35 + var(--rp) * .5)));
+  /* révélation de bas en haut : on montre les (rp*100)% du bas, avec une lisière douce */
+  -webkit-mask-image:linear-gradient(to top,
+    #000 calc(var(--rp) * 100%),
+    rgba(0,0,0,.25) calc(var(--rp) * 100% + 4%),
+    transparent calc(var(--rp) * 100% + 10%));
+  mask-image:linear-gradient(to top,
+    #000 calc(var(--rp) * 100%),
+    rgba(0,0,0,.25) calc(var(--rp) * 100% + 4%),
+    transparent calc(var(--rp) * 100% + 10%));
+  transition:-webkit-mask-image .25s linear, mask-image .25s linear, filter .25s linear;
 }
 
 @keyframes cdLogoSpin{
@@ -932,9 +1004,13 @@ body{height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-fami
 </div>
 
 <div id="morning-cd">
-  <img id="yo-watermark" src="yotimer_.jpg" alt="YO-TIMER" style="position:absolute;top:16px;left:16px;width:clamp(80px,12vw,140px);height:auto;border-radius:10px;opacity:.85">
-  <div style="text-align:center;margin-bottom:18px">
-    <img src="TITRE.jpg" alt="FOC 2026 Zone-K" style="width:clamp(140px,22vw,220px);height:auto;border-radius:18px;filter:drop-shadow(0 0 30px rgba(255,138,0,.5)) drop-shadow(0 0 60px rgba(255,87,34,.3))">
+  <div class="mcd-logo-wrap" id="mcd-logo-wrap">
+    <div class="mcd-logo-halo"></div>
+    <div class="mcd-ring" id="mcd-ring"></div>
+    <div class="mcd-logo-stack">
+      <img class="mcd-logo-base" src="./assets/boxcrew-logo-glow.png" alt="BOX CREW">
+      <img class="mcd-logo-fill" id="mcd-logo" src="./assets/boxcrew-logo-glow.png" alt="" aria-hidden="true">
+    </div>
   </div>
   <div class="mcd-lbl">⏳ DÉBUT DE JOURNÉE</div>
   <div class="mcd-val" id="mcd-val">1:00</div>
@@ -4330,12 +4406,24 @@ if(db){
       return;
     }
     if(el)el.className='on';
-    // Charger le logo FOC dans l'overlay
-    var mcdLogo=document.getElementById('mcd-logo');
-    if(mcdLogo&&FOC_LOGO) mcdLogo.src=FOC_LOGO;
+    // Logo BOX CREW qui se DÉVOILE au fil du cooldown : le src est déjà dans le HTML.
+    //   Durée totale = (target - ts) lus de Firebase → correspond au temps "Countdown"
+    //   défini dans l'admin (index). La révélation --rp va de 0 (début) à 1 (GO).
+    var _wrap=document.getElementById('mcd-logo-wrap');
+    var _startTs=(typeof d.ts==='number' && d.ts>0) ? d.ts : null;
+    // durée totale en ms ; si ts absent, on borne par un défaut raisonnable (fallback)
+    var _durMs=(_startTs!=null) ? Math.max(1000, d.target - _startTs) : Math.max(1000, d.target - now());
+    function setReveal(){
+      // progression 0→1 = temps écoulé / durée totale
+      var elapsed = _startTs!=null ? (now() - _startTs) : (_durMs - (d.target - now()));
+      var rp = Math.max(0, Math.min(1, elapsed / _durMs));
+      if(_wrap) _wrap.style.setProperty('--rp', rp.toFixed(4));
+    }
     function tick(){
       var rem=Math.max(0,Math.ceil((d.target-now())/1000));
+      setReveal();
       if(rem<=0){
+        if(_wrap) _wrap.style.setProperty('--rp','1'); // logo pleinement révélé au GO
         if(val){val.textContent='GO !';val.className='mcd-val go';}
         if(sub)sub.textContent='C\'est parti !';
         clearInterval(_mcdIv);
