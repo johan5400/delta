@@ -70,7 +70,7 @@ body{display:flex;flex-direction:column}
 
 /* HEADER */
 .spk-header{padding:calc(var(--sat)+10px) 16px 10px;background:rgba(5,10,20,.95);border-bottom:1px solid var(--brd);flex-shrink:0;display:flex;align-items:center;gap:10px}
-.spk-logo{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,var(--fire),var(--ember));display:flex;align-items:center;justify-content:center;font-family:var(--ff);font-size:20px;color:#fff;flex-shrink:0}
+.spk-logo{width:40px;height:40px;object-fit:contain;display:block;flex-shrink:0}
 .spk-title{font-family:var(--ff);font-size:20px;letter-spacing:2px;flex:1}
 .spk-clock{font-family:var(--fm);font-size:13px;color:var(--ink2)}
 .conn-dot{width:7px;height:7px;border-radius:50%;background:var(--ok);box-shadow:0 0 8px rgba(6,214,160,.5);animation:blink 1.8s infinite;flex-shrink:0}
@@ -221,10 +221,10 @@ body{display:flex;flex-direction:column}
 <div id="app" style="display:none;flex-direction:column;height:100%">
 
   <div class="spk-header">
-    <div class="spk-logo">K</div>
+    <img class="spk-logo" src="./assets/boxcrew-mark-glow.png" alt="BOX CREW">
     <div>
       <div class="spk-title">SPEAKER</div>
-      <div style="font-size:9px;color:var(--ink3);letter-spacing:1px;text-transform:uppercase"><span id="hdr-ev-name">FOC 2026</span> · Zone K</div>
+      <div style="font-size:9px;color:var(--ink3);letter-spacing:1px;text-transform:uppercase"><span id="hdr-ev-name">FOC 2026</span></div>
     </div>
     <div class="spk-clock" id="spk-clock">--:--</div>
     <div class="conn-dot" id="conn-dot"></div>

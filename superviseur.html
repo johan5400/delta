@@ -13,7 +13,7 @@
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:radial-gradient(1200px 600px at 50% -10%,#10182b 0,var(--bg) 60%);color:var(--ink);font-family:'Inter',system-ui,sans-serif;min-height:100vh;padding:14px;max-width:1180px;margin:0 auto}
 .hdr{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;flex-wrap:wrap}
-.hdr-l{display:flex;align-items:center;gap:12px}.logo-badge{width:46px;height:46px;border-radius:12px;background:linear-gradient(135deg,#FF8A00,#FF5C00);display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue';font-size:26px;color:#1a0e00}
+.hdr-l{display:flex;align-items:center;gap:12px}.logo-badge{width:52px;height:52px;object-fit:contain;display:block}
 .hdr h1{font-size:34px;line-height:.9;font-family:'Bebas Neue';letter-spacing:.5px}.hdr .sub{font-size:11px;color:var(--muted);font-weight:700;letter-spacing:2px;text-transform:uppercase}
 .hdr-r{display:flex;align-items:center;gap:10px}.clock{font-family:var(--mono);font-size:22px;font-weight:700}
 .live-dot{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:800;border-radius:999px;padding:5px 11px;text-transform:uppercase;letter-spacing:1px}
@@ -55,7 +55,7 @@ body{background:radial-gradient(1200px 600px at 50% -10%,#10182b 0,var(--bg) 60%
 </head>
 <body>
 <div class="hdr">
-  <div class="hdr-l"><div class="logo-badge" id="hdrBadge">BC</div><div><h1>SUPERVISEUR</h1><div class="sub" id="hdrSub">Vue d'ensemble · temps réel</div></div></div>
+  <div class="hdr-l"><img class="logo-badge" id="hdrBadge" src="./assets/boxcrew-mark-glow.png" alt="BOX CREW"><div><h1>SUPERVISEUR</h1><div class="sub" id="hdrSub">Vue d'ensemble · temps réel</div></div></div>
   <div class="hdr-r"><div class="clock" id="clock">--:--:--</div><div class="live-dot off" id="conn"><i></i> <span id="connTxt">Connexion…</span></div></div>
 </div>
 
@@ -94,17 +94,6 @@ function now(){return Date.now()+SRV_OFF;}
       var nom=(s && s.val && s.val())? String(s.val()).trim() : '';
       if(!nom) return;
       var sub=document.getElementById('hdrSub'); if(sub) sub.textContent=nom+' · vue d\'ensemble';
-      var bdg=document.getElementById('hdrBadge');
-      if(bdg){
-        // Badge = sigle court. On ne garde que les mots qui commencent par une lettre
-        //   (on ignore "2026" etc.). Plusieurs mots -> leurs initiales (ex. "Fights On
-        //   Contest" -> "FOC"). Un seul mot -> ses 3 premières lettres (ex. "FOC" -> "FOC").
-        var mots=nom.split(/\s+/).filter(function(w){return /^[a-zA-ZÀ-ɏ]/.test(w);});
-        var ini;
-        if(mots.length>=2){ ini=mots.map(function(w){return w.charAt(0);}).join('').toUpperCase().slice(0,3); }
-        else { ini=(mots[0]||nom).replace(/[^a-zA-ZÀ-ɏ]/g,'').toUpperCase().slice(0,3); }
-        if(ini) bdg.textContent=ini;
-      }
       try{ document.title='Superviseur · '+nom; }catch(e){}
     }, function(){});
   }catch(e){}
