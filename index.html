@@ -2255,51 +2255,66 @@ function checkPassword(){
     </div>
   </div>
 
-<div id="journal-inline" style="margin-top:18px;border-top:1px solid var(--brd);padding-top:16px">
-  <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px">
-    <div style="width:42px;height:42px;background:rgba(201,151,0,.14);border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:22px">🧾</div>
-    <div style="flex:1;min-width:200px">
-      <div style="font-size:17px;font-weight:900">Journal des erreurs</div>
-      <div style="font-size:12px;color:var(--mid)">Erreurs, réseau et temps de chargement remontés par toutes les pages (TK, live, juge…). <span style="color:#64748b">· remis à zéro à chaque « Générer &amp; Publier »</span></div>
-    </div>
-    <button class="btn" onclick="renderJournal()" style="white-space:nowrap">↻ Actualiser</button>
-    <button class="btn" onclick="exportJournalJSON()" style="white-space:nowrap">⬇ Export JSON</button>
-    <button class="btn" onclick="exportJournalCSV()" style="white-space:nowrap">⬇ Export CSV</button>
-    <button class="btn" onclick="purgeJournal()" style="white-space:nowrap;background:rgba(220,60,60,.15);border-color:rgba(220,60,60,.4);color:#ff8a8a">🗑 Purger</button>
+<div style="margin-top:16px;border-top:1px solid var(--brd);padding-top:14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+  <div style="width:40px;height:40px;background:rgba(201,151,0,.14);border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:20px">🧾</div>
+  <div style="flex:1;min-width:180px">
+    <div style="font-size:14px;font-weight:900;color:#fff">Journal des erreurs</div>
+    <div style="font-size:11px;color:#9FB3C8">Erreurs, réseau et temps de chargement de toutes les pages.</div>
   </div>
-
-  <!-- Résumé -->
-  <div id="jrnSummary" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px"></div>
-
-  <!-- Filtres -->
-  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
-    <select id="jrnFilterPage" onchange="renderJournalList()" style="padding:7px 10px;border-radius:8px;background:var(--s2);color:var(--ink);border:1px solid var(--brd);font-size:13px">
-      <option value="">Toutes les pages</option>
-    </select>
-    <div style="display:flex;gap:6px">
-      <button class="jrn-lvl active" data-lvl="" onclick="jrnSetLvl(this,'')">Tous</button>
-      <button class="jrn-lvl" data-lvl="error" onclick="jrnSetLvl(this,'error')">🔴 Erreurs</button>
-      <button class="jrn-lvl" data-lvl="net" onclick="jrnSetLvl(this,'net')">📡 Réseau</button>
-      <button class="jrn-lvl" data-lvl="load" onclick="jrnSetLvl(this,'load')">⏱ Chargement</button>
-    </div>
-    <input id="jrnSearch" type="text" placeholder="Rechercher…" oninput="renderJournalList()" style="flex:1;min-width:140px;padding:7px 10px;border-radius:8px;background:var(--s2);color:var(--ink);border:1px solid var(--brd);font-size:13px">
-  </div>
-
-  <div id="jrnList" style="font-size:13px"></div>
-
-  <style>
-    #journal-inline .jrn-lvl{padding:7px 12px;border-radius:8px;background:var(--s2);color:var(--mid);border:1px solid var(--brd);font-size:12px;font-weight:700;cursor:pointer}
-    #journal-inline .jrn-lvl.active{background:rgba(201,151,0,.18);color:#E8C66A;border-color:rgba(201,151,0,.45)}
-    #journal-inline .jrn-row{display:grid;grid-template-columns:120px 90px 70px 1fr;gap:10px;padding:9px 10px;border-bottom:1px solid var(--brd);align-items:start}
-    #journal-inline .jrn-row:hover{background:rgba(255,255,255,.02)}
-    #journal-inline .jrn-badge{font-size:10px;font-weight:800;padding:2px 8px;border-radius:20px;letter-spacing:.3px;text-align:center}
-    #journal-inline .jrn-detail{color:var(--mid);font-size:11px;margin-top:3px;white-space:pre-wrap;word-break:break-word;display:none}
-    #journal-inline .jrn-row.open .jrn-detail{display:block}
-    #journal-inline .jrn-msg{cursor:pointer}
-    #journal-inline .jrn-head{display:grid;grid-template-columns:120px 90px 70px 1fr;gap:10px;padding:6px 10px;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--mid);border-bottom:2px solid var(--brd)}
-    @media(max-width:640px){#journal-inline .jrn-row,#journal-inline .jrn-head{grid-template-columns:84px 70px 1fr}#journal-inline .jrn-head span:nth-child(3){display:none}#journal-inline .jrn-row>div:nth-child(3){display:none}}
-  </style>
+  <button onclick="openModal('journal-modal');setTimeout(function(){if(typeof renderJournal==='function')renderJournal();},40)" style="padding:10px 18px;background:rgba(201,151,0,.14);border:1.5px solid rgba(201,151,0,.45);border-radius:10px;color:#E8C66A;font-size:13px;font-weight:800;cursor:pointer;white-space:nowrap">🧾 Ouvrir le journal</button>
 </div>
+
+
+  <!-- ══ MODALE : JOURNAL DES ERREURS ══ -->
+  <div class="modal-bg" id="journal-modal">
+    <div class="modal" id="journal-modal-box" style="max-width:900px;width:96%;max-height:90vh;display:flex;flex-direction:column;padding:0;overflow:hidden;border-radius:16px">
+      <div style="background:linear-gradient(135deg,#1e293b,#0f172a);margin:0;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:22px">🧾</span>
+          <div>
+            <div style="color:#fff;font-weight:900;font-size:15px">Journal des erreurs</div>
+            <div style="color:#94a3b8;font-size:11px">Toutes les pages · remis à zéro à chaque « Générer &amp; Publier »</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <button class="btn" onclick="renderJournal()" style="white-space:nowrap">↻ Actualiser</button>
+          <button class="btn" onclick="exportJournalJSON()" style="white-space:nowrap">⬇ JSON</button>
+          <button class="btn" onclick="exportJournalCSV()" style="white-space:nowrap">⬇ CSV</button>
+          <button class="btn" onclick="purgeJournal()" style="white-space:nowrap;background:rgba(220,60,60,.15);border-color:rgba(220,60,60,.4);color:#ff8a8a">🗑 Purger</button>
+          <button onclick="closeModal('journal-modal')" style="background:rgba(255,255,255,.1);border:none;color:#fff;font-size:22px;cursor:pointer;width:34px;height:34px;border-radius:8px;line-height:1">×</button>
+        </div>
+      </div>
+      <div id="journal-modal-body" style="padding:16px 18px;overflow:auto;flex:1">
+        <!-- Résumé -->
+        <div id="jrnSummary" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px"></div>
+        <!-- Filtres -->
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+          <select id="jrnFilterPage" onchange="renderJournalList()" style="padding:7px 10px;border-radius:8px;background:var(--s2);color:var(--ink);border:1px solid var(--brd);font-size:13px"><option value="">Toutes les pages</option></select>
+          <div style="display:flex;gap:6px">
+            <button class="jrn-lvl active" data-lvl="" onclick="jrnSetLvl(this,'')">Tous</button>
+            <button class="jrn-lvl" data-lvl="error" onclick="jrnSetLvl(this,'error')">🔴 Erreurs</button>
+            <button class="jrn-lvl" data-lvl="net" onclick="jrnSetLvl(this,'net')">📡 Réseau</button>
+            <button class="jrn-lvl" data-lvl="load" onclick="jrnSetLvl(this,'load')">⏱ Chargement</button>
+          </div>
+          <input id="jrnSearch" type="text" placeholder="Rechercher…" oninput="renderJournalList()" style="flex:1;min-width:140px;padding:7px 10px;border-radius:8px;background:var(--s2);color:var(--ink);border:1px solid var(--brd);font-size:13px">
+        </div>
+        <div id="jrnList" style="font-size:13px"></div>
+      </div>
+    </div>
+    <style>
+      #journal-modal .jrn-lvl{padding:7px 12px;border-radius:8px;background:var(--s2);color:var(--mid);border:1px solid var(--brd);font-size:12px;font-weight:700;cursor:pointer}
+      #journal-modal .jrn-lvl.active{background:rgba(201,151,0,.18);color:#E8C66A;border-color:rgba(201,151,0,.45)}
+      #journal-modal .jrn-row{display:grid;grid-template-columns:120px 90px 70px 1fr;gap:10px;padding:9px 10px;border-bottom:1px solid var(--brd);align-items:start}
+      #journal-modal .jrn-row:hover{background:rgba(255,255,255,.02)}
+      #journal-modal .jrn-badge{font-size:10px;font-weight:800;padding:2px 8px;border-radius:20px;letter-spacing:.3px;text-align:center}
+      #journal-modal .jrn-detail{color:var(--mid);font-size:11px;margin-top:3px;white-space:pre-wrap;word-break:break-word;display:none}
+      #journal-modal .jrn-row.open .jrn-detail{display:block}
+      #journal-modal .jrn-msg{cursor:pointer}
+      #journal-modal .jrn-head{display:grid;grid-template-columns:120px 90px 70px 1fr;gap:10px;padding:6px 10px;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--mid);border-bottom:2px solid var(--brd)}
+      @media(max-width:640px){#journal-modal .jrn-row,#journal-modal .jrn-head{grid-template-columns:84px 70px 1fr}#journal-modal .jrn-head span:nth-child(3){display:none}#journal-modal .jrn-row>div:nth-child(3){display:none}}
+    </style>
+  </div>
+
 
   <!-- ══ MODALE : RESTAURER UN INSTANTANÉ DE SCORES (lecture de backups/, écriture scores/ seule) ══ -->
   <div class="modal-bg" id="score-restore-modal">
@@ -4820,7 +4835,7 @@ function show(id,btn){
   },50);
   if(id==="analyse") setTimeout(function(){if(typeof initAnalyse==='function')initAnalyse();},50);
   if(id==="synoptique") setTimeout(renderSynoptique,80);
-  if(id==="jourj") setTimeout(function(){if(typeof renderJourView==="function")renderJourView();if(typeof renderJournal==="function")renderJournal();},80);
+  if(id==="jourj") setTimeout(function(){if(typeof renderJourView==="function")renderJourView();},80);
   document.querySelectorAll(".sheet").forEach(function(s){s.classList.remove("active");});
   document.querySelectorAll(".tab").forEach(function(t){t.classList.remove("active");});
   var _el=document.getElementById(id);if(_el)_el.classList.add("active");
