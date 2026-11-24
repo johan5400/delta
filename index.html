@@ -2260,7 +2260,7 @@ function checkPassword(){
     <div style="width:42px;height:42px;background:rgba(201,151,0,.14);border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:22px">🧾</div>
     <div style="flex:1;min-width:200px">
       <div style="font-size:17px;font-weight:900">Journal des erreurs</div>
-      <div style="font-size:12px;color:var(--mid)">Erreurs, réseau et temps de chargement remontés par toutes les pages (TK, live, juge…).</div>
+      <div style="font-size:12px;color:var(--mid)">Erreurs, réseau et temps de chargement remontés par toutes les pages (TK, live, juge…). <span style="color:#64748b">· remis à zéro à chaque « Générer &amp; Publier »</span></div>
     </div>
     <button class="btn" onclick="renderJournal()" style="white-space:nowrap">↻ Actualiser</button>
     <button class="btn" onclick="exportJournalJSON()" style="white-space:nowrap">⬇ Export JSON</button>
@@ -4768,6 +4768,16 @@ function exportJournalCSV(){
     var csv='﻿'+head+'\n'+lines.join('\n'); // BOM pour Excel + accents
     _jrnDownload('boxcrew-journal-'+_jrnStamp()+'.csv', csv, 'text/csv;charset=utf-8');
   }catch(e){ alert('Erreur export : '+e.message); }
+}
+// Vide le journal SANS confirmation (appelé automatiquement à chaque "Générer & Publier"
+// pour repartir avec un journal propre, ne contenant que la compétition en cours).
+function resetJournalSilent(){
+  try{
+    if(typeof db==='undefined' || !db) return;
+    db.ref('system/errorLog').remove().catch(function(){});
+    _jrnData=[]; _jrnKeys=[];
+    try{ renderJournalSummary(); renderJournalList(); }catch(e){}
+  }catch(e){}
 }
 function purgeJournal(){
   if(!confirm('Vider tout le journal des erreurs ? Cette action est définitive.')) return;
@@ -23624,6 +23634,10 @@ function resetLiveScoringMemory(){
 }
 async function generateAndPublishAll(){
   // journée en cours — publication silencieuse
+  // ★ Remise à zéro du journal des erreurs : chaque "Générer & Publier" repart propre,
+  //   le journal ne contient que les erreurs de la compétition en cours.
+  try{ resetJournalSilent(); }catch(e){}
+  try{ if(window.BClog) BClog.event('action','Générer & Publier',''); }catch(e){}
   var btn = document.getElementById('gen-btn');
   var btnA = document.getElementById('accueil-publish-btn');
   var statusA = document.getElementById('accueil-publish-status');
