@@ -2245,9 +2245,11 @@ function toggleFS(){
 })();
 
 /* ★ Badge de version (diagnostic cache) + indicateur de source de données.
-   "LITE" = lit le nœud léger (bande passante réduite) ; "full" = repli sur heats. */
+   "LITE" = lit le nœud léger (bande passante réduite) ; "full" = repli sur heats.
+   ★ MASQUÉ par défaut : visible uniquement avec ?debug=1 dans l'URL (sinon invisible au public). */
 (function(){
   try{
+    if(!/[?&]debug=1\b/.test(location.search)) return; // pas de badge sans ?debug=1
     function add(){
       if(!document.body){ setTimeout(add,200); return; }
       if(document.getElementById('__class_build')) return;

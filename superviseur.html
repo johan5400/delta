@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Superviseur · Johan — FOC 2026</title>
+<title>Superviseur</title>
 <script>var FIREBASE_DB_URL='https://foc-2026-default-rtdb.europe-west1.firebasedatabase.app';</script>
 <script src="./firebase-app-compat.js"></script>
 <script src="./firebase-database-compat.js"></script>
@@ -55,7 +55,7 @@ body{background:radial-gradient(1200px 600px at 50% -10%,#10182b 0,var(--bg) 60%
 </head>
 <body>
 <div class="hdr">
-  <div class="hdr-l"><div class="logo-badge">FOC</div><div><h1>SUPERVISEUR</h1><div class="sub">Johan · l'œil de la compèt</div></div></div>
+  <div class="hdr-l"><div class="logo-badge" id="hdrBadge">BC</div><div><h1>SUPERVISEUR</h1><div class="sub" id="hdrSub">Vue d'ensemble · temps réel</div></div></div>
   <div class="hdr-r"><div class="clock" id="clock">--:--:--</div><div class="live-dot off" id="conn"><i></i> <span id="connTxt">Connexion…</span></div></div>
 </div>
 
@@ -79,13 +79,36 @@ body{background:radial-gradient(1200px 600px at 50% -10%,#10182b 0,var(--bg) 60%
 <div class="section-ttl">⚡ FIL D'ACTIVITÉ <span class="c">· temps réel</span></div>
 <div class="feed" id="feed"></div>
 
-<div class="foot">Lecture seule depuis Firebase · radar &amp; stats calculés côté navigateur, <b>zéro écriture</b>.<br>Accès superviseur « Johan » — première mise en service, à valider en conditions réelles.</div>
+<div class="foot">Lecture seule depuis Firebase · radar &amp; stats calculés côté navigateur, <b>zéro écriture</b>.</div>
 
 <script>
 firebase.initializeApp({databaseURL:FIREBASE_DB_URL});
 var db=firebase.database();
 var SRV_OFF=0; db.ref('.info/serverTimeOffset').on('value',function(s){SRV_OFF=s.val()||0;});
 function now(){return Date.now()+SRV_OFF;}
+
+// ★ Nom d'événement configurable (remplace les libellés en dur dans l'en-tête).
+(function(){
+  try{
+    db.ref('system/config/eventNom').on('value',function(s){
+      var nom=(s && s.val && s.val())? String(s.val()).trim() : '';
+      if(!nom) return;
+      var sub=document.getElementById('hdrSub'); if(sub) sub.textContent=nom+' · vue d\'ensemble';
+      var bdg=document.getElementById('hdrBadge');
+      if(bdg){
+        // Badge = sigle court. On ne garde que les mots qui commencent par une lettre
+        //   (on ignore "2026" etc.). Plusieurs mots -> leurs initiales (ex. "Fights On
+        //   Contest" -> "FOC"). Un seul mot -> ses 3 premières lettres (ex. "FOC" -> "FOC").
+        var mots=nom.split(/\s+/).filter(function(w){return /^[a-zA-ZÀ-ɏ]/.test(w);});
+        var ini;
+        if(mots.length>=2){ ini=mots.map(function(w){return w.charAt(0);}).join('').toUpperCase().slice(0,3); }
+        else { ini=(mots[0]||nom).replace(/[^a-zA-ZÀ-ɏ]/g,'').toUpperCase().slice(0,3); }
+        if(ini) bdg.textContent=ini;
+      }
+      try{ document.title='Superviseur · '+nom; }catch(e){}
+    }, function(){});
+  }catch(e){}
+})();
 var HEATS={},SCORES={},CATS={},WODS={},MCD=null;
 var ONLINE_MS=90000; // un juge "actif" si activité < 90s
 

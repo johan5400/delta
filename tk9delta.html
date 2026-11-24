@@ -5149,8 +5149,10 @@ requestWakeLock();
 <script>
   // ★ BADGE VERSION (diagnostic cache) — si tu vois "TK build v4" en bas à gauche, tu es
   //   sur le bon fichier. Sinon, ton navigateur sert l'ancien (fais Ctrl+Maj+R).
+  //   ★ MASQUÉ par défaut : visible uniquement avec ?debug=1 (le console.log reste, lui).
   (function(){
-    function add(){ if(!document.body){ setTimeout(add,150); return; } if(document.getElementById('__tk_build'))return;
+    var _dbg=/[?&]debug=1\b/.test(location.search);
+    function add(){ if(!_dbg) return; if(!document.body){ setTimeout(add,150); return; } if(document.getElementById('__tk_build'))return;
       var b=document.createElement('div'); b.id='__tk_build'; b.textContent='TK build v4';
       b.style.cssText='position:fixed;bottom:5px;left:5px;z-index:2147483647;background:rgba(155,123,255,.92);color:#fff;font:700 10px/1 system-ui,sans-serif;padding:3px 8px;border-radius:6px;pointer-events:none;letter-spacing:.5px;box-shadow:0 2px 8px rgba(0,0,0,.3)';
       document.body.appendChild(b);

@@ -481,7 +481,7 @@ function renderAlerts(){
   feed.innerHTML = alerts.slice(0,8).map(function(a){
     return '<div class="alert-item '+a.type+'">'
       +'<span class="alert-ico">'+a.ico+'</span>'
-      +'<span style="flex:1">'+escH(a.msg)+'</span>'
+      +'<span style="flex:1">'+a.msg+'</span>'
       +'<span class="alert-ts">'+a.ts+'</span>'
       +'</div>';
   }).join('');
@@ -1066,7 +1066,7 @@ function initSpeaker(){
       try{
         var msg=s.val();
         if(!msg||!msg.message) return;
-        pushAlert('info','📢',msg.message);
+        pushAlert('info','📢',escH(msg.message));
       }catch(e){ if(window.logError) window.logError('broadcast', e); }
     }, function(err){ if(window.logError) window.logError('broadcast.err', err); });
 
@@ -1092,7 +1092,7 @@ function initSpeaker(){
     }, 10000);
 
   }catch(e){
-    pushAlert('info','⚠️','Erreur Firebase : '+e.message);
+    pushAlert('info','⚠️','Erreur Firebase : '+escH(e.message));
     if(window.logError) window.logError('initSpeaker', e);
   }
 }
