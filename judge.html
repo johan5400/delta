@@ -42,7 +42,7 @@
     }
   });
 }</script>
-<script>var FIREBASE_DB_URL='https://foc-2026-default-rtdb.europe-west1.firebasedatabase.app';var WRITE_TOKEN='FOC2026ZK_SECRET_19SEP';</script>
+<script>window.__BC_T0=(performance&&performance.now)?performance.now():Date.now();window.LOG_PAGE='JUGE';var FIREBASE_DB_URL='https://foc-2026-default-rtdb.europe-west1.firebasedatabase.app';var WRITE_TOKEN='FOC2026ZK_SECRET_19SEP';</script>
 <!-- ★ PERF (ouverture plus rapide) : ouvrir les connexions et précharger le SDK Firebase
      + les polices EN PARALLÈLE, au plus tôt. Le SDK reste chargé de façon synchrone
      (l'init en dépend), mais preconnect+preload réduisent nettement l'attente réseau
@@ -54,6 +54,7 @@
 <link rel="preload" as="script" href="./firebase-database-compat.js">
 <script src="./firebase-app-compat.js"></script>
 <script src="./firebase-database-compat.js"></script>
+<script src="./boxcrew-log.js"></script>
 <script>
 /* ── LOGGING FIREBASE (errors → system/errors) ──────────────────────────
    Capture les erreurs JS, promises non-catchées, et expose logError()

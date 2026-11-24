@@ -4,9 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Fights on Contest 2026 · Zone K</title>
-<script>var FIREBASE_DB_URL='https://foc-2026-default-rtdb.europe-west1.firebasedatabase.app';</script>
+<script>window.__BC_T0=(performance&&performance.now)?performance.now():Date.now();window.LOG_PAGE='ADMIN';var FIREBASE_DB_URL='https://foc-2026-default-rtdb.europe-west1.firebasedatabase.app';</script>
 <script src="./firebase-app-compat.js"></script>
 <script src="./firebase-database-compat.js"></script>
+<script src="./boxcrew-log.js"></script>
 <style>
 
 @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700&display=swap');
@@ -935,6 +936,7 @@ function checkPassword(){
     <button class="tab" onclick="show('sponsors',this)">🤝 Sponsors</button>
     <button class="tab" onclick="show('analyse',this)">📊 Débrief équipe</button>
     <button class="tab" onclick="show('guide',this)">❓ Guide</button>
+    <button class="tab" onclick="show('journal',this);setTimeout(function(){if(typeof renderJournal==='function')renderJournal();},40)">🧾 Journal</button>
   </div>
 </div>
 
@@ -3544,6 +3546,52 @@ function checkPassword(){
 </div>
 </div>
 </div>
+
+<!-- ════════════ JOURNAL DES ERREURS (centralisé) ════════════ -->
+<div id="journal" class="sheet">
+  <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px">
+    <div style="width:42px;height:42px;background:rgba(201,151,0,.14);border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:22px">🧾</div>
+    <div style="flex:1;min-width:200px">
+      <div style="font-size:17px;font-weight:900">Journal des erreurs</div>
+      <div style="font-size:12px;color:var(--mid)">Erreurs, réseau et temps de chargement remontés par toutes les pages (TK, live, juge…).</div>
+    </div>
+    <button class="btn" onclick="renderJournal()" style="white-space:nowrap">↻ Actualiser</button>
+    <button class="btn" onclick="purgeJournal()" style="white-space:nowrap;background:rgba(220,60,60,.15);border-color:rgba(220,60,60,.4);color:#ff8a8a">🗑 Purger</button>
+  </div>
+
+  <!-- Résumé -->
+  <div id="jrnSummary" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px"></div>
+
+  <!-- Filtres -->
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+    <select id="jrnFilterPage" onchange="renderJournalList()" style="padding:7px 10px;border-radius:8px;background:var(--s2);color:var(--ink);border:1px solid var(--brd);font-size:13px">
+      <option value="">Toutes les pages</option>
+    </select>
+    <div style="display:flex;gap:6px">
+      <button class="jrn-lvl active" data-lvl="" onclick="jrnSetLvl(this,'')">Tous</button>
+      <button class="jrn-lvl" data-lvl="error" onclick="jrnSetLvl(this,'error')">🔴 Erreurs</button>
+      <button class="jrn-lvl" data-lvl="net" onclick="jrnSetLvl(this,'net')">📡 Réseau</button>
+      <button class="jrn-lvl" data-lvl="load" onclick="jrnSetLvl(this,'load')">⏱ Chargement</button>
+    </div>
+    <input id="jrnSearch" type="text" placeholder="Rechercher…" oninput="renderJournalList()" style="flex:1;min-width:140px;padding:7px 10px;border-radius:8px;background:var(--s2);color:var(--ink);border:1px solid var(--brd);font-size:13px">
+  </div>
+
+  <div id="jrnList" style="font-size:13px"></div>
+
+  <style>
+    #journal .jrn-lvl{padding:7px 12px;border-radius:8px;background:var(--s2);color:var(--mid);border:1px solid var(--brd);font-size:12px;font-weight:700;cursor:pointer}
+    #journal .jrn-lvl.active{background:rgba(201,151,0,.18);color:#E8C66A;border-color:rgba(201,151,0,.45)}
+    #journal .jrn-row{display:grid;grid-template-columns:120px 90px 70px 1fr;gap:10px;padding:9px 10px;border-bottom:1px solid var(--brd);align-items:start}
+    #journal .jrn-row:hover{background:rgba(255,255,255,.02)}
+    #journal .jrn-badge{font-size:10px;font-weight:800;padding:2px 8px;border-radius:20px;letter-spacing:.3px;text-align:center}
+    #journal .jrn-detail{color:var(--mid);font-size:11px;margin-top:3px;white-space:pre-wrap;word-break:break-word;display:none}
+    #journal .jrn-row.open .jrn-detail{display:block}
+    #journal .jrn-msg{cursor:pointer}
+    #journal .jrn-head{display:grid;grid-template-columns:120px 90px 70px 1fr;gap:10px;padding:6px 10px;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--mid);border-bottom:2px solid var(--brd)}
+    @media(max-width:640px){#journal .jrn-row,#journal .jrn-head{grid-template-columns:84px 70px 1fr}#journal .jrn-head span:nth-child(3){display:none}#journal .jrn-row>div:nth-child(3){display:none}}
+  </style>
+</div>
+
 <div id="livescoring" class="sheet">
 <style>
 /* ── Live Scoring styles (scoped) ── */
@@ -4581,6 +4629,107 @@ function showJudgeCoverageFlash(sourceHeats,duration){
     setTimeout(function(){ if(el&&el.parentNode) el.parentNode.removeChild(el); },260);
   },duration);
 }
+/* ════════════ JOURNAL DES ERREURS ════════════
+   Lecture À LA DEMANDE uniquement (once), jamais d'abonnement permanent,
+   pour ne pas consommer de bande passante quand l'onglet n'est pas ouvert. */
+var _jrnData=[];        // entrées chargées
+var _jrnKeys=[];        // clés Firebase (pour purge)
+var _jrnLvl='';         // filtre niveau courant
+function jrnSetLvl(btn,lvl){
+  _jrnLvl=lvl;
+  try{ var ps=btn.parentNode.querySelectorAll('.jrn-lvl'); for(var i=0;i<ps.length;i++) ps[i].classList.remove('active'); btn.classList.add('active'); }catch(e){}
+  renderJournalList();
+}
+function jrnFmtTime(t){
+  try{ var d=new Date(t); var p=function(n){return n<10?'0'+n:''+n;};
+    return p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds())+' '+p(d.getDate())+'/'+p(d.getMonth()+1); }
+  catch(e){ return ''; }
+}
+function jrnEsc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+function jrnPageColor(p){
+  var map={TK:'#C99700',LIVE:'#3ba9ff',ADMIN:'#a78bfa',JUGE:'#34d399',CLASSEMENT:'#f59e0b',SPEAKER:'#f472b6',SUPERVISEUR:'#fb923c',PLANNING:'#22d3ee',PODIUM:'#eab308',HISTORY:'#94a3b8'};
+  return map[p]||'#64748b';
+}
+function renderJournal(){
+  var box=document.getElementById('jrnList'); if(box) box.innerHTML='<div style="padding:20px;color:var(--mid);text-align:center">Chargement du journal…</div>';
+  try{
+    if(typeof db==='undefined' || !db){ if(box) box.innerHTML='<div style="padding:20px;color:#ff8a8a">Firebase indisponible.</div>'; return; }
+    db.ref('system/errorLog').orderByChild('t').limitToLast(200).once('value').then(function(snap){
+      _jrnData=[]; _jrnKeys=[];
+      snap.forEach(function(ch){ var v=ch.val()||{}; v.__key=ch.key; _jrnData.push(v); _jrnKeys.push(ch.key); });
+      _jrnData.reverse(); // plus récent en haut
+      // peupler le filtre pages
+      try{
+        var sel=document.getElementById('jrnFilterPage'); var cur=sel.value;
+        var pages={}; _jrnData.forEach(function(e){ if(e.page) pages[e.page]=1; });
+        sel.innerHTML='<option value="">Toutes les pages</option>'+Object.keys(pages).sort().map(function(p){return '<option value="'+jrnEsc(p)+'">'+jrnEsc(p)+'</option>';}).join('');
+        sel.value=cur;
+      }catch(e){}
+      renderJournalSummary();
+      renderJournalList();
+    }).catch(function(err){
+      if(box) box.innerHTML='<div style="padding:20px;color:#ff8a8a">Erreur de lecture : '+jrnEsc(err&&err.message||err)+'</div>';
+    });
+  }catch(e){ if(box) box.innerHTML='<div style="padding:20px;color:#ff8a8a">Erreur : '+jrnEsc(e.message)+'</div>'; }
+}
+function renderJournalSummary(){
+  try{
+    var nErr=0,nNet=0,loads=[];
+    _jrnData.forEach(function(e){
+      if(e.lvl==='error') nErr++;
+      if(e.type==='net') nNet++;
+      if(e.type==='load'){ var m=(e.msg||'').match(/\((\d+)ms\)/); if(m) loads.push(parseInt(m[1],10)); }
+    });
+    var avg=loads.length? Math.round(loads.reduce(function(a,b){return a+b;},0)/loads.length):0;
+    function card(ic,lbl,val,col){ return '<div style="flex:1;min-width:120px;background:var(--s2);border:1px solid var(--brd);border-radius:12px;padding:12px 14px">'
+      +'<div style="font-size:11px;color:var(--mid);text-transform:uppercase;letter-spacing:.5px">'+ic+' '+lbl+'</div>'
+      +'<div style="font-size:22px;font-weight:900;margin-top:4px;color:'+col+'">'+val+'</div></div>'; }
+    var el=document.getElementById('jrnSummary');
+    if(el) el.innerHTML=card('🔴','Erreurs',nErr,nErr?'#ff6b6b':'var(--ink)')
+      +card('📡','Évts réseau',nNet,nNet?'#f59e0b':'var(--ink)')
+      +card('⏱','Chargement moyen',avg?avg+' ms':'—','var(--ink)')
+      +card('🧾','Entrées',_jrnData.length,'var(--ink)');
+  }catch(e){}
+}
+function renderJournalList(){
+  try{
+    var box=document.getElementById('jrnList'); if(!box) return;
+    var fp=(document.getElementById('jrnFilterPage')||{}).value||'';
+    var q=((document.getElementById('jrnSearch')||{}).value||'').toLowerCase().trim();
+    var rows=_jrnData.filter(function(e){
+      if(fp && e.page!==fp) return false;
+      if(_jrnLvl==='error' && e.lvl!=='error') return false;
+      if(_jrnLvl==='net' && e.type!=='net') return false;
+      if(_jrnLvl==='load' && e.type!=='load') return false;
+      if(q){ var hay=((e.msg||'')+' '+(e.detail||'')+' '+(e.page||'')).toLowerCase(); if(hay.indexOf(q)<0) return false; }
+      return true;
+    });
+    if(!rows.length){ box.innerHTML='<div style="padding:24px;color:var(--mid);text-align:center">Aucune entrée'+((_jrnData.length)?' pour ce filtre.':'. Le journal est vide 👍')+'</div>'; return; }
+    var head='<div class="jrn-head"><span>Heure</span><span>Page</span><span>Niveau</span><span>Message</span></div>';
+    var html=rows.map(function(e,i){
+      var lvlCol=e.lvl==='error'?'#ff6b6b':(e.lvl==='warn'?'#f59e0b':'#64748b');
+      var lvlTxt=e.type==='net'?'réseau':(e.type==='load'?'charg.':(e.lvl==='error'?'erreur':(e.lvl==='warn'?'warn':'info')));
+      return '<div class="jrn-row" id="jrnr'+i+'">'
+        +'<div style="color:var(--mid);font-size:12px">'+jrnEsc(jrnFmtTime(e.t))+'</div>'
+        +'<div><span class="jrn-badge" style="background:'+jrnPageColor(e.page)+'22;color:'+jrnPageColor(e.page)+'">'+jrnEsc(e.page||'?')+'</span></div>'
+        +'<div><span class="jrn-badge" style="background:'+lvlCol+'22;color:'+lvlCol+'">'+jrnEsc(lvlTxt)+'</span></div>'
+        +'<div><div class="jrn-msg" onclick="var r=document.getElementById(\'jrnr'+i+'\');if(r)r.classList.toggle(\'open\')">'+jrnEsc(e.msg||'')+(e.detail?' <span style="color:var(--mid);font-size:11px">▾</span>':'')+'</div>'
+        +(e.detail?'<div class="jrn-detail">'+jrnEsc(e.detail)+'</div>':'')+'</div>'
+      +'</div>';
+    }).join('');
+    box.innerHTML=head+html;
+  }catch(e){}
+}
+function purgeJournal(){
+  if(!confirm('Vider tout le journal des erreurs ? Cette action est définitive.')) return;
+  try{
+    if(typeof db==='undefined' || !db){ alert('Firebase indisponible.'); return; }
+    db.ref('system/errorLog').remove().then(function(){
+      _jrnData=[]; _jrnKeys=[]; renderJournalSummary(); renderJournalList();
+    }).catch(function(err){ alert('Erreur : '+(err&&err.message||err)); });
+  }catch(e){ alert('Erreur : '+e.message); }
+}
+
 function show(id,btn){
   if(id==='sponsors' && typeof loadSponsors==='function'){ setTimeout(loadSponsors,0); }
   // ★ BANDE PASSANTE : quitter l'onglet Classement admin coupe ses listeners Firebase
