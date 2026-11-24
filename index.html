@@ -3556,6 +3556,8 @@ function checkPassword(){
       <div style="font-size:12px;color:var(--mid)">Erreurs, réseau et temps de chargement remontés par toutes les pages (TK, live, juge…).</div>
     </div>
     <button class="btn" onclick="renderJournal()" style="white-space:nowrap">↻ Actualiser</button>
+    <button class="btn" onclick="exportJournalJSON()" style="white-space:nowrap">⬇ Export JSON</button>
+    <button class="btn" onclick="exportJournalCSV()" style="white-space:nowrap">⬇ Export CSV</button>
     <button class="btn" onclick="purgeJournal()" style="white-space:nowrap;background:rgba(220,60,60,.15);border-color:rgba(220,60,60,.4);color:#ff8a8a">🗑 Purger</button>
   </div>
 
@@ -4719,6 +4721,53 @@ function renderJournalList(){
     }).join('');
     box.innerHTML=head+html;
   }catch(e){}
+}
+// Renvoie les entrées actuellement visibles (respecte les filtres page/niveau/recherche)
+function _jrnFiltered(){
+  var fp=(document.getElementById('jrnFilterPage')||{}).value||'';
+  var q=((document.getElementById('jrnSearch')||{}).value||'').toLowerCase().trim();
+  return _jrnData.filter(function(e){
+    if(fp && e.page!==fp) return false;
+    if(_jrnLvl==='error' && e.lvl!=='error') return false;
+    if(_jrnLvl==='net' && e.type!=='net') return false;
+    if(_jrnLvl==='load' && e.type!=='load') return false;
+    if(q){ var hay=((e.msg||'')+' '+(e.detail||'')+' '+(e.page||'')).toLowerCase(); if(hay.indexOf(q)<0) return false; }
+    return true;
+  });
+}
+function _jrnDownload(filename, content, mime){
+  try{
+    var blob=new Blob([content],{type:mime||'text/plain;charset=utf-8'});
+    var url=URL.createObjectURL(blob);
+    var a=document.createElement('a'); a.href=url; a.download=filename;
+    document.body.appendChild(a); a.click();
+    setTimeout(function(){ document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
+  }catch(e){ alert('Export impossible : '+e.message); }
+}
+function _jrnStamp(){
+  var d=new Date(), p=function(n){return n<10?'0'+n:''+n;};
+  return d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+'-'+p(d.getHours())+p(d.getMinutes());
+}
+function exportJournalJSON(){
+  try{
+    var rows=_jrnFiltered();
+    if(!rows.length){ alert('Rien à exporter (journal vide ou filtre sans résultat).'); return; }
+    var out={ exportLe:new Date().toISOString(), nbEntrees:rows.length, entrees:rows.map(function(e){
+      return { heure:jrnFmtTime(e.t), ts:e.t, page:e.page, niveau:e.lvl, type:e.type, message:e.msg, detail:e.detail||'', ua:e.ua||'' };
+    }) };
+    _jrnDownload('boxcrew-journal-'+_jrnStamp()+'.json', JSON.stringify(out,null,2), 'application/json');
+  }catch(e){ alert('Erreur export : '+e.message); }
+}
+function exportJournalCSV(){
+  try{
+    var rows=_jrnFiltered();
+    if(!rows.length){ alert('Rien à exporter (journal vide ou filtre sans résultat).'); return; }
+    function cell(s){ s=String(s==null?'':s).replace(/"/g,'""').replace(/[\r\n]+/g,' '); return '"'+s+'"'; }
+    var head=['Heure','Page','Niveau','Type','Message','Detail'].map(cell).join(';');
+    var lines=rows.map(function(e){ return [jrnFmtTime(e.t),e.page,e.lvl,e.type,e.msg,e.detail||''].map(cell).join(';'); });
+    var csv='﻿'+head+'\n'+lines.join('\n'); // BOM pour Excel + accents
+    _jrnDownload('boxcrew-journal-'+_jrnStamp()+'.csv', csv, 'text/csv;charset=utf-8');
+  }catch(e){ alert('Erreur export : '+e.message); }
 }
 function purgeJournal(){
   if(!confirm('Vider tout le journal des erreurs ? Cette action est définitive.')) return;
