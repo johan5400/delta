@@ -13,6 +13,7 @@
 <script src="./firebase-app-compat.js"></script>
 <script src="./firebase-database-compat.js"></script>
 <script src="./boxcrew-log.js"></script>
+<script src="./boxcrew-complogo.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700;900&family=Barlow:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700;900&display=swap');
@@ -233,6 +234,7 @@ td.mine-cell{
 <div class="topbar">
   <div class="brand">
     <img class="brand-k" src="./assets/boxcrew-mark.png" alt="BOX CREW">
+    <script>try{ BCCompLogo.mount({ anchorSelector:'.brand-k', position:'before' }); }catch(e){}</script>
     <div>
       <div class="brand-title">CLASSEMENT <span id="hdr-ev-name">FOC 2026</span></div>
       <div class="brand-sub">Classement dynamique · catégories et WODs</div>

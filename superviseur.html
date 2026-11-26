@@ -8,6 +8,7 @@
 <script src="./firebase-app-compat.js"></script>
 <script src="./firebase-database-compat.js"></script>
 <script src="./boxcrew-log.js"></script>
+<script src="./boxcrew-complogo.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 <style>
 :root{--bg:#080B13;--panel:#121A2B;--panel2:#0F1726;--line:#1E2940;--line2:#2A3A57;--ink:#EAF0FB;--ink2:#AEBBD4;--muted:#62718E;--orange:#FF8A00;--green:#00E6A2;--red:#FF5C6C;--amber:#FFB020;--blue:#4DA6FF;--mono:ui-monospace,'SF Mono',Menlo,monospace}
@@ -59,6 +60,7 @@ body{background:radial-gradient(1200px 600px at 50% -10%,#10182b 0,var(--bg) 60%
   <div class="hdr-l"><img class="logo-badge" id="hdrBadge" src="./assets/boxcrew-mark-glow.png" alt="BOX CREW"><div><h1>SUPERVISEUR</h1><div class="sub" id="hdrSub">Vue d'ensemble · temps réel</div></div></div>
   <div class="hdr-r"><div class="clock" id="clock">--:--:--</div><div class="live-dot off" id="conn"><i></i> <span id="connTxt">Connexion…</span></div></div>
 </div>
+<script>try{ BCCompLogo.mount({ anchorSelector:'#hdrBadge', position:'before' }); }catch(e){}</script>
 
 <div class="radar">
   <div class="radar-hd"><div class="radar-ttl"><span>📡</span> RADAR — anomalies</div><div class="radar-count" id="radarCount">…</div></div>

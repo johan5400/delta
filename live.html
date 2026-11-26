@@ -36,6 +36,7 @@
 <script src="./firebase-app-compat.js"></script>
 <script src="./firebase-database-compat.js"></script>
 <script src="./boxcrew-log.js"></script>
+<script src="./boxcrew-complogo.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@700;900&family=JetBrains+Mono:wght@700;900&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -954,6 +955,7 @@ body{height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-fami
   </div>
   <span id="clk">--:--:--</span>
 </div>
+<script>try{ BCCompLogo.mount({ anchorSelector:'.brand-ico', position:'before', gap:7 }); }catch(e){}</script>
 
 <div id="live-msg-banner" class="live-msg-banner">📢 MESSAGE LIVE</div>
 
