@@ -4450,23 +4450,29 @@ if(db){
     //   morceau (chaque point conserve son décalage interne). On voit donc des bouts
     //   reconnaissables du logo flotter, puis se rejoindre pour compléter le logo.
     var clusters=[];
-    var GRID_COLS=3, GRID_ROWS=2;              // 3×2 = 6 morceaux
+    var GRID_COLS=5, GRID_ROWS=2;              // 5×2 = 10 pièces
     var N_CLUSTERS=GRID_COLS*GRID_ROWS;
+    var _landOrder=[];                         // ordre de pose des pièces (mélangé)
     function buildClusters(){
       clusters=[];
       var top=H*0.04, bottom=(roamBottom||H*0.68);
       for(var c=0;c<N_CLUSTERS;c++){
         clusters.push({
-          // position "au repos final" = centre du morceau dans le logo (rempli plus bas)
+          // position finale = centre du morceau dans le logo (rempli plus bas)
           homeX:0, homeY:0, _n:0,
-          // errance : un point de balade + trajectoire Lissajous (en pixels canvas)
+          // errance (tant que la pièce n'est pas posée) : Lissajous
           roamX:rand(W*0.12,W*0.88), roamY:rand(top+(bottom-top)*0.12, bottom-(bottom-top)*0.12),
           ax:rand(W*0.14,W*0.30), ay:rand((bottom-top)*0.14,(bottom-top)*0.30),
           fx:rand(0.05,0.12), fy:rand(0.06,0.14),
           px:rand(0,Math.PI*2), py:rand(0,Math.PI*2),
-          _x:0, _y:0
+          order:c,          // rang de pose (défini dans buildParticles)
+          _x:0, _y:0, _set:0 // _set = 0→1 : à quel point la pièce est posée
         });
       }
+      // ordre de pose mélangé pour un rendu moins mécanique (pas toujours gauche→droite)
+      _landOrder=[]; for(var k=0;k<N_CLUSTERS;k++) _landOrder.push(k);
+      for(var a=_landOrder.length-1;a>0;a--){ var b2=Math.floor(Math.random()*(a+1)); var tmp=_landOrder[a];_landOrder[a]=_landOrder[b2];_landOrder[b2]=tmp; }
+      for(var o=0;o<_landOrder.length;o++){ clusters[_landOrder[o]].order=o; }
     }
     // À quel morceau (amas) appartient une cible, selon sa position dans la logoBox.
     function clusterOf(t){
@@ -4557,30 +4563,23 @@ if(db){
         else { return; }
       }
 
-      // ★ PROGRESSION DE FORMATION (fp) : les morceaux se rejoignent et le logo est
-      //   COMPLÈTEMENT formé 10 s AVANT le GO. Ensuite (10 dernières s) il reste figé.
-      //   fp = 0 au début → 1 quand il reste 10 s.
+      // ★ POSE SÉQUENTIELLE : les pièces viennent se mettre en place UNE PAR UNE.
+      //   formProg va de 0 au début → 1 quand il reste 10 s (HOLD). Chaque pièce (rang
+      //   .order parmi N) a sa fenêtre de pose [order/N, (order+1)/N] de formProg : son
+      //   _set passe de 0 (elle flotte) à 1 (posée définitivement). Une fois posée elle
+      //   ne rebouge plus. À formProg=1 toutes les pièces sont en place → logo complet.
       var remSec = (typeof window._mcdRemSec==='number') ? window._mcdRemSec : null;
       var durSec = (typeof window._mcdDurSec==='number' && window._mcdDurSec>0) ? window._mcdDurSec : null;
-      var HOLD=10; // secondes de logo figé avant le GO
-      var fp;
+      var HOLD=10;
+      var formProg;
       if(remSec!=null && durSec!=null){
-        var formDur = Math.max(1, durSec - HOLD);          // durée de la phase "formation"
-        var formElapsed = Math.max(0, durSec - remSec);    // temps écoulé
-        fp = Math.max(0, Math.min(1, formElapsed/formDur));
-        if(remSec<=HOLD) fp=1;                             // 10 dernières s → logo complet figé
-      } else {
-        fp = prog; // fallback si on n'a pas le temps restant
-      }
+        var formDur = Math.max(1, durSec - HOLD);
+        formProg = Math.max(0, Math.min(1, (durSec-remSec)/formDur));
+        if(remSec<=HOLD) formProg=1;
+      } else { formProg = prog; }
 
-      // courbe de convergence (chaos → forme) et "snap" final, pilotées par fp
-      var convTarget = fp<0.85 ? (fp/0.85)*0.72 : 0.72 + ((fp-0.85)/0.15)*0.28;
-      conv += (convTarget-conv)*0.12; // lissage
-      var snap = fp>0.90 ? (fp-0.90)/0.10 : 0;
-
-      // révélation du vrai logo net : démarre à fp=0.88, complète quand fp=1 (donc à -10s)
-      var revStart=0.88;
-      var targetReveal = fp<revStart ? 0 : (fp-revStart)/(1-revStart);
+      // révélation du vrai logo net : quand TOUT est posé (formProg proche de 1 → -10s)
+      var targetReveal = formProg<0.985 ? 0 : (formProg-0.985)/0.015;
       revealAmt += (targetReveal-revealAmt)*0.2;
       if(revealImg){
         revealImg.style.opacity=revealAmt.toFixed(3);
@@ -4588,58 +4587,63 @@ if(db){
       }
 
       ctx.clearRect(0,0,W,H);
-      // halo doré de fond qui s'intensifie
+      // halo doré de fond qui s'intensifie avec le nombre de pièces posées
       var bg=ctx.createRadialGradient(W/2,H/2,0,W/2,H/2,Math.max(W,H)*0.6);
-      var ba=0.05+prog*0.22;
+      var ba=0.05+formProg*0.22;
       bg.addColorStop(0,'rgba(201,151,0,'+ba+')');
       bg.addColorStop(0.5,'rgba(201,151,0,'+(ba*0.3)+')');
       bg.addColorStop(1,'rgba(4,6,10,0)');
       ctx.fillStyle=bg; ctx.fillRect(0,0,W,H);
 
-      // particules (additif pour le rendu lumineux) ; s'estompent à la révélation
       var partAlpha=1-revealAmt;
       ctx.globalCompositeOperation='lighter';
-      // ★ ACCÉLÉRATION : plus on approche de la formation complète (fp→1), plus les
-      //   morceaux se rejoignent vite. (courbe quadratique : surtout sur la fin.)
-      var accel = fp*fp;                     // 0 → 1
-      var spd  = 1 + accel*4;                // vitesse du mouvement : ×1 → ×5
-      var lerp = 0.08 + accel*0.44;          // rattrapage : 0.08 → 0.52
-      var tt=performance.now()*0.001*spd;
+      var tt=performance.now()*0.001;
 
-      // Centre de chaque amas : erre dans l'écran, puis glisse vers sa position
-      //   "maison" (homeX/homeY = là où est son morceau dans le logo complet) au fil
-      //   de conv. Ainsi les morceaux se rejoignent pour reconstituer le logo.
+      // Pour chaque pièce : calcule _set (0→1 sur sa fenêtre), _x/_y (position courante
+      //   = erre puis se pose sur home), _shape (prise de forme du morceau).
+      var slot=1/N_CLUSTERS;
       for(var c=0;c<clusters.length;c++){
         var cl=clusters[c];
-        var rawx=cl.roamX + Math.cos(tt*cl.fx+cl.px)*cl.ax*(1-conv);
-        var rawy=cl.roamY + Math.sin(tt*cl.fy+cl.py)*cl.ay*(1-conv);
-        cl._x = rawx + (cl.homeX-rawx)*conv;   // → position du morceau dans le logo
-        cl._y = rawy + (cl.homeY-rawy)*conv;
+        var winStart=cl.order*slot;
+        // la pose d'une pièce dure ~1.4 slot (un petit chevauchement pour la fluidité)
+        var s=(formProg-winStart)/(slot*1.1);
+        s=Math.max(0, Math.min(1, s));
+        // easing (ease-out) : arrivée qui décélère → effet "se cale en place"
+        cl._set = 1-(1-s)*(1-s);
+        var set=cl._set;
+        // position : erre (Lissajous) tant que pas posée, glisse vers home à mesure
+        var rawx=cl.roamX + Math.cos(tt*cl.fx+cl.px)*cl.ax*(1-set);
+        var rawy=cl.roamY + Math.sin(tt*cl.fy+cl.py)*cl.ay*(1-set);
+        cl._x = rawx + (cl.homeX-rawx)*set;
+        cl._y = rawy + (cl.homeY-rawy)*set;
+        // la pièce prend sa forme exacte en se posant
+        cl._shape = Math.max(0, Math.min(1, (set-0.2)/0.6));
       }
 
-      // "shape" : à quel point les points dessinent déjà la forme de leur morceau.
-      //   Au début (conv bas) ils sont éparpillés autour du centre de l'amas ; en
-      //   montant ils prennent la forme exacte du morceau (décalage dx/dy).
-      var shape = Math.max(0, Math.min(1, (conv-0.15)/0.6));
       for(var i=0;i<particles.length;i++){
         var p=particles[i];
         var cl2=clusters[p.cl];
-        // éparpillement initial autour du centre de l'amas (se résorbe avec shape)
+        var shape=cl2._shape, set2=cl2._set;
+        // éparpillement autour du centre de la pièce tant qu'elle flotte (se résorbe)
         var scatter=(1-shape);
-        var jx=Math.cos(tt*p.sp+p.ph)*34*DPR*scatter;
-        var jy=Math.sin(tt*p.sp+p.ph*1.3)*34*DPR*scatter;
-        // position "morceau" = centre amas + forme du morceau (dx/dy × shape) + jitter
+        var jx=Math.cos(tt*p.sp+p.ph)*30*DPR*scatter;
+        var jy=Math.sin(tt*p.sp+p.ph*1.3)*30*DPR*scatter;
+        // position = centre pièce + forme (dx/dy × shape) + jitter ; snap exact une fois posée
         var mx=cl2._x + p.dx*shape + jx;
         var my=cl2._y + p.dy*shape + jy;
+        var snap=set2>0.9?(set2-0.9)/0.1:0;
+        // rattrapage plus vif quand la pièce se pose (effet "clac")
+        var lerp=0.1 + set2*0.4;
         // snap final exact sur la cible du logo complet
         var gx=mx+(p.tx-mx)*snap, gy=my+(p.ty-my)*snap;
         p.x+=(gx-p.x)*lerp; p.y+=(gy-p.y)*lerp;
+        // couleur : doré en vol → vraie couleur du logo une fois la pièce posée
         var rr,gg,bb,al;
-        if(conv<0.6){ rr=255; gg=200; bb=90; al=0.55+conv*0.3; }
-        else{ var m=(conv-0.6)/0.4; rr=255+(p.r-255)*m; gg=200+(p.g-200)*m; bb=90+(p.b-90)*m; al=0.85+conv*0.15; }
+        if(set2<0.55){ rr=255; gg=200; bb=90; al=0.55+set2*0.35; }
+        else{ var m=(set2-0.55)/0.45; rr=255+(p.r-255)*m; gg=200+(p.g-200)*m; bb=90+(p.b-90)*m; al=0.9+set2*0.1; }
         al*=partAlpha;
         if(al>0.02){
-          var sz=p.sz*(1+(1-conv)*0.8);
+          var sz=p.sz*(1+(1-set2)*0.8); // plus gros en vol, net une fois posé
           ctx.fillStyle='rgba('+(rr|0)+','+(gg|0)+','+(bb|0)+','+al+')';
           ctx.beginPath(); ctx.arc(p.x,p.y,sz,0,6.283); ctx.fill();
         }
