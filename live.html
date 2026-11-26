@@ -4358,7 +4358,7 @@ if(db){
   var mcdParticles = (function(){
     var DEFAULT_LOGO_SRC = './assets/boxcrew-logo-glow.png';
     var LOGO_SRC = DEFAULT_LOGO_SRC; // source active (par défaut BOX CREW ; peut devenir un dataURL custom)
-    var MAX_PARTICLES = 6000;   // densité élevée = rendu fluide/poudreux (perf OK)
+    var MAX_PARTICLES = 3800;   // densité équilibrée (fluide sans fourmillement)
     var cv=null, ctx=null, revealImg=null, stage=null;
     var DPR=Math.min(window.devicePixelRatio||1, 2); // deviceScaleFactor plafonné à 2
     var W=0, H=0;
@@ -4400,10 +4400,14 @@ if(db){
       } else {
         stageBox={ x:W*0.19, y:H*0.10, w:W*0.62, h:H*0.44 };
       }
-      // Les paillettes errent de tout en haut jusqu'au haut du chrono (#mcd-val)
+      // Plafond des paillettes = HAUT DU CHRONO moins une vraie marge. Borne DURE : on ne
+      //   prend plus le max avec la scène (qui pouvait descendre sous le chrono et faire
+      //   déborder les paillettes dans le décompte).
       var cd=document.getElementById('mcd-val');
-      if(cd){ var cr=cd.getBoundingClientRect(); roamBottom=Math.max(stageBox.y+stageBox.h, cr.top*DPR - 10*DPR); }
-      else { roamBottom=H*0.70; }
+      if(cd){ var cr=cd.getBoundingClientRect(); roamBottom=cr.top*DPR - 24*DPR; }
+      else { roamBottom=H*0.60; }
+      // garde-fou : jamais plus bas que 70% de la hauteur, jamais plus haut que 35%
+      roamBottom=Math.max(H*0.35, Math.min(roamBottom, H*0.70));
     }
 
     // Échantillonne le logo pour obtenir les positions cibles des particules.
@@ -4411,12 +4415,18 @@ if(db){
     function buildTargets(){
       targets=[];
       if(!imgReady || imgFailed || !img.width || !img.height){ return false; }
-      // le logo se forme dans la zone centrale (stageBox), PAS sur tout l'écran
-      var bw=stageBox.w||W*0.62, bh=stageBox.h||H*0.44;
-      var bx=stageBox.x||((W-bw)/2), by=stageBox.y||((H-bh)/2);
-      var scale=Math.min(bw/img.width, bh/img.height)*0.96;
+      // Le logo se forme centré dans l'espace AU-DESSUS du chrono, en gardant son
+      //   ratio et en tenant ENTIER (jamais coupé). Zone dispo = du haut jusqu'à
+      //   roamBottom (haut du décompte), avec marges.
+      var zoneTop=H*0.07;
+      var zoneBottom=(roamBottom||H*0.60);
+      var availW=W*0.80;                       // marge latérale
+      var availH=Math.max(1,(zoneBottom-zoneTop))*0.86; // marge haut/bas
+      var scale=Math.min(availW/img.width, availH/img.height);
       var lw=img.width*scale, lh=img.height*scale;
-      var ox=bx+(bw-lw)/2, oy=by+(bh-lh)/2;
+      // Logo calé vers le HAUT de la zone (35% de l'espace libre au-dessus, 65% dessous)
+      //   → laisse de l'air avant le chrono, surtout en portrait.
+      var ox=(W-lw)/2, oy=zoneTop+((zoneBottom-zoneTop)-lh)*0.35;
       logoBox={x:ox,y:oy,w:lw,h:lh};
       var tmp=document.createElement('canvas');
       tmp.width=Math.max(1,Math.floor(lw)); tmp.height=Math.max(1,Math.floor(lh));
@@ -4426,7 +4436,7 @@ if(db){
       var data;
       try{ data=tctx.getImageData(0,0,tmp.width,tmp.height).data; }
       catch(e){ return false; } // tainted / sécurité → fallback géré par l'appelant
-      var step=Math.max(2, Math.round(2*DPR)); // pas fin = beaucoup de points = matière dense
+      var step=Math.max(3, Math.round(3*DPR)); // densité équilibrée (ni trop clairsemé ni fourmillant)
       // boucle d'ajustement : si trop de pixels opaques, on élargit le pas
       for(var pass=0; pass<12; pass++){
         targets.length=0;
@@ -4455,14 +4465,21 @@ if(db){
     var _landOrder=[];                         // ordre de pose des pièces (mélangé)
     function buildClusters(){
       clusters=[];
-      var top=H*0.04, bottom=(roamBottom||H*0.68);
+      // Zone d'errance : du haut jusqu'à roamBottom, MAIS on resserre les centres vers le
+      //   haut et on borne l'amplitude verticale ay pour que roamY ± ay reste dans la zone
+      //   → les paillettes ne débordent jamais sur le chrono.
+      var top=H*0.04;
+      var bottom=(roamBottom||H*0.60);
+      var span=Math.max(1, bottom-top);
       for(var c=0;c<N_CLUSTERS;c++){
+        var roamY=rand(top+span*0.14, bottom-span*0.20); // centres plus resserrés vers le haut
+        var ayMax=Math.min(span*0.26, Math.min( roamY-top, bottom-roamY ));
         clusters.push({
           // position finale = centre du morceau dans le logo (rempli plus bas)
           homeX:0, homeY:0, _n:0,
           // errance (tant que la pièce n'est pas posée) : Lissajous
-          roamX:rand(W*0.12,W*0.88), roamY:rand(top+(bottom-top)*0.12, bottom-(bottom-top)*0.12),
-          ax:rand(W*0.14,W*0.30), ay:rand((bottom-top)*0.14,(bottom-top)*0.30),
+          roamX:rand(W*0.12,W*0.88), roamY:roamY,
+          ax:rand(W*0.12,W*0.26), ay:Math.max(span*0.06, ayMax),
           fx:rand(0.05,0.12), fy:rand(0.06,0.14),
           px:rand(0,Math.PI*2), py:rand(0,Math.PI*2),
           order:c,          // rang de pose (défini dans buildParticles)
@@ -4639,6 +4656,10 @@ if(db){
         var jx=Math.cos(tt*p.sp+p.ph)*jamp, jy=Math.sin(tt*p.sp+p.ph*1.3)*jamp;
         var mx=cl2._x + offx + jx;
         var my=cl2._y + offy + jy;
+        // CLAMP DUR : tant que la pièce n'est pas posée (shape bas), aucune paillette ne
+        //   descend sous roamBottom (haut du chrono - marge). Une fois posée, on laisse la
+        //   cible exacte du logo (toujours au-dessus du chrono).
+        if(shape<0.9 && my>roamBottom){ my=roamBottom - (my-roamBottom)*0.15; }
         var snap=set2>0.9?(set2-0.9)/0.1:0;
         // rattrapage plus vif quand la pièce se pose (effet "clac")
         var lerp=0.1 + set2*0.4;
