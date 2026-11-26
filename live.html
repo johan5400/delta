@@ -4515,14 +4515,21 @@ if(db){
       // particules (additif pour le rendu lumineux) ; s'estompent à la révélation
       var partAlpha=1-revealAmt;
       ctx.globalCompositeOperation='lighter';
-      var tt=performance.now()*0.001;
+      // ★ ACCÉLÉRATION vers le GO : plus prog approche de 1, plus les paillettes vont vite.
+      //   - spd : vitesse du flottement chaotique (×1 au début → ×5 près du GO)
+      //   - lerp : vitesse de rattrapage vers la cible (0.12 au début → ~0.5 près du GO)
+      //   (courbe quadratique pour que l'accélération se sente surtout sur la fin)
+      var accel = prog*prog;                 // 0 → 1, montée surtout en fin de course
+      var spd  = 1 + accel*4;                // flottement : ×1 → ×5
+      var lerp = 0.12 + accel*0.40;          // rattrapage : 0.12 → 0.52
+      var tt=performance.now()*0.001*spd;
       for(var i=0;i<particles.length;i++){
         var p=particles[i];
         var cx=p.hx + Math.cos(tt*p.sp+p.ph)*30*DPR*(1-conv);
         var cy=p.hy + Math.sin(tt*p.sp+p.ph*1.3)*30*DPR*(1-conv);
         var gx=cx+(p.tx-cx)*conv, gy=cy+(p.ty-cy)*conv;
         gx=gx+(p.tx-gx)*snap; gy=gy+(p.ty-gy)*snap;
-        p.x+=(gx-p.x)*0.18; p.y+=(gy-p.y)*0.18;
+        p.x+=(gx-p.x)*lerp; p.y+=(gy-p.y)*lerp;
         var rr,gg,bb,al;
         if(conv<0.6){ rr=255; gg=200; bb=90; al=0.55+conv*0.3; }
         else{ var m=(conv-0.6)/0.4; rr=255+(p.r-255)*m; gg=200+(p.g-200)*m; bb=90+(p.b-90)*m; al=0.85+conv*0.15; }
@@ -4686,17 +4693,13 @@ if(db){
       var rem=Math.max(0,Math.ceil((d.target-now())/1000));
       setReveal();
       if(rem<=0){
-        window._mcdProg=1; // progression pleine → révélation complète + flash au GO
-        if(val){val.textContent='GO !';val.className='mcd-val go';}
-        if(sub)sub.textContent='C\'est parti !';
+        window._mcdProg=1; // progression pleine
         clearInterval(_mcdIv);
         _dh[1]=null;_dh[2]=null;
-        // Fermer l'overlay après 1s et syncer immédiatement avec les heats Firebase
-        setTimeout(function(){
-          if(el)el.className='';
-          mcdParticles.stop();
-          scheduleRender();
-        },1000);
+        // ★ Au GO : bascule DIRECTE sur le live, sans pause.
+        if(el)el.className='';
+        mcdParticles.stop();
+        scheduleRender();
         return;
       }
       var m=Math.floor(rem/60),ss=rem%60;
