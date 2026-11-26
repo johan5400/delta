@@ -4351,7 +4351,8 @@ if(db){
   // ════════════════════════════════════════════════════════════════════════
   window._mcdProg = 0; // progression 0→1 partagée, mise à jour par setReveal()
   var mcdParticles = (function(){
-    var LOGO_SRC = './assets/boxcrew-logo-glow.png';
+    var DEFAULT_LOGO_SRC = './assets/boxcrew-logo-glow.png';
+    var LOGO_SRC = DEFAULT_LOGO_SRC; // source active (par défaut BOX CREW ; peut devenir un dataURL custom)
     var MAX_PARTICLES = 3000;   // plafond strict (perf rétroprojecteur)
     var cv=null, ctx=null, revealImg=null, stage=null;
     var DPR=Math.min(window.devicePixelRatio||1, 2); // deviceScaleFactor plafonné à 2
@@ -4369,6 +4370,11 @@ if(db){
       revealImg=document.getElementById('mcd-reveal');
       stage=document.getElementById('mcd-stage');
       if(cv && !ctx){ try{ ctx=cv.getContext('2d'); }catch(e){ ctx=null; } }
+      // Garder l'image de révélation alignée sur la source active (défaut ou custom)
+      if(revealImg){
+        var cur=revealImg.getAttribute('src')||'';
+        if(cur!==LOGO_SRC){ try{ revealImg.src=LOGO_SRC; }catch(e){} }
+      }
       return !!(cv && ctx && stage);
     }
 
@@ -4447,8 +4453,17 @@ if(db){
       if(revealImg){ revealImg.style.opacity='1'; revealImg.style.transform='translate(-50%,-50%) scale(1)'; }
     }
 
-    img.onload=function(){ imgReady=true; if(running){ build(); } };
-    img.onerror=function(){ imgFailed=true; if(running){ fallbackReveal(); } };
+    img.onload=function(){ imgReady=true; imgFailed=false; if(running){ build(); } };
+    img.onerror=function(){
+      // Si c'était un logo custom qui a échoué → repli automatique sur BOX CREW par défaut
+      if(LOGO_SRC!==DEFAULT_LOGO_SRC){
+        LOGO_SRC=DEFAULT_LOGO_SRC;
+        try{ if(!revealImg) revealImg=document.getElementById('mcd-reveal'); if(revealImg) revealImg.src=LOGO_SRC; }catch(e){}
+        imgReady=false; imgFailed=false; built=false;
+        try{ img.src=LOGO_SRC; return; }catch(e){}
+      }
+      imgFailed=true; if(running){ fallbackReveal(); }
+    };
     img.src=LOGO_SRC;
 
     function onResize(){
@@ -4553,9 +4568,79 @@ if(db){
         window.removeEventListener('resize', onResize);
         if(ctx && W && H){ try{ ctx.clearRect(0,0,W,H); }catch(e){} }
       },
+      // Change la SOURCE du logo (dataURL custom ou retour au défaut) et ré-échantillonne.
+      //   · met à jour l'image de révélation #mcd-reveal
+      //   · recharge l'image d'échantillonnage (img) → onload rebuild si overlay ouvert
+      //   · en cas d'échec de chargement du dataURL custom → fallback sur BOX CREW par défaut
+      setLogoSrc:function(src){
+        var next=(typeof src==='string' && src) ? src : DEFAULT_LOGO_SRC;
+        if(next===LOGO_SRC && imgReady){ return; } // déjà actif et prêt → rien à faire
+        LOGO_SRC=next;
+        // image de révélation nette
+        try{ if(!revealImg) revealImg=document.getElementById('mcd-reveal'); if(revealImg) revealImg.src=LOGO_SRC; }catch(e){}
+        // image d'échantillonnage : repartir à zéro puis recharger
+        imgReady=false; imgFailed=false; built=false; targets=[]; particles=[];
+        try{ img.src=LOGO_SRC; }catch(e){ imgFailed=true; if(running){ fallbackReveal(); } }
+      },
       // Pour le test : nombre de particules réellement créé.
-      count:function(){ return _count; }
+      count:function(){ return _count; },
+      // Pour le test : source du logo active.
+      srcNow:function(){ return LOGO_SRC; }
     };
+  })();
+
+  // ════════════════════════════════════════════════════════════════════════
+  //  LOGO CUSTOM DE LA COMPÉTITION — chargement avec CACHE LOCAL VERSIONNÉ
+  //  ────────────────────────────────────────────────────────────────────────
+  //  L'admin peut déposer le logo de SA compét (nœud Firebase « system/compLogo »
+  //  = {data, v, w, h}). S'il existe, il remplace le logo BOX CREW par défaut dans
+  //  l'animation de révélation du cooldown (particules + image nette #mcd-reveal).
+  //
+  //  BANDE PASSANTE (priorité absolue) : on lit D'ABORD system/compLogo/v (une
+  //  petite valeur). Si cette version == celle en localStorage ET que le dataURL
+  //  est déjà en cache localStorage → on réutilise le cache, on NE RE-télécharge
+  //  PAS le gros system/compLogo/data. On ne lit /data que si la version a changé
+  //  (ou pas de cache). Résultat : le gros dataURL n'est téléchargé qu'UNE fois
+  //  par appareil, tant que l'organisateur ne change pas son logo.
+  //  Lecture SEULE : aucune écriture Firebase ajoutée ici.
+  // ════════════════════════════════════════════════════════════════════════
+  (function(){
+    var LS_V='bc_complogo_v', LS_D='bc_complogo_data';
+    function lsGet(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
+    function lsSet(k,val){ try{ localStorage.setItem(k,val); }catch(e){} }
+    function lsDel(k){ try{ localStorage.removeItem(k); }catch(e){} }
+    function applyCustom(dataUrl){
+      try{ if(dataUrl && mcdParticles && mcdParticles.setLogoSrc) mcdParticles.setLogoSrc(dataUrl); }catch(e){}
+    }
+    try{
+      // 1) lire UNIQUEMENT la version (petit) pour décider si un gros download est utile
+      db.ref('system/compLogo/v').once('value').then(function(vs){
+        var v=vs && vs.val();
+        if(v===null || typeof v==='undefined'){
+          // pas de logo custom → logo BOX CREW par défaut ; on purge un cache périmé
+          lsDel(LS_V); lsDel(LS_D);
+          return; // (par défaut mcdParticles reste sur BOX CREW)
+        }
+        var vStr=String(v);
+        var cachedV=lsGet(LS_V), cachedD=lsGet(LS_D);
+        if(cachedV===vStr && cachedD){
+          // 2a) version identique + data en cache → AUCUN téléchargement du gros data
+          applyCustom(cachedD);
+          return;
+        }
+        // 2b) version nouvelle (ou pas de cache) → on lit le gros data UNE fois, puis cache
+        db.ref('system/compLogo/data').once('value').then(function(ds){
+          var data=ds && ds.val();
+          if(data && typeof data==='string'){
+            applyCustom(data);
+            lsSet(LS_V, vStr); lsSet(LS_D, data);
+          }else{
+            // data absent/incohérent → rester sur défaut, purger cache
+            lsDel(LS_V); lsDel(LS_D);
+          }
+        }).catch(function(){ /* offline/erreur → défaut, sans planter */ });
+      }).catch(function(){ /* offline/erreur → défaut, sans planter */ });
+    }catch(e){ /* défaut conservé */ }
   })();
 
   var _mcdIv=null;

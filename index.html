@@ -999,6 +999,26 @@ function checkPassword(){
         </div>
 
       </div>
+
+      <!-- ═══ Logo de la compétition (affiché à la révélation du cooldown sur le live) ═══ -->
+      <div style="background:#FFFBF0;border-radius:8px;padding:12px;border:1px solid #C9970033;margin-top:12px">
+        <div style="font-size:10px;font-weight:800;color:#8a6d00;text-transform:uppercase;letter-spacing:.6px;margin-bottom:9px">🖼️ Logo de la compétition</div>
+        <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+          <div id="complogo-preview-wrap" style="width:96px;height:96px;border-radius:10px;border:1.5px dashed #C9970066;background:#fff url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2212%22 height=%2212%22><rect width=%226%22 height=%226%22 fill=%22%23f3f3f3%22/><rect x=%226%22 y=%226%22 width=%226%22 height=%226%22 fill=%22%23f3f3f3%22/></svg>');display:flex;align-items:center;justify-content:center;overflow:hidden;flex:0 0 auto">
+            <img id="complogo-preview" alt="Logo compétition" style="max-width:100%;max-height:100%;object-fit:contain;display:none">
+            <span id="complogo-empty" style="font-size:10px;color:#999;text-align:center;padding:4px;line-height:1.3">Aucun logo<br>déposé</span>
+          </div>
+          <div style="flex:1 1 220px;min-width:200px">
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button type="button" id="complogo-pick-btn" class="btn" style="background:#C99700;color:#fff;border:none;padding:8px 14px;border-radius:8px;font-weight:700;cursor:pointer;font-size:13px" onclick="document.getElementById('complogo-file').click()">📷 Déposer un logo</button>
+              <button type="button" id="complogo-remove-btn" class="btn" style="display:none;background:#fff;color:#C62828;border:1.5px solid #C6282855;padding:8px 14px;border-radius:8px;font-weight:700;cursor:pointer;font-size:13px" onclick="removeCompLogo()">🗑 Retirer</button>
+            </div>
+            <input type="file" id="complogo-file" accept="image/*" style="display:none" onchange="onCompLogoFileChosen(this)">
+            <div id="complogo-status" style="font-size:11px;color:#8a6d00;margin-top:8px;min-height:14px;font-weight:600"></div>
+            <div style="font-size:10px;color:#999;margin-top:6px;line-height:1.4">Le logo s'affichera à la révélation du compte à rebours de début de journée. Image compressée automatiquement.</div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div class="card">
@@ -29514,6 +29534,186 @@ if(!db){
 }
 window.db = db;
 
+})();
+
+/* ════════════════════════════════════════════════════════════════════════
+   LOGO DE LA COMPÉTITION — upload + compression + stockage Firebase
+   ────────────────────────────────────────────────────────────────────────
+   But : l'organisateur dépose le logo de SA compét ; il remplace le logo
+   BOX CREW par défaut dans l'animation de révélation du cooldown (live.html).
+
+   STOCKAGE : nœud SÉPARÉ « system/compLogo » (PAS « system/config/compLogo »).
+   Raison : system/config est écrit par plusieurs .set(...) (générer&publier,
+   seed Firebase…) qui REMPLACENT tout le nœud → ils écraseraient un enfant de
+   config. Un nœud frère system/compLogo est à l'abri de ces .set('system/config').
+   Écriture uniquement sur action utilisateur (dépôt / retrait). Forme :
+     system/compLogo = { data:'<dataURL>', v:<timestamp>, w:<largeur>, h:<hauteur> }
+
+   BANDE PASSANTE : la compression vise < 60 Ko (borne dure ~80 Ko) pour que le
+   dataURL stocké/transféré reste minuscule. Côté live.html, un cache localStorage
+   versionné évite de retélécharger le gros dataURL tant que v ne change pas.
+   ════════════════════════════════════════════════════════════════════════ */
+(function(){
+  var MAX_SIDE   = 512;      // côté max (px) de l'image compressée
+  var SOFT_BYTES = 60*1024;  // cible idéale
+  var HARD_BYTES = 80*1024;  // borne de sécurité (au-dessus → on dégrade / avertit)
+
+  function _clStatus(msg, col){
+    var el=document.getElementById('complogo-status');
+    if(el){ el.textContent=msg||''; el.style.color=col||'#8a6d00'; }
+  }
+  // Référence DB robuste (mêmes fallbacks que le reste de l'admin)
+  function _clDb(){
+    var d=(typeof LS_FB_DB!=='undefined'&&LS_FB_DB)||(window.LS_FB_DB)||(window.db)||(typeof db!=='undefined'?db:null);
+    return (d&&typeof d.ref==='function')?d:null;
+  }
+  // Longueur approx. en octets d'un dataURL (payload base64 → *3/4)
+  function _dataUrlBytes(u){
+    try{
+      var i=u.indexOf(',');
+      var b64=i>=0?u.slice(i+1):u;
+      return Math.floor(b64.length*3/4);
+    }catch(e){ return u?u.length:0; }
+  }
+  // Détecte la présence de transparence réelle (au moins 1 pixel alpha<250)
+  function _hasAlpha(ctx,w,h){
+    try{
+      var d=ctx.getImageData(0,0,w,h).data;
+      for(var i=3;i<d.length;i+=4){ if(d[i]<250) return true; }
+    }catch(e){ return true; } // en cas de doute, on suppose alpha → on évite le JPEG
+    return false;
+  }
+
+  // Compresse une <img> chargée → dataURL le plus léger possible en préservant l'alpha.
+  // Stratégie : WEBP (garde l'alpha) en priorité ; sinon PNG (si transparence) ; JPEG en
+  // tout dernier recours (image opaque uniquement). Boucle : 512px → si trop lourd, 384px,
+  // puis baisse de qualité, jusqu'à passer sous ~80 Ko.
+  function compressImage(imgEl, cb){
+    var sides=[MAX_SIDE, 384, 320];
+    var best=null; // {url,w,h,bytes}
+    for(var si=0; si<sides.length; si++){
+      var maxSide=sides[si];
+      var ratio=Math.min(1, maxSide/Math.max(imgEl.naturalWidth||imgEl.width, imgEl.naturalHeight||imgEl.height));
+      var w=Math.max(1, Math.round((imgEl.naturalWidth||imgEl.width)*ratio));
+      var h=Math.max(1, Math.round((imgEl.naturalHeight||imgEl.height)*ratio));
+      var cv=document.createElement('canvas'); cv.width=w; cv.height=h;
+      var cx=cv.getContext('2d');
+      if(!cx){ continue; }
+      cx.clearRect(0,0,w,h);
+      cx.drawImage(imgEl,0,0,w,h);
+      var alpha=_hasAlpha(cx,w,h);
+
+      // qualités à essayer (de la meilleure à la plus basse) selon la taille
+      var quals = (si===0) ? [0.82, 0.75] : [0.75, 0.68];
+      for(var qi=0; qi<quals.length; qi++){
+        var q=quals[qi];
+        var url=null, fmt='';
+        // 1) WEBP (conserve l'alpha, compression excellente)
+        try{ var wu=cv.toDataURL('image/webp', q); if(wu.indexOf('data:image/webp')===0){ url=wu; fmt='webp'; } }catch(e){}
+        // 2) sinon : PNG si transparence (préserve l'alpha), JPEG si opaque
+        if(!url){
+          if(alpha){ try{ url=cv.toDataURL('image/png'); fmt='png'; }catch(e){} }
+          else      { try{ url=cv.toDataURL('image/jpeg', q); fmt='jpeg'; }catch(e){} }
+        }
+        if(!url) continue;
+        var bytes=_dataUrlBytes(url);
+        if(!best || bytes<best.bytes){ best={url:url,w:w,h:h,bytes:bytes,fmt:fmt}; }
+        // PNG ne dépend pas de la qualité → inutile de reboucler sur q
+        if(fmt==='png') break;
+        if(bytes<=SOFT_BYTES){ cb(best); return; } // assez léger → terminé
+      }
+      if(best && best.bytes<=HARD_BYTES){ cb(best); return; } // sous la borne dure → OK
+    }
+    cb(best); // meilleur effort (peut dépasser HARD_BYTES → l'appelant avertit)
+  }
+
+  // Applique l'aperçu dans l'admin + état des boutons
+  function _clSetPreview(dataUrl){
+    var img=document.getElementById('complogo-preview');
+    var empty=document.getElementById('complogo-empty');
+    var rm=document.getElementById('complogo-remove-btn');
+    if(dataUrl){
+      if(img){ img.src=dataUrl; img.style.display='block'; }
+      if(empty) empty.style.display='none';
+      if(rm) rm.style.display='';
+    }else{
+      if(img){ img.src=''; img.style.display='none'; }
+      if(empty) empty.style.display='';
+      if(rm) rm.style.display='none';
+    }
+  }
+
+  // ── Handler du choix de fichier ──
+  window.onCompLogoFileChosen=function(input){
+    var f=input&&input.files&&input.files[0];
+    if(!f){ return; }
+    if(!/^image\//.test(f.type||'')){ _clStatus('⚠ Fichier non image.','#C62828'); input.value=''; return; }
+    _clStatus('Compression en cours…');
+    var fr=new FileReader();
+    fr.onload=function(){
+      var im=new Image();
+      im.onload=function(){
+        try{
+          compressImage(im, function(res){
+            if(!res || !res.url){ _clStatus('⚠ Impossible de traiter cette image.','#C62828'); input.value=''; return; }
+            var ko=Math.round(res.bytes/1024);
+            if(res.bytes>HARD_BYTES){
+              _clStatus('⚠ Image trop lourde ('+ko+' Ko) même après compression. Essayez une image plus simple.','#C62828');
+              input.value=''; return;
+            }
+            // Aperçu immédiat (optimiste)
+            _clSetPreview(res.url);
+            var payload={ data:res.url, v:Date.now(), w:res.w, h:res.h };
+            var d=_clDb();
+            if(!d){ _clStatus('⚠ Firebase indisponible — logo non enregistré.','#C62828'); return; }
+            d.ref('system/compLogo').set(payload).then(function(){
+              _clStatus('✅ Logo enregistré ('+ko+' Ko · '+res.w+'×'+res.h+' · '+res.fmt+')','#2E7D32');
+            }).catch(function(e){
+              _clStatus('⚠ Échec enregistrement : '+(e&&e.message||e),'#C62828');
+            });
+          });
+        }catch(e){ _clStatus('⚠ Erreur : '+(e&&e.message||e),'#C62828'); }
+        input.value=''; // permet de re-choisir le même fichier plus tard
+      };
+      im.onerror=function(){ _clStatus('⚠ Image illisible.','#C62828'); input.value=''; };
+      im.src=fr.result;
+    };
+    fr.onerror=function(){ _clStatus('⚠ Lecture du fichier impossible.','#C62828'); input.value=''; };
+    fr.readAsDataURL(f);
+  };
+
+  // ── Retrait du logo custom (retour au logo BOX CREW par défaut) ──
+  window.removeCompLogo=function(){
+    var d=_clDb();
+    _clSetPreview(null);
+    _clStatus('Logo retiré — le logo BOX CREW par défaut sera utilisé.','#8a6d00');
+    if(d){ d.ref('system/compLogo').remove().catch(function(e){ _clStatus('⚠ Échec retrait : '+(e&&e.message||e),'#C62828'); }); }
+  };
+
+  // ── Chargement de l'aperçu actuel au boot de l'admin ──
+  function loadCompLogoPreview(){
+    var d=_clDb();
+    if(!d){ return false; }
+    try{
+      d.ref('system/compLogo').once('value').then(function(snap){
+        var v=snap&&snap.val();
+        if(v && v.data){ _clSetPreview(v.data); }
+        else { _clSetPreview(null); }
+      }).catch(function(){ /* absence / offline → placeholder, pas d'erreur bloquante */ });
+      return true;
+    }catch(e){ return false; }
+  }
+  // Firebase peut se connecter un chouïa après le DOM → quelques tentatives espacées
+  function _initCompLogoBoot(){
+    if(loadCompLogoPreview()) return;
+    var tries=0;
+    var iv=setInterval(function(){
+      tries++;
+      if(loadCompLogoPreview() || tries>20){ clearInterval(iv); }
+    }, 400);
+  }
+  if(document.readyState==='loading'){ window.addEventListener('DOMContentLoaded', _initCompLogoBoot); }
+  else { _initCompLogoBoot(); }
 })();
 
 function fbLog(msg, type){
