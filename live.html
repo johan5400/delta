@@ -655,85 +655,43 @@ body{height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-fami
 .np-nm{font-family:var(--ff);font-size:clamp(16px,2.4vw,28px);letter-spacing:.5px;color:#F2F6FC;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .p-timer{font-family:var(--fm);font-size:13px;color:var(--ink3);text-align:center;margin-top:5px}
 
-/* ═══ Logo BOX CREW qui se DÉVOILE au fil du cooldown (façon chrono qui se charge) ═══
-   La progression --rp (0 → 1) est pilotée en JS depuis le temps restant réel du
-   morningCountdown (durée = celle définie dans l'admin). À 0% le logo est sombre et
-   peu révélé ; à 100% (GO) il est pleinement révélé, net et lumineux. */
-.mcd-logo-wrap{
+/* ═══ Révélation cinématique PARTICULES → LOGO pendant le cooldown ═══
+   Pendant tout le décompte, des milliers de particules dorées flottent en chaos puis
+   convergent vers la forme du logo (progression --rp pilotée en JS depuis le temps
+   restant réel du morningCountdown). À la toute fin (GO) les particules s'estompent et
+   le VRAI logo net (#mcd-reveal) apparaît en fondu, avec un flash doré.
+   · .mcd-stage  : zone de scène centrée au-dessus du décompte chiffré
+   · #mcd-canvas : particules (requestAnimationFrame, actif uniquement overlay ouvert)
+   · #mcd-reveal : image nette du logo, cachée (opacity 0) jusqu'à la révélation finale */
+.mcd-stage{
   position:relative;
+  width:min(62vw,62vh,760px);
+  height:min(44vw,44vh,540px);
+  margin-bottom:10px;
   display:flex;align-items:center;justify-content:center;
-  margin-bottom:26px;
-  --rp:0; /* progression 0→1, mise à jour en JS */
-}
-/* Halo doré qui grandit et s'intensifie avec la révélation */
-.mcd-logo-halo{
-  position:absolute;
-  width:clamp(320px,44vw,660px);
-  height:clamp(320px,44vw,660px);
-  border-radius:50%;
-  background:radial-gradient(circle,
-    rgba(201,151,0, calc(var(--rp) * .34)) 0%,
-    rgba(201,151,0, calc(var(--rp) * .12)) 40%,
-    rgba(201,151,0,0) 70%);
-  transform:scale(calc(.55 + var(--rp) * .55));
   pointer-events:none;
-  transition:background .25s linear, transform .25s linear;
 }
-/* Anneau de progression (cadran de chrono qui se remplit dans le sens horaire) */
-.mcd-ring{
-  position:absolute;
-  width:clamp(300px,40vw,580px);
-  height:clamp(300px,40vw,580px);
-  border-radius:50%;
-  /* secteur doré de 0° à (rp*360°), reste très sombre */
-  background:conic-gradient(from -90deg,
-    rgba(201,151,0,.85) 0deg,
-    rgba(230,180,40,.9) calc(var(--rp) * 360deg),
-    rgba(201,151,0,.06) calc(var(--rp) * 360deg) 360deg);
-  /* on ne garde qu'un fin anneau (le centre est découpé) */
-  -webkit-mask:radial-gradient(circle, transparent 0 46%, #000 47.5% 50%, transparent 51%);
-  mask:radial-gradient(circle, transparent 0 46%, #000 47.5% 50%, transparent 51%);
-  pointer-events:none;
-  filter:drop-shadow(0 0 calc(4px + var(--rp) * 16px) rgba(201,151,0,calc(.3 + var(--rp)*.5)));
-  transition:background .25s linear, filter .25s linear;
-}
-/* ── Logo qui se REMPLIT de bas en haut ──
-   Deux copies superposées du même logo :
-   · .mcd-logo-base : version éteinte (sombre/désaturée), toujours visible = le logo "vide"
-   · .mcd-logo-fill : version pleine (lumineuse/dorée) révélée de bas en haut selon --rp,
-     comme si on remplissait les lettres et le chrono d'or au fil du décompte.
-   Logo FIXE : aucune pulsation ni flottement, seul le remplissage progresse. */
-.mcd-logo-stack{
-  position:relative;
-  width:clamp(240px,32vw,470px);
-  line-height:0;
-}
-.mcd-logo-stack img{
-  width:100%;
-  height:auto;
-  object-fit:contain;
-  display:block;
-}
-.mcd-logo-base{
-  /* le logo "vide" : sombre, désaturé, discret */
-  filter:brightness(.34) saturate(.3) drop-shadow(0 0 6px rgba(201,151,0,.12));
-}
-.mcd-logo-fill{
+#mcd-canvas{
   position:absolute;
   inset:0;
-  /* le logo "plein" : lumineux et doré, net */
-  filter:brightness(1.12) saturate(1.15)
-    drop-shadow(0 0 calc(10px + var(--rp) * 26px) rgba(201,151,0, calc(.35 + var(--rp) * .5)));
-  /* révélation de bas en haut : on montre les (rp*100)% du bas, avec une lisière douce */
-  -webkit-mask-image:linear-gradient(to top,
-    #000 calc(var(--rp) * 100%),
-    rgba(0,0,0,.25) calc(var(--rp) * 100% + 4%),
-    transparent calc(var(--rp) * 100% + 10%));
-  mask-image:linear-gradient(to top,
-    #000 calc(var(--rp) * 100%),
-    rgba(0,0,0,.25) calc(var(--rp) * 100% + 4%),
-    transparent calc(var(--rp) * 100% + 10%));
-  transition:-webkit-mask-image .25s linear, mask-image .25s linear, filter .25s linear;
+  width:100%;
+  height:100%;
+  display:block;
+}
+#mcd-reveal{
+  position:absolute;
+  left:50%;top:50%;
+  transform:translate(-50%,-50%) scale(.96);
+  width:min(50vw,50vh,560px);
+  height:auto;
+  opacity:0;
+  pointer-events:none;
+  filter:drop-shadow(0 0 30px rgba(201,151,0,.6));
+}
+/* prefers-reduced-motion : pas de particules, le vrai logo net est montré directement */
+@media (prefers-reduced-motion:reduce){
+  #mcd-canvas{display:none}
+  #mcd-reveal{opacity:1;transform:translate(-50%,-50%) scale(1)}
 }
 
 @keyframes cdLogoSpin{
@@ -1005,13 +963,9 @@ body{height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-fami
 </div>
 
 <div id="morning-cd">
-  <div class="mcd-logo-wrap" id="mcd-logo-wrap">
-    <div class="mcd-logo-halo"></div>
-    <div class="mcd-ring" id="mcd-ring"></div>
-    <div class="mcd-logo-stack">
-      <img class="mcd-logo-base" src="./assets/boxcrew-logo-glow.png" alt="BOX CREW">
-      <img class="mcd-logo-fill" id="mcd-logo" src="./assets/boxcrew-logo-glow.png" alt="" aria-hidden="true">
-    </div>
+  <div class="mcd-stage" id="mcd-stage">
+    <canvas id="mcd-canvas" aria-hidden="true"></canvas>
+    <img id="mcd-reveal" src="./assets/boxcrew-logo-glow.png" alt="BOX CREW">
   </div>
   <div class="mcd-lbl">⏳ DÉBUT DE JOURNÉE</div>
   <div class="mcd-val" id="mcd-val">1:00</div>
@@ -4385,6 +4339,225 @@ if(db){
     }
     scheduleRender();
   });
+  // ════════════════════════════════════════════════════════════════════════
+  //  ANIMATION « PARTICULES → LOGO » du cooldown (overlay #morning-cd)
+  //  Des milliers de particules dorées flottent en chaos puis convergent vers la
+  //  forme du logo au fil de la progression (window._mcdProg, 0→1, pilotée par le
+  //  temps restant réel du décompte via setReveal()). À la fin, les particules
+  //  s'estompent et le vrai logo net (#mcd-reveal) apparaît en fondu + flash doré.
+  //  La boucle requestAnimationFrame ne tourne QUE lorsque l'overlay est ouvert :
+  //  démarrée par start(), arrêtée par stop() aux 3 points de fermeture.
+  //  Écran spectateur en lecture seule → AUCUNE écriture Firebase ici.
+  // ════════════════════════════════════════════════════════════════════════
+  window._mcdProg = 0; // progression 0→1 partagée, mise à jour par setReveal()
+  var mcdParticles = (function(){
+    var LOGO_SRC = './assets/boxcrew-logo-glow.png';
+    var MAX_PARTICLES = 3000;   // plafond strict (perf rétroprojecteur)
+    var cv=null, ctx=null, revealImg=null, stage=null;
+    var DPR=Math.min(window.devicePixelRatio||1, 2); // deviceScaleFactor plafonné à 2
+    var W=0, H=0;
+    var img=new Image(), imgReady=false, imgFailed=false;
+    var targets=[], particles=[], logoBox={x:0,y:0,w:0,h:0};
+    var raf=null, running=false, built=false;
+    var conv=0, revealAmt=0, goFlash=0;
+    var _resizeTimer=null, _count=0;
+
+    function rand(a,b){ return a+Math.random()*(b-a); }
+
+    function grab(){
+      cv=document.getElementById('mcd-canvas');
+      revealImg=document.getElementById('mcd-reveal');
+      stage=document.getElementById('mcd-stage');
+      if(cv && !ctx){ try{ ctx=cv.getContext('2d'); }catch(e){ ctx=null; } }
+      return !!(cv && ctx && stage);
+    }
+
+    // Dimensionne le canvas sur la zone .mcd-stage (pixels réels × DPR)
+    function resizeCanvas(){
+      if(!cv || !stage) return;
+      var r=stage.getBoundingClientRect();
+      var cssW=Math.max(1, Math.round(r.width)), cssH=Math.max(1, Math.round(r.height));
+      W=cv.width=Math.round(cssW*DPR); H=cv.height=Math.round(cssH*DPR);
+      cv.style.width=cssW+'px'; cv.style.height=cssH+'px';
+    }
+
+    // Échantillonne le logo pour obtenir les positions cibles des particules.
+    // step adaptatif : on augmente le pas jusqu'à rester sous MAX_PARTICLES.
+    function buildTargets(){
+      targets=[];
+      if(!imgReady || imgFailed || !img.width || !img.height){ return false; }
+      // le logo occupe ~ toute la scène (contain) ; ox/oy = coin haut-gauche
+      var scale=Math.min(W/img.width, H/img.height)*0.92;
+      var lw=img.width*scale, lh=img.height*scale;
+      var ox=(W-lw)/2, oy=(H-lh)/2;
+      logoBox={x:ox,y:oy,w:lw,h:lh};
+      var tmp=document.createElement('canvas');
+      tmp.width=Math.max(1,Math.floor(lw)); tmp.height=Math.max(1,Math.floor(lh));
+      var tctx=tmp.getContext('2d');
+      if(!tctx){ return false; }
+      tctx.drawImage(img,0,0,lw,lh);
+      var data;
+      try{ data=tctx.getImageData(0,0,tmp.width,tmp.height).data; }
+      catch(e){ return false; } // tainted / sécurité → fallback géré par l'appelant
+      var step=Math.max(3, Math.round(4*DPR));
+      // boucle d'ajustement : si trop de pixels opaques, on élargit le pas
+      for(var pass=0; pass<12; pass++){
+        targets.length=0;
+        for(var y=0;y<tmp.height;y+=step){
+          for(var x=0;x<tmp.width;x+=step){
+            var idx=(y*tmp.width+x)*4;
+            if(data[idx+3]>80){
+              targets.push({ x:ox+x, y:oy+y, r:data[idx], g:data[idx+1], b:data[idx+2] });
+            }
+          }
+        }
+        if(targets.length<=MAX_PARTICLES) break;
+        step++; // trop dense → on espace davantage
+      }
+      return targets.length>0;
+    }
+
+    function buildParticles(){
+      particles=[];
+      for(var i=0;i<targets.length;i++){
+        var t=targets[i];
+        particles.push({
+          x:rand(0,W), y:rand(0,H),
+          hx:rand(0,W), hy:rand(0,H),   // point de flottement (chaos)
+          tx:t.x, ty:t.y,               // cible (forme du logo)
+          r:t.r, g:t.g, b:t.b,
+          sz:rand(1,2.4)*DPR, ph:rand(0,Math.PI*2), sp:rand(.5,1.5)
+        });
+      }
+      _count=particles.length;
+    }
+
+    // Construit (ou reconstruit) toute la scène. Retourne false si fallback nécessaire.
+    function build(){
+      if(!grab()) return false;
+      resizeCanvas();
+      if(!buildTargets()){ built=false; return false; }
+      buildParticles();
+      built=true;
+      return true;
+    }
+
+    // Fallback : pas de canvas possible → on montre au moins le vrai logo + décompte.
+    function fallbackReveal(){
+      if(revealImg){ revealImg.style.opacity='1'; revealImg.style.transform='translate(-50%,-50%) scale(1)'; }
+    }
+
+    img.onload=function(){ imgReady=true; if(running){ build(); } };
+    img.onerror=function(){ imgFailed=true; if(running){ fallbackReveal(); } };
+    img.src=LOGO_SRC;
+
+    function onResize(){
+      if(!running) return;
+      clearTimeout(_resizeTimer);
+      _resizeTimer=setTimeout(function(){ if(running){ if(!build()){ fallbackReveal(); } } },150);
+    }
+
+    function frame(){
+      if(!running){ raf=null; return; }
+      raf=requestAnimationFrame(frame);
+      if(!ctx){ return; }
+      // progression réelle lue à chaque frame (lissée via conv/revealAmt)
+      var prog=Math.max(0, Math.min(1, (typeof window._mcdProg==='number'? window._mcdProg : 0)));
+
+      // Si le logo n'est pas encore prêt / échantillonnage impossible → fallback + rien à dessiner
+      if(!built){
+        if(imgFailed){ fallbackReveal(); return; }
+        // image en cours de chargement : tenter un build tardif
+        if(imgReady){ if(!build()){ fallbackReveal(); return; } }
+        else { return; }
+      }
+
+      // courbe de convergence (chaos → forme) et "snap" final sur la cible
+      var convTarget = prog<0.85 ? (prog/0.85)*0.72 : 0.72 + ((prog-0.85)/0.15)*0.28;
+      conv += (convTarget-conv)*0.12; // lissage (gomme les paliers de 200ms de rp)
+      var snap = prog>0.90 ? (prog-0.90)/0.10 : 0;
+
+      // révélation du vrai logo : démarre à 88%, complète au GO
+      var revStart=0.88;
+      var targetReveal = prog<revStart ? 0 : (prog-revStart)/(1-revStart);
+      revealAmt += (targetReveal-revealAmt)*0.2;
+      if(revealImg){
+        revealImg.style.opacity=revealAmt.toFixed(3);
+        revealImg.style.transform='translate(-50%,-50%) scale('+(0.96+revealAmt*0.06).toFixed(3)+')';
+      }
+
+      ctx.clearRect(0,0,W,H);
+      // halo doré de fond qui s'intensifie
+      var bg=ctx.createRadialGradient(W/2,H/2,0,W/2,H/2,Math.max(W,H)*0.6);
+      var ba=0.05+prog*0.22;
+      bg.addColorStop(0,'rgba(201,151,0,'+ba+')');
+      bg.addColorStop(0.5,'rgba(201,151,0,'+(ba*0.3)+')');
+      bg.addColorStop(1,'rgba(4,6,10,0)');
+      ctx.fillStyle=bg; ctx.fillRect(0,0,W,H);
+
+      // particules (additif pour le rendu lumineux) ; s'estompent à la révélation
+      var partAlpha=1-revealAmt;
+      ctx.globalCompositeOperation='lighter';
+      var tt=performance.now()*0.001;
+      for(var i=0;i<particles.length;i++){
+        var p=particles[i];
+        var cx=p.hx + Math.cos(tt*p.sp+p.ph)*30*DPR*(1-conv);
+        var cy=p.hy + Math.sin(tt*p.sp+p.ph*1.3)*30*DPR*(1-conv);
+        var gx=cx+(p.tx-cx)*conv, gy=cy+(p.ty-cy)*conv;
+        gx=gx+(p.tx-gx)*snap; gy=gy+(p.ty-gy)*snap;
+        p.x+=(gx-p.x)*0.18; p.y+=(gy-p.y)*0.18;
+        var rr,gg,bb,al;
+        if(conv<0.6){ rr=255; gg=200; bb=90; al=0.55+conv*0.3; }
+        else{ var m=(conv-0.6)/0.4; rr=255+(p.r-255)*m; gg=200+(p.g-200)*m; bb=90+(p.b-90)*m; al=0.85+conv*0.15; }
+        al*=partAlpha;
+        if(al>0.02){
+          var sz=p.sz*(1+(1-conv)*0.8);
+          ctx.fillStyle='rgba('+(rr|0)+','+(gg|0)+','+(bb|0)+','+al+')';
+          ctx.beginPath(); ctx.arc(p.x,p.y,sz,0,6.283); ctx.fill();
+        }
+      }
+      ctx.globalCompositeOperation='source-over';
+
+      // flash de lumière doré au GO
+      if(prog>=1 && goFlash<1){ goFlash+=0.045; }
+      if(goFlash>0){
+        var fa=Math.sin(Math.min(1,goFlash)*Math.PI)*0.9;
+        var fg=ctx.createRadialGradient(W/2,H/2,0,W/2,H/2,Math.max(W,H)*0.7);
+        fg.addColorStop(0,'rgba(255,255,255,'+fa+')');
+        fg.addColorStop(0.4,'rgba(255,230,150,'+(fa*0.6)+')');
+        fg.addColorStop(1,'rgba(255,230,150,0)');
+        ctx.fillStyle=fg; ctx.fillRect(0,0,W,H);
+      }
+    }
+
+    return {
+      // Démarre l'animation à l'ouverture de l'overlay.
+      start:function(){
+        if(_REDUCED_MOTION){ // accessibilité : pas de particules, logo net direct
+          grab(); fallbackReveal(); return;
+        }
+        if(running) return;
+        running=true;
+        conv=0; revealAmt=0; goFlash=0; window._mcdProg=0;
+        if(!grab()){ running=false; return; }
+        if(revealImg){ revealImg.style.opacity='0'; revealImg.style.transform='translate(-50%,-50%) scale(.96)'; }
+        // (re)construit la scène ; si impossible maintenant, le frame() réessaiera / fallback
+        if(imgReady || imgFailed){ if(!build() && imgFailed){ fallbackReveal(); } }
+        window.addEventListener('resize', onResize);
+        if(!raf) raf=requestAnimationFrame(frame);
+      },
+      // Arrête la boucle à la fermeture de l'overlay (zéro CPU quand fermé).
+      stop:function(){
+        running=false;
+        if(raf){ cancelAnimationFrame(raf); raf=null; }
+        window.removeEventListener('resize', onResize);
+        if(ctx && W && H){ try{ ctx.clearRect(0,0,W,H); }catch(e){} }
+      },
+      // Pour le test : nombre de particules réellement créé.
+      count:function(){ return _count; }
+    };
+  })();
+
   var _mcdIv=null;
   db.ref('system/morningCountdown').on('value',function(s){
     var d=s.val()||{};
@@ -4395,6 +4568,7 @@ if(db){
     // Si morningCountdown n'est plus actif → masquer overlay immédiatement
     if(!d.active||!d.target){
       if(el)el.className='';
+      mcdParticles.stop();
       _dh[1]=null;_dh[2]=null;
       scheduleRender();
       return;
@@ -4402,29 +4576,30 @@ if(db){
     // Si target déjà dépassé → GO immédiat, pas d'affichage
     if(d.target<=now()){
       if(el)el.className='';
+      mcdParticles.stop();
       _dh[1]=null;_dh[2]=null;
       scheduleRender();
       return;
     }
     if(el)el.className='on';
-    // Logo BOX CREW qui se DÉVOILE au fil du cooldown : le src est déjà dans le HTML.
+    // Animation particules → logo : lancée à l'ouverture de l'overlay.
     //   Durée totale = (target - ts) lus de Firebase → correspond au temps "Countdown"
-    //   défini dans l'admin (index). La révélation --rp va de 0 (début) à 1 (GO).
-    var _wrap=document.getElementById('mcd-logo-wrap');
+    //   défini dans l'admin (index). La progression window._mcdProg va de 0 (début) à 1 (GO)
+    //   et pilote la convergence des particules + la révélation finale du vrai logo.
+    mcdParticles.start();
     var _startTs=(typeof d.ts==='number' && d.ts>0) ? d.ts : null;
     // durée totale en ms ; si ts absent, on borne par un défaut raisonnable (fallback)
     var _durMs=(_startTs!=null) ? Math.max(1000, d.target - _startTs) : Math.max(1000, d.target - now());
     function setReveal(){
-      // progression 0→1 = temps écoulé / durée totale
+      // progression 0→1 = temps écoulé / durée totale (lue par la boucle d'animation)
       var elapsed = _startTs!=null ? (now() - _startTs) : (_durMs - (d.target - now()));
-      var rp = Math.max(0, Math.min(1, elapsed / _durMs));
-      if(_wrap) _wrap.style.setProperty('--rp', rp.toFixed(4));
+      window._mcdProg = Math.max(0, Math.min(1, elapsed / _durMs));
     }
     function tick(){
       var rem=Math.max(0,Math.ceil((d.target-now())/1000));
       setReveal();
       if(rem<=0){
-        if(_wrap) _wrap.style.setProperty('--rp','1'); // logo pleinement révélé au GO
+        window._mcdProg=1; // progression pleine → révélation complète + flash au GO
         if(val){val.textContent='GO !';val.className='mcd-val go';}
         if(sub)sub.textContent='C\'est parti !';
         clearInterval(_mcdIv);
@@ -4432,6 +4607,7 @@ if(db){
         // Fermer l'overlay après 1s et syncer immédiatement avec les heats Firebase
         setTimeout(function(){
           if(el)el.className='';
+          mcdParticles.stop();
           scheduleRender();
         },1000);
         return;
