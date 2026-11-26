@@ -4358,7 +4358,7 @@ if(db){
   var mcdParticles = (function(){
     var DEFAULT_LOGO_SRC = './assets/boxcrew-logo-glow.png';
     var LOGO_SRC = DEFAULT_LOGO_SRC; // source active (par défaut BOX CREW ; peut devenir un dataURL custom)
-    var MAX_PARTICLES = 3000;   // plafond strict (perf rétroprojecteur)
+    var MAX_PARTICLES = 6000;   // densité élevée = rendu fluide/poudreux (perf OK)
     var cv=null, ctx=null, revealImg=null, stage=null;
     var DPR=Math.min(window.devicePixelRatio||1, 2); // deviceScaleFactor plafonné à 2
     var W=0, H=0;
@@ -4426,7 +4426,7 @@ if(db){
       var data;
       try{ data=tctx.getImageData(0,0,tmp.width,tmp.height).data; }
       catch(e){ return false; } // tainted / sécurité → fallback géré par l'appelant
-      var step=Math.max(3, Math.round(4*DPR));
+      var step=Math.max(2, Math.round(2*DPR)); // pas fin = beaucoup de points = matière dense
       // boucle d'ajustement : si trop de pixels opaques, on élargit le pas
       for(var pass=0; pass<12; pass++){
         targets.length=0;
@@ -4498,17 +4498,21 @@ if(db){
         if(clusters[c]._n>0){ clusters[c].homeX/=clusters[c]._n; clusters[c].homeY/=clusters[c]._n; }
         else { clusters[c].homeX=logoBox.x+logoBox.w/2; clusters[c].homeY=logoBox.y+logoBox.h/2; }
       }
-      // 2e passage : chaque point garde son DÉCALAGE par rapport au centre de son morceau
-      //   → quand l'amas se balade, le morceau garde sa forme.
+      // 2e passage : chaque point a (a) la forme exacte de son morceau (dx/dy, utilisée
+      //   SEULEMENT quand la pièce se pose) et (b) un offset de dispersion ALÉATOIRE dans
+      //   un disque (gx/gy) utilisé tant qu'elle flotte → nuage organique, pas de rectangle.
       for(var j=0;j<targets.length;j++){
         var tt=targets[j], ck=tmp[j], clc=clusters[ck];
+        var ang=Math.random()*Math.PI*2, rr2=Math.sqrt(Math.random()); // point uniforme dans un disque
         particles.push({
           x:rand(0,W), y:rand(0,roamBottom||H*0.68),
           cl:ck,
-          dx:tt.x-clc.homeX, dy:tt.y-clc.homeY,  // décalage interne = forme du morceau
+          dx:tt.x-clc.homeX, dy:tt.y-clc.homeY,  // forme exacte du morceau (à la pose)
+          gxo:Math.cos(ang)*rr2, gyo:Math.sin(ang)*rr2, // dispersion organique (disque)
+          grad:rand(55,120)*DPR,                 // rayon du nuage de dispersion
           tx:tt.x, ty:tt.y,                      // cible finale (logo complet)
           r:tt.r, g:tt.g, b:tt.b,
-          sz:rand(1,2.4)*DPR, ph:rand(0,Math.PI*2), sp:rand(.5,1.3)
+          sz:rand(0.7,1.6)*DPR, ph:rand(0,Math.PI*2), sp:rand(.5,1.3)
         });
       }
       _count=particles.length;
@@ -4624,13 +4628,17 @@ if(db){
         var p=particles[i];
         var cl2=clusters[p.cl];
         var shape=cl2._shape, set2=cl2._set;
-        // éparpillement autour du centre de la pièce tant qu'elle flotte (se résorbe)
-        var scatter=(1-shape);
-        var jx=Math.cos(tt*p.sp+p.ph)*30*DPR*scatter;
-        var jy=Math.sin(tt*p.sp+p.ph*1.3)*30*DPR*scatter;
-        // position = centre pièce + forme (dx/dy × shape) + jitter ; snap exact une fois posée
-        var mx=cl2._x + p.dx*shape + jx;
-        var my=cl2._y + p.dy*shape + jy;
+        // Décalage par rapport au centre de la pièce :
+        //   - tant qu'elle flotte (shape bas) : NUAGE ORGANIQUE (offset disque aléatoire)
+        //     → pas de rectangle/forme géométrique visible
+        //   - en se posant (shape→1) : morphe vers la FORME EXACTE du morceau (dx/dy)
+        var offx = p.gxo*p.grad*(1-shape) + p.dx*shape;
+        var offy = p.gyo*p.grad*(1-shape) + p.dy*shape;
+        // léger scintillement de vie (petit, ne crée pas de structure)
+        var jamp=10*DPR*(1-shape);
+        var jx=Math.cos(tt*p.sp+p.ph)*jamp, jy=Math.sin(tt*p.sp+p.ph*1.3)*jamp;
+        var mx=cl2._x + offx + jx;
+        var my=cl2._y + offy + jy;
         var snap=set2>0.9?(set2-0.9)/0.1:0;
         // rattrapage plus vif quand la pièce se pose (effet "clac")
         var lerp=0.1 + set2*0.4;
