@@ -672,12 +672,15 @@ body{height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-fami
   display:flex;align-items:center;justify-content:center;
   pointer-events:none;
 }
+/* Canvas en PLEIN ÉCRAN : les paillettes se promènent dans tout l'espace au-dessus
+   du chrono, puis convergent vers la zone centrale (logoBox) pour former le logo. */
 #mcd-canvas{
-  position:absolute;
-  inset:0;
-  width:100%;
-  height:100%;
+  position:fixed;
+  left:0;top:0;
+  width:100vw;
+  height:100vh;
   display:block;
+  pointer-events:none;
 }
 #mcd-reveal{
   position:absolute;
@@ -4380,13 +4383,27 @@ if(db){
       return !!(cv && ctx && stage);
     }
 
-    // Dimensionne le canvas sur la zone .mcd-stage (pixels réels × DPR)
+    // Dimensionne le canvas en PLEIN ÉCRAN (les paillettes errent partout).
+    // On mémorise aussi la boîte de la .mcd-stage (zone où se formera le logo) et
+    // la limite basse (haut du chrono) pour que les paillettes ne descendent pas
+    // sous le décompte.
+    var stageBox={x:0,y:0,w:0,h:0}, roamBottom=0;
     function resizeCanvas(){
-      if(!cv || !stage) return;
-      var r=stage.getBoundingClientRect();
-      var cssW=Math.max(1, Math.round(r.width)), cssH=Math.max(1, Math.round(r.height));
+      if(!cv) return;
+      var cssW=Math.max(1, Math.round(window.innerWidth)), cssH=Math.max(1, Math.round(window.innerHeight));
       W=cv.width=Math.round(cssW*DPR); H=cv.height=Math.round(cssH*DPR);
       cv.style.width=cssW+'px'; cv.style.height=cssH+'px';
+      // Boîte de la scène (où le logo se forme), convertie en pixels canvas (×DPR)
+      if(stage){
+        var r=stage.getBoundingClientRect();
+        stageBox={ x:r.left*DPR, y:r.top*DPR, w:r.width*DPR, h:r.height*DPR };
+      } else {
+        stageBox={ x:W*0.19, y:H*0.10, w:W*0.62, h:H*0.44 };
+      }
+      // Les paillettes errent de tout en haut jusqu'au haut du chrono (#mcd-val)
+      var cd=document.getElementById('mcd-val');
+      if(cd){ var cr=cd.getBoundingClientRect(); roamBottom=Math.max(stageBox.y+stageBox.h, cr.top*DPR - 10*DPR); }
+      else { roamBottom=H*0.70; }
     }
 
     // Échantillonne le logo pour obtenir les positions cibles des particules.
@@ -4394,10 +4411,12 @@ if(db){
     function buildTargets(){
       targets=[];
       if(!imgReady || imgFailed || !img.width || !img.height){ return false; }
-      // le logo occupe ~ toute la scène (contain) ; ox/oy = coin haut-gauche
-      var scale=Math.min(W/img.width, H/img.height)*0.92;
+      // le logo se forme dans la zone centrale (stageBox), PAS sur tout l'écran
+      var bw=stageBox.w||W*0.62, bh=stageBox.h||H*0.44;
+      var bx=stageBox.x||((W-bw)/2), by=stageBox.y||((H-bh)/2);
+      var scale=Math.min(bw/img.width, bh/img.height)*0.96;
       var lw=img.width*scale, lh=img.height*scale;
-      var ox=(W-lw)/2, oy=(H-lh)/2;
+      var ox=bx+(bw-lw)/2, oy=by+(bh-lh)/2;
       logoBox={x:ox,y:oy,w:lw,h:lh};
       var tmp=document.createElement('canvas');
       tmp.width=Math.max(1,Math.floor(lw)); tmp.height=Math.max(1,Math.floor(lh));
@@ -4425,16 +4444,38 @@ if(db){
       return targets.length>0;
     }
 
+    // Amas : chaque amas a un centre qui erre dans tout l'écran (au-dessus du chrono).
+    //   Trajectoire façon Lissajous (2 sinusoïdes) → mouvement fluide et non répétitif.
+    var clusters=[];
+    var N_CLUSTERS=6;
+    function buildClusters(){
+      clusters=[];
+      var top=H*0.04, bottom=(roamBottom||H*0.68);
+      for(var c=0;c<N_CLUSTERS;c++){
+        clusters.push({
+          // amplitude/centre/phase/fréquence de l'errance (en pixels canvas)
+          cx:rand(W*0.15,W*0.85), cy:rand(top+ (bottom-top)*0.1, bottom - (bottom-top)*0.1),
+          ax:rand(W*0.18,W*0.34), ay:rand((bottom-top)*0.16,(bottom-top)*0.34),
+          fx:rand(0.05,0.12), fy:rand(0.06,0.14),
+          px:rand(0,Math.PI*2), py:rand(0,Math.PI*2),
+          top:top, bottom:bottom
+        });
+      }
+    }
     function buildParticles(){
       particles=[];
+      buildClusters();
       for(var i=0;i<targets.length;i++){
         var t=targets[i];
+        var ci=i % N_CLUSTERS; // réparti sur les amas
         particles.push({
-          x:rand(0,W), y:rand(0,H),
-          hx:rand(0,W), hy:rand(0,H),   // point de flottement (chaos)
-          tx:t.x, ty:t.y,               // cible (forme du logo)
+          x:rand(0,W), y:rand(0,roamBottom||H*0.68),
+          cl:ci,                         // index de l'amas d'appartenance
+          ox:rand(-1,1), oy:rand(-1,1),  // décalage dans l'amas (unitaire, × rayon)
+          rad:rand(20,90)*DPR,           // rayon autour du centre de l'amas
+          tx:t.x, ty:t.y,                // cible finale (forme du logo)
           r:t.r, g:t.g, b:t.b,
-          sz:rand(1,2.4)*DPR, ph:rand(0,Math.PI*2), sp:rand(.5,1.5)
+          sz:rand(1,2.4)*DPR, ph:rand(0,Math.PI*2), sp:rand(.6,1.8)
         });
       }
       _count=particles.length;
@@ -4520,14 +4561,31 @@ if(db){
       //   - lerp : vitesse de rattrapage vers la cible (0.12 au début → ~0.5 près du GO)
       //   (courbe quadratique pour que l'accélération se sente surtout sur la fin)
       var accel = prog*prog;                 // 0 → 1, montée surtout en fin de course
-      var spd  = 1 + accel*4;                // flottement : ×1 → ×5
-      var lerp = 0.12 + accel*0.40;          // rattrapage : 0.12 → 0.52
+      var spd  = 1 + accel*4;                // vitesse du mouvement : ×1 → ×5
+      var lerp = 0.08 + accel*0.44;          // rattrapage : 0.08 → 0.52
       var tt=performance.now()*0.001*spd;
+
+      // Position courante du centre de chaque amas (errance Lissajous dans l'écran).
+      //   Les amas se rapprochent du centre de la scène au fil de prog (convergence
+      //   des blocs avant la fusion finale en logo).
+      var stageCx=(logoBox.x+logoBox.w/2)||W/2, stageCy=(logoBox.y+logoBox.h/2)||H*0.3;
+      for(var c=0;c<clusters.length;c++){
+        var cl=clusters[c];
+        var rawx=cl.cx + Math.cos(tt*cl.fx+cl.px)*cl.ax;
+        var rawy=cl.cy + Math.sin(tt*cl.fy+cl.py)*cl.ay;
+        // les amas glissent vers le centre de la scène à mesure que conv monte
+        cl._x = rawx + (stageCx-rawx)*conv*0.8;
+        cl._y = rawy + (stageCy-rawy)*conv*0.8;
+      }
+
       for(var i=0;i<particles.length;i++){
         var p=particles[i];
-        var cx=p.hx + Math.cos(tt*p.sp+p.ph)*30*DPR*(1-conv);
-        var cy=p.hy + Math.sin(tt*p.sp+p.ph*1.3)*30*DPR*(1-conv);
-        var gx=cx+(p.tx-cx)*conv, gy=cy+(p.ty-cy)*conv;
+        var cl2=clusters[p.cl];
+        // point "amas" : centre de l'amas + petit mouvement propre de la particule
+        var amx=cl2._x + p.ox*p.rad + Math.cos(tt*p.sp+p.ph)*p.rad*0.5*(1-conv);
+        var amy=cl2._y + p.oy*p.rad + Math.sin(tt*p.sp+p.ph*1.3)*p.rad*0.5*(1-conv);
+        // interpolation amas → cible logo selon conv, puis snap final exact
+        var gx=amx+(p.tx-amx)*conv, gy=amy+(p.ty-amy)*conv;
         gx=gx+(p.tx-gx)*snap; gy=gy+(p.ty-gy)*snap;
         p.x+=(gx-p.x)*lerp; p.y+=(gy-p.y)*lerp;
         var rr,gg,bb,al;
@@ -4693,13 +4751,17 @@ if(db){
       var rem=Math.max(0,Math.ceil((d.target-now())/1000));
       setReveal();
       if(rem<=0){
-        window._mcdProg=1; // progression pleine
+        window._mcdProg=1; // progression pleine → fusion des amas + révélation du logo + flash
+        if(val){val.textContent='GO !';val.className='mcd-val go';}
+        if(sub)sub.textContent='C\'est parti !';
         clearInterval(_mcdIv);
         _dh[1]=null;_dh[2]=null;
-        // ★ Au GO : bascule DIRECTE sur le live, sans pause.
-        if(el)el.className='';
-        mcdParticles.stop();
-        scheduleRender();
+        // ★ On laisse ~1,1s pour voir le logo se former net + le flash, puis bascule live.
+        setTimeout(function(){
+          if(el)el.className='';
+          mcdParticles.stop();
+          scheduleRender();
+        },1100);
         return;
       }
       var m=Math.floor(rem/60),ss=rem%60;
