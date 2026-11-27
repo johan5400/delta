@@ -4877,17 +4877,53 @@ function closeModal(id){
   el.style.display="none";
 }
 
+// ★ Marges d'indisponibilité d'un juge-ATHLÈTE autour de sa course :
+//   échauffement AVANT et récup APRÈS. Il ne peut pas juger pendant ces marges non plus.
+var ATH_WARMUP_MIN = 30;   // minutes d'échauffement avant son passage
+var ATH_COOLDOWN_MIN = 25; // minutes de récup après son passage
+
+// ★ Créneaux où un juge-ATHLÈTE est indisponible : sa COURSE + échauffement + récup.
+//   On dérive les vraies fenêtres de course depuis les HEATS de SA catégorie (b.wave) ce
+//   jour-là, on les élargit des marges, et on bloque tout créneau de judging qui chevauche.
+//   (Avant : approximation bidon `(raceDur-1) % nbSlots` qui bloquait un créneau au hasard
+//    — le juge-athlète restait donc planifié pile quand il courait.)
 function getBlockedSlots(b,globalSlots,day){
   if(!b.isAthlete)return[];
   var rd=b.raceDay||"1";
   if(rd!=="12"&&rd!==String(day))return[];
-  // Pour FOC: bloquer un créneau selon le numéro de heat
-  // On bloque le premier créneau disponible comme simplification
-  if(globalSlots.length>0){
-    var heatIdx = Math.max(0,(parseInt(b.raceDur)||1)-1) % globalSlots.length;
-    return[globalSlots[heatIdx].label];
+  if(!globalSlots||!globalSlots.length)return[];
+
+  // Fenêtres {debut,fin} (en minutes) des heats de la catégorie de l'athlète, ce jour-là.
+  var windows=[];
+  var cat=(b.wave!=null?String(b.wave).trim():'');
+  if(cat && typeof HEATS_RESULT!=='undefined' && HEATS_RESULT && HEATS_RESULT.length){
+    HEATS_RESULT.forEach(function(h){
+      if(!h)return;
+      var hJour=parseInt(h.catJour||h.jour||1,10)||1;
+      if(hJour!==day)return;
+      var hCat=(h.catNom||h.catName||'');
+      if(String(hCat).trim()!==cat)return;
+      // fenêtre horaire du heat : horaires[wodId] sinon 1re clé dispo
+      var hor=h.horaires||{};
+      var w=(h.wodId!=null && hor[h.wodId]) ? hor[h.wodId]
+          : (h.wodId!=null && hor[String(h.wodId)]) ? hor[String(h.wodId)]
+          : (function(){ var k=Object.keys(hor); return k.length?hor[k[0]]:null; })();
+      if(!w)return;
+      var d=parseFloat(w.debut), f=parseFloat(w.fin);
+      if(isNaN(d)||isNaN(f))return;
+      windows.push({start:d-ATH_WARMUP_MIN, end:f+ATH_COOLDOWN_MIN}); // ★ + échauffement / récup
+    });
   }
-  return[];
+
+  // Pas de fenêtre exploitable (catégorie non sélectionnée, horaires pas encore calculés…)
+  //   → on NE bloque RIEN plutôt que de bloquer un créneau au hasard. Le juge-athlète
+  //   reste affectable ; mieux vaut ça qu'un faux blocage. (Le vrai blocage revient dès que
+  //   la catégorie + les horaires sont renseignés.)
+  if(!windows.length)return[];
+
+  return globalSlots.filter(function(s){
+    return windows.some(function(w){ return s.start<w.end && s.end>w.start; });
+  }).map(function(s){ return s.label; });
 }
 
 var saveTimer=null;
@@ -7599,7 +7635,9 @@ function getHeadJudges(){
 }
 
 function hasDedicatedQrRole(ben){
-  return !!(ben && !ben.isAthlete && (isJudgeQrRole(ben) || isSpeakerQrRole(ben)));
+  // ★ Un juge-athlète (coché "athlète" MAIS avec rôle juge/speaker) garde son QR dédié.
+  //   Seul le rôle compte ici ; un athlète sans rôle juge/speaker n'a toujours pas de QR dédié.
+  return !!(ben && (isJudgeQrRole(ben) || isSpeakerQrRole(ben)));
 }
 
 function getJudgingBenevoles(){
@@ -7607,7 +7645,12 @@ function getJudgingBenevoles(){
   //   (En cas de besoin ponctuel, ils passent par le QR de secours.)
   // ★ MODE COMPÉTITION INTERNE : les athlètes peuvent aussi juger → on ne les exclut plus.
   var interne = (window.COMP_MODE==='interne');
-  return (BENEVOLES||[]).filter(function(b){ return (interne || !b.isAthlete) && isJudgeQrRole(b) && !isHeadJudge(b); });
+  // ★ JUGE-ATHLÈTE : un bénévole coché "athlète" qui a AUSSI le rôle juge reste dans le pool
+  //   de judging. Il jugera normalement SAUF sur ses créneaux de course (buildJugeAssignment
+  //   réserve ses fenêtres de passage). Avant : tout athlète était exclu du judging → un
+  //   juge-athlète perdait son QR et ses lignes. (isJudgeQrRole garantit qu'un athlète SANS
+  //   rôle juge reste, lui, exclu.)
+  return (BENEVOLES||[]).filter(function(b){ return isJudgeQrRole(b) && !isHeadJudge(b); });
 }
 // ★ Choix du type de compétition (normale / interne). Stocké dans COMP_MODE + sauvegardé.
 window.COMP_MODE = window.COMP_MODE || 'normal';
@@ -15509,6 +15552,37 @@ function buildJugeAssignment(){
   pool.forEach(function(b){ judgeWodEntries[String(b.id)] = []; });
   var judgeZoneHistory = {};
 
+  // ★ JUGE-ATHLÈTE : réserver ses fenêtres de COURSE (+ marges) comme du "occupé".
+  //   Un juge qui est aussi athlète ne peut pas juger pendant qu'il court NI juste avant/après :
+  //   il lui faut ÉCHAUFFEMENT avant et RÉCUP après. On élargit donc sa fenêtre de course de
+  //   ATH_WARMUP_MIN minutes avant et ATH_COOLDOWN_MIN minutes après, et on marque le tout
+  //   dans judgeBusyMap. judgeIsFreeForWindows l'écarte alors de toute lane qui chevauche.
+  //   (Avant : rien ne l'empêchait d'être planifié juge pile sur son créneau de passage.)
+  (function reserveAthleteRaceWindows(){
+    if(!HEATS_RESULT || !HEATS_RESULT.length) return;
+    pool.forEach(function(b){
+      if(!b || !b.isAthlete) return;
+      var cat = (b.wave!=null ? String(b.wave).trim() : '');
+      if(!cat) return;
+      var rd = String(b.raceDay||'1');
+      HEATS_RESULT.forEach(function(h){
+        if(!h) return;
+        var hJour = parseInt(h.catJour||h.jour||1,10)||1;
+        if(rd!=='12' && String(hJour)!==rd) return;         // ne bloque que le(s) jour(s) où il court
+        var hCat = (h.catNom||h.catName||'');
+        if(String(hCat).trim()!==cat) return;                // uniquement SA catégorie
+        var win = getHeatWindow(h, h.wodId);
+        if(!win) return;
+        judgeBusyMap[String(b.id)].push({
+          jour: hJour,
+          start: win.start - ATH_WARMUP_MIN,   // ★ échauffement avant
+          end:   win.end   + ATH_COOLDOWN_MIN, // ★ récup après
+          zone: (h.catZone||h.zone||1), wodId: h.wodId, lane: null, _race:true
+        });
+      });
+    });
+  })();
+
 
   function judgeIsFreeForWindows(judgeId, windows){
     if(!windows.length) return true;
@@ -15522,6 +15596,25 @@ function buildJugeAssignment(){
       }
     }
     return true;
+  }
+
+  // ★ Un juge-ATHLÈTE est-il en train de COURIR sur l'une de ces fenêtres ? Contrainte DURE :
+  //   contrairement à un simple conflit de lane (contournable en manque de juges), un juge qui
+  //   court est physiquement absent → on ne le réintègre JAMAIS, même en fallback. On lit les
+  //   fenêtres marquées _race posées par reserveAthleteRaceWindows.
+  function judgeIsRacing(judgeId, windows){
+    if(!windows||!windows.length) return false;
+    var busy = judgeBusyMap[String(judgeId)] || [];
+    for(var i=0;i<windows.length;i++){
+      var win = windows[i];
+      for(var j=0;j<busy.length;j++){
+        var bw = busy[j];
+        if(!bw._race) continue;
+        if(String(bw.jour)!==String(win.jour)) continue;
+        if(windowsOverlap(win, bw)) return true;
+      }
+    }
+    return false;
   }
 
   function reserveJudgeWindows(judgeId, windows, meta){
@@ -15734,7 +15827,12 @@ function buildJugeAssignment(){
       return judgeSlotCoversWindows(ben, jour, wodWindows)
           && judgeIsFreeForWindows(String(ben.id), wodWindows);
     });
-    if(dispoWod.length < wodLanes.length) dispoWod = poolDay.slice();
+    // Fallback "pas assez de juges" : on réintègre les juges en simple conflit de lane, mais
+    //   JAMAIS un juge-athlète qui COURT sur ce créneau (il est physiquement sur le floor).
+    //   Mieux vaut une ligne en secours QR qu'un juge affiché présent alors qu'il concourt.
+    if(dispoWod.length < wodLanes.length){
+      dispoWod = poolDay.filter(function(ben){ return !judgeIsRacing(String(ben.id), wodWindows); });
+    }
 
     // Trier par CHARGE croissante (équité : les moins chargés jugent ce WOD), puis nom (stable).
     var rankedWod = dispoWod.slice().sort(function(a,b){
@@ -16043,6 +16141,9 @@ function buildJugeAssignment(){
         // candidats : dispo ce jour, créneau couvrant le heat, libres sur la fenêtre
         var cands=jugesForDay(w.jour).filter(function(b){
           if(_ovLockedIds.indexOf(String(b.id))>=0) return false; // ★ juge touché manuellement → jamais réutilisé par le filet
+          // ★ JUGE-ATHLÈTE : jamais recomblé sur un heat qui chevauche sa COURSE (il concourt).
+          //   freeOn ne regarde que les placements de judging ; la course vit dans judgeBusyMap.
+          if(judgeIsRacing(String(b.id), [w])) return false;
           if(typeof judgeAvailableForHeat==='function' && !judgeAvailableForHeat(b, heat, w)) {}
           return freeOn(b.id, w);
         });
@@ -23436,7 +23537,10 @@ function renderJudgePlanningTab(){
     var relevantZonesByDay = buildJudgeRelevantZonesByDay(ben, assignedRows);
     var visibleDays = _judgePlanFilterDay>0 ? [_judgePlanFilterDay] : [1,2];
     var visibleAvailable = visibleDays.some(function(day){
-      return getJudgeSlotForDayGlobal(ben, day) !== 'absent';
+      // disponible ce jour = slot de dispo ≠ absent ET pas marqué absent au pointage Jour J
+      if(getJudgeSlotForDayGlobal(ben, day) === 'absent') return false;
+      if(typeof getPres==='function' && getPres(ben.id, day) === 'absent') return false;
+      return true;
     });
     var events = buildJudgePlanningEvents(ben, jugeMap).filter(function(ev){
       return _judgePlanFilterDay===0 || ev.jour===_judgePlanFilterDay;
